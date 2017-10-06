@@ -418,6 +418,11 @@ export MAIN_DIALOG='
      <frame>
       <text use-markup="true" wrap="false"><label>"<span color='"'blue'"'>Welcome to the interface for Hirsfeld Atom fit and Gaussian/Orca</span>"</label></text>
       <text use-markup="true" wrap="false"><label>"<span color='"'blue'"'>(You need to have coreutils installed on your machine to use this script</span>"</label></text>
+      <pixmap>
+       <width>40</width>
+       <height>40</height>
+       <input file>./Tonto_logo.png</input>
+      </pixmap>
      </frame>  
     </hbox>
 
