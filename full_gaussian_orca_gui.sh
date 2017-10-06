@@ -182,8 +182,8 @@ TONTO_TO_GAUSSIAN(){
 
 CHECK_ENERGY(){
 if [ "$SCFCALCPROG" = "Gaussian" ]; then 
-	ENERGIA2=$(sed 's/^ //' $JOBNAME.log | sed 'N;s/\n//' | sed -n '/HF=/{N;p;}' | sed 's/^.*HF=//' | sed '2d' | sed 's/RMSD=//g' | awk -F '\' '{ print $1}' | tr -d '\r')
-	RMSD2=$(sed 's/^ //' $JOBNAME.log | sed 'N;s/\n//' | sed -n '/HF=/{N;p;}' | sed 's/^.*HF=//' | sed '2d' | sed 's/RMSD=//g' | awk -F '\' '{ print $2}'| tr -d '\r')
+	ENERGIA2=$(sed 's/^ //' $JOBNAME.log | sed 'N;s/\n//' | sed -n '/HF=/{N;p;}' | sed 's/^.*HF=//' | sed 'N;s/\n//' | sed '2d' | sed 's/RMSD=//g' | awk -F '\' '{ print $1}' | tr -d '\r')
+	RMSD2=$(sed 's/^ //' $JOBNAME.log | sed 'N;s/\n//' | sed -n '/HF=/{N;p;}' | sed 's/^.*HF=//' | sed 'N;s/\n//' | sed '2d' | sed 's/RMSD=//g' | awk -F '\' '{ print $2}'| tr -d '\r')
 	echo "Gaussian cycle number $I, final energy is: $ENERGIA2, RMSD is: $RMSD2 "
 else
 	ENERGIA2=$(sed -n '/Total Energy       :/p' $JOBNAME.log | awk '{print $4}' | tr -d '\r')
@@ -318,8 +318,8 @@ if [ "$SCFCALCPROG" = "Gaussian" ]; then
 	echo "Runing Gaussian, cycle number $I" 
 	$SCFCALC_BIN $JOBNAME.com
 	echo "Gaussian cycle number $I ended"
-	ENERGIA=$(sed 's/^ //' $JOBNAME.log | sed 'N;s/\n//' | sed -n '/HF=/{N;p;}' | sed 's/^.*HF=//' | sed '2d' | sed 's/RMSD=//g' | awk -F '\' '{ print $1}' | tr -d '\r')
-	RMSD=$(sed 's/^ //' $JOBNAME.log | sed 'N;s/\n//' | sed -n '/HF=/{N;p;}' | sed 's/^.*HF=//' | sed '2d' | sed 's/RMSD=//g' | awk -F '\' '{ print $2}' | tr -d '\r')
+	ENERGIA=$(sed 's/^ //' $JOBNAME.log | sed 'N;s/\n//' | sed -n '/HF=/{N;p;}' | sed 's/^.*HF=//' | sed 'N;s/\n//' | sed '2d' | sed 's/RMSD=//g' | awk -F '\' '{ print $1}' | tr -d '\r')
+	RMSD=$(sed 's/^ //' $JOBNAME.log | sed 'N;s/\n//' | sed -n '/HF=/{N;p;}' | sed 's/^.*HF=//' | sed 'N;s/\n//' | sed '2d' | sed 's/RMSD=//g' | awk -F '\' '{ print $2}' | tr -d '\r')
 	echo "Starting geometry: Energy= $ENERGIA, RMSD= $RMSD" >> $JOBNAME.lst
 	echo "" >> $JOBNAME.lst
 	echo "###############################################################################################" >> $JOBNAME.lst
@@ -380,7 +380,7 @@ fi
 #echo "6.421e-09" | awk -F"E" 'BEGIN{OFMT="%10.10f"} {print $1 * (10 ^ $2)}' | bc  #aqui aparece um numero em notacao cientifica e a condicao nao pode ser testada, o comando acima transforma ele em float mas nao ta funcionando
 
 #awk -v a="$DE" -v b="0.00001" 'BEGIN{print (a > b)}'
-while [ "$(awk -v a="$DE" -v b="0.0001" 'BEGIN{print (a > b)}')" = 1 ]; do
+while [ "$(awk -F'\t' 'function abs(x){return ((x < 0.0) ? -x : x)} BEGIN{print (abs('$DE') > 0.0001)}')" = 1 ]; do
 #while [ "$(echo "${DE=$(printf "%f", "$DE")} >= 0.000001" | bc -l)" -eq 1 ]; do  
 	SCF_TO_TONTO
 	if [ "$SCFCALCPROG" = "Gaussian" ]; then  
