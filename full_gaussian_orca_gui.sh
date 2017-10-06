@@ -35,9 +35,9 @@ echo "Writing Tonto stdin"
 echo "{ " > stdin
 echo "" >> stdin
 if [ "$SCFCALCPROG" = "Gaussian" ]; then 
-	echo "   read_g09_fchk_file $JOBNAME.fchk" >> stdin
+	echo "   read_g09_fchk_file $JOBNAME.$I.fchk" >> stdin
 else
-	echo "   read_molden_file $JOBNAME.molden.input" >> stdin
+	echo "   read_molden_file $JOBNAME.$I.molden.input" >> stdin
 fi
 echo "" >> stdin
 echo "   charge= $CHARGE" >> stdin       
@@ -50,8 +50,8 @@ echo "   CIF= {" >> stdin
 if [ $J = 0 ]; then 
 	echo "       file_name= $CIF" >> stdin
 else 
-	cp $JOBNAME'_cartesian.cif2' $JOBNAME.cartesian.cif2
-	echo "       file_name= $JOBNAME.cartesian.cif2" >> stdin
+#	cp $JOBNAME'_cartesian.cif2' $JOBNAME.cartesian.cif2
+	echo "       file_name= $JOBNAME.$J.cartesian.cif2" >> stdin
 fi
 #if ( $J -gt 0 ); then
 #cp $JOBNAME'_cartesian.cif2' $JOBNAME.cartesian.cif2
@@ -134,7 +134,7 @@ fi
 cp stdin stdin.$J
 cp stdout stdout.$J
 cp $JOBNAME.xyz $JOBNAME.$J.xyz
-cp $JOBNAME'_cartesian.cif2' $JOBNAME.$J.cartesian.cif2
+cp $JOBNAME'.cartesian.cif2' $JOBNAME.$J.cartesian.cif2
 #cp $JOBNAME'_cartesian.cif2' $JOBNAME.$J.teste.cif2
 }
 
@@ -160,7 +160,7 @@ TONTO_TO_GAUSSIAN(){
 	echo "$CHARGE $MULTIPLICITY" >> $JOBNAME.com
 ### commented but working on new tonto, will use dylan's old write_xyz_file keyword because that one keeps the atom labels, florian's new one does not.
 ###	awk '{a[NR]=$0}/^_atom_site_Cartn_disorder_group/{b=NR}/^# ==========================/{c=NR}END{for(d=b+4;d<=c-4;++d)print a[d]}' $JOBNAME.cartesian.cif2 | awk -v OFS='\t' 'NR%2==0 {print $1, $2, $3, $4}' | awk '{gsub("[(][^)]*[)]","")}1 {print }' >> $JOBNAME.com 
-	awk 'NR>2' $JOBNAME.xyz >> $JOBNAME.com
+	awk 'NR>2' $JOBNAME.$J.xyz >> $JOBNAME.com
 #	sleep 15 #check if needed
 #	awk '{a[NR]=$0}/^_atom_site_Cartn_U_iso_or_equiv_esd/{b=NR}/^# ==========================/{c=NR}END{for(d=b+1;d<=c-4;++d)print a[d]}' $JOBNAME.cartn-fragment.cif | awk 'NR%2==1 {print $1, $2, $3, $4}' >> $JOBNAME.com 
 	echo "" >> $JOBNAME.com
