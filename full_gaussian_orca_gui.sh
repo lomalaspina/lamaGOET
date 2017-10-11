@@ -219,6 +219,7 @@ echo "Job started on:" >> $JOBNAME.lst
 date >> $JOBNAME.lst
 echo "User Inputs: " >> $JOBNAME.lst
 echo "Tonto executable	: $TONTO"  >> $JOBNAME.lst 
+echo "$($TONTO -v)" >> $JOBNAME.lst 
 #awk 'NR==7 { print }' stdout >> $JOBNAME.lst      #print the tonto version, but there is no stdout yet
 echo "Gaussian executable	: $SCFCALC_BIN" >> $JOBNAME.lst
 echo "Job name		: $JOBNAME" >> $JOBNAME.lst
