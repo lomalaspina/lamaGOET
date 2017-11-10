@@ -23,9 +23,10 @@ echo "Orca cycle number $I ended"
 echo "Generation molden file for Orca cycle number $I"
 orca_2mkl $JOBNAME -molden
 echo "Orca cycle number $I, final energy is: $ENERGIA, RMSD is: $RMSD "
-cp $JOBNAME.inp $JOBNAME.$I.inp
-cp $JOBNAME.molden.input $JOBNAME.$I.molden.input
-cp $JOBNAME.log $JOBNAME.$I.log
+mkdir $I.$SCFCALCPROG.cycle.$JOBNAME
+cp $JOBNAME.inp $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.inp
+cp $JOBNAME.molden.input $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.molden.input
+cp $JOBNAME.log $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.log
 }
 
 SCF_TO_TONTO(){
@@ -33,9 +34,9 @@ echo "Writing Tonto stdin"
 echo "{ " > stdin
 echo "" >> stdin
 if [ "$SCFCALCPROG" = "Gaussian" ]; then 
-	echo "   read_g09_fchk_file $JOBNAME.$I.fchk" >> stdin
+	echo "   read_g09_fchk_file $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.fchk" >> stdin
 else
-	echo "   read_molden_file $JOBNAME.$I.molden.input" >> stdin
+	echo "   read_molden_file $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.molden.input" >> stdin
 fi
 echo "" >> stdin
 echo "   charge= $CHARGE" >> stdin       
@@ -49,7 +50,7 @@ if [ $J = 0 ]; then
 	echo "       file_name= $CIF.cif" >> stdin
 else 
 #	cp $JOBNAME'_cartesian.cif2' $JOBNAME.cartesian.cif2
-	echo "       file_name= $JOBNAME.$J.cartesian.cif2" >> stdin
+	echo "       file_name= $J.fit_cycle.$JOBNAME/$J.$JOBNAME.cartesian.cif2" >> stdin
 fi
 #if ( $J -gt 0 ); then
 #echo "       file_name= $JOBNAME.$J.cartn-fragment.cif" >> stdin
@@ -128,11 +129,11 @@ if [ $J = 1 ]; then
 fi
 #	echo " $J  $(awk '{a[NR]=$0}/^Rigid-atom fit results/{b=NR}END {print a[b-5]}' stdout)"  >> $JOBNAME.lst
 #echo " $J  $(awk '{a[NR]=$0}/^Rigid-atom fit results/{b=NR}END {print a[b-5]}' stdout)    $ENERGIA2   $RMSD2   $DE"  >> $JOBNAME.lst
-cp stdin stdin.$J
-cp stdout stdout.$J
-cp $JOBNAME.xyz $JOBNAME.$J.xyz
-cp $JOBNAME'.cartesian.cif2' $JOBNAME.$J.cartesian.cif2
-#cp $JOBNAME'_cartesian.cif2' $JOBNAME.$J.teste.cif2
+mkdir $J.fit_cycle.$JOBNAME
+cp $JOBNAME.xyz $J.fit_cycle.$JOBNAME/$J.$JOBNAME.xyz
+cp stdin $J.fit_cycle.$JOBNAME/$J.stdin
+cp stdout $J.fit_cycle.$JOBNAME/$J.stdout
+cp $JOBNAME'.cartesian.cif2' $J.fit_cycle.$JOBNAME/$J.$JOBNAME.cartesian.cif2
 }
 
 #######################################################################
@@ -155,7 +156,7 @@ TONTO_TO_GAUSSIAN(){
 	echo "$CHARGE $MULTIPLICITY" >> $JOBNAME.com
 ### commented but working on new tonto, will use dylan's old write_xyz_file keyword because that one keeps the atom labels, florian's new one does not.
 ###	awk '{a[NR]=$0}/^_atom_site_Cartn_disorder_group/{b=NR}/^# ==========================/{c=NR}END{for(d=b+4;d<=c-4;++d)print a[d]}' $JOBNAME.cartesian.cif2 | awk -v OFS='\t' 'NR%2==0 {print $1, $2, $3, $4}' | awk '{gsub("[(][^)]*[)]","")}1 {print }' >> $JOBNAME.com 
-	awk 'NR>2' $JOBNAME.$J.xyz >> $JOBNAME.com 
+	awk 'NR>2' $J.fit_cycle.$JOBNAME/$J.$JOBNAME.xyz >> $JOBNAME.com 
 #	sleep 15 #check if needed
 #	awk '{a[NR]=$0}/^_atom_site_Cartn_U_iso_or_equiv_esd/{b=NR}/^# ==========================/{c=NR}END{for(d=b+1;d<=c-4;++d)print a[d]}' $JOBNAME.cartn-fragment.cif | awk 'NR%2==1 {print $1, $2, $3, $4}' >> $JOBNAME.com 
 	echo "" >> $JOBNAME.com
@@ -166,9 +167,10 @@ TONTO_TO_GAUSSIAN(){
 	echo "Gaussian cycle number $I ended"
 	echo "Generation fcheck file for Gaussian cycle number $I"
 	formchk $JOBNAME.chk $JOBNAME.fchk
-	cp $JOBNAME.com $JOBNAME.$I.com
-	cp $JOBNAME.fchk $JOBNAME.$I.fchk
-	cp $JOBNAME.log $JOBNAME.$I.log
+     	mkdir $I.$SCFCALCPROG.cycle.$JOBNAME
+	cp $JOBNAME.com  $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.com
+	cp $JOBNAME.fchk $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.fchk
+	cp $JOBNAME.log  $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.log
 }
 ######################  Gaussian done ########################
 ######################  Begin check energy ########################
@@ -376,9 +378,10 @@ echo "" >> stdin
 echo "}" >> stdin 
 echo "Reading cif with Tonto"
 $TONTO
-cp $JOBNAME.xyz $JOBNAME.starting_geom.xyz
-cp stdin stdin.$J
-cp stdout stdout.$J
+mkdir $J.fit_cycle.$JOBNAME
+cp $JOBNAME.xyz $J.fit_cycle.$JOBNAME/$JOBNAME.starting_geom.xyz
+cp stdin $J.fit_cycle.$JOBNAME/$J.stdin
+cp stdout $J.fit_cycle.$JOBNAME/$J.stdout
 awk '{a[NR]=$0}/^Atom coordinates/{b=NR}/^Unit cell information/{c=NR}END{for(d=b-1;d<=c-2;++d)print a[d]}' stdout >> $JOBNAME.lst
 echo "Done reading cif with Tonto"
 ###rm cut.cif
@@ -429,9 +432,10 @@ if [ "$SCFCALCPROG" = "Gaussian" ]; then
 	echo "Generation fcheck file for Gaussian cycle number $I"
 	formchk $JOBNAME.chk $JOBNAME.fchk
 	echo "Gaussian cycle number $I, final energy is: $ENERGIA, RMSD is: $RMSD "
-	cp $JOBNAME.com $JOBNAME.$I.com
-	cp $JOBNAME.fchk $JOBNAME.$I.fchk
-	cp $JOBNAME.log $JOBNAME.$I.log
+     	mkdir $I.$SCFCALCPROG.cycle.$JOBNAME
+	cp $JOBNAME.com  $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.com
+	cp $JOBNAME.fchk $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.fchk
+	cp $JOBNAME.log  $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.log
 ###################### End first gaussian single point calculation and storing energy and RMSD ########################
 ###################### Begin first tonto fit ########################
 	SCF_TO_TONTO
@@ -469,9 +473,10 @@ else
 		echo "Generation molden file for Orca cycle number $I"
 		orca_2mkl $JOBNAME -molden
 		echo "Orca cycle number $I, final energy is: $ENERGIA, RMSD is: $RMSD "
-		cp $JOBNAME.inp $JOBNAME.$I.inp
-		cp $JOBNAME.molden.input $JOBNAME.$I.molden.input
-		cp $JOBNAME.log $JOBNAME.$I.log
+	     	mkdir $I.$SCFCALCPROG.cycle.$JOBNAME
+		cp $JOBNAME.inp $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.inp
+		cp $JOBNAME.molden.input $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.molden.input
+		cp $JOBNAME.log $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.log
 		SCF_TO_TONTO
 		TONTO_TO_ORCA
 		CHECK_ENERGY

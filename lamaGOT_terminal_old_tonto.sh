@@ -3,7 +3,7 @@ GAUSSIAN_TO_TONTO(){
 echo "Writing Tonto stdin"
 echo "{ " > stdin
 echo "" >> stdin
-echo "   read_g09_fchk_file $NAME.fchk" >> stdin
+echo "   read_g09_fchk_file $I.gaussian_cycle.$NAME/$I.$NAME.fchk" >> stdin
 echo "" >> stdin
 echo "   charge= $CHARGE" >> stdin       
 echo "   multiplicity= $MULTIPLICITY" >> stdin
@@ -13,7 +13,7 @@ echo "" >> stdin
 echo "   ! Process the CIF" >> stdin
 echo "   CIF= {" >> stdin
 #if ( $J -gt 0 ); then
-echo "       file_name= $NAME.$J.cartn-fragment.cif" >> stdin
+echo "       file_name= $J.fit_cycle.$NAME/$J.$NAME.cartn-fragment.cif" >> stdin
 #else
 #echo "       file_name= $CIF" >> stdin
 #fi
@@ -81,8 +81,10 @@ if [ $J = 1 ]; then
 fi
 #	echo " $J  $(awk '{a[NR]=$0}/^Rigid-atom fit results/{b=NR}END {print a[b-5]}' stdout)"  >> $NAME.lst
 #echo " $J  $(awk '{a[NR]=$0}/^Rigid-atom fit results/{b=NR}END {print a[b-5]}' stdout)    $ENERGIA2   $RMSD2   $DE"  >> $NAME.lst
-cp stdout stdout.$J
-cp $NAME.cartn-fragment.cif $NAME.$J.cartn-fragment.cif
+mkdir $J.fit_cycle.$NAME
+cp stdin $J.fit_cycle.$NAME/$J.stdin
+cp stdout $J.fit_cycle.$NAME/$J.stdout
+cp $NAME.cartn-fragment.cif $J.fit_cycle.$NAME/$J.$NAME.cartn-fragment.cif
 }
 #######################################################################
 TONTO_TO_GAUSSIAN(){
@@ -113,9 +115,10 @@ TONTO_TO_GAUSSIAN(){
 	echo "Gaussian cycle number $I ended"
 	echo "Generation fcheck file for Gaussian cycle number $I"
 	formchk $NAME.chk $NAME.fchk
-	cp $NAME.com $NAME.$I.com
-	cp $NAME.fchk $NAME.$I.fchk
-	cp $NAME.log $NAME.$I.log
+     	mkdir $I.gaussian_cycle.$NAME
+	cp $NAME.com  $I.gaussian_cycle.$NAME/$I.$NAME.com
+	cp $NAME.fchk $I.gaussian_cycle.$NAME/$I.$NAME.fchk
+	cp $NAME.log  $I.gaussian_cycle.$NAME/$I.$NAME.log
 }
 ######################  Gaussian done ########################
 ######################  Begin check energy ########################
@@ -301,8 +304,11 @@ echo "Reading cif with Tonto"
 $TONTO
 awk '{a[NR]=$0}/^Atom coordinates/{b=NR}/^Unit cell information/{c=NR}END{for(d=b-1;d<=c-1;++d)print a[d]}' stdout >> $NAME.lst
 echo "Done reading cif with Tonto"
-rm cut.cif
-cp $NAME.cartn-fragment.cif $NAME.$J.cartn-fragment.cif
+#rm cut.cif
+mkdir $J.fit_cycle.$NAME
+cp stdin $J.fit_cycle.$NAME/$J.stdin
+cp stdout $J.fit_cycle.$NAME/$J.stdout
+cp $NAME.cartn-fragment.cif $J.fit_cycle.$NAME/$J.$NAME.cartn-fragment.cif
 echo "###############################################################################################" >> $NAME.lst
 echo "                                     Starting Gaussian                                         " >> $NAME.lst
 echo "###############################################################################################" >> $NAME.lst
@@ -341,9 +347,10 @@ echo "##########################################################################
 echo "Generation fcheck file for Gaussian cycle number $I"
 formchk $NAME.chk $NAME.fchk
 echo "Gaussian cycle number $I, final energy is: $ENERGIA, RMSD is: $RMSD "
-cp $NAME.com $NAME.$I.com
-cp $NAME.fchk $NAME.$I.fchk
-cp $NAME.log $NAME.$I.log
+mkdir $I.gaussian_cycle.$NAME
+cp $NAME.com  $I.gaussian_cycle.$NAME/$I.$NAME.com
+cp $NAME.fchk $I.gaussian_cycle.$NAME/$I.$NAME.fchk
+cp $NAME.log  $I.gaussian_cycle.$NAME/$I.$NAME.log
 ###################### End first gaussian single point calculation and storing energy and RMSD ########################
 ###################### Begin first tonto fit ########################
 GAUSSIAN_TO_TONTO
