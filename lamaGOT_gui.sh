@@ -229,6 +229,7 @@ if [ "$SCFCALCPROG" != "Tonto" ]; then
 	cp stdin $J.fit_cycle.$JOBNAME/$J.stdin
 	cp stdout $J.fit_cycle.$JOBNAME/$J.stdout
 	cp $JOBNAME'.cartesian.cif2' $J.fit_cycle.$JOBNAME/$J.$JOBNAME.cartesian.cif2
+	cp gaussian-point-charges $J.fit_cycle.$JOBNAME/$J.gaussian-point-charges
 fi
 }
 
@@ -892,7 +893,7 @@ export MAIN_DIALOG='
 
 gtkdialog --program=MAIN_DIALOG > job_options.txt
 source job_options.txt
-#rm job_options.txt
+rm job_options.txt
 if [[ -z "$SCFCALCPROG" ]]; then
 	SCFCALCPROG="Gaussian"
 fi

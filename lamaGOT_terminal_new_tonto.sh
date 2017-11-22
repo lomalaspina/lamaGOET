@@ -111,7 +111,7 @@ echo "   ! Geometry    " >> stdin
 echo "   put" >> stdin
 echo "" >> stdin
 if [ "$SCFCALCPROG" != "Tonto" ]; then 
-	if [ "$SCCHARGES" = "true" ]; then 
+	if [ "$SCCHARGES" = "yes" ]; then 
 		echo "     ! SC cluster charge SCF" >> stdin
 		echo "      scfdata= {" >> stdin
 		echo "      initial_MOs= existing" >> stdin
@@ -183,7 +183,7 @@ else
 	if [ "$METHOD" = "HF" ]; then
 		echo "      kind= rhf" >> stdin
 	fi
-	if [ "$SCCHARGES" = "true" ]; then 
+	if [ "$SCCHARGES" = "yes" ]; then 
 		echo "      use_SC_cluster_charges= TRUE" >> stdin
 		echo "      cluster_radius= SCCRADIUS angstrom" >> stdin
 	else
@@ -228,6 +228,7 @@ if [ "$SCFCALCPROG" != "Tonto" ]; then
 	cp stdin $J.fit_cycle.$JOBNAME/$J.stdin
 	cp stdout $J.fit_cycle.$JOBNAME/$J.stdout
 	cp $JOBNAME'.cartesian.cif2' $J.fit_cycle.$JOBNAME/$J.$JOBNAME.cartesian.cif2
+	cp gaussian-point-charges $J.fit_cycle.$JOBNAME/$J.gaussian-point-charges
 fi
 }
 
@@ -245,7 +246,7 @@ TONTO_TO_GAUSSIAN(){
 #	if [ "$METHOD" = "rks" ]; then
 #		echo "# b3lyp/$BASISSET  nosymm output=wfn 6D 10F" | tee -a $JOBNAME.com $JOBNAME.lst
 #	fi
-	if [ "$SCCHARGES" = "true" ]; then 
+	if [ "$SCCHARGES" = "yes" ]; then 
    		echo "# $METHOD/$BASISSET Charge nosymm output=wfn 6D 10F" >> $JOBNAME.com
 	else
 		echo "# $METHOD/$BASISSET nosymm output=wfn 6D 10F" >> $JOBNAME.com
@@ -260,7 +261,7 @@ TONTO_TO_GAUSSIAN(){
 #	sleep 15 #check if needed
 #	awk '{a[NR]=$0}/^_atom_site_Cartn_U_iso_or_equiv_esd/{b=NR}/^# ==========================/{c=NR}END{for(d=b+1;d<=c-4;++d)print a[d]}' $JOBNAME.cartn-fragment.cif | awk 'NR%2==1 {print $1, $2, $3, $4}' >> $JOBNAME.com 
 	echo "" >> $JOBNAME.com
-	if [ "$SCCHARGES" = "true" ]; then 
+	if [ "$SCCHARGES" = "yes" ]; then 
         	awk '{a[NR]=$0}{b=12}/^------------------------------------------------------------------------/{c=NR}END{for(d=b;d<=c-1;++d)print a[d]}' gaussian-point-charges | awk '{printf "%s\t %s\t %s\t %s\t \n", $2, $3, $4, $1 }' >> $JOBNAME.com
 		echo "" | tee -a $JOBNAME.com  $JOBNAME.lst
 	fi
