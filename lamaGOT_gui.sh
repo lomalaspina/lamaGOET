@@ -232,7 +232,6 @@ if [ "$SCFCALCPROG" != "Tonto" ]; then
 fi
 }
 
-
 #######################################################################
 
 TONTO_TO_GAUSSIAN(){
@@ -247,7 +246,7 @@ TONTO_TO_GAUSSIAN(){
 #	if [ "$METHOD" = "rks" ]; then
 #		echo "# b3lyp/$BASISSET  nosymm output=wfn 6D 10F" | tee -a $JOBNAME.com $JOBNAME.lst
 #	fi
-if [ "$SCCHARGES" = "true" ]; then 
+	if [ "$SCCHARGES" = "true" ]; then 
    		echo "# $METHOD/$BASISSET Charge nosymm output=wfn 6D 10F" >> $JOBNAME.com
 	else
 		echo "# $METHOD/$BASISSET nosymm output=wfn 6D 10F" >> $JOBNAME.com
@@ -324,7 +323,8 @@ echo "User Inputs: " >> $JOBNAME.lst
 echo "Tonto executable	: $TONTO"  >> $JOBNAME.lst 
 echo "$($TONTO -v)" >> $JOBNAME.lst 
 #awk 'NR==7 { print }' stdout >> $JOBNAME.lst      #print the tonto version, but there is no stdout yet
-echo "Gaussian executable	: $SCFCALC_BIN" >> $JOBNAME.lst
+echo "SCF program	: $SCFCALCPROG" >> $JOBNAME.lst
+echo "SCF executable	: $SCFCALC_BIN" >> $JOBNAME.lst
 echo "Job name		: $JOBNAME" >> $JOBNAME.lst
 echo "Input cif		: $CIF" >> $JOBNAME.lst
 echo "Input hkl		: $HKL" >> $JOBNAME.lst
@@ -359,7 +359,6 @@ if [ "$SCFCALCPROG" != "Tonto" ]; then
 #sed '/^# Cartesian axis system ADPs$/,$d' $CIF > cut.cif
 ###commented but was working before, now with the new cifs the put_tonto command is not working because it doesnt have the vcv matrix to generate the geom table... should add a ensure that it has the vcv matrix to calculate the geom blocks... I will use the cif entered by the user then...
 ###sed -e '/# Tonto-specific key and data/,/# Standard CIF keys and data/d' $CIF > cut.cif
-
 	echo "{ " > stdin
 	echo "" >> stdin
 	echo "   ! Process the CIF" >> stdin
