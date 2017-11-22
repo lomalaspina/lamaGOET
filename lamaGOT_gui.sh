@@ -223,8 +223,8 @@ if [ $J = 1 ]; then
 fi
 #	echo " $J  $(awk '{a[NR]=$0}/^Rigid-atom fit results/{b=NR}END {print a[b-5]}' stdout)"  >> $JOBNAME.lst
 #echo " $J  $(awk '{a[NR]=$0}/^Rigid-atom fit results/{b=NR}END {print a[b-5]}' stdout)    $ENERGIA2   $RMSD2   $DE"  >> $JOBNAME.lst
-mkdir $J.fit_cycle.$JOBNAME
 if [ "$SCFCALCPROG" != "Tonto" ]; then 
+	mkdir $J.fit_cycle.$JOBNAME
 	cp $JOBNAME.xyz $J.fit_cycle.$JOBNAME/$J.$JOBNAME.xyz
 	cp stdin $J.fit_cycle.$JOBNAME/$J.stdin
 	cp stdout $J.fit_cycle.$JOBNAME/$J.stdout
@@ -736,7 +736,7 @@ export MAIN_DIALOG='
    <hbox>
 
     <checkbox>
-     <label>Use cluster charges? </label>
+     <label>Use SC cluster charges? </label>
       <variable>SCCHARGES</variable>
       <action>if true enable:SCCRADIUS</action>
       <action>if false disable:SCCRADIUS</action>
