@@ -4,7 +4,15 @@ Encoding=UTF-8
 TONTO_TO_ORCA(){
 I=$[ $I + 1 ]
 echo "Extrating XYZ for Orca cycle number $I"
-echo "! $METHOD $BASISSET" > $JOBNAME.inp
+if [ "$METHOD" = "rks" ]; then
+	echo "! blyp $BASISSET" > $JOBNAME.inp
+else
+	if [ "$METHOD" = "uks" ]; then
+		echo "! ublyp $BASISSET" > $JOBNAME.inp
+	else
+		echo "! $METHOD $BASISSET" > $JOBNAME.inp
+	fi
+fi
 echo "" >> $JOBNAME.inp
 echo "%output"  >> $JOBNAME.inp
 echo "   PrintLevel=Normal"  >> $JOBNAME.inp
@@ -71,7 +79,7 @@ echo "   name= $JOBNAME" >> stdin
 echo "" >> stdin
 if [ "$SCFCALCPROG" = "Tonto" ]; then 
 	echo "   basis_directory= $BASISSETDIR" >> stdin
-	echo "   basis_name= $BASISSET" >> stdin
+	echo "   basis_name= $BASISSETT" >> stdin
 fi
 if [ "$DISP" = "yes" ]; then 
 	echo "   	 dispersion_coefficients= {" >> stdin
@@ -116,9 +124,7 @@ if [ "$SCFCALCPROG" != "Tonto" ]; then
 		echo "     ! SC cluster charge SCF" >> stdin
 		echo "      scfdata= {" >> stdin
 		echo "      initial_MOs= existing" >> stdin
-		if [ "$METHOD" = "HF" ]; then
-			echo "      kind= rhf" >> stdin
-		fi
+		echo "      kind= $METHOD" >> stdin
 		echo "      use_SC_cluster_charges= TRUE" >> stdin
 		echo "      cluster_radius= $SCCRADIUS angstrom" >> stdin
 		echo "      save_cluster_charges= true" >> stdin
@@ -135,9 +141,7 @@ if [ "$SCFCALCPROG" != "Tonto" ]; then
 		echo "   scfdata= {" >> stdin
 		echo "      initial_density= promolecule" >> stdin
 		echo "      initial_MOs= existing" >> stdin
-		if [ "$METHOD" = "HF" ]; then
-			echo "      kind= rhf" >> stdin
-		fi
+		echo "      kind= $METHOD" >> stdin
 		echo "      use_SC_cluster_charges= TRUE" >> stdin
 		echo "      cluster_radius= $SCCRADIUS angstrom" >> stdin
 		echo "      put_cluster" >> stdin
@@ -168,9 +172,7 @@ else
 	echo "   ! Normal SCF" >> stdin
 	echo "   scfdata= {" >> stdin
 	echo "      initial_density= promolecule " >> stdin
-	if [ "$METHOD" = "HF" ]; then
-		echo "      kind= rhf" >> stdin
-	fi
+	echo "      kind= $METHOD" >> stdin
 	echo "      use_SC_cluster_charges= FALSE" >> stdin
 	echo "      convergence= 0.001" >> stdin
 	echo "      diis= { convergence_tolerance= 0.0002 }" >> stdin
@@ -181,9 +183,7 @@ else
 	echo "   ! SC cluster charge SCF" >> stdin
 	echo "   scfdata= {" >> stdin
 	echo "      initial_MOs= restricted" >> stdin
-	if [ "$METHOD" = "HF" ]; then
-		echo "      kind= rhf" >> stdin
-	fi
+	echo "      kind= $METHOD" >> stdin
 	if [ "$SCCHARGES" = "true" ]; then 
 		echo "      use_SC_cluster_charges= TRUE" >> stdin
 		echo "      cluster_radius= SCCRADIUS angstrom" >> stdin
@@ -244,14 +244,27 @@ TONTO_TO_GAUSSIAN(){
 	echo "%mem=$MEM" >> $JOBNAME.com
 	echo "%nprocshared=$NUMPROC" >> $JOBNAME.com
 	#echo "# rb3lyp/$BASISSET output=wfn" >> $JOBNAME.com
-#	if [ "$METHOD" = "rks" ]; then
-#		echo "# b3lyp/$BASISSET  nosymm output=wfn 6D 10F" | tee -a $JOBNAME.com $JOBNAME.lst
-#	fi
-	if [ "$SCCHARGES" = "true" ]; then 
-   		echo "# $METHOD/$BASISSET Charge nosymm output=wfn 6D 10F" >> $JOBNAME.com
+	if [ "$METHOD" = "rks" ]; then
+		if [ "$SCCHARGES" = "true" ]; then 
+	   		echo "# blyp/$BASISSET Charge nosymm output=wfn 6D 10F" >> $JOBNAME.com
+		else
+			echo "# blyp/$BASISSET nosymm output=wfn 6D 10F" >> $JOBNAME.com
+	        fi
 	else
-		echo "# $METHOD/$BASISSET nosymm output=wfn 6D 10F" >> $JOBNAME.com
-        fi
+		if [ "$METHOD" = "uks" ]; then
+			if [ "$SCCHARGES" = "true" ]; then 
+		   		echo "# ublyp/$BASISSET Charge nosymm output=wfn 6D 10F" >> $JOBNAME.com
+			else
+				echo "# ublyp/$BASISSET nosymm output=wfn 6D 10F" >> $JOBNAME.com
+		        fi
+		else
+			if [ "$SCCHARGES" = "true" ]; then 
+		   		echo "# $METHOD/$BASISSET Charge nosymm output=wfn 6D 10F" >> $JOBNAME.com
+			else
+				echo "# $METHOD/$BASISSET nosymm output=wfn 6D 10F" >> $JOBNAME.com
+		        fi
+		fi			
+	fi
 	echo "" >> $JOBNAME.com
 	echo "$JOBNAME" >> $JOBNAME.com
 	echo "" >> $JOBNAME.com
@@ -401,14 +414,15 @@ if [ "$SCFCALCPROG" != "Tonto" ]; then
 		echo "%int=./$JOBNAME.int" | tee -a $JOBNAME.com  $JOBNAME.lst
 		echo "%mem=$MEM" | tee -a $JOBNAME.com  $JOBNAME.lst
 		echo "%nprocshared=$NUMPROC" | tee -a $JOBNAME.com $JOBNAME.lst
-		#if [ "$METHOD" = "rks" ]; then
-		#	echo "# b3lyp/$BASISSET nosymm output=wfn 6D 10F" | tee -a $JOBNAME.com $JOBNAME.lst
-		#fi
-        	#if [ "$SCCHARGES" = "true" ]; then 
-   		#	echo "# $METHOD/$BASISSET Charge nosymm output=wfn 6D 10F" | tee -a $JOBNAME.com $JOBNAME.lst
-		#else
-			echo "# $METHOD/$BASISSET nosymm output=wfn 6D 10F" | tee -a $JOBNAME.com $JOBNAME.lst
-        	#fi
+		if [ "$METHOD" = "rks" ]; then
+			echo "# blyp/$BASISSET nosymm output=wfn 6D 10F" | tee -a $JOBNAME.com $JOBNAME.lst    
+		else
+			if [ "$METHOD" = "uks" ]; then
+				echo "# ublyp/$BASISSET nosymm output=wfn 6D 10F" | tee -a $JOBNAME.com $JOBNAME.lst
+			else
+				echo "# $METHOD/$BASISSET nosymm output=wfn 6D 10F" | tee -a $JOBNAME.com $JOBNAME.lst
+		        fi
+		fi			
 		echo ""  | tee -a $JOBNAME.com $JOBNAME.lst
 		echo "$JOBNAME" | tee -a $JOBNAME.com $JOBNAME.lst
 		echo "" | tee -a  $JOBNAME.com $JOBNAME.lst
@@ -457,8 +471,18 @@ if [ "$SCFCALCPROG" != "Tonto" ]; then
 			echo "###############################################################################################" >> $JOBNAME.lst
 			echo "                                     Starting Orca                                             " >> $JOBNAME.lst
 			echo "###############################################################################################" >> $JOBNAME.lst
-			echo "! $METHOD $BASISSET" > $JOBNAME.inp
-			echo "! $METHOD $BASISSET" >> $JOBNAME.lst
+			if [ "$METHOD" = "rks" ]; then
+				echo "! blyp $BASISSET" > $JOBNAME.inp
+				echo "! blyp $BASISSET" >> $JOBNAME.lst
+			else
+				if [ "$METHOD" = "uks" ]; then
+					echo "! ublyp $BASISSET" > $JOBNAME.inp
+					echo "! ublyp $BASISSET" >> $JOBNAME.lst
+				else
+					echo "! $METHOD $BASISSET" > $JOBNAME.inp
+					echo "! $METHOD $BASISSET" >> $JOBNAME.lst
+				fi
+			fi
 			echo "" | tee -a $JOBNAME.inp $JOBNAME.lst
 			echo "%output" | tee -a $JOBNAME.inp $JOBNAME.lst
  			echo "   PrintLevel=Normal" | tee -a $JOBNAME.inp $JOBNAME.lst
@@ -577,6 +601,8 @@ export MAIN_DIALOG='
         <action>if false disable:NUMPROC</action>
         <action>if false disable:SCFCALC_BIN</action>
         <action>if false enable:BASISSETDIR</action>
+        <action>if true disable:BASISSETT</action>
+        <action>if false enable:BASISSETT</action>
       </radiobutton>
       <radiobutton>
         <label>Orca</label>
@@ -592,6 +618,8 @@ export MAIN_DIALOG='
         <action>if false enable:BASISSETDIR</action>
         <action>if true disable:SCCHARGES</action>
         <action>if false enable:SCCHARGES</action>
+        <action>if true disable:BASISSETT</action>
+        <action>if false enable:BASISSETT</action>
       </radiobutton>
       <radiobutton>
         <label>Tonto</label>
@@ -603,14 +631,16 @@ export MAIN_DIALOG='
         <action>if false disable:USEBECKE</action>
         <action>if true enable:USEBECKE</action>
         <action>if false disable:USEBECKE</action>
+        <action>if true disable:BASISSET</action>
+        <action>if false enable:BASISSET</action>
       </radiobutton>
    </hbox>
 
    <hseparator></hseparator>
 
    <hbox>
-    <text use-markup="true" wrap="false"><label>Your Tonto executable</label></text>
-    <entry>
+    <text use-markup="true" wrap="false" ><label>Your Tonto executable</label></text>
+    <entry has-tooltip="true" tooltip-markup="This can also be the full path to your Tonto executable.">
      <default>tonto</default>
      <variable>TONTO</variable>
     </entry>
@@ -680,7 +710,7 @@ export MAIN_DIALOG='
      <action type="fileselect">BASISSETDIR</action>
     </button>
    </hbox>
-
+ 
    <hseparator></hseparator>
 
    <hbox>
@@ -694,17 +724,13 @@ export MAIN_DIALOG='
    <hseparator></hseparator>
 
    <hbox> 
-    <text xalign="0" use-markup="true" wrap="false"justify="1"><label>Charge</label></text>
+    <text xalign="0" use-markup="true" wrap="false" justify="2"><label>Charge</label></text>
     <spinbutton  range-min="-10"  range-max="10" space-fill="True"  space-expand="True">
 	<default>0</default>
 	<variable>CHARGE</variable>
     </spinbutton>
-   </hbox>
 
-   <hseparator></hseparator>
-
-   <hbox>
-    <text xalign="0" use-markup="true" wrap="false"><label>Multiplicity</label></text>
+    <text xalign="1" use-markup="true" wrap="false"><label>Multiplicity</label></text>
     <spinbutton  range-min="0"  range-max="10"  space-fill="True"  space-expand="True" >
 	<default>1</default>
 	<variable>MULTIPLICITY</variable>
@@ -714,21 +740,66 @@ export MAIN_DIALOG='
    <hseparator></hseparator>
 
    <hbox>
-    <text use-markup="true" wrap="false"> <label>Method that you wish to use</label></text>
-    <entry tooltip-text="Use the correct Gaussian or Orca or Tonto format">
-     <default>HF</default>
+    <text xalign="0" use-markup="true" wrap="false"> <label>Method that you wish to use</label></text>
+    <combobox has-tooltip="true" tooltip-markup="'"'rhf'"' - Restricted Hartree-Fock, 
+'"'rks'"' - Restricted Kohn-Sham, 
+'"'rohf'"' - Restricted open shell Hartree-Fock, 
+'"'uhf'"' - Unrestricted Hartree-Fock, 
+'"'uks'"' - Unrestricted Kohn-Sham" >
      <variable>METHOD</variable>
-    </entry>
+     <item>rhf</item>
+     <item>rks</item>
+     <item>rohf</item>
+     <item>uhf</item>
+     <item>uks</item>
+    </combobox>
+
    </hbox>
 
    <hseparator></hseparator>
 
    <hbox>
-    <text xalign="0" use-markup="true" wrap="false"><label>Basis set that you wish to use </label></text>
-    <entry tooltip-text="Use the correct Gaussian or Orca or Tonto format">
+
+    <text xalign="0" use-markup="true" wrap="false"><label>Basis set</label></text>
+    <combobox has-tooltip="true" tooltip-markup="List of Basis sets available on Tonto. Please check if the basis set you want to use contains all the elements of your structure." sensitive="false">
+     <variable>BASISSETT</variable>
+     <item>STO-3G</item>
+     <item>3-21G</item>
+     <item>6-31G(d)</item>
+     <item>6-31G(d,p)</item>
+     <item>6-311++G(2d,2p)</item>
+     <item>6-311G(d,p)</item>
+     <item>ahlrichs-polarization</item>
+     <item>aug-cc-pVDZ</item>
+     <item>aug-cc-pVQZ</item>
+     <item>aug-cc-pVTZ</item>
+     <item>cc-pVDZ</item>
+     <item>cc-pVQZ</item>
+     <item>cc-pVTZ</item>
+     <item>Clementi-Roetti</item>
+     <item>Coppens</item>
+     <item>def2-SVP</item>
+     <item>def2-SV(P)</item>
+     <item>def2-TZVP</item>
+     <item>def2-TZVPP</item>
+     <item>DZP</item>
+     <item>DZP-DKH</item>
+     <item>pVDZ-Ahlrichs</item>
+     <item>Sadlej+</item>
+     <item>Sadlej-PVTZ</item>
+     <item>Spackman-DZP+</item>
+     <item>Thakkar</item>
+     <item>TZP-DKH</item>
+     <item>vanLenthe-Baerends</item>
+     <item>VTZ-Ahlrichs</item>
+    </combobox>
+
+    <text><label>Enter manually for Gaussian or Orca!</label> </text>
+    <entry tooltip-text="Use the correct Gaussian or Orca or Tonto format" sensitive="true">
      <default>STO-3G</default>
      <variable>BASISSET</variable>
     </entry>
+
    </hbox>
 
    <hseparator></hseparator>
@@ -742,8 +813,8 @@ export MAIN_DIALOG='
       <action>if false disable:SCCRADIUS</action>
     </checkbox>
 
-    <text use-markup="true" wrap="false"><label>SC Cluster charges radius</label></text>
-    <entry sensitive="false">
+    <text use-markup="true" wrap="false" ><label>SC Cluster charges radius</label></text>
+    <entry has-tooltip="true" tooltip-markup="in Angstrom" sensitive="false">
      <default>8</default>
      <variable>SCCRADIUS</variable>
     </entry>
@@ -762,7 +833,10 @@ export MAIN_DIALOG='
     </checkbox>
 
     <text use-markup="true" wrap="false"><label>Becke grid accuracy</label></text>
-    <combobox tooltip-text="FOR TONTO SCF ONLY: from very_low to very_high are Treutler-Ahlrichs settings, extreme and best are better than the Mura-Knowles settings. The low value is the one comparable to Gaussian." sensitive="false">
+    <combobox has-tooltip="true" tooltip-markup="FOR TONTO SCF ONLY: 
+'"'very_low'"' to '"'very_high'"' are Treutler-Ahlrichs settings, 
+'"'extreme'"' and '"'best'"' are better than the Mura-Knowles settings. 
+The '"'low'"' value is the one comparable to Gaussian." sensitive="false">
       <variable>ACCURACY</variable>
       <item>very_low</item>
       <item>low</item>
@@ -778,7 +852,8 @@ export MAIN_DIALOG='
 
    <hbox>
     <text use-markup="true" wrap="false"><label>Becke grid prunning scheme</label></text>
-    <combobox sensitive="false" tooltip-text="FOR TONTO SCF ONLY: Set the angular pruning scheme for lebedev_grid given a radial point i out of a set of nr radial points arranged in increasing order.  ">
+    <combobox sensitive="false" has-tooltip="true" tooltip-markup="FOR TONTO SCF ONLY: 
+Set the angular pruning scheme for lebedev_grid given a radial point '"'i'"' out of a set of '"'nr'"' radial points arranged in increasing order.">
       <variable>BECKEPRUNINGSCHEME</variable>
       <item>none</item>
       <item>jayatilaka0</item>
@@ -791,7 +866,7 @@ export MAIN_DIALOG='
    <hseparator></hseparator>
 
    <hbox>
-    <text use-markup="true" wrap="false"><label>Please enter the F_sigma_cutoff</label></text>
+    <text use-markup="true" wrap="false"><label>Please enter the F/sigma cutoff</label></text>
     <entry>
      <default>3</default>
      <variable>FCUT</variable>
@@ -813,7 +888,7 @@ export MAIN_DIALOG='
 
    <hbox>
     <text xalign="0" use-markup="true" wrap="false"><label>Would you like to apply dispersion corrections?</label></text>
-    <combobox>
+    <combobox has-tooltip="true" tooltip-markup="Enter the '"f'"' and '"f''"' values in popup window after pressing '"'OK'"'">
       <variable>DISP</variable>
       <item>no</item>
       <item>yes</item>
