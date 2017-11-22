@@ -112,10 +112,49 @@ echo "   ! Geometry    " >> stdin
 echo "   put" >> stdin
 echo "" >> stdin
 if [ "$SCFCALCPROG" != "Tonto" ]; then 
-	echo "   ! Make Hirshfeld structure factors" >> stdin
-	echo "   fit_hirshfeld_atoms" >> stdin
-	echo "" >> stdin
-	echo "   write_xyz_file" >> stdin
+	if [ "$SCCHARGES" = "true" ]; then 
+		echo "     ! SC cluster charge SCF" >> stdin
+		echo "      scfdata= {" >> stdin
+		echo "      initial_MOs= existing" >> stdin
+		if [ "$METHOD" = "HF" ]; then
+			echo "      kind= rhf" >> stdin
+		fi
+		echo "      use_SC_cluster_charges= TRUE" >> stdin
+		echo "      cluster_radius= $SCCRADIUS angstrom" >> stdin
+		echo "      save_cluster_charges= true" >> stdin
+		echo "      convergence= 0.001" >> stdin
+		echo "      diis= { convergence_tolerance= 0.0002 }" >> stdin
+		echo "      output= YES" >> stdin
+		echo "      output_results= YES" >> stdin
+		echo "   }" >> stdin
+		echo "" >> stdin
+		echo "   make_scf_density_matrix" >> stdin
+		echo "   make_fock_matrix" >> stdin
+		echo "" >> stdin
+		echo "   ! SC cluster charge SCF" >> stdin
+		echo "   scfdata= {" >> stdin
+		echo "      initial_density= promolecule" >> stdin
+		echo "      initial_MOs= existing" >> stdin
+		if [ "$METHOD" = "HF" ]; then
+			echo "      kind= rhf" >> stdin
+		fi
+		echo "      use_SC_cluster_charges= TRUE" >> stdin
+		echo "      cluster_radius= $SCCRADIUS angstrom" >> stdin
+		echo "      put_cluster" >> stdin
+		echo "      put_cluster_charges" >> stdin
+		echo "" >> stdin
+		echo "   }" >> stdin
+		echo "" >> stdin
+		echo "   ! Make Hirshfeld structure factors" >> stdin
+		echo "   fit_hirshfeld_atoms" >> stdin
+		echo "" >> stdin
+		echo "   write_xyz_file" >> stdin
+	else
+		echo "   ! Make Hirshfeld structure factors" >> stdin
+		echo "   fit_hirshfeld_atoms" >> stdin
+		echo "" >> stdin
+		echo "   write_xyz_file" >> stdin
+	fi
 else
 	if [ "$USEBECKE" = "true" ]; then 
 		echo "   !Tight grid" >> stdin
@@ -129,7 +168,9 @@ else
 	echo "   ! Normal SCF" >> stdin
 	echo "   scfdata= {" >> stdin
 	echo "      initial_density= promolecule " >> stdin
-	echo "      kind=            $METHOD" >> stdin
+	if [ "$METHOD" = "HF" ]; then
+		echo "      kind= rhf" >> stdin
+	fi
 	echo "      use_SC_cluster_charges= FALSE" >> stdin
 	echo "      convergence= 0.001" >> stdin
 	echo "      diis= { convergence_tolerance= 0.0002 }" >> stdin
@@ -140,10 +181,12 @@ else
 	echo "   ! SC cluster charge SCF" >> stdin
 	echo "   scfdata= {" >> stdin
 	echo "      initial_MOs= restricted" >> stdin
-	echo "      kind=            $METHOD" >> stdin
-	if [ "$SCCHARGES" = "yes" ]; then 
+	if [ "$METHOD" = "HF" ]; then
+		echo "      kind= rhf" >> stdin
+	fi
+	if [ "$SCCHARGES" = "true" ]; then 
 		echo "      use_SC_cluster_charges= TRUE" >> stdin
-		echo "      cluster_radius= 8 angstrom" >> stdin
+		echo "      cluster_radius= SCCRADIUS angstrom" >> stdin
 	else
 		echo "      use_SC_cluster_charges= FALSE" >> stdin
 	fi
@@ -181,10 +224,12 @@ fi
 #	echo " $J  $(awk '{a[NR]=$0}/^Rigid-atom fit results/{b=NR}END {print a[b-5]}' stdout)"  >> $JOBNAME.lst
 #echo " $J  $(awk '{a[NR]=$0}/^Rigid-atom fit results/{b=NR}END {print a[b-5]}' stdout)    $ENERGIA2   $RMSD2   $DE"  >> $JOBNAME.lst
 mkdir $J.fit_cycle.$JOBNAME
-cp $JOBNAME.xyz $J.fit_cycle.$JOBNAME/$J.$JOBNAME.xyz
-cp stdin $J.fit_cycle.$JOBNAME/$J.stdin
-cp stdout $J.fit_cycle.$JOBNAME/$J.stdout
-cp $JOBNAME'.cartesian.cif2' $J.fit_cycle.$JOBNAME/$J.$JOBNAME.cartesian.cif2
+if [ "$SCFCALCPROG" != "Tonto" ]; then 
+	cp $JOBNAME.xyz $J.fit_cycle.$JOBNAME/$J.$JOBNAME.xyz
+	cp stdin $J.fit_cycle.$JOBNAME/$J.stdin
+	cp stdout $J.fit_cycle.$JOBNAME/$J.stdout
+	cp $JOBNAME'.cartesian.cif2' $J.fit_cycle.$JOBNAME/$J.$JOBNAME.cartesian.cif2
+fi
 }
 
 
@@ -202,7 +247,7 @@ TONTO_TO_GAUSSIAN(){
 #	if [ "$METHOD" = "rks" ]; then
 #		echo "# b3lyp/$BASISSET  nosymm output=wfn 6D 10F" | tee -a $JOBNAME.com $JOBNAME.lst
 #	fi
-if [ "$SCCHARGES" = "yes" ]; then 
+if [ "$SCCHARGES" = "true" ]; then 
    		echo "# $METHOD/$BASISSET Charge nosymm output=wfn 6D 10F" >> $JOBNAME.com
 	else
 		echo "# $METHOD/$BASISSET nosymm output=wfn 6D 10F" >> $JOBNAME.com
@@ -217,7 +262,7 @@ if [ "$SCCHARGES" = "yes" ]; then
 #	sleep 15 #check if needed
 #	awk '{a[NR]=$0}/^_atom_site_Cartn_U_iso_or_equiv_esd/{b=NR}/^# ==========================/{c=NR}END{for(d=b+1;d<=c-4;++d)print a[d]}' $JOBNAME.cartn-fragment.cif | awk 'NR%2==1 {print $1, $2, $3, $4}' >> $JOBNAME.com 
 	echo "" >> $JOBNAME.com
-	if [ "$SCCHARGES" = "yes" ]; then 
+	if [ "$SCCHARGES" = "true" ]; then 
         	awk '{a[NR]=$0}{b=12}/^------------------------------------------------------------------------/{c=NR}END{for(d=b;d<=c-1;++d)print a[d]}' gaussian-point-charges | awk '{printf "%s\t %s\t %s\t %s\t \n", $2, $3, $4, $1 }' >> $JOBNAME.com
 		echo "" | tee -a $JOBNAME.com  $JOBNAME.lst
 	fi
@@ -302,18 +347,19 @@ if [ $DISP = "yes" ]; then
 #	done	
 
 fi
-echo "Only for Gaussian/Orca job	" >> $JOBNAME.lst
-echo "Number of processor 	: $NUMPROC" >> $JOBNAME.lst
-echo "Memory		 	: $MEM" >> $JOBNAME.lst
-echo "###############################################################################################" >> $JOBNAME.lst
-echo "                                     Starting Geometry                                         " >> $JOBNAME.lst
-echo "###############################################################################################" >> $JOBNAME.lst
+if [ "$SCFCALCPROG" != "Tonto" ]; then 
+	echo "Only for Gaussian/Orca job	" >> $JOBNAME.lst
+	echo "Number of processor 	: $NUMPROC" >> $JOBNAME.lst
+	echo "Memory		 	: $MEM" >> $JOBNAME.lst
+	echo "###############################################################################################" >> $JOBNAME.lst
+	echo "                                     Starting Geometry                                         " >> $JOBNAME.lst
+	echo "###############################################################################################" >> $JOBNAME.lst
 #####################################################################################################
 ###################### Begin extracting XYZ with tonto and input to gaussian ########################
 #sed '/^# Cartesian axis system ADPs$/,$d' $CIF > cut.cif
 ###commented but was working before, now with the new cifs the put_tonto command is not working because it doesnt have the vcv matrix to generate the geom table... should add a ensure that it has the vcv matrix to calculate the geom blocks... I will use the cif entered by the user then...
 ###sed -e '/# Tonto-specific key and data/,/# Standard CIF keys and data/d' $CIF > cut.cif
-if [ "$SCFCALCPROG" != "Tonto" ]; then 
+
 	echo "{ " > stdin
 	echo "" >> stdin
 	echo "   ! Process the CIF" >> stdin
@@ -358,11 +404,11 @@ if [ "$SCFCALCPROG" != "Tonto" ]; then
 		#if [ "$METHOD" = "rks" ]; then
 		#	echo "# b3lyp/$BASISSET nosymm output=wfn 6D 10F" | tee -a $JOBNAME.com $JOBNAME.lst
 		#fi
-        	if [ "$SCCHARGES" = "yes" ]; then 
-   			echo "# $METHOD/$BASISSET Charge nosymm output=wfn 6D 10F" | tee -a $JOBNAME.com $JOBNAME.lst
-		else
+        	#if [ "$SCCHARGES" = "true" ]; then 
+   		#	echo "# $METHOD/$BASISSET Charge nosymm output=wfn 6D 10F" | tee -a $JOBNAME.com $JOBNAME.lst
+		#else
 			echo "# $METHOD/$BASISSET nosymm output=wfn 6D 10F" | tee -a $JOBNAME.com $JOBNAME.lst
-        	fi
+        	#fi
 		echo ""  | tee -a $JOBNAME.com $JOBNAME.lst
 		echo "$JOBNAME" | tee -a $JOBNAME.com $JOBNAME.lst
 		echo "" | tee -a  $JOBNAME.com $JOBNAME.lst
@@ -376,10 +422,10 @@ if [ "$SCFCALCPROG" != "Tonto" ]; then
 		#awk '{gsub("[(][^)]*[)]","")}1 {print }' test.txt >> $JOBNAME.com
 		#rm test.txt
 		echo "" | tee -a $JOBNAME.com  $JOBNAME.lst
-	 	if [ "$SCCHARGES" = "yes" ]; then 
-	        	awk '{a[NR]=$0}{b=12}/^------------------------------------------------------------------------/{c=NR}END{for(d=b;d<=c-1;++d)print a[d]}' gaussian-point-charges | awk '{printf "%s\t %s\t %s\t %s\t \n", $2, $3, $4, $1 }' | tee -a $JOBNAME.com  $JOBNAME.lst
-			echo "" | tee -a $JOBNAME.com  $JOBNAME.lst
-		fi
+	 	#if [ "$SCCHARGES" = "true" ]; then 
+	        #	awk '{a[NR]=$0}{b=12}/^------------------------------------------------------------------------/{c=NR}END{for(d=b;d<=c-1;++d)print a[d]}' gaussian-point-charges | awk '{printf "%s\t %s\t %s\t %s\t \n", $2, $3, $4, $1 }' | tee -a $JOBNAME.com  $JOBNAME.lst
+		#	echo "" | tee -a $JOBNAME.com  $JOBNAME.lst
+		#fi
 		echo "./$JOBNAME.wfn" | tee -a $JOBNAME.com  $JOBNAME.lst
 		echo "" | tee -a $JOBNAME.com  $JOBNAME.lst
 		###################### End extracting XYZ with tonto and input to gaussian ########################
@@ -479,6 +525,17 @@ if [ "$SCFCALCPROG" != "Tonto" ]; then
 	exit
 else
 	SCF_TO_TONTO
+	echo "_________________________________________________________________________________________________________________________________" >> $JOBNAME.lst
+	echo "" >> $JOBNAME.lst
+	echo "###############################################################################################" >> $JOBNAME.lst
+	echo "                                     Final Geometry                                         " >> $JOBNAME.lst
+	echo "###############################################################################################" >> $JOBNAME.lst
+	echo "" >> $JOBNAME.lst
+	echo " $(awk '{a[NR]=$0}/^Rigid-atom fit results/{b=NR}/^Wall-clock time taken for job /{c=NR}END{for (d=b-2;d<c-1;++d) print a[d]}' stdout)"  >> $JOBNAME.lst
+	DURATION=$SECONDS
+	echo "Job ended, elapsed time:" | tee -a $JOBNAME.lst
+	echo "$(($DURATION / 86400 )) days,  $((($DURATION / 3600) % 24 )) hours, $((($DURATION / 60) % 60 ))minutes and $(($DURATION % 60 )) seconds elapsed." | tee -a $JOBNAME.lst
+	exit
 fi
 }
 
@@ -533,6 +590,8 @@ export MAIN_DIALOG='
         <action>if false disable:NUMPROC</action>
         <action>if false disable:SCFCALC_BIN</action>
         <action>if false enable:BASISSETDIR</action>
+        <action>if true disable:SCCHARGES</action>
+        <action>if false enable:SCCHARGES</action>
       </radiobutton>
       <radiobutton>
         <label>Tonto</label>
@@ -675,12 +734,19 @@ export MAIN_DIALOG='
    <hseparator></hseparator>
 
    <hbox>
-    <text  LabelXalign="0" xalign="0" use-markup="true" wrap="false"><label>Use cluster charges? </label></text>
-    <combobox>
+
+    <checkbox>
+     <label>Use cluster charges? </label>
       <variable>SCCHARGES</variable>
-      <item>no</item>
-      <item>yes</item>
-    </combobox>
+      <action>if true enable:SCCRADIUS</action>
+      <action>if false disable:SCCRADIUS</action>
+    </checkbox>
+
+    <text use-markup="true" wrap="false"><label>SC Cluster charges radius</label></text>
+    <entry sensitive="false">
+     <default>8</default>
+     <variable>SCCRADIUS</variable>
+    </entry>
    </hbox>
 
    <hseparator></hseparator>
@@ -827,7 +893,10 @@ export MAIN_DIALOG='
 
 gtkdialog --program=MAIN_DIALOG > job_options.txt
 source job_options.txt
-rm job_options.txt
+#rm job_options.txt
+if [[ -z "$SCFCALCPROG" ]]; then
+	SCFCALCPROG="Gaussian"
+fi
 
 if [ "$DISP" = "yes" ]; then
 		zenity --entry --title="Dispersion coefficients" --text="Enter the dispersion coefficients for each element type followed by f' and f'' values i.e.: \n \n C 0.0031 0.0016 H 0.0 0.0" > DISP_inst.txt
