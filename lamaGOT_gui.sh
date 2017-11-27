@@ -42,6 +42,8 @@ SCF_TO_TONTO(){
 echo "Writing Tonto stdin"
 echo "{ " > stdin
 echo "" >> stdin
+echo "   keyword_echo_on" >> stdin
+echo "" >> stdin
 if [ "$SCFCALCPROG" = "Gaussian" ]; then 
 	echo "   read_g09_fchk_file $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.fchk" >> stdin
 else 
@@ -109,12 +111,24 @@ if [ "$SCFCALCPROG" != "Tonto" ]; then
 	echo "	 show_fit_results= TRUE" >> stdin
 	echo "" >> stdin
 fi
+if [ "$POSONLY" = "true" ]; then 
+	echo "	 refine_positions_only= $POSONLY" >> stdin
+fi
+if [ "$ADPSONLY" = "true" ]; then 
+	echo "	 refine_ADPs_only= $ADPSONLY" >> stdin
+fi
+if [ "$REFHADP" = "false" ]; then
+	echo "	 refine_H_ADPs= $REFHADP" >> stdin 
+fi
+if [ "$REFHPOS" = "false" ]; then
+	echo "	 refine_H_pos= $REFHPOS" >> stdin 
+fi
 echo "      }  " >> stdin
 echo "   }  " >> stdin
 echo "" >> stdin
 if [ "$HADP" = "yes" ]; then 
-echo "	 set_isotropic_h_adps"  >> stdin
-echo "" >> stdin
+	echo "	 set_isotropic_h_adps"  >> stdin
+	echo "" >> stdin
 fi
 echo "   ! Geometry    " >> stdin
 echo "   put" >> stdin
@@ -127,6 +141,7 @@ if [ "$SCFCALCPROG" != "Tonto" ]; then
 		echo "      kind= $METHOD" >> stdin
 		echo "      use_SC_cluster_charges= TRUE" >> stdin
 		echo "      cluster_radius= $SCCRADIUS angstrom" >> stdin
+		echo "      defragment= $DEFRAG" >> stdin
 		echo "      save_cluster_charges= true" >> stdin
 		echo "      convergence= 0.001" >> stdin
 		echo "      diis= { convergence_tolerance= 0.0002 }" >> stdin
@@ -144,6 +159,7 @@ if [ "$SCFCALCPROG" != "Tonto" ]; then
 		echo "      kind= $METHOD" >> stdin
 		echo "      use_SC_cluster_charges= TRUE" >> stdin
 		echo "      cluster_radius= $SCCRADIUS angstrom" >> stdin
+		echo "      defragment= $DEFRAG" >> stdin
 		echo "      put_cluster" >> stdin
 		echo "      put_cluster_charges" >> stdin
 		echo "" >> stdin
@@ -186,7 +202,8 @@ else
 	echo "      kind= $METHOD" >> stdin
 	if [ "$SCCHARGES" = "true" ]; then 
 		echo "      use_SC_cluster_charges= TRUE" >> stdin
-		echo "      cluster_radius= SCCRADIUS angstrom" >> stdin
+		echo "      cluster_radius= $SCCRADIUS angstrom" >> stdin
+		echo "      defragment= $DEFRAG" >> stdin
 	else
 		echo "      use_SC_cluster_charges= FALSE" >> stdin
 	fi
@@ -229,6 +246,9 @@ if [ "$SCFCALCPROG" != "Tonto" ]; then
 	cp stdin $J.fit_cycle.$JOBNAME/$J.stdin
 	cp stdout $J.fit_cycle.$JOBNAME/$J.stdout
 	cp $JOBNAME'.cartesian.cif2' $J.fit_cycle.$JOBNAME/$J.$JOBNAME.cartesian.cif2
+	cp $JOBNAME'.archive.cif' $J.fit_cycle.$JOBNAME/$J.$JOBNAME.archive.cif
+	cp $JOBNAME'.archive.fco' $J.fit_cycle.$JOBNAME/$J.$JOBNAME.archive.fco
+	cp $JOBNAME'.archive.fcf' $J.fit_cycle.$JOBNAME/$J.$JOBNAME.archive.fcf
 	cp gaussian-point-charges $J.fit_cycle.$JOBNAME/$J.gaussian-point-charges
 fi
 }
@@ -337,8 +357,8 @@ echo "User Inputs: " >> $JOBNAME.lst
 echo "Tonto executable	: $TONTO"  >> $JOBNAME.lst 
 echo "$($TONTO -v)" >> $JOBNAME.lst 
 #awk 'NR==7 { print }' stdout >> $JOBNAME.lst      #print the tonto version, but there is no stdout yet
-echo "SCF program	: $SCFCALCPROG" >> $JOBNAME.lst
-echo "SCF executable	: $SCFCALC_BIN" >> $JOBNAME.lst
+echo "SCF program		: $SCFCALCPROG" >> $JOBNAME.lst
+echo "SCF executable		: $SCFCALC_BIN" >> $JOBNAME.lst
 echo "Job name		: $JOBNAME" >> $JOBNAME.lst
 echo "Input cif		: $CIF" >> $JOBNAME.lst
 echo "Input hkl		: $HKL" >> $JOBNAME.lst
@@ -346,11 +366,31 @@ echo "Wavelenght		: $WAVE" >> $JOBNAME.lst
 echo "F_sigma_cutoff		: $FCUT" >> $JOBNAME.lst
 echo "Charge			: $CHARGE" >> $JOBNAME.lst
 echo "Multiplicity		: $MULTIPLICITY" >> $JOBNAME.lst
-echo "Level of theory 	: $METHOD/$BASISSET" >> $JOBNAME.lst
 if [ "$SCFCALCPROG" = "Tonto" ]; then 
+	echo "Level of theory 	: $METHOD/$BASISSETT" >> $JOBNAME.lst
 	echo "Basis set directory	: $BASISSETDIR" >> $JOBNAME.lst
+else
+	echo "Level of theory 	: $METHOD/$BASISSET" >> $JOBNAME.lst
 fi
-echo "Refine Hydrogens anis.	: $HADP" >> $JOBNAME.lst
+echo "Becke grid (not default): $USEBECKE" >> $JOBNAME.lst
+if [ "$USEBECKE" = "true" ]; then
+	echo "Becke grid accuracy	: $ACCURACY" >> $JOBNAME.lst
+	echo "Becke grid pruning scheme	: $BECKEPRUNINGSCHEME" >> $JOBNAME.lst
+fi
+echo "Use SC cluster charges 	: $SCCHARGES" >> $JOBNAME.lst
+if [ "$SCCHARGES" = "true" ]; then
+	echo "SC cluster charge radius: $SCCRADIUS Angstrom" >> $JOBNAME.lst
+	echo "Complete molecules	: $DEFRAG" >> $JOBNAME.lst
+fi
+echo "Refine position and ADPs: $POSADP" >> $JOBNAME.lst
+echo "Refine positions only	: $POSONLY" >> $JOBNAME.lst
+echo "Refine ADPs only	: $ADPSONLY" >> $JOBNAME.lst
+if [ "$POSONLY" != "true" ]; then
+	echo "Refine H ADPs 		: $REFHADP" >> $JOBNAME.lst
+	if [ "$REFHADP" = "true" ]; then
+		echo "Refine Hydrogens anis.	: $HADP" >> $JOBNAME.lst
+	fi
+fi
 echo "Dispersion correction	: $DISP" >> $JOBNAME.lst
 if [ $DISP = "yes" ]; then
 	echo "			  $(cat DISP_inst.txt)" >> $JOBNAME.lst
@@ -374,6 +414,8 @@ if [ "$SCFCALCPROG" != "Tonto" ]; then
 ###commented but was working before, now with the new cifs the put_tonto command is not working because it doesnt have the vcv matrix to generate the geom table... should add a ensure that it has the vcv matrix to calculate the geom blocks... I will use the cif entered by the user then...
 ###sed -e '/# Tonto-specific key and data/,/# Standard CIF keys and data/d' $CIF > cut.cif
 	echo "{ " > stdin
+	echo "" >> stdin
+	echo "   keyword_echo_on" >> stdin
 	echo "" >> stdin
 	echo "   ! Process the CIF" >> stdin
 	echo "   CIF= {" >> stdin
@@ -811,6 +853,8 @@ export MAIN_DIALOG='
       <variable>SCCHARGES</variable>
       <action>if true enable:SCCRADIUS</action>
       <action>if false disable:SCCRADIUS</action>
+      <action>if true enable:DEFRAG</action>
+      <action>if false disable:DEFRAG</action>
     </checkbox>
 
     <text use-markup="true" wrap="false" ><label>SC Cluster charges radius</label></text>
@@ -818,6 +862,12 @@ export MAIN_DIALOG='
      <default>8</default>
      <variable>SCCRADIUS</variable>
     </entry>
+
+    <checkbox sensitive="false">
+     <label>Complete molecules </label>
+     <default>false</default>
+      <variable>DEFRAG</variable>
+    </checkbox>
    </hbox>
 
    <hseparator></hseparator>
@@ -876,6 +926,44 @@ Set the angular pruning scheme for lebedev_grid given a radial point '"'i'"' out
    <hseparator></hseparator>
 
    <hbox>
+    <text xalign="0" use-markup="true" wrap="false"><label>Refinement options: </label></text>
+    <radiobutton>
+        <label>positions and ADPs</label>
+        <default>true</default>
+        <variable>POSADP</variable>
+    </radiobutton>
+    <radiobutton>
+        <label>positions only</label>
+        <variable>POSONLY</variable>
+        <action>if true disable:REFHADP</action>
+        <action>if false enable:REFHADP</action>
+        <action>if true disable:HADP</action>
+        <action>if false enable:HADP</action>
+    </radiobutton>
+    <radiobutton>
+        <label>ADPs only</label>
+        <variable>ADPSONLY</variable>
+        <action>if true disable:REFHPOS</action>
+        <action>if false enable:REFHPOS</action>
+    </radiobutton>
+   </hbox>
+
+   <hseparator></hseparator>
+
+   <hbox>
+
+    <checkbox active="true">
+     <label>Refine H positions ?</label>
+      <variable>REFHPOS</variable>
+    </checkbox>
+
+    <checkbox active="true">
+     <label>Refine_H_ADPs</label>
+      <variable>REFHADP</variable>
+      <action>if true enable:HADP</action>
+      <action>if false disable:HADP</action>
+    </checkbox>
+
     <text xalign="0" use-markup="true" wrap="false"><label>Refine H atom isotropically?</label></text>
     <combobox>
       <variable>HADP</variable>
