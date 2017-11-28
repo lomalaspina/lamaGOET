@@ -29,6 +29,12 @@ echo "*"  >> $JOBNAME.inp
 echo "Runing Orca, cycle number $I" 
 $SCFCALC_BIN $JOBNAME.inp > $JOBNAME.log
 echo "Orca cycle number $I ended"
+if [ "$(grep -q '****ORCA TERMINATED NORMALLY****' $JOBNAME.out | echo $?)" = "1" ]; then
+	echo "Orca job finished with error, please check the $I.th out file for more details"
+	unset MAIN_DIALOG
+	clear
+	exit 0
+fi
 echo "Generation molden file for Orca cycle number $I"
 orca_2mkl $JOBNAME -molden
 echo "Orca cycle number $I, final energy is: $ENERGIA, RMSD is: $RMSD "
@@ -222,6 +228,12 @@ J=$[ $J + 1 ]
 echo "Runing Tonto, cycle number $J" 
 $TONTO
 echo "Tonto cycle number $J ended"
+if [ "$(grep -q 'Wall-clock time taken' stdout | echo $?)" = "1" ]; then
+	echo "problems in fit cycle, please check the $J.th stdout file for more details"
+	unset MAIN_DIALOG
+	clear
+	exit 0
+fi
 if [ $J = 1 ]; then 
 	#awk '{a[NR]=$0}/^Rigid-atom fit results/{b=NR}END {print a[b-5]}' stdout 
 	echo "====================" >> $JOBNAME.lst
@@ -304,6 +316,12 @@ TONTO_TO_GAUSSIAN(){
 	echo "Runing Gaussian, cycle number $I"
 	$SCFCALC_BIN $JOBNAME.com
 	echo "Gaussian cycle number $I ended"
+	if [ "$(grep -q 'Normal termination of Gaussian' $JOBNAME.log | echo $?)" = "1" ]; then
+		echo "Gaussian job finished with error, please check the $I.th log file for more details"
+		unset MAIN_DIALOG
+		clear
+		exit 0
+	fi
 	echo "Generation fcheck file for Gaussian cycle number $I"
 	formchk $JOBNAME.chk $JOBNAME.fchk
      	mkdir $I.$SCFCALCPROG.cycle.$JOBNAME
@@ -436,6 +454,12 @@ if [ "$SCFCALCPROG" != "Tonto" ]; then
 	echo "}" >> stdin 
 	echo "Reading cif with Tonto"
 	$TONTO
+	if [ "$(grep -q 'Wall-clock time taken' stdout | echo $?)" = "1" ]; then
+		echo "something wrong with your input cif file, please check the stdout file for more details"
+		unset MAIN_DIALOG
+		clear
+		exit 0
+	fi
 	mkdir $J.fit_cycle.$JOBNAME
 	cp $JOBNAME.xyz $J.fit_cycle.$JOBNAME/$JOBNAME.starting_geom.xyz
 	cp stdin $J.fit_cycle.$JOBNAME/$J.stdin
@@ -491,6 +515,12 @@ if [ "$SCFCALCPROG" != "Tonto" ]; then
 		echo "Runing Gaussian, cycle number $I" 
 		$SCFCALC_BIN $JOBNAME.com
 		echo "Gaussian cycle number $I ended"
+		if [ "$(grep -q 'Normal termination of Gaussian' $JOBNAME.log | echo $?)" = "1" ]; then
+			echo "Gaussian job finished with error, please check the $I.th log file for more details"
+			unset MAIN_DIALOG
+			clear
+			exit 0
+		fi
 		ENERGIA=$(sed 's/^ //' $JOBNAME.log | sed 'N;s/\n//' | sed 'N;s/\n//' | sed -n '/HF=/{N;p;}' | sed 's/^.*HF=//' | sed 'N;s/\n//' | sed '2d' | sed 's/RMSD=//g' | awk -F '\' '{ print $1}' | tr -d '\r')
 		RMSD=$(sed 's/^ //' $JOBNAME.log | sed 'N;s/\n//' | sed 'N;s/\n//' | sed -n '/HF=/{N;p;}' | sed 's/^.*HF=//' | sed 'N;s/\n//' | sed '2d' | sed 's/RMSD=//g' | awk -F '\' '{ print $2}' | tr -d '\r')
 		echo "Starting geometry: Energy= $ENERGIA, RMSD= $RMSD" >> $JOBNAME.lst
@@ -541,6 +571,12 @@ if [ "$SCFCALCPROG" != "Tonto" ]; then
 			I=$"1"
 			echo "Runing Orca, cycle number $I" 
  			$SCFCALC_BIN $JOBNAME.inp > $JOBNAME.log
+			if [ "$(grep -q '****ORCA TERMINATED NORMALLY****' $JOBNAME.out | echo $?)" = "1" ]; then
+				echo "Orca job finished with error, please check the $I.th out file for more details"
+				unset MAIN_DIALOG
+				clear
+				exit 0
+			fi
 			echo "Orca cycle number $I ended"
 			ENERGIA=$(sed -n '/Total Energy       :/p' $JOBNAME.log | awk '{print $4}' | tr -d '\r')
 			RMSD=$(sed -n '/Last RMS-Density change/p' $JOBNAME.log | awk '{print $5}' | tr -d '\r')
