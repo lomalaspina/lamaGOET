@@ -69,6 +69,20 @@ echo "   ! Process the CIF" >> stdin
 echo "   CIF= {" >> stdin
 if [ $J = 0 ]; then 
 	echo "       file_name= $CIF" >> stdin
+	if [ "XHALONG" = "true" ]; then
+           	if [ ! -z "$BHBOND" ]; then
+		   	echo "       BH_bond_length= $BHBOND angstrom" >> stdin
+	   	fi
+           	if [ ! -z "$CHBOND" ]; then
+		   	echo "       CH_bond_length= $CHBOND angstrom" >> stdin
+	   	fi
+           	if [ ! -z "$NHBOND" ]; then
+		   	echo "       NH_bond_length= $NHBOND angstrom" >> stdin
+	   	fi
+           	if [ ! -z "$OHBOND" ]; then
+		   	echo "       OH_bond_length= $OHBOND angstrom" >> stdin
+	   	fi
+	fi
 else 
 #	cp $JOBNAME'_cartesian.cif2' $JOBNAME.cartesian.cif2
 	echo "       file_name= $J.fit_cycle.$JOBNAME/$J.$JOBNAME.cartesian.cif2" >> stdin
@@ -438,6 +452,20 @@ if [ "$SCFCALCPROG" != "Tonto" ]; then
 	echo "   ! Process the CIF" >> stdin
 	echo "   CIF= {" >> stdin
 	echo "       file_name= $CIF" >> stdin
+	if [ "XHALONG" = "true" ]; then
+           	if [ ! -z "$BHBOND" ]; then
+		   	echo "       BH_bond_length= $BHBOND angstrom" >> stdin
+	   	fi
+           	if [ ! -z "$CHBOND" ]; then
+		   	echo "       CH_bond_length= $CHBOND angstrom" >> stdin
+	   	fi
+           	if [ ! -z "$NHBOND" ]; then
+		   	echo "       NH_bond_length= $NHBOND angstrom" >> stdin
+	   	fi
+           	if [ ! -z "$OHBOND" ]; then
+		   	echo "       OH_bond_length= $OHBOND angstrom" >> stdin
+	   	fi
+	fi
 	###echo "       file_name= cut.cif" >> stdin
 	echo "    }" >> stdin
 	echo "" >> stdin
@@ -656,7 +684,7 @@ export MAIN_DIALOG='
       <pixmap>
        <width>40</width>
        <height>40</height>
-       <input file>/usr/local/bin/Tonto_logo.png</input>
+       <input file>./Tonto_logo.png</input>
       </pixmap>
      </frame>  
     </hbox>
@@ -666,7 +694,7 @@ export MAIN_DIALOG='
   <frame>
 
  <hbox>
-    <text xalign="0" use-markup="true" wrap="false"><label>Software for SCF calculation</label></text>
+    <text xalign="0" use-markup="true" wrap="false" space-fill="True"  space-expand="True"><label>Software for SCF calculation</label></text>
       <radiobutton>
         <label>Gaussian</label>
         <default>true</default>
@@ -797,12 +825,19 @@ export MAIN_DIALOG='
      <default>0.71073</default>
      <variable>WAVE</variable>
     </entry>
+
+    <text use-markup="true" wrap="false"><label>Enter the F/sigma cutoff</label></text>
+    <entry>
+     <default>3</default>
+     <variable>FCUT</variable>
+    </entry>
+
    </hbox>
 
    <hseparator></hseparator>
 
    <hbox> 
-    <text xalign="0" use-markup="true" wrap="false" justify="2"><label>Charge</label></text>
+    <text xalign="0" use-markup="true" wrap="false"><label>Charge</label></text>
     <spinbutton  range-min="-10"  range-max="10" space-fill="True"  space-expand="True">
 	<default>0</default>
 	<variable>CHARGE</variable>
@@ -818,12 +853,12 @@ export MAIN_DIALOG='
    <hseparator></hseparator>
 
    <hbox>
-    <text xalign="0" use-markup="true" wrap="false"> <label>Method that you wish to use</label></text>
+    <text xalign="0" use-markup="true" wrap="false" > <label>Method: </label></text>
     <combobox has-tooltip="true" tooltip-markup="'"'rhf'"' - Restricted Hartree-Fock, 
 '"'rks'"' - Restricted Kohn-Sham, 
 '"'rohf'"' - Restricted open shell Hartree-Fock, 
 '"'uhf'"' - Unrestricted Hartree-Fock, 
-'"'uks'"' - Unrestricted Kohn-Sham" >
+'"'uks'"' - Unrestricted Kohn-Sham" space-fill="True"  space-expand="True" >
      <variable>METHOD</variable>
      <item>rhf</item>
      <item>rks</item>
@@ -832,14 +867,9 @@ export MAIN_DIALOG='
      <item>uks</item>
     </combobox>
 
-   </hbox>
 
-   <hseparator></hseparator>
-
-   <hbox>
-
-    <text xalign="0" use-markup="true" wrap="false"><label>Basis set</label></text>
-    <combobox has-tooltip="true" tooltip-markup="List of Basis sets available on Tonto. Please check if the basis set you want to use contains all the elements of your structure." sensitive="false">
+    <text xalign="1" use-markup="true" wrap="false"><label>Basis set</label></text>
+    <combobox has-tooltip="true" tooltip-markup="List of Basis sets available on Tonto. Please check if the basis set you want to use contains all the elements of your structure." sensitive="false" space-fill="True"  space-expand="True">
      <variable>BASISSETT</variable>
      <item>STO-3G</item>
      <item>3-21G</item>
@@ -871,6 +901,12 @@ export MAIN_DIALOG='
      <item>vanLenthe-Baerends</item>
      <item>VTZ-Ahlrichs</item>
     </combobox>
+
+   </hbox>
+
+   <hseparator></hseparator>
+
+   <hbox>
 
     <text><label>Enter manually for Gaussian or Orca!</label> </text>
     <entry tooltip-text="Use the correct Gaussian or Orca or Tonto format" sensitive="true">
@@ -909,7 +945,7 @@ export MAIN_DIALOG='
    <hseparator></hseparator>
 
    <hbox>
-    <checkbox sensitive="false">
+    <checkbox sensitive="false" space-fill="True"  space-expand="True">
      <label>Use becke grid? </label>
       <variable>USEBECKE</variable>
       <action>if true enable:ACCURACY</action>
@@ -949,20 +985,11 @@ Set the angular pruning scheme for lebedev_grid given a radial point '"'i'"' out
     </combobox>
    </hbox>
 
-   <hseparator></hseparator>
-
-   <hbox>
-    <text use-markup="true" wrap="false"><label>Please enter the F/sigma cutoff</label></text>
-    <entry>
-     <default>3</default>
-     <variable>FCUT</variable>
-    </entry>
-   </hbox>
 
    <hseparator></hseparator>
 
    <hbox>
-    <text xalign="0" use-markup="true" wrap="false"><label>Refinement options: </label></text>
+    <text xalign="0" use-markup="true" wrap="false" space-fill="True"  space-expand="True"><label>Refinement options (all atom types): </label></text>
     <radiobutton>
         <label>positions and ADPs</label>
         <default>true</default>
@@ -988,7 +1015,7 @@ Set the angular pruning scheme for lebedev_grid given a radial point '"'i'"' out
 
    <hbox>
 
-    <checkbox active="true">
+    <checkbox active="true" space-fill="True"  space-expand="True">
      <label>Refine H positions ?</label>
       <variable>REFHPOS</variable>
     </checkbox>
@@ -1011,8 +1038,57 @@ Set the angular pruning scheme for lebedev_grid given a radial point '"'i'"' out
    <hseparator></hseparator>
 
    <hbox>
+
+    <checkbox active="false" space-fill="True"  space-expand="True">
+     <label>Alongate X-H bond lengths ?</label>
+     <variable>XHALONG</variable>
+     <default>false</default>
+     <action>if true enable:BHBOND</action>
+     <action>if false disable:BHBOND</action>
+     <action>if true enable:CHBOND</action>
+     <action>if false disable:CHBOND</action>
+     <action>if true enable:NHBOND</action>
+     <action>if false disable:NHBOND</action>
+     <action>if true enable:OHBOND</action>
+     <action>if false disable:OHBOND</action>
+    </checkbox>
+
+    <text xalign="2" use-markup="true" wrap="false"><label>if yes, enter new bond lengths below (leave empty for unchanged)</label></text>
+   </hbox>
+
+   <hbox>
+    <text xalign="0" use-markup="true" wrap="false"><label>B-H:</label></text>
+    <entry sensitive="false">
+     <default>1.190</default>
+     <variable>BHBOND</variable>
+      <visible>disabled</visible>
+    </entry>
+    <text xalign="0" use-markup="true" wrap="false"><label>C-H:</label></text>
+    <entry sensitive="false">
+     <default>1.083</default>
+     <variable>CHBOND</variable>
+    </entry>
+   </hbox>
+
+   <hbox>
+    <text xalign="0" use-markup="true" wrap="false"><label>N-H:</label></text>
+    <entry sensitive="false">
+     <default>1.009</default>
+     <variable>NHBOND</variable>
+    </entry>
+    <text xalign="0" use-markup="true" wrap="false"><label>O-H:</label></text>
+    <entry sensitive="false">
+     <default>0.983</default>
+     <variable>OHBOND</variable>
+    </entry>
+
+   </hbox>
+
+   <hseparator></hseparator>
+
+   <hbox>
     <text xalign="0" use-markup="true" wrap="false"><label>Would you like to apply dispersion corrections?</label></text>
-    <combobox has-tooltip="true" tooltip-markup="Enter the '"f'"' and '"f''"' values in popup window after pressing '"'OK'"'">
+    <combobox has-tooltip="true" tooltip-markup="Enter the '"f'"' and '"f''"' values in popup window after pressing '"'OK'"'" space-fill="True"  space-expand="True">
       <variable>DISP</variable>
       <item>no</item>
       <item>yes</item>
