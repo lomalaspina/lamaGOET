@@ -25,6 +25,9 @@ echo "end"  >> $JOBNAME.inp
 echo ""  >> $JOBNAME.inp
 echo "* xyz $CHARGE $MULTIPLICITY"  >> $JOBNAME.inp
 awk 'NR>2' $JOBNAME.xyz  >> $JOBNAME.inp
+if [ "$SCCHARGES" = "true" ]; then 
+	awk '{a[NR]=$0}{b=12}/^------------------------------------------------------------------------/{c=NR}END{for(d=b;d<=c-1;++d)print a[d]}' gaussian-point-charges | awk '{printf "%s\t %s\t %s\t %s\t \n", "Q\t" $2, $3, $4, $1 }' >> $JOBNAME.inp
+fi
 echo "*"  >> $JOBNAME.inp
 echo "Runing Orca, cycle number $I" 
 $SCFCALC_BIN $JOBNAME.inp > $JOBNAME.log
@@ -684,7 +687,7 @@ export MAIN_DIALOG='
       <pixmap>
        <width>40</width>
        <height>40</height>
-       <input file>./Tonto_logo.png</input>
+       <input file>/usr/local/include/Tonto_logo.png</input>
       </pixmap>
      </frame>  
     </hbox>
@@ -695,7 +698,7 @@ export MAIN_DIALOG='
 
  <hbox>
     <text xalign="0" use-markup="true" wrap="false" space-fill="True"  space-expand="True"><label>Software for SCF calculation</label></text>
-      <radiobutton>
+      <radiobutton space-fill="True"  space-expand="True">
         <label>Gaussian</label>
         <default>true</default>
         <action>if true echo 'SCFCALCPROG="Gaussian"'</action>  
@@ -710,7 +713,7 @@ export MAIN_DIALOG='
         <action>if true disable:BASISSETT</action>
         <action>if false enable:BASISSETT</action>
       </radiobutton>
-      <radiobutton>
+      <radiobutton space-fill="True"  space-expand="True">
         <label>Orca</label>
         <default>false</default>
         <action>if true echo 'SCFCALCPROG="Orca"'</action>
@@ -722,12 +725,10 @@ export MAIN_DIALOG='
         <action>if false disable:NUMPROC</action>
         <action>if false disable:SCFCALC_BIN</action>
         <action>if false enable:BASISSETDIR</action>
-        <action>if true disable:SCCHARGES</action>
-        <action>if false enable:SCCHARGES</action>
         <action>if true disable:BASISSETT</action>
         <action>if false enable:BASISSETT</action>
       </radiobutton>
-      <radiobutton>
+      <radiobutton space-fill="True"  space-expand="True">
         <label>Tonto</label>
         <default>false</default>
         <action>if true echo 'SCFCALCPROG="Tonto"'</action>
@@ -1018,6 +1019,8 @@ Set the angular pruning scheme for lebedev_grid given a radial point '"'i'"' out
     <checkbox active="true" space-fill="True"  space-expand="True">
      <label>Refine H positions ?</label>
       <variable>REFHPOS</variable>
+      <action>if true disable:XHALONG</action>
+      <action>if false enable:XHALONG</action>
     </checkbox>
 
     <checkbox active="true">
@@ -1053,7 +1056,7 @@ Set the angular pruning scheme for lebedev_grid given a radial point '"'i'"' out
      <action>if false disable:OHBOND</action>
     </checkbox>
 
-    <text xalign="2" use-markup="true" wrap="false"><label>if yes, enter new bond lengths below (leave empty for unchanged)</label></text>
+    <text xalign="1" use-markup="true" wrap="false"><label>if yes, enter new bond lengths below (leave empty for unchanged)</label></text>
    </hbox>
 
    <hbox>
