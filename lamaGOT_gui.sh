@@ -137,15 +137,18 @@ fi
 if [ "$POSONLY" = "true" ]; then 
 	echo "	 refine_positions_only= $POSONLY" >> stdin
 fi
-if [ "$REFHADP" = "false" ]; then
-	echo "	 refine_H_ADPs= $REFHADP" >> stdin 
+if [ "$ADPSONLY" = "true" ]; then 
+	echo "	 refine_ADPs_only= $ADPSONLY" >> stdin
 fi
-if [ "$ADPSONLY" != "true" ]; then
-	if [ "$REFHPOS" = "false" ]; then
+if [ "$REFHADP" = "false" ]; then
+	if [ "$ADPSONLY" != "true" ]; then 
+		echo "	 refine_H_ADPs= $REFHADP" >> stdin 
+	fi
+fi
+if [ "$REFHPOS" = "false" ]; then
+	if [ "$ADPSONLY" != "true" ]; then
 		echo "	 refine_H_pos= $REFHPOS" >> stdin 
 	fi
-else 
-	echo "	 refine_ADPs_only= $ADPSONLY" >> stdin
 fi
 echo "      }  " >> stdin
 echo "   }  " >> stdin
