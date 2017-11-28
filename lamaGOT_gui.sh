@@ -72,7 +72,7 @@ echo "   ! Process the CIF" >> stdin
 echo "   CIF= {" >> stdin
 if [ $J = 0 ]; then 
 	echo "       file_name= $CIF" >> stdin
-	if [ "XHALONG" = "true" ]; then
+	if [ "$XHALONG" = "true" ]; then
            	if [ ! -z "$BHBOND" ]; then
 		   	echo "       BH_bond_length= $BHBOND angstrom" >> stdin
 	   	fi
@@ -137,14 +137,15 @@ fi
 if [ "$POSONLY" = "true" ]; then 
 	echo "	 refine_positions_only= $POSONLY" >> stdin
 fi
-if [ "$ADPSONLY" = "true" ]; then 
-	echo "	 refine_ADPs_only= $ADPSONLY" >> stdin
-fi
 if [ "$REFHADP" = "false" ]; then
 	echo "	 refine_H_ADPs= $REFHADP" >> stdin 
 fi
-if [ "$REFHPOS" = "false" ]; then
-	echo "	 refine_H_pos= $REFHPOS" >> stdin 
+if [ "$ADPSONLY" != "true" ]; then
+	if [ "$REFHPOS" = "false" ]; then
+		echo "	 refine_H_pos= $REFHPOS" >> stdin 
+	fi
+else 
+	echo "	 refine_ADPs_only= $ADPSONLY" >> stdin
 fi
 echo "      }  " >> stdin
 echo "   }  " >> stdin
