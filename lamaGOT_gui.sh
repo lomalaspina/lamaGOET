@@ -52,20 +52,20 @@ echo "{ " > stdin
 echo "" >> stdin
 echo "   keyword_echo_on" >> stdin
 echo "" >> stdin
-if [ "$SCFCALCPROG" = "Gaussian" ]; then 
+if [ "$SCFCALCPROG" = "Gaussian" ]; then
+        echo "   name= $JOBNAME" >> stdin 
+        echo "" >> stdin
 	echo "   read_g09_fchk_file $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.fchk" >> stdin
-else 
-	if [ "$SCFCALCPROG" = "Orca" ]; then
-		echo "   read_molden_file $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.molden.input" >> stdin
-	else
-		echo "   name= $JOBNAME" >> stdin
-	fi
+elif [ "$SCFCALCPROG" = "Orca" ]; then
+        echo "   name= $JOBNAME" >> stdin 
+        echo "" >> stdin
+	echo "   read_molden_file $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.molden.input" >> stdin
+else
+	echo "   name= $JOBNAME" >> stdin
 fi
 echo "" >> stdin
 echo "   charge= $CHARGE" >> stdin       
 echo "   multiplicity= $MULTIPLICITY" >> stdin
-echo "" >> stdin
-echo "   name= $JOBNAME" >> stdin
 echo "" >> stdin
 echo "   ! Process the CIF" >> stdin
 echo "   CIF= {" >> stdin
@@ -1175,7 +1175,7 @@ if [[ -z "$SCFCALCPROG" ]]; then
 fi
 
 if [ "$DISP" = "yes" ]; then
-		zenity --entry --title="Dispersion coefficients" --text="Enter the dispersion coefficients for each element type followed by f' and f'' values i.e.: \n \n C 0.0031 0.0016 H 0.0 0.0" > DISP_inst.txt
+	zenity --entry --title="Dispersion coefficients" --text="Enter the dispersion coefficients for each element type followed by f' and f'' values i.e.: \n \n C 0.0031 0.0016 H 0.0 0.0" > DISP_inst.txt
 	while [ $? -eq 1 ]; do 
 		zenity --entry --title="Dispersion coefficients" --text="Enter the dispersion coefficients for each element type followed by f' and f'' values i.e.: \n \n C 0.0031 0.0016 H 0.0 0.0" > DISP_inst.txt
 	done
