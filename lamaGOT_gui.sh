@@ -115,6 +115,29 @@ if [ "$DISP" = "yes" ]; then
 #	done
 	echo "   	 }" >> stdin
 fi
+if [[ $J = 0 || $IAMTONTO ]]; then 
+	echo ""
+	echo "   crystal= {    " >> stdin
+	echo "      xray_data= {   " >> stdin
+	echo "         optimise_extinction= false" >> stdin
+	echo "         correct_dispersion= $DISP" >> stdin
+	echo "         wavelength= $WAVE Angstrom" >> stdin
+	echo "         REDIRECT $HKL" >> stdin
+	echo "         f_sigma_cutoff= $FCUT" >> stdin
+	echo "         refine_H_U_iso= $HADP" >> stdin
+	echo "" >> stdin
+	echo "         show_fit_output= true" >> stdin
+	echo "         show_fit_results= true" >> stdin
+	echo "" >> stdin
+	echo "      }  " >> stdin
+	echo "   }  " >> stdin
+	echo "" >> stdin
+	echo "   ! Geometry    " >> stdin
+	echo "   put" >> stdin
+	echo "" >> stdin
+	echo "   IAM_refinement" >> stdin
+	echo "" >> stdin
+fi
 echo "" >> stdin
 echo "   crystal= {    " >> stdin
 echo "      xray_data= {   " >> stdin
@@ -127,6 +150,11 @@ echo "         wavelength= $WAVE Angstrom" >> stdin
 echo "         REDIRECT $HKL" >> stdin
 echo "         f_sigma_cutoff= $FCUT" >> stdin
 echo "         refine_H_U_iso= $HADP" >> stdin
+if [[ "$SCFCALCPROG" = "Tonto" && $IAMTONTO ]]; then 
+	echo "" >> stdin
+	echo "         show_fit_output= false" >> stdin
+	echo "         show_fit_results= false" >> stdin
+fi
 echo "" >> stdin
 if [ "$SCFCALCPROG" != "Tonto" ]; then 
 	echo "	 show_fit_output= TRUE" >> stdin
@@ -674,7 +702,7 @@ export MAIN_DIALOG='
 
 <window window_position="1" title="Tonto Gaussian Orca interface">
 
- <vbox>
+ <vbox scrollable="true" space-expand="true" space-fill="true" height="1200" width="800" >
 
   <hbox homogeneous="True" >
 
@@ -1008,6 +1036,17 @@ Set the angular pruning scheme for lebedev_grid given a radial point '"'i'"' out
         <action>if true disable:REFHPOS</action>
         <action>if false enable:REFHPOS</action>
     </radiobutton>
+   </hbox>
+
+   <hseparator></hseparator>
+
+   <hbox>
+    <checkbox sensitive="true" space-fill="True"  space-expand="True">
+     <label>Start refinement with a Tonto IAM </label>
+      <variable>IAMTONTO</variable>
+      <action>if true disable:XHALONG</action>
+      <action>if false enable:XHALONG</action>
+    </checkbox>
    </hbox>
 
    <hseparator></hseparator>
