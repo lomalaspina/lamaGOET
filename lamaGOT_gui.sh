@@ -495,7 +495,9 @@ SECONDS=0
 I=$"0"   ###counter for gaussian jobs
 J=$"0"   ###counter for tonto fits
 #removing  0 0 0 line 
-awk '{if (($1) != "0" && ($2) != "0" && ($3) != "0" ) print}' $HKL > $JOBNAME.tonto_edited.hkl
+if [[ ! -z $(awk '{if (($1) == "0" && ($2) == "0" && ($3) == "0" ) print}' $HKL) ]]; then
+	awk '{if (($1) != "0" && ($2) != "0" && ($3) != "0" ) print}' $HKL > $JOBNAME.tonto_edited.hkl
+fi
 #backing up hkl input file and copying the one without the 0 line to the $HKL variable
 if [ -f "$JOBNAME.tonto_edited.hkl" ]; then
 	cp $HKL $JOBNAME.your_input.hkl
@@ -1493,6 +1495,7 @@ Set the angular pruning scheme for lebedev_grid given a radial point '"'i'"' out
 gtkdialog --program=MAIN_DIALOG > job_options.txt
 source job_options.txt
 rm job_options.txt
+echo "" > $JOBNAME.lst
 if [[ -z "$SCFCALCPROG" ]]; then
 	SCFCALCPROG="Gaussian"
 fi
@@ -1504,6 +1507,7 @@ if [ "$DISP" = "yes" ]; then
 	done
 fi
 
+#if [ -f  ]
 #	gtkdialog --program=dispersion_coef > DISP_instructions.txt
 
 
