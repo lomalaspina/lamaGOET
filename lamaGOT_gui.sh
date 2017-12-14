@@ -1,6 +1,64 @@
 #!/bin/bash
 Encoding=UTF-8
 
+GET_CHARGE(){
+awk 'NF==5 {print $5} ' $JOBNAME.gamess.inp | gawk 'BEGIN { FS = "" } {print $1}' | awk '{ if ($1 == "N") print 7; else if ($1 == "H") print 1; else if ($1 == "O") print 8; else if ($1 == "C") print 6; else if ($1 == "S") print 16; }' > atoms_Z
+}
+
+GAMESS_ELMODB(){
+PDB=$( echo $CIF | awk -F "/" '{print $NF}' )
+echo "title" > $JOBNAME.gamess.inp
+echo "prova $JOBNAME - $BASISSET - closed shell SCF" >> $JOBNAME.gamess.inp
+echo "charge $CHARGE " >> $JOBNAME.gamess.inp
+if [ "$MULTIPLICITY" != "1" ]; then
+	echo "multiplicity $MULTIPLICITY" >> $JOBNAME.gamess.inp
+fi
+echo "adapt off" >> $JOBNAME.gamess.inp
+echo "nosym" >> $JOBNAME.gamess.inp
+echo "geometry angstrom" >> $JOBNAME.gamess.inp
+awk '$1 ~ /ATOM/ {printf "%f\t %f\t %f\t %s\t %s\n", $6, $7, $8, "carga", $3} ' $CIF > atoms
+awk '{print $5}' atoms | gawk 'BEGIN { FS = "" } {print $1}' | awk '{ if ($1 == "N") print "7.0"; else if ($1 == "H") print "1.0"; else if ($1 == "O") print "8.0"; else if ($1 == "C") print "6.0"; else if ($1 == "S") print "16.0"; }' > atoms_Z
+awk 'FNR==NR{a[NR]=$1;next}{$4=a[FNR]}1' atoms_Z atoms > full
+awk '{printf "%f\t %f\t %f\t %s\t %s\n", $1, $2, $3, $4, $5}' full >> $JOBNAME.gamess.inp
+#awk '$1 ~ /ATOM/ {printf "%f\t %f\t %f\t %s\t %s\n", $6, $7, $8, "carga", $3} ' $CIF >> $JOBNAME.gamess.inp
+rm atoms 
+rm atoms_Z 
+rm full
+echo "end" >> $JOBNAME.gamess.inp
+echo "basis $BASISSET" >> $JOBNAME.gamess.inp
+echo "runtype scf" >> $JOBNAME.gamess.inp
+echo "scftype rhf" >> $JOBNAME.gamess.inp
+echo "enter " >> $JOBNAME.gamess.inp
+I=$[ $I + 1 ]
+echo "Calculating overlap integrals with gamessus, cycle number $I" 
+$GAMESS < $JOBNAME.gamess.inp > $JOBNAME.gamess.out
+echo "Gamess cycle number $I ended"
+mkdir $I.$SCFCALCPROG.cycle.$JOBNAME
+cp $JOBNAME.gamess.inp  $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.gamess.inp
+cp $JOBNAME.gamess.out  $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.gamess.out
+cp sao  $I.$SCFCALCPROG.cycle.$JOBNAME/$I.sao
+rm ed* 
+rm gamess_input*
+if ! grep -q 'OVERLAP INTEGRALS WRITTEN ON FILE sao' "$JOBNAME.gamess.out"; then
+	echo "ERROR: Calculation of overlap integrals with gamessus finished with error, please check the $I.th gamess.out file for more details" | tee -a $JOBNAME.lst
+	unset MAIN_DIALOG
+	exit 0
+else 
+	ln -s $ELMOLIB LIBRARIES
+	cp $SCFCALC_BIN .
+	echo " "'$INPUT_METHOD'"      basis_set='$BASISSET' ncpus=1 divcon=.false. rotvirt=.false. full_occ=.true. full_virt=.false. max_atom=2000000 "'$END'" " > $JOBNAME.elmodb.inp
+	echo " "'$INPUT_STRUCTURE'"   pdb_file='$PDB' nssbond=0 ntail=0 nspec=0 max_atail=50 max_frtail=50 maxsh=40 "'$END'"  " >> $JOBNAME.elmodb.inp
+	$SCFCALC_BIN < $JOBNAME.elmodb.inp > $JOBNAME.elmodb.out
+	if ! grep -q 'Number of electrons =' "$JOBNAME.elmodb.out"; then
+		echo "ERROR: elmodb finished with error, please check the $I.th elmodb.out file for more details" | tee -a $JOBNAME.lst
+		unset MAIN_DIALOG
+		exit 0
+	else
+		sed -i 's/Alpha Orbital Energies/Alpha MO coefficients/g' OUTPUT.fchk
+	fi
+fi
+}
+
 TONTO_TO_ORCA(){
 I=$[ $I + 1 ]
 echo "Extrating XYZ for Orca cycle number $I"
@@ -64,24 +122,24 @@ else
 	echo "   name= $JOBNAME" >> stdin
 fi
 echo "" >> stdin
-echo "   charge= $CHARGE" >> stdin       
-echo "   multiplicity= $MULTIPLICITY" >> stdin
-echo "" >> stdin
+#echo "   charge= $CHARGE" >> stdin       
+#echo "   multiplicity= $MULTIPLICITY" >> stdin
+#echo "" >> stdin
 echo "   ! Process the CIF" >> stdin
 echo "   CIF= {" >> stdin
 if [ $J = 0 ]; then 
 	echo "       file_name= $CIF" >> stdin
 	if [ "$XHALONG" = "true" ]; then
-           	if [ ! -z "$BHBOND" ]; then
+           	if [[ ! -z "$BHBOND" ]]; then
 		   	echo "       BH_bond_length= $BHBOND angstrom" >> stdin
 	   	fi
-           	if [ ! -z "$CHBOND" ]; then
+           	if [[ ! -z "$CHBOND" ]]; then
 		   	echo "       CH_bond_length= $CHBOND angstrom" >> stdin
 	   	fi
-           	if [ ! -z "$NHBOND" ]; then
+           	if [[ ! -z "$NHBOND" ]]; then
 		   	echo "       NH_bond_length= $NHBOND angstrom" >> stdin
 	   	fi
-           	if [ ! -z "$OHBOND" ]; then
+           	if [[ ! -z "$OHBOND" ]]; then
 		   	echo "       OH_bond_length= $OHBOND angstrom" >> stdin
 	   	fi
 	fi
@@ -104,6 +162,7 @@ echo "" >> stdin
 if [ "$SCFCALCPROG" = "Tonto" ]; then 
 	echo "   basis_directory= $BASISSETDIR" >> stdin
 	echo "   basis_name= $BASISSETT" >> stdin
+	echo "" >> stdin
 fi
 if [ "$DISP" = "yes" ]; then 
 	echo "   	 dispersion_coefficients= {" >> stdin
@@ -114,10 +173,26 @@ if [ "$DISP" = "yes" ]; then
 #	    echo "      ${XDISP[L]}" >> stdin
 #	done
 	echo "   	 }" >> stdin
+	echo "" >> stdin
 fi
-if [[ $J = 0 || $IAMTONTO ]]; then 
+if [[ $J = 0 && "$COMPLETECIF" = "true" ]]; then
+	echo "   cluster= {" >> stdin
+	echo "      defragment= $COMPLETECIF" >> stdin
+	echo "      make_info" >> stdin
+	echo "   }" >> stdin
+	echo "" >> stdin
+fi
+echo "   charge= $CHARGE" >> stdin       
+echo "   multiplicity= $MULTIPLICITY" >> stdin
+echo "" >> stdin
+if [[ $J = 0 && "$IAMTONTO" = "true" ]]; then 
 	echo ""
 	echo "   crystal= {    " >> stdin
+	if [ "$COMPLETECIF" = "true" ]; then
+		echo "      defragment= $COMPLETECIF" >> stdin
+		echo "      make_info" >> stdin
+		echo "      put_cluster_info" >> stdin
+	fi
 	echo "      xray_data= {   " >> stdin
 	echo "         optimise_extinction= false" >> stdin
 	echo "         correct_dispersion= $DISP" >> stdin
@@ -140,6 +215,11 @@ if [[ $J = 0 || $IAMTONTO ]]; then
 fi
 echo "" >> stdin
 echo "   crystal= {    " >> stdin
+if [[ $J = 0 && "$COMPLETECIF" = "true" ]]; then
+	echo "      defragment= $COMPLETECIF" >> stdin
+	echo "      make_info" >> stdin
+	echo "      put_cluster_info" >> stdin
+fi
 echo "      xray_data= {   " >> stdin
 echo "         thermal_smearing_model= hirshfeld" >> stdin
 echo "         partition_model= mulliken" >> stdin
@@ -150,7 +230,7 @@ echo "         wavelength= $WAVE Angstrom" >> stdin
 echo "         REDIRECT $HKL" >> stdin
 echo "         f_sigma_cutoff= $FCUT" >> stdin
 echo "         refine_H_U_iso= $HADP" >> stdin
-if [[ "$SCFCALCPROG" = "Tonto" && $IAMTONTO ]]; then 
+if [[ "$SCFCALCPROG" = "Tonto" && "$IAMTONTO" = "true" ]]; then 
 	echo "" >> stdin
 	echo "         show_fit_output= false" >> stdin
 	echo "         show_fit_results= false" >> stdin
@@ -275,6 +355,8 @@ echo "}" >> stdin
 J=$[ $J + 1 ]
 echo "Runing Tonto, cycle number $J" 
 $TONTO
+sed -i 's/(//g' $JOBNAME.xyz
+sed -i 's/)//g' $JOBNAME.xyz
 echo "Tonto cycle number $J ended"
 if ! grep -q 'Wall-clock time taken' "stdout"; then
 	echo "ERROR: problems in fit cycle, please check the $J.th stdout file for more details" | tee -a $JOBNAME.lst
@@ -412,6 +494,44 @@ run_script(){
 SECONDS=0
 I=$"0"   ###counter for gaussian jobs
 J=$"0"   ###counter for tonto fits
+#removing  0 0 0 line 
+awk '{if (($1) != "0" && ($2) != "0" && ($3) != "0" ) print}' $HKL > $JOBNAME.tonto_edited.hkl
+#backing up hkl input file and copying the one without the 0 line to the $HKL variable
+if [ -f "$JOBNAME.tonto_edited.hkl" ]; then
+	cp $HKL $JOBNAME.your_input.hkl
+	cp $JOBNAME.tonto_edited.hkl $HKL
+	rm $JOBNAME.tonto_edited.hkl
+	echo "WARNING: HKL has been formated, your original input is saved with the name $JOBNAME.your_input.hkl!"
+fi
+#checking if numbers are grown together and separating them. note that this will ignore the header lines if is exists.
+if [[ ! -z "$(awk ' NF<5 && NF>2 {print $0}' $HKL)" ]]; then
+	gawk 'BEGIN { FS = "" } { for (i = 1; i <= NF; i = i + 1) h=$1$2$3$4; k=$5$6$7$8; l=$9$10$11$12; i_f=$13$14$15$16$17$18$19$20; sig=$21$22$23$24$25$26$27$28; print h, k, l, i_f, sig }' $HKL > $JOBNAME.tonto_edited.hkl
+	cp $HKL $JOBNAME.your_input.hkl
+	cp $JOBNAME.tonto_edited.hkl $HKL
+	rm $JOBNAME.tonto_edited.hkl
+fi
+if [ "$WRITEHEADER" = "true" ]; then
+  	#checking if the header was not there already
+	if [[ ! -z "$(grep "reflection_data= {" $HKL)" ]]; then
+		echo "header was already in the hkl file, nothing to do."
+	else
+		#putting the header in
+		sed -i '1 i\   data= {' $HKL 
+		if [ "$ONF" = "true" ]; then
+			sed -i '1 i\  keys= { h= k= l= f_exp= f_sigma= }' $HKL 
+	     	elif [ "$ONF2" = "true" ]; then
+			sed -i '1 i\  keys= { h= k= l= i_exp= i_sigma= }' $HKL 
+		else
+			echo "ERROR: Please select the format of the hkl file for header (F or F^2)" | tee -a $JOBNAME.lst
+			unset MAIN_DIALOG
+			exit 0
+		fi
+		sed -i '1 i\ reflection_data= {' $HKL 
+		sed -i '$ a\   }' $HKL
+		sed -i '$ a\  }' $HKL 
+		sed -i '$ a\ REVERT' $HKL 
+	fi
+fi
 echo "###############################################################################################" > $JOBNAME.lst
 echo "                                           lamaGOT                                             " >> $JOBNAME.lst
 echo "###############################################################################################" >> $JOBNAME.lst
@@ -436,15 +556,19 @@ if [ "$SCFCALCPROG" = "Tonto" ]; then
 else
 	echo "Level of theory 	: $METHOD/$BASISSET" >> $JOBNAME.lst
 fi
-echo "Becke grid (not default): $USEBECKE" >> $JOBNAME.lst
-if [ "$USEBECKE" = "true" ]; then
-	echo "Becke grid accuracy	: $ACCURACY" >> $JOBNAME.lst
-	echo "Becke grid pruning scheme	: $BECKEPRUNINGSCHEME" >> $JOBNAME.lst
+if [ "$SCFCALCPROG" = "Tonto" ]; then 
+	echo "Becke grid (not default): $USEBECKE" >> $JOBNAME.lst
+	if [ "$USEBECKE" = "true" ]; then
+		echo "Becke grid accuracy	: $ACCURACY" >> $JOBNAME.lst
+		echo "Becke grid pruning scheme	: $BECKEPRUNINGSCHEME" >> $JOBNAME.lst
+	fi
 fi
-echo "Use SC cluster charges 	: $SCCHARGES" >> $JOBNAME.lst
-if [ "$SCCHARGES" = "true" ]; then
-	echo "SC cluster charge radius: $SCCRADIUS Angstrom" >> $JOBNAME.lst
-	echo "Complete molecules	: $DEFRAG" >> $JOBNAME.lst
+if [ "$SCFCALCPROG" != "elmodb" ]; then 
+	echo "Use SC cluster charges 	: $SCCHARGES" >> $JOBNAME.lst
+	if [ "$SCCHARGES" = "true" ]; then
+		echo "SC cluster charge radius: $SCCRADIUS Angstrom" >> $JOBNAME.lst
+		echo "Complete molecules	: $DEFRAG" >> $JOBNAME.lst
+	fi
 fi
 echo "Refine position and ADPs: $POSADP" >> $JOBNAME.lst
 echo "Refine positions only	: $POSONLY" >> $JOBNAME.lst
@@ -465,7 +589,7 @@ if [ $DISP = "yes" ]; then
 #	done	
 
 fi
-if [ "$SCFCALCPROG" != "Tonto" ]; then 
+if [[ "$SCFCALCPROG" != "Tonto" && "$SCFCALCPROG" != "elmodb" ]]; then 
 	echo "Only for Gaussian/Orca job	" >> $JOBNAME.lst
 	echo "Number of processor 	: $NUMPROC" >> $JOBNAME.lst
 	echo "Memory		 	: $MEM" >> $JOBNAME.lst
@@ -514,6 +638,8 @@ if [ "$SCFCALCPROG" != "Tonto" ]; then
 	echo "}" >> stdin 
 	echo "Reading cif with Tonto"
 	$TONTO
+	sed -i 's/(//g' $JOBNAME.xyz
+	sed -i 's/)//g' $JOBNAME.xyz
 	if ! grep -q 'Wall-clock time taken' "stdout"; then
 		echo "ERROR: something wrong with your input cif file, please check the stdout file for more details" | tee -a $JOBNAME.lst
 		unset MAIN_DIALOG
@@ -682,7 +808,7 @@ if [ "$SCFCALCPROG" != "Tonto" ]; then
 	echo "Job ended, elapsed time:" | tee -a $JOBNAME.lst
 	echo "$(($DURATION / 86400 )) days,  $((($DURATION / 3600) % 24 )) hours, $((($DURATION / 60) % 60 ))minutes and $(($DURATION % 60 )) seconds elapsed." | tee -a $JOBNAME.lst
 	exit
-else
+elif [ "$SCFCALCPROG" = "tonto" ]; then
 	SCF_TO_TONTO
 	echo "_________________________________________________________________________________________________________________________________" >> $JOBNAME.lst
 	echo "" >> $JOBNAME.lst
@@ -695,7 +821,51 @@ else
 	echo "Job ended, elapsed time:" | tee -a $JOBNAME.lst
 	echo "$(($DURATION / 86400 )) days,  $((($DURATION / 3600) % 24 )) hours, $((($DURATION / 60) % 60 ))minutes and $(($DURATION % 60 )) seconds elapsed." | tee -a $JOBNAME.lst
 	exit
+else
+	GAMESS_ELMODB
+	SCF_TO_TONTO
+#	echo "title" > $JOBNAME.gamess.inp
+#	echo "prova $JOBNAME - $BASISSET - closed shell SCF" >> $JOBNAME.gamess.inp
+#	echo "charge $CHARGE " >> $JOBNAME.gamess.inp
+#	if [ "$MULTIPLICITY" != "1" ]; then
+#		echo "multiplicity $MULTIPLICITY" >> $JOBNAME.gamess.inp
+#	fi
+#	echo "adapt off" >> $JOBNAME.gamess.inp
+#	echo "nosym" >> $JOBNAME.gamess.inp
+#	echo "geometry angstrom" >> $JOBNAME.gamess.inp
+#	awk '$1 ~ /ATOM/ {printf "%f\t %f\t %f\t %s\t %s\n", $6, $7, $8, "carga", $3} ' $CIF >> $JOBNAME.gamess.inp
+#	echo "end" >> $JOBNAME.gamess.inp
+#	echo "basis $BASISSET" >> $JOBNAME.gamess.inp
+#	echo "runtype scf" >> $JOBNAME.gamess.inp
+#	echo "scftype rhf" >> $JOBNAME.gamess.inp
+#	echo "enter " >> $JOBNAME.gamess.inp
+#	I=$[ $I + 1 ]
+#	echo "Calculating overlap integrals with gamessus, cycle number $I" 
+#	gamess_int < $JOBNAME.gamess.inp > $JOBNAME.gamess.out
+#	echo "Gamess cycle number $I ended"
+#	mkdir $I.$SCFCALCPROG.cycle.$JOBNAME
+#	cp $JOBNAME.gamess.inp  $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.gamess.inp
+#	cp $JOBNAME.gamess.out  $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.gamess.out
+#	cp sao  $I.$SCFCALCPROG.cycle.$JOBNAME/$I.sao
+#	rm ed* gamess_input*
+#	if ! grep -q 'OVERLAP INTEGRALS WRITTEN ON FILE sao' "$JOBNAME.log"; then
+#		echo "ERROR: Calculation of overlap integrals with gamessus finished with error, please check the $I.th gamess.out file for more details" | tee -a $JOBNAME.lst
+#		unset MAIN_DIALOG
+#		exit 0
+#	else 
+#		cp $SCFCALC_BIN .
+#		echo " $INPUT_METHOD      basis_set='$BASISSET' ncpus=1 divcon=.false. rotvirt=.false. full_occ=.true. full_virt=.false. max_atom=2000000 $END" > $JOBNAME.elmodb.inp
+#		echo " $INPUT_STRUCTURE   pdb_file='$CIF' nssbond=0 ntail=0 nspec=0 max_atail=50 max_frtail=50 maxsh=40 $END  " >> $JOBNAME.elmodb.inp
+#		./$SCFCALC_BIN < $JOBNAME.elmodb.inp > $JOBNAME.elmodb.out
+#		if ! grep -q 'Number of electrons =' "$JOBNAME.log"; then
+#			echo "ERROR: elmodb finished with error, please check the $I.th elmodb.out file for more details" | tee -a $JOBNAME.lst
+#			unset MAIN_DIALOG
+#			exit 0
+#		else
+#			sed -i 's/Alpha Orbital Energies/Alpha MO coefficients/g' OUTPUT.fchk
+#	fi
 fi
+
 }
 
 export MAIN_DIALOG='
@@ -738,6 +908,10 @@ export MAIN_DIALOG='
         <action>if false enable:BASISSETDIR</action>
         <action>if true disable:BASISSETT</action>
         <action>if false enable:BASISSETT</action>
+        <action>if true disable:GAMESS</action>
+        <action>if false enable:GAMESS</action>
+        <action>if true disable:ELMOLIB</action>
+        <action>if false enable:ELMOLIB</action>
       </radiobutton>
       <radiobutton space-fill="True"  space-expand="True">
         <label>Orca</label>
@@ -753,6 +927,10 @@ export MAIN_DIALOG='
         <action>if false enable:BASISSETDIR</action>
         <action>if true disable:BASISSETT</action>
         <action>if false enable:BASISSETT</action>
+        <action>if true disable:GAMESS</action>
+        <action>if false enable:GAMESS</action>
+        <action>if true disable:ELMOLIB</action>
+        <action>if false enable:ELMOLIB</action>
       </radiobutton>
       <radiobutton space-fill="True"  space-expand="True">
         <label>Tonto</label>
@@ -766,27 +944,96 @@ export MAIN_DIALOG='
         <action>if false disable:USEBECKE</action>
         <action>if true disable:BASISSET</action>
         <action>if false enable:BASISSET</action>
+        <action>if true disable:MEM</action>
+        <action>if true disable:NUMPROC</action>
+        <action>if false enable:MEM</action>
+        <action>if false enable:NUMPROC</action>
+        <action>if true disable:GAMESS</action>
+        <action>if false enable:GAMESS</action>
+        <action>if true disable:ELMOLIB</action>
+        <action>if false enable:ELMOLIB</action>
+      </radiobutton>
+      <radiobutton space-fill="True"  space-expand="True">
+        <label>elmodb</label>
+        <default>false</default>
+        <action>if true echo 'SCFCALCPROG="elmodb"'</action>
+        <action>if true disable:MEM</action>
+        <action>if true disable:NUMPROC</action>
+        <action>if true enable:SCFCALC_BIN</action>
+        <action>if true disable:BASISSETDIR</action>
+        <action>if false enable:MEM</action>
+        <action>if false enable:NUMPROC</action>
+        <action>if false disable:SCFCALC_BIN</action>
+        <action>if false enable:BASISSETDIR</action>
+        <action>if true disable:BASISSETT</action>
+        <action>if false enable:BASISSETT</action>
+        <action>if true disable:SCCHARGES</action>
+        <action>if false enable:SCCHARGES</action>
+        <action>if true enable:GAMESS</action>
+        <action>if false disable:GAMESS</action>
+        <action>if true enable:ELMOLIB</action>
+        <action>if false disable:ELMOLIB</action>
       </radiobutton>
    </hbox>
 
    <hseparator></hseparator>
 
    <hbox>
-    <text use-markup="true" wrap="false" ><label>Your Tonto executable</label></text>
-    <entry has-tooltip="true" tooltip-markup="This can also be the full path to your Tonto executable.">
+    <text label="Your Tonto executable" has-tooltip="true" tooltip-markup="This can be a full path" ></text>
+    <entry fs-action="file" fs-folder="./"
+           fs-title="Select the gamess_int file">
      <default>tonto</default>
      <variable>TONTO</variable>
     </entry>
+    <button>
+     <input file stock="gtk-open"></input>
+     <action type="fileselect">TONTO</action>
+    </button>
    </hbox>
 
    <hseparator></hseparator>
 
   <hbox>
-    <text use-markup="true" wrap="false"><label>Your Gaussian or Orca executable</label></text>
-    <entry>
+    <text label="Your Gaussian, Orca or elmodb executable" has-tooltip="true" tooltip-markup="This can be a full path" ></text>
+    <entry fs-action="file" fs-folder="./"
+           fs-title="Select the gamess_int file">
      <default>g09</default>
      <variable>SCFCALC_BIN</variable>
     </entry>
+    <button>
+     <input file stock="gtk-open"></input>
+     <action type="fileselect">SCFCALC_BIN</action>
+    </button>
+   </hbox>
+
+   <hseparator></hseparator>
+
+   <hbox>
+    <text label="Your gamess_int executable" has-tooltip="true" tooltip-markup="This can be a full path" ></text>
+    <entry sensitive="false" fs-action="file" fs-folder="./"
+           fs-title="Select the gamess_int file">
+     <default>gamess_int</default>
+     <variable>GAMESS</variable>
+    </entry>
+    <button>
+     <input file stock="gtk-open"></input>
+     <action type="fileselect">GAMESS</action>
+    </button>
+   </hbox>
+
+   <hseparator></hseparator>
+
+   <hbox>
+    <text label="ELMO libraries folder" has-tooltip="true" tooltip-markup="This can be a full path" ></text>
+    <entry sensitive="false" fs-action="folder" fs-folder="./"
+           fs-title="Select the ELMO library folder">
+     <default>/usr/local/bin/ELMO_LIB</default>
+     <variable>ELMOLIB</variable>
+    </entry>
+    <button>
+     <input file stock="gtk-open"></input>
+     <action type="fileselect">ELMOLIB</action>
+    </button>
    </hbox>
 
    <hseparator></hseparator>
@@ -802,16 +1049,23 @@ export MAIN_DIALOG='
    <hseparator></hseparator>
 
    <hbox>
-    <text label="Select the cif file that you wish to submit" ></text>
+    <text label="Select the cif or pdb file that you wish to submit" has-tooltip="true" tooltip-markup="ONLY use pdb file if you are using elmodb!!!" ></text>
     <entry fs-action="file" fs-folder="./"
-           fs-filters="*.cif"
-           fs-title="Select a cif file">
+           fs-filters="*.cif|*.pdb"
+           fs-title="Select a cif or pdb file">
      <variable>CIF</variable>
     </entry>
     <button>
      <input file stock="gtk-open"></input>
      <action type="fileselect">CIF</action>
     </button>
+
+    <checkbox active="false" has-tooltip="true" tooltip-markup="THIS OPTION WILL BE AVAILABLE SOON! 
+Make sure you will enter the correct charge and multiplicity" space-fill="True"  space-expand="True" sensitive="false">
+     <label>Complete molecule(s) in the cif </label>
+      <variable>COMPLETECIF</variable>
+    </checkbox>
+
    </hbox>
 
    <hseparator></hseparator>
@@ -827,6 +1081,26 @@ export MAIN_DIALOG='
      <input file stock="gtk-open"></input>
      <action type="fileselect">HKL</action>
     </button>
+
+    <checkbox active="false" has-tooltip="true" tooltip-markup="WARNING: Select one ONLY if you need a header to be written in the hkl file!" space-fill="True"  space-expand="True">
+     <label>write header </label>
+      <variable>WRITEHEADER</variable>
+      <action>if true enable:ONF</action>
+      <action>if true enable:ONF2</action>
+      <action>if false disable:ONF</action>
+      <action>if false disable:ONF2</action>
+    </checkbox>
+
+    <checkbox active="false" sensitive= "false" space-fill="True"  space-expand="True">
+     <label>on F </label>
+      <variable>ONF</variable>
+    </checkbox>
+
+    <checkbox active="false" sensitive= "false" space-fill="True"  space-expand="True">
+     <label>on F^2 </label>
+      <variable>ONF2</variable>
+    </checkbox>
+
    </hbox>
 
    <hseparator></hseparator>
