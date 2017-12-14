@@ -542,7 +542,9 @@ echo "Tonto executable	: $TONTO"  >> $JOBNAME.lst
 echo "$($TONTO -v)" >> $JOBNAME.lst 
 #awk 'NR==7 { print }' stdout >> $JOBNAME.lst      #print the tonto version, but there is no stdout yet
 echo "SCF program		: $SCFCALCPROG" >> $JOBNAME.lst
-echo "SCF executable		: $SCFCALC_BIN" >> $JOBNAME.lst
+if [ "$SCFCALCPROG" != "Tonto" ]; then 
+	echo "SCF executable		: $SCFCALC_BIN" >> $JOBNAME.lst
+fi
 echo "Job name		: $JOBNAME" >> $JOBNAME.lst
 echo "Input cif		: $CIF" >> $JOBNAME.lst
 echo "Input hkl		: $HKL" >> $JOBNAME.lst
@@ -808,7 +810,7 @@ if [[ "$SCFCALCPROG" != "Tonto" && "$SCFCALCPROG" != "elmodb" ]]; then
 	echo "Job ended, elapsed time:" | tee -a $JOBNAME.lst
 	echo "$(($DURATION / 86400 )) days,  $((($DURATION / 3600) % 24 )) hours, $((($DURATION / 60) % 60 ))minutes and $(($DURATION % 60 )) seconds elapsed." | tee -a $JOBNAME.lst
 	exit
-elif [ "$SCFCALCPROG" = "tonto" ]; then
+elif [ "$SCFCALCPROG" = "Tonto" ]; then
 	SCF_TO_TONTO
 	echo "_________________________________________________________________________________________________________________________________" >> $JOBNAME.lst
 	echo "" >> $JOBNAME.lst
@@ -912,6 +914,8 @@ export MAIN_DIALOG='
         <action>if false enable:GAMESS</action>
         <action>if true disable:ELMOLIB</action>
         <action>if false enable:ELMOLIB</action>
+        <action>if true enable:XHALONG</action>
+        <action>if false disable:XHALONG</action>
       </radiobutton>
       <radiobutton space-fill="True"  space-expand="True">
         <label>Orca</label>
@@ -931,6 +935,8 @@ export MAIN_DIALOG='
         <action>if false enable:GAMESS</action>
         <action>if true disable:ELMOLIB</action>
         <action>if false enable:ELMOLIB</action>
+        <action>if true enable:XHALONG</action>
+        <action>if false disable:XHALONG</action>
       </radiobutton>
       <radiobutton space-fill="True"  space-expand="True">
         <label>Tonto</label>
@@ -952,6 +958,8 @@ export MAIN_DIALOG='
         <action>if false enable:GAMESS</action>
         <action>if true disable:ELMOLIB</action>
         <action>if false enable:ELMOLIB</action>
+        <action>if true enable:XHALONG</action>
+        <action>if false disable:XHALONG</action>
       </radiobutton>
       <radiobutton space-fill="True"  space-expand="True">
         <label>elmodb</label>
@@ -973,6 +981,8 @@ export MAIN_DIALOG='
         <action>if false disable:GAMESS</action>
         <action>if true enable:ELMOLIB</action>
         <action>if false disable:ELMOLIB</action>
+        <action>if true disable:XHALONG</action>
+        <action>if false enable:XHALONG</action>
       </radiobutton>
    </hbox>
 
@@ -1353,7 +1363,7 @@ Set the angular pruning scheme for lebedev_grid given a radial point '"'i'"' out
 
    <hbox>
 
-    <checkbox active="false" space-fill="True"  space-expand="True">
+    <checkbox active="false" sensitive="true" space-fill="True"  space-expand="True">
      <label>Alongate X-H bond lengths ?</label>
      <variable>XHALONG</variable>
      <default>false</default>
