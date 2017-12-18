@@ -1831,8 +1831,7 @@ export MAIN_DIALOG='
      <action type="fileselect">CIF</action>
     </button>
 
-    <checkbox active="false" has-tooltip="true" tooltip-markup="THIS OPTION WILL BE AVAILABLE SOON! 
-Make sure you will enter the correct charge and multiplicity" space-fill="True"  space-expand="True" sensitive="true">
+    <checkbox active="false" has-tooltip="true" tooltip-markup="Make sure you will enter the correct charge and multiplicity" space-fill="True"  space-expand="True" sensitive="true">
      <label>Complete molecule(s) in the cif </label>
       <variable>COMPLETECIF</variable>
     </checkbox>
