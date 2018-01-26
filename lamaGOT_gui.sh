@@ -1299,7 +1299,7 @@ echo "Refine ADPs only	: $ADPSONLY" >> $JOBNAME.lst
 if [ "$POSONLY" != "true" ]; then
 	echo "Refine H ADPs 		: $REFHADP" >> $JOBNAME.lst
 	if [ "$REFHADP" = "true" ]; then
-		echo "Refine Hydrogens anis.	: $HADP" >> $JOBNAME.lst
+		echo "Refine Hydrogens isot.	: $HADP" >> $JOBNAME.lst
 	fi
 fi
 echo "Dispersion correction	: $DISP" >> $JOBNAME.lst
@@ -1624,7 +1624,7 @@ fi
 
 export MAIN_DIALOG='
 
-<window window_position="1" title="Tonto Gaussian Orca interface">
+<window window_position="1" title="lamaGOT">
 
  <vbox scrollable="true" space-expand="true" space-fill="true" height="800" width="800" >
 
@@ -1633,7 +1633,7 @@ export MAIN_DIALOG='
     <hbox homogeneous="True">
      <frame>
       <text use-markup="true" wrap="false"><label>"<span color='"'blue'"'>Welcome to the interface for Hirsfeld Atom fit and Gaussian/Orca</span>"</label></text>
-      <text use-markup="true" wrap="false"><label>"<span color='"'blue'"'>(You need to have coreutils installed on your machine to use this script</span>"</label></text>
+      <text use-markup="true" wrap="false"><label>"<span color='"'blue'"'>(You need to have coreutils installed on your machine to use this script)</span>"</label></text>
       <pixmap>
        <width>40</width>
        <height>40</height>
@@ -2123,7 +2123,7 @@ Set the angular pruning scheme for lebedev_grid given a radial point '"'i'"' out
 
    <hbox>
 
-    <checkbox active="false" sensitive="true" space-fill="True"  space-expand="True">
+    <checkbox active="false" sensitive="true" space-fill="True"  space-expand="True" sensitive="false" >
      <label>Alongate X-H bond lengths ?</label>
      <variable>XHALONG</variable>
      <default>false</default>
