@@ -608,7 +608,7 @@ zenity --forms --title="Crystal data" --text="Enter the unit cell parameters and
 zenity --entry --title "Window title" --text "${SPACEGROUPARRAY[@]}" --text "Select the space group (number = IT symbol = Hall Symbol):" > spacegroup.txt
 }
 
-GAMESS_ELMODB(){
+GAMESS_ELMODB_OLD_PDB(){
 PDB=$( echo $CIF | awk -F "/" '{print $NF}' )
 echo "title" > $JOBNAME.gamess.inp
 echo "prova $JOBNAME - $BASISSET - closed shell SCF" >> $JOBNAME.gamess.inp
@@ -710,6 +710,45 @@ sed -i -ne '/Total SCF Density/ {p; r DMAT' -e ':a; n; /Mulliken Charges/ {p; b}
 cp  $JOBNAME.fchk  $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.elmodb.fchk
 }
 
+ELMODB(){
+I=$[ $I + 1 ]
+#if [[ ! -e "LIBRARIES" ]]; then
+#	ln -s $ELMOLIB LIBRARIES
+#fi
+if [[ ! -f "elmodb.exe" ]]; then
+	cp $SCFCALC_BIN .
+fi
+if [ "$I" = "1" ]; then
+	PDB=$( echo $CIF | awk -F "/" '{print $NF}' )
+	BASISSETDIR=$( echo "$(dirname $BASISSETDIR)/" )
+	ELMOLIB=$( echo "$(dirname $ELMOLIB)/" )
+	echo " "'$INPUT_METHOD'"      job_title='$JOBNAME' basis_set='$BASISSET' iprint_level=1 ncpus=$NUMPROC alloc_mem=$MEM bset_path='$BASISSETDIR' lib_path='$ELMOLIB' nci=.true. "'$END'" " > $JOBNAME.elmodb.inp
+	echo " "'$INPUT_STRUCTURE'"   pdb_file='$PDB' "'$END'"  " >> $JOBNAME.elmodb.inp
+else 
+	echo " "'$INPUT_METHOD'"      job_title='$JOBNAME' basis_set='$BASISSET' xyz=.true. iprint_level=1 ncpus=$NUMPROC alloc_mem=$MEM bset_path='$BASISSETDIR' lib_path='$ELMOLIB' nci=.true. "'$END'" " > $JOBNAME.elmodb.inp
+	echo " "'$INPUT_STRUCTURE'"   pdb_file='$PDB' xyz_file='$JOBNAME.xyz' "'$END'"  " >> $JOBNAME.elmodb.inp
+fi
+./elmodb.exe < $JOBNAME.elmodb.inp > $JOBNAME.elmodb.out
+if ! grep -q 'CONGRATULATIONS: THE ELMO-TRANSFERs ENDED GRACEFULLY!!!' "$JOBNAME.elmodb.out"; then
+	echo "ERROR: elmodb finished with error, please check the $I.th elmodb.out file for more details" | tee -a $JOBNAME.lst
+	unset MAIN_DIALOG
+	exit 0
+else
+	mkdir $I.$SCFCALCPROG.cycle.$JOBNAME
+	cp $JOBNAME.elmodb.out  $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.elmodb.out
+	cp $JOBNAME.elmodb.inp  $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.elmodb.inp
+	cp $JOBNAME.fchk  $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.elmodb.fchk
+	if [ "$I" != "1" ]; then
+		cp $JOBNAME.xyz  $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.xyz
+	fi
+fi
+}
+
+CHECK_ELMO(){
+LINES=$(wc -l < $JOBNAME.elmodb.out | tr -d '\r')
+PERCENT1=$[ LINES / 100 ]
+}
+
 TONTO_TO_ORCA(){
 I=$[ $I + 1 ]
 echo "Extrating XYZ for Orca cycle number $I"
@@ -764,7 +803,7 @@ echo "" >> stdin
 if [ "$SCFCALCPROG" = "elmodb" ]; then
         echo "   name= $JOBNAME" >> stdin 
         echo "" >> stdin
-	echo "   read_g09_fchk_file $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.elmodb.fchk" >> stdin
+	echo "   read_g09_fchk_file $JOBNAME.fchk" >> stdin
 fi
 if [ "$SCFCALCPROG" = "Gaussian" ]; then
         echo "   name= $JOBNAME" >> stdin 
@@ -1093,6 +1132,7 @@ if [ $J = 1 ]; then
 	echo "" >> $JOBNAME.lst
 #	echo " $J  $(awk '{a[NR]=$0}/^Rigid-atom fit results/{b=NR}END {print a[b-5]}' stdout)    $ENERGIA   $RMSD   $ENERGY "  >> $JOBNAME.lst
 fi
+	echo " $J  $(awk '{a[NR]=$0}/^Rigid-atom fit results/{b=NR}END {print a[b-4]}' stdout)"  >> $JOBNAME.lst
 #	echo " $J  $(awk '{a[NR]=$0}/^Rigid-atom fit results/{b=NR}END {print a[b-5]}' stdout)"  >> $JOBNAME.lst
 #echo " $J  $(awk '{a[NR]=$0}/^Rigid-atom fit results/{b=NR}END {print a[b-5]}' stdout)    $ENERGIA2   $RMSD2   $DE"  >> $JOBNAME.lst
 if [ "$SCFCALCPROG" != "Tonto" ]; then 
@@ -1210,6 +1250,7 @@ run_script(){
 SECONDS=0
 I=$"0"   ###counter for gaussian jobs
 J=$"0"   ###counter for tonto fits
+
 #removing  0 0 0 line 
 if [[ ! -z $(awk '{if (($1) == "0" && ($2) == "0" && ($3) == "0" ) print}' $HKL) ]]; then
 	awk '{if (($1) != "0" && ($2) != "0" && ($3) != "0" ) print}' $HKL > $JOBNAME.tonto_edited.hkl
@@ -1221,6 +1262,7 @@ if [ -f "$JOBNAME.tonto_edited.hkl" ]; then
 	rm $JOBNAME.tonto_edited.hkl
 	echo "WARNING: HKL has been formated, your original input is saved with the name $JOBNAME.your_input.hkl!"
 fi
+
 #checking if numbers are grown together and separating them. note that this will ignore the header lines if is exists.
 if [[ ! -z "$(awk ' NF<5 && NF>2 {print $0}' $HKL)" ]]; then
 	gawk 'BEGIN { FS = "" } { for (i = 1; i <= NF; i = i + 1) h=$1$2$3$4; k=$5$6$7$8; l=$9$10$11$12; i_f=$13$14$15$16$17$18$19$20; sig=$21$22$23$24$25$26$27$28; print h, k, l, i_f, sig }' $HKL > $JOBNAME.tonto_edited.hkl
@@ -1228,6 +1270,8 @@ if [[ ! -z "$(awk ' NF<5 && NF>2 {print $0}' $HKL)" ]]; then
 	cp $JOBNAME.tonto_edited.hkl $HKL
 	rm $JOBNAME.tonto_edited.hkl
 fi
+
+# writing header on hkl
 if [ "$WRITEHEADER" = "true" ]; then
   	#checking if the header was not there already
 	if [[ ! -z "$(grep "reflection_data= {" $HKL)" ]]; then
@@ -1250,9 +1294,12 @@ if [ "$WRITEHEADER" = "true" ]; then
 		sed -i '$ a\ REVERT' $HKL 
 	fi
 fi
+
 if [[ -z "$(grep "reflection_data= {" $HKL)" ]]; then
 	echo "You are missing the tonto header in the hkl file."
 fi
+
+#writing the lst file
 echo "###############################################################################################" > $JOBNAME.lst
 echo "                                           lamaGOT                                             " >> $JOBNAME.lst
 echo "###############################################################################################" >> $JOBNAME.lst
@@ -1269,7 +1316,7 @@ fi
 echo "Job name		: $JOBNAME" >> $JOBNAME.lst
 echo "Input cif		: $CIF" >> $JOBNAME.lst
 echo "Input hkl		: $HKL" >> $JOBNAME.lst
-echo "Wavelenght		: $WAVE" >> $JOBNAME.lst
+echo "Wavelenght		: $WAVE" Angstrom >> $JOBNAME.lst
 echo "F_sigma_cutoff		: $FCUT" >> $JOBNAME.lst
 echo "Charge			: $CHARGE" >> $JOBNAME.lst
 echo "Multiplicity		: $MULTIPLICITY" >> $JOBNAME.lst
@@ -1312,6 +1359,8 @@ if [ $DISP = "yes" ]; then
 #	done	
 
 fi
+
+#writing in the lst file FOR GAUSSIAN or ORCA only
 if [[ "$SCFCALCPROG" != "Tonto" && "$SCFCALCPROG" != "elmodb" ]]; then 
 	echo "Only for Gaussian/Orca job	" >> $JOBNAME.lst
 	echo "Number of processor 	: $NUMPROC" >> $JOBNAME.lst
@@ -1420,6 +1469,7 @@ if [[ "$SCFCALCPROG" != "Tonto" && "$SCFCALCPROG" != "elmodb" ]]; then
 		echo "%int=./$JOBNAME.int" | tee -a $JOBNAME.com  $JOBNAME.lst
 		echo "%mem=$MEM" | tee -a $JOBNAME.com  $JOBNAME.lst
 		echo "%nprocshared=$NUMPROC" | tee -a $JOBNAME.com $JOBNAME.lst
+		#this is the first SCF so no charges in!
 		if [ "$METHOD" = "rks" ]; then
 			echo "# blyp/$BASISSET nosymm output=wfn 6D 10F" | tee -a $JOBNAME.com $JOBNAME.lst    
 		else
@@ -1484,14 +1534,12 @@ if [[ "$SCFCALCPROG" != "Tonto" && "$SCFCALCPROG" != "elmodb" ]]; then
 		if [ "$METHOD" = "rks" ]; then
 			echo "! blyp $BASISSET" > $JOBNAME.inp
 			echo "! blyp $BASISSET" >> $JOBNAME.lst
+		elif [ "$METHOD" = "uks" ]; then
+			echo "! ublyp $BASISSET" > $JOBNAME.inp
+			echo "! ublyp $BASISSET" >> $JOBNAME.lst
 		else
-			if [ "$METHOD" = "uks" ]; then
-				echo "! ublyp $BASISSET" > $JOBNAME.inp
-				echo "! ublyp $BASISSET" >> $JOBNAME.lst
-			else
-				echo "! $METHOD $BASISSET" > $JOBNAME.inp
-				echo "! $METHOD $BASISSET" >> $JOBNAME.lst
-			fi
+			echo "! $METHOD $BASISSET" > $JOBNAME.inp
+			echo "! $METHOD $BASISSET" >> $JOBNAME.lst
 		fi
 		echo "" | tee -a $JOBNAME.inp $JOBNAME.lst
 		echo "%output" | tee -a $JOBNAME.inp $JOBNAME.lst
@@ -1575,9 +1623,26 @@ elif [ "$SCFCALCPROG" = "Tonto" ]; then
 	echo "$(($DURATION / 86400 )) days,  $((($DURATION / 3600) % 24 )) hours, $((($DURATION / 60) % 60 ))minutes and $(($DURATION % 60 )) seconds elapsed." | tee -a $JOBNAME.lst
 	exit
 else
-
-	GAMESS_ELMODB
+#	GAMESS_ELMODB_OLD_PDB
+	ELMODB
+        CHECK_ELMO
 	SCF_TO_TONTO
+	ELMODB
+	while [[ "$(diff $JOBNAME.elmodb.out $[ I - 1 ].$SCFCALCPROG.cycle.$JOBNAME/$[ I - 1 ].$JOBNAME.elmodb.out | wc -l )" -gt $PERCENT1 ]]; do
+		SCF_TO_TONTO
+		ELMODB
+	done
+	echo "_________________________________________________________________________________________________________________________________" >> $JOBNAME.lst
+	echo "" >> $JOBNAME.lst
+	echo "###############################################################################################" >> $JOBNAME.lst
+	echo "                                     Final Geometry                                         " >> $JOBNAME.lst
+	echo "###############################################################################################" >> $JOBNAME.lst
+	echo "" >> $JOBNAME.lst
+	echo " $(awk '{a[NR]=$0}/^Rigid-atom fit results/{b=NR}/^Wall-clock time taken for job /{c=NR}END{for (d=b-2;d<c-1;++d) print a[d]}' stdout)"  >> $JOBNAME.lst
+	DURATION=$SECONDS
+	echo "Job ended, elapsed time:" | tee -a $JOBNAME.lst
+	echo "$(($DURATION / 86400 )) days,  $((($DURATION / 3600) % 24 )) hours, $((($DURATION / 60) % 60 ))minutes and $(($DURATION % 60 )) seconds elapsed." | tee -a $JOBNAME.lst
+	exit
 #	echo "title" > $JOBNAME.gamess.inp
 #	echo "prova $JOBNAME - $BASISSET - closed shell SCF" >> $JOBNAME.gamess.inp
 #	echo "charge $CHARGE " >> $JOBNAME.gamess.inp
@@ -1663,13 +1728,14 @@ export MAIN_DIALOG='
         <action>if true disable:BASISSETT</action>
         <action>if false enable:BASISSETT</action>
         <action>if true disable:GAMESS</action>
-        <action>if false enable:GAMESS</action>
         <action>if true disable:ELMOLIB</action>
         <action>if false enable:ELMOLIB</action>
         <action>if true enable:XHALONG</action>
         <action>if false disable:XHALONG</action>
         <action>if true enable:COMPLETECIF</action>
         <action>if false disable:COMPLETECIF</action>
+        <action>if true disable:USEGAMESS</action>
+        <action>if false enable:USEGAMESS</action>
       </radiobutton>
       <radiobutton space-fill="True"  space-expand="True">
         <label>Orca</label>
@@ -1682,17 +1748,18 @@ export MAIN_DIALOG='
         <action>if false disable:MEM</action>
         <action>if false disable:NUMPROC</action>
         <action>if false disable:SCFCALC_BIN</action>
+        <action>if true disable:GAMESS</action>
         <action>if false enable:BASISSETDIR</action>
         <action>if true disable:BASISSETT</action>
         <action>if false enable:BASISSETT</action>
-        <action>if true disable:GAMESS</action>
-        <action>if false enable:GAMESS</action>
         <action>if true disable:ELMOLIB</action>
         <action>if false enable:ELMOLIB</action>
         <action>if true enable:XHALONG</action>
         <action>if false disable:XHALONG</action>
         <action>if true enable:COMPLETECIF</action>
         <action>if false disable:COMPLETECIF</action>
+        <action>if true disable:USEGAMESS</action>
+        <action>if false enable:USEGAMESS</action>
       </radiobutton>
       <radiobutton space-fill="True"  space-expand="True">
         <label>Tonto</label>
@@ -1706,50 +1773,58 @@ export MAIN_DIALOG='
         <action>if false disable:USEBECKE</action>
         <action>if true disable:BASISSET</action>
         <action>if false enable:BASISSET</action>
+        <action>if true disable:GAMESS</action>
         <action>if true disable:MEM</action>
         <action>if true disable:NUMPROC</action>
         <action>if false enable:MEM</action>
         <action>if false enable:NUMPROC</action>
-        <action>if true disable:GAMESS</action>
-        <action>if false enable:GAMESS</action>
         <action>if true disable:ELMOLIB</action>
         <action>if false enable:ELMOLIB</action>
         <action>if true enable:XHALONG</action>
         <action>if false disable:XHALONG</action>
         <action>if true enable:COMPLETECIF</action>
         <action>if false disable:COMPLETECIF</action>
+        <action>if true disable:USEGAMESS</action>
+        <action>if false enable:USEGAMESS</action>
       </radiobutton>
       <radiobutton space-fill="True"  space-expand="True">
         <label>elmodb</label>
         <default>false</default>
         <action>if true echo 'SCFCALCPROG="elmodb"'</action>
-        <action>if true disable:MEM</action>
-        <action>if true disable:NUMPROC</action>
+        <action>if true enable:MEM</action>
+        <action>if true enable:NUMPROC</action>
         <action>if true enable:SCFCALC_BIN</action>
-        <action>if true disable:BASISSETDIR</action>
-        <action>if false enable:MEM</action>
-        <action>if false enable:NUMPROC</action>
+        <action>if true enable:BASISSETDIR</action>
+        <action>if false disable:MEM</action>
+        <action>if false disable:NUMPROC</action>
         <action>if false disable:SCFCALC_BIN</action>
-        <action>if false enable:BASISSETDIR</action>
+        <action>if false disable:BASISSETDIR</action>
         <action>if true disable:BASISSETT</action>
         <action>if false enable:BASISSETT</action>
         <action>if true disable:SCCHARGES</action>
         <action>if false enable:SCCHARGES</action>
-        <action>if true enable:GAMESS</action>
-        <action>if false disable:GAMESS</action>
         <action>if true enable:ELMOLIB</action>
         <action>if false disable:ELMOLIB</action>
         <action>if true disable:XHALONG</action>
         <action>if false enable:XHALONG</action>
         <action>if true disable:COMPLETECIF</action>
         <action>if false enable:COMPLETECIF</action>
+        <action>if true enable:USEGAMESS</action>
+        <action>if false disable:USEGAMESS</action>
       </radiobutton>
    </hbox>
+
+    <checkbox active="false" space-fill="True"  space-expand="True" sensitive="false">
+     <label>Use Gamess_us for calculation of overlap integrals</label>
+      <variable>USEGAMESS</variable>
+        <action>if true enable:GAMESS</action>
+        <action>if false disable:GAMESS</action>
+    </checkbox>
 
    <hseparator></hseparator>
 
    <hbox>
-    <text label="Your Tonto executable" has-tooltip="true" tooltip-markup="This can be a full path" ></text>
+    <text label="Tonto executable" has-tooltip="true" tooltip-markup="This can be a full path" ></text>
     <entry fs-action="file" fs-folder="./"
            fs-title="Select the gamess_int file">
      <default>tonto</default>
@@ -1764,7 +1839,7 @@ export MAIN_DIALOG='
    <hseparator></hseparator>
 
   <hbox>
-    <text label="Your Gaussian, Orca or elmodb executable" has-tooltip="true" tooltip-markup="This can be a full path" ></text>
+    <text label="Gaussian, Orca or elmodb executable" has-tooltip="true" tooltip-markup="This can be a full path" ></text>
     <entry fs-action="file" fs-folder="./"
            fs-title="Select the gamess_int file">
      <default>g09</default>
@@ -1779,7 +1854,7 @@ export MAIN_DIALOG='
    <hseparator></hseparator>
 
    <hbox>
-    <text label="Your gamess_int executable" has-tooltip="true" tooltip-markup="This can be a full path" ></text>
+    <text label="gamess_int executable" has-tooltip="true" tooltip-markup="This can be a full path" ></text>
     <entry sensitive="false" fs-action="file" fs-folder="./"
            fs-filters="gamess_int"
            fs-title="Select the gamess_int file">
@@ -1807,6 +1882,22 @@ export MAIN_DIALOG='
     </button>
    </hbox>
 
+
+   <hseparator></hseparator>
+
+   <hbox>
+    <text label="basis sets directory" ></text>
+    <entry sensitive="false" fs-action="folder" fs-folder="/usr/local/bin/"
+           fs-title="Select the basis_sets directory">
+     <variable>BASISSETDIR</variable>
+     <default>/usr/local/bin/basis_sets</default>
+    </entry>
+    <button>
+     <input file stock="gtk-open"></input>
+     <action type="fileselect">BASISSETDIR</action>
+    </button>
+   </hbox>
+
    <hseparator></hseparator>
 
    <hbox>
@@ -1820,7 +1911,7 @@ export MAIN_DIALOG='
    <hseparator></hseparator>
 
    <hbox>
-    <text label="Select the cif or pdb file that you wish to submit" has-tooltip="true" tooltip-markup="ONLY use pdb file if you are using elmodb!!!" ></text>
+    <text label="cif or pdb file" has-tooltip="true" tooltip-markup="ONLY use pdb file if you are using elmodb!!!" ></text>
     <entry fs-action="file" fs-folder="./"
            fs-filters="*.cif|*.pdb"
            fs-title="Select a cif or pdb file">
@@ -1841,7 +1932,7 @@ export MAIN_DIALOG='
    <hseparator></hseparator>
 
    <hbox>
-    <text label="Select the hkl file that you wish to submit" ></text>
+    <text label="hkl file" ></text>
     <entry fs-action="file" fs-folder="./"
            fs-filters="*.hkl"
            fs-title="Select an hkl file">
@@ -1872,21 +1963,6 @@ export MAIN_DIALOG='
     </checkbox>
 
    </hbox>
-
-   <hseparator></hseparator>
-
-   <hbox>
-    <text label="Select the basis_sets directory" ></text>
-    <entry sensitive="false" fs-action="folder" fs-folder="/usr/local/bin/"
-           fs-title="Select the basis_sets directory">
-     <variable>BASISSETDIR</variable>
-     <default>/usr/local/bin/basis_sets</default>
-    </entry>
-    <button>
-     <input file stock="gtk-open"></input>
-     <action type="fileselect">BASISSETDIR</action>
-    </button>
-   </hbox>
  
    <hseparator></hseparator>
 
@@ -1897,7 +1973,7 @@ export MAIN_DIALOG='
      <variable>WAVE</variable>
     </entry>
 
-    <text use-markup="true" wrap="false"><label>Enter the F/sigma cutoff</label></text>
+    <text use-markup="true" wrap="false"><label>F/sigma cutoff</label></text>
     <entry>
      <default>3</default>
      <variable>FCUT</variable>
@@ -1979,7 +2055,7 @@ export MAIN_DIALOG='
 
    <hbox>
 
-    <text><label>Enter manually for Gaussian or Orca!</label> </text>
+    <text><label>Enter manually for Gaussian, Orca or elmodb!</label> </text>
     <entry tooltip-text="Use the correct Gaussian or Orca or Tonto format" sensitive="true">
      <default>STO-3G</default>
      <variable>BASISSET</variable>
@@ -2171,7 +2247,7 @@ Set the angular pruning scheme for lebedev_grid given a radial point '"'i'"' out
    <hseparator></hseparator>
 
    <hbox>
-    <text xalign="0" use-markup="true" wrap="false"><label>Would you like to apply dispersion corrections?</label></text>
+    <text xalign="0" use-markup="true" wrap="false"><label>Apply dispersion corrections?</label></text>
     <combobox has-tooltip="true" tooltip-markup="Enter the '"f'"' and '"f''"' values in popup window after pressing '"'OK'"'" space-fill="True"  space-expand="True">
       <variable>DISP</variable>
       <item>no</item>
@@ -2192,7 +2268,7 @@ Set the angular pruning scheme for lebedev_grid given a radial point '"'i'"' out
    <hseparator></hseparator>
 
    <hbox>
-    <text xalign="0" use-markup="true" wrap="false"><label>Memory available for the Gaussian or Orca job (including the unit mb or gb)</label></text>
+    <text xalign="0" use-markup="true" has-tooltip="true" tooltip-markup="(including the unit mb or gb. For elmodb only in mb without unit!)" wrap="false"><label>Memory available for the Gaussian, Orca or elmodb job</label></text>
     <entry>
      <default>1gb</default>
      <variable>MEM</variable>
@@ -2258,14 +2334,14 @@ if [[ -z "$SCFCALCPROG" ]]; then
 	SCFCALCPROG="Gaussian"
 fi
 
-if [ "$DISP" = "yes" ]; then
+if [[ "$DISP" = "yes" && "$EXIT" = "OK" ]]; then
 	zenity --entry --title="Dispersion coefficients" --text="Enter the dispersion coefficients for each element type followed by f' and f'' values i.e.: \n \n C 0.0031 0.0016 H 0.0 0.0" > DISP_inst.txt
 	while [ $? -eq 1 ]; do 
 		zenity --entry --title="Dispersion coefficients" --text="Enter the dispersion coefficients for each element type followed by f' and f'' values i.e.: \n \n C 0.0031 0.0016 H 0.0 0.0" > DISP_inst.txt
 	done
 fi
 
-if [ "$SCFCALCPROG" = "elmodb" ]; then
+if [[ "$SCFCALCPROG" = "elmodb" && "$EXIT" = "OK" ]]; then
 	if [[ ! -f "tonto.cell" ]]; then
 #		./space_group
 		SPACEGROUP
