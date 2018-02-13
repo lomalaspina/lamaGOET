@@ -824,7 +824,7 @@ TONTO_TO_ORCA(){
 }
 
 SCF_TO_TONTO(){
-	echo "Writing Tonto stdin"
+#	echo "Writing Tonto stdin"
 	echo "{ " > stdin
 	echo "" >> stdin
 	echo "   keyword_echo_on" >> stdin
@@ -972,6 +972,7 @@ SCF_TO_TONTO(){
 		echo "         wavelength= $WAVE Angstrom" >> stdin
 		echo "         REDIRECT $HKL" >> stdin
 		echo "         f_sigma_cutoff= $FCUT" >> stdin
+		echo "	       tol_for_shift_on_esd= $CONVTOL" >> stdin
 		echo "         refine_H_U_iso= $HADP" >> stdin
 		echo "" >> stdin
 		echo "         show_fit_output= true" >> stdin
@@ -1010,6 +1011,7 @@ SCF_TO_TONTO(){
 	echo "         wavelength= $WAVE Angstrom" >> stdin
 	echo "         REDIRECT $HKL" >> stdin
 	echo "         f_sigma_cutoff= $FCUT" >> stdin
+	echo "	       tol_for_shift_on_esd= $CONVTOL" >> stdin
 	echo "         refine_H_U_iso= $HADP" >> stdin
 	if [[ "$SCFCALCPROG" = "Tonto" && "$IAMTONTO" = "true" ]]; then 
 		echo "" >> stdin
@@ -1137,6 +1139,7 @@ SCF_TO_TONTO(){
 	J=$[ $J + 1 ]
 	echo "Running Tonto, cycle number $J" 
 	$TONTO
+	INITIALCHI=$(awk '{a[NR]=$0}/^Begin rigid-atom fit/{b=NR}END {print a[b+10]}' stdout | awk '{print $2}')
 	sed -i 's/(//g' $JOBNAME.xyz
 	sed -i 's/)//g' $JOBNAME.xyz
 	echo "Tonto cycle number $J ended"
@@ -1151,17 +1154,18 @@ SCF_TO_TONTO(){
 		echo "Begin rigid-atom fit" >> $JOBNAME.lst
 		echo "====================" >> $JOBNAME.lst
 		echo "" >> $JOBNAME.lst
-		echo "_________________________________________________________________________________________________________________________________" >> $JOBNAME.lst
+		echo "____________________________________________________________________________________________________________________________________________________" >> $JOBNAME.lst
 		echo "" >> $JOBNAME.lst
-		echo "Cycle   Fit         chi2         R       R_w        Max.     Max.  No. of  No. of     Energy         RMSD         Delta " >> $JOBNAME.lst
-		echo "       Iter                                        Shift    Shift  params   eig's    at final      at final       Energy " >> $JOBNAME.lst
-		echo "                                                    /esd    param          near 0     Geom.          Geom.                " >> $JOBNAME.lst
+		echo "Cycle   Fit      initial    final            R             R_w             Max.     Max.      No. of   No. of     Energy         RMSD         Delta " >> $JOBNAME.lst
+		echo "       Iter       chi2      chi2                                           Shift    Shift     params   eig's    at final      at final       Energy " >> $JOBNAME.lst
+		echo "                                                                           /esd     param              near 0     Geom.          Geom.                " >> $JOBNAME.lst
 		echo "" >> $JOBNAME.lst
-		echo "_________________________________________________________________________________________________________________________________" >> $JOBNAME.lst
+		echo "____________________________________________________________________________________________________________________________________________________" >> $JOBNAME.lst
 		echo "" >> $JOBNAME.lst
 	#	echo " $J  $(awk '{a[NR]=$0}/^Rigid-atom fit results/{b=NR}END {print a[b-5]}' stdout)    $ENERGIA   $RMSD   $ENERGY "  >> $JOBNAME.lst
 	fi
-		echo " $J  $(awk '{a[NR]=$0}/^Rigid-atom fit results/{b=NR}END {print a[b-4]}' stdout)"  >> $JOBNAME.lst
+		echo " $J  $(awk '{a[NR]=$0}/^Rigid-atom fit results/{b=NR}END {print a[b-4]}' stdout | awk '{print $1"\t"}' ) $INITIALCHI $(awk '{a[NR]=$0}/^Rigid-atom fit results/{b=NR}END {print a[b-4]}' stdout | awk '{print  "\t"$2"\t"$3"\t"$4"\t"$5"    "$6" "$7"\t"$8"\t"$9 }' ) "  >> $JOBNAME.lst
+
 	#	echo " $J  $(awk '{a[NR]=$0}/^Rigid-atom fit results/{b=NR}END {print a[b-5]}' stdout)"  >> $JOBNAME.lst
 	#echo " $J  $(awk '{a[NR]=$0}/^Rigid-atom fit results/{b=NR}END {print a[b-5]}' stdout)    $ENERGIA2   $RMSD2   $DE"  >> $JOBNAME.lst
 	if [ "$SCFCALCPROG" != "Tonto" ]; then 
@@ -1273,6 +1277,9 @@ CHECK_ENERGY(){
 	#	cp stdout stdout.$J
 }
 
+CHECKCONV(){
+FINALPARAMESD=$(awk '{a[NR]=$0}/^Rigid-atom fit results/{b=NR}END {print a[b-4]}' stdout | awk '{print $5}')
+}
 ######################  End check energy ########################
 
 run_script(){
@@ -1451,6 +1458,7 @@ run_script(){
 		echo "}" >> stdin 
 		echo "Reading cif with Tonto"
 		$TONTO
+		INITIALCHI=$(awk '{a[NR]=$0}/^Begin rigid-atom fit/{b=NR}END {print a[b+10]}' stdout | awk '{print $2}')
 		if [[ "$SCFCALCPROG" != "Tonto" && "$SCFCALCPROG" != "elmodb" ]]; then
 			sed -i 's/(//g' $JOBNAME.xyz
 			sed -i 's/)//g' $JOBNAME.xyz
@@ -1655,12 +1663,15 @@ run_script(){
 	else
 		if [ "$USEGAMESS" = "false" ]; then    
 			ELMODB
-		        CHECK_ELMO
+#		        CHECK_ELMO
 			SCF_TO_TONTO
 			ELMODB
-			while [[ "$(diff $JOBNAME.elmodb.out $[ I - 1 ].$SCFCALCPROG.cycle.$JOBNAME/$[ I - 1 ].$JOBNAME.elmodb.out | wc -l )" -gt $PERCENT1 ]]; do
+			CHECKCONV
+			while (( $(echo "$FINALPARAMESD > $CONVTOL" | bc -l) || $( echo "$J <= 1" | bc -l )  )); do
+#			while [[ "$(diff $JOBNAME.elmodb.out $[ I - 1 ].$SCFCALCPROG.cycle.$JOBNAME/$[ I - 1 ].$JOBNAME.elmodb.out | wc -l )" -gt $PERCENT1 ]]; do
 				SCF_TO_TONTO
 				ELMODB
+				CHECKCONV
 			done
 			echo "_________________________________________________________________________________________________________________________________" >> $JOBNAME.lst
 			echo "" >> $JOBNAME.lst
@@ -1676,12 +1687,14 @@ run_script(){
 
 		else 
 			GAMESS_ELMODB_OLD_PDB
-		        CHECK_ELMO
 			SCF_TO_TONTO
 			GAMESS_ELMODB_OLD_PDB
-			while [[ "$(diff $JOBNAME.elmodb.out $[ I - 1 ].$SCFCALCPROG.cycle.$JOBNAME/$[ I - 1 ].$JOBNAME.elmodb.out | wc -l )" -gt $PERCENT1 ]]; do
+			CHECKCONV
+			while (( $(echo "$FINALPARAMESD > $CONVTOL" | bc -l) || $( echo "$J <= 1" | bc -l )  )); do
+#			while [[ "$(diff $JOBNAME.elmodb.out $[ I - 1 ].$SCFCALCPROG.cycle.$JOBNAME/$[ I - 1 ].$JOBNAME.elmodb.out | wc -l )" -gt $PERCENT1 ]]; do
 				SCF_TO_TONTO
 				GAMESS_ELMODB_OLD_PDB
+				CHECKCONV
 			done
 			echo "_________________________________________________________________________________________________________________________________" >> $JOBNAME.lst
 			echo "" >> $JOBNAME.lst
@@ -1963,7 +1976,7 @@ export MAIN_DIALOG='
 	   <hseparator></hseparator>
 	
 	   <hbox>
-	    <text label="cif or pdb file" has-tooltip="true" tooltip-markup="ONLY use pdb file if you are using elmodb!!!" ></text>
+	    <text label="cif or pdb file" has-tooltip="true" tooltip-markup="ONLY use pdb file if you are using elmodb!!!" space-expand="false"></text>
 	    <entry fs-action="file" fs-folder="./"
 	           fs-filters="*.cif|*.pdb"
 	           fs-title="Select a cif or pdb file">
@@ -1984,7 +1997,7 @@ export MAIN_DIALOG='
 	   <hseparator></hseparator>
 	
 	   <hbox>
-	    <text label="hkl file" ></text>
+	    <text label="hkl file" space-expand="false" ></text>
 	    <entry fs-action="file" fs-folder="./"
 	           fs-filters="*.hkl"
 	           fs-title="Select an hkl file">
@@ -2019,18 +2032,29 @@ export MAIN_DIALOG='
 	   <hseparator></hseparator>
 	
 	   <hbox>
-	    <text use-markup="true" wrap="false"><label>Wavelenght (in Angstrom)</label></text>
+	    <text use-markup="true" wrap="TRUE" space-expand="false"><label>Wavelenght (in Angstrom)</label></text>
 	    <entry>
 	     <default>0.71073</default>
 	     <variable>WAVE</variable>
 	    </entry>
 	
-	    <text use-markup="true" wrap="false"><label>F/sigma cutoff</label></text>
+	    <text use-markup="true" wrap="TRUE" space-expand="FALSE"><label>F/sigma cutoff</label></text>
 	    <entry>
 	     <default>3</default>
 	     <variable>FCUT</variable>
 	    </entry>
+
+	   </hbox>
+	   <hbox space-expand="true" space-fill="true">
+
+	    <text text-xalign="0" use-markup="true" wrap="false" space-expand="FALSE" space-fill="false"><label>Conv. tol. for shift on esd</label></text>
+	   <hbox space-expand="true" space-fill="true">
+	    <entry space-expand="FALSE">
+	     <default>0.010000</default>
+	     <variable>CONVTOL</variable>
+	    </entry>
 	
+	   </hbox>
 	   </hbox>
 	
 	   <hseparator></hseparator>
