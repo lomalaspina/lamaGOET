@@ -909,12 +909,6 @@ SCF_TO_TONTO(){
 			#	cp $JOBNAME'_cartesian.cif2' $JOBNAME.cartesian.cif2
 				echo "       file_name= $J.fit_cycle.$JOBNAME/$J.$JOBNAME.cartesian.cif2" >> stdin
 			fi
-			#if ( $J -gt 0 ); then
-			#cp $JOBNAME'_cartesian.cif2' $JOBNAME.cartesian.cif2
-			#echo "       file_name= $JOBNAME.cartesian.cif2" >> stdin
-			#else
-			#echo "       file_name= $CIF" >> stdin
-			#fi
 			echo "    }" >> stdin
 			echo "" >> stdin
 			echo "   process_CIF" >> stdin
@@ -922,6 +916,21 @@ SCF_TO_TONTO(){
 			echo "   name= $JOBNAME" >> stdin
 			echo "" >> stdin
 		fi
+	fi
+	if [[ $J -gt 0 && "$SCFCALCPROG" == "elmodb" ]]; then
+		echo "   ! Process the CIF" >> stdin
+		echo "   CIF= {" >> stdin
+		echo "       file_name= $J.fit_cycle.$JOBNAME/$J.$JOBNAME.cartesian.cif2" >> stdin
+		echo "    }" >> stdin
+		echo "" >> stdin
+		echo "   process_CIF" >> stdin
+		echo "" >> stdin
+		echo "   name= $JOBNAME" >> stdin
+		echo "" >> stdin
+	#cp $JOBNAME'_cartesian.cif2' $JOBNAME.cartesian.cif2
+	#echo "       file_name= $JOBNAME.cartesian.cif2" >> stdin
+	#else
+	#echo "       file_name= $CIF" >> stdin
 	fi
 	if [ "$SCFCALCPROG" = "Tonto" ]; then 
 		echo "   basis_directory= $BASISSETDIR" >> stdin
@@ -989,7 +998,7 @@ SCF_TO_TONTO(){
 	fi
 	echo "" >> stdin
 	echo "   crystal= {    " >> stdin
-	if [ "$SCFCALCPROG" = "elmodb" ]; then
+	if [[ "$SCFCALCPROG" = "elmodb" && $J = 0 ]]; then
 		echo "      REDIRECT tonto.cell" >> stdin
 	fi
 	if [[ "$SCFCALCPROG" != "elmodb" && "$SCFCALCPROG" != "Tonto" ]]; then
@@ -1140,6 +1149,9 @@ SCF_TO_TONTO(){
 	echo "Running Tonto, cycle number $J" 
 	$TONTO
 	INITIALCHI=$(awk '{a[NR]=$0}/^Begin rigid-atom fit/{b=NR}END {print a[b+10]}' stdout | awk '{print $2}')
+	MAXSHIFT=$(awk '{a[NR]=$0}/^Begin rigid-atom fit/{b=NR+10}/^Rigid-atom fit results/{c=NR-4}END {for(d=b;d<=c;++d)print a[d]}' stdout | awk -v max=0 '{if($5>max){shift=$5; atom=$6; param=$7; max=$5}}END{print shift}')
+	MAXSHIFTATOM=$(awk '{a[NR]=$0}/^Begin rigid-atom fit/{b=NR+10}/^Rigid-atom fit results/{c=NR-4}END {for(d=b;d<=c;++d)print a[d]}' stdout | awk -v max=0 '{if($5>max){shift=$5; atom=$6; param=$7; max=$5}}END{print atom}')
+	MAXSHIFTPARAM=$(awk '{a[NR]=$0}/^Begin rigid-atom fit/{b=NR+10}/^Rigid-atom fit results/{c=NR-4}END {for(d=b;d<=c;++d)print a[d]}' stdout | awk -v max=0 '{if($5>max){shift=$5; atom=$6; param=$7; max=$5}}END{print param}')
 	sed -i 's/(//g' $JOBNAME.xyz
 	sed -i 's/)//g' $JOBNAME.xyz
 	echo "Tonto cycle number $J ended"
@@ -1154,18 +1166,20 @@ SCF_TO_TONTO(){
 		echo "Begin rigid-atom fit" >> $JOBNAME.lst
 		echo "====================" >> $JOBNAME.lst
 		echo "" >> $JOBNAME.lst
-		echo "____________________________________________________________________________________________________________________________________________________" >> $JOBNAME.lst
+		echo "__________________________________________________________________________________________________________________________________________________________" >> $JOBNAME.lst
 		echo "" >> $JOBNAME.lst
-		echo "Cycle   Fit      initial    final            R             R_w             Max.     Max.      No. of   No. of     Energy         RMSD         Delta " >> $JOBNAME.lst
-		echo "       Iter       chi2      chi2                                           Shift    Shift     params   eig's    at final      at final       Energy " >> $JOBNAME.lst
-		echo "                                                                           /esd     param              near 0     Geom.          Geom.                " >> $JOBNAME.lst
+		echo "Cycle   Fit      initial    final            R             R_w             Max.          Max.      No. of   No. of     Energy         RMSD         Delta " >> $JOBNAME.lst
+		echo "       Iter       chi2      chi2                                           Shift         Shift     params   eig's    at final      at final       Energy " >> $JOBNAME.lst
+		echo "                                                                           /esd          param              near 0     Geom.          Geom.                " >> $JOBNAME.lst
 		echo "" >> $JOBNAME.lst
-		echo "____________________________________________________________________________________________________________________________________________________" >> $JOBNAME.lst
+		echo "__________________________________________________________________________________________________________________________________________________________" >> $JOBNAME.lst
 		echo "" >> $JOBNAME.lst
 	#	echo " $J  $(awk '{a[NR]=$0}/^Rigid-atom fit results/{b=NR}END {print a[b-5]}' stdout)    $ENERGIA   $RMSD   $ENERGY "  >> $JOBNAME.lst
 	fi
-		echo " $J  $(awk '{a[NR]=$0}/^Rigid-atom fit results/{b=NR}END {print a[b-4]}' stdout | awk '{print $1"\t"}' ) $INITIALCHI $(awk '{a[NR]=$0}/^Rigid-atom fit results/{b=NR}END {print a[b-4]}' stdout | awk '{print  "\t"$2"\t"$3"\t"$4"\t"$5"    "$6" "$7"\t"$8"\t"$9 }' ) "  >> $JOBNAME.lst
-
+	if [[ "$SCFCALCPROG" != "Gaussian" && "$SCFCALCPROG" != "Orca" ]]; then 
+		echo -e " $J  $(awk '{a[NR]=$0}/^Rigid-atom fit results/{b=NR}END {print a[b-4]}' stdout | awk '{print $1"\t"}' ) $INITIALCHI $(awk '{a[NR]=$0}/^Rigid-atom fit results/{b=NR}END {print a[b-4]}' stdout | awk '{print  "\t"$2"\t"$3"\t"$4"\t"}') $MAXSHIFT\t$MAXSHIFTATOM $MAXSHIFTPARAM $(awk '{a[NR]=$0}/^Rigid-atom fit results/{b=NR}END {print a[b-4]}' stdout | awk '{print  "\t""    "$8" \t"$9 }' ) "  >> $JOBNAME.lst  
+	fi
+#	echo " $J  $(awk '{a[NR]=$0}/^Rigid-atom fit results/{b=NR}END {print a[b-4]}' stdout | awk '{print $1"\t"}' ) $INITIALCHI $(awk '{a[NR]=$0}/^Rigid-atom fit results/{b=NR}END {print a[b-4]}' stdout | awk '{print  "\t"$2"\t"$3"\t"$4}') $(awk '{a[NR]=$0}/^Begin rigid-atom fit/{b=NR}END {print a[b+10]}' stdout | awk '{print "\t"$5"    "$6" "$7}') $(awk '{a[NR]=$0}/^Rigid-atom fit results/{b=NR}END {print a[b-4]}' stdout | awk '{print  "\t"$8"\t"$9 }' ) "  >> $JOBNAME.lst    
 	#	echo " $J  $(awk '{a[NR]=$0}/^Rigid-atom fit results/{b=NR}END {print a[b-5]}' stdout)"  >> $JOBNAME.lst
 	#echo " $J  $(awk '{a[NR]=$0}/^Rigid-atom fit results/{b=NR}END {print a[b-5]}' stdout)    $ENERGIA2   $RMSD2   $DE"  >> $JOBNAME.lst
 	if [ "$SCFCALCPROG" != "Tonto" ]; then 
@@ -1266,10 +1280,12 @@ CHECK_ENERGY(){
 		DE=$(awk "BEGIN {print $ENERGIA2 - $ENERGIA}")
 	#	DE=$(echo "$ENERGIA - $ENERGIA2" | bc)
 	#	DRMSD=$(($RMSD - $RMSD2))
-		echo " $J  $(awk '{a[NR]=$0}/^Rigid-atom fit results/{b=NR}END {print a[b-4]}' stdout)    $ENERGIA2   $RMSD2   $DE"  >> $JOBNAME.lst
+		echo -e " $J  $(awk '{a[NR]=$0}/^Rigid-atom fit results/{b=NR}END {print a[b-4]}' stdout | awk '{print $1"\t"}' ) $INITIALCHI $(awk '{a[NR]=$0}/^Rigid-atom fit results/{b=NR}END {print a[b-4]}' stdout | awk '{print  "\t"$2"\t"$3"\t"$4"\t"}') $MAXSHIFT\t$MAXSHIFTATOM $MAXSHIFTPARAM $(awk '{a[NR]=$0}/^Rigid-atom fit results/{b=NR}END {print a[b-4]}' stdout | awk '{print  "\t""    "$8" \t"$9 }' )  $ENERGIA2   $RMSD2   \t$DE"   >> $JOBNAME.lst  
+#		echo " $J  $(awk '{a[NR]=$0}/^Rigid-atom fit results/{b=NR}END {print a[b-4]}' stdout)    $ENERGIA2   $RMSD2   $DE"  >> $JOBNAME.lst
 		ENERGIA=$ENERGIA2
 		RMSD=$RMSD2
-		echo "Delta E (cycle  $I - $[ I - 1 ]): $DE (convergency will reach when Delta E is smaller than 0.0001)"
+		echo "Delta E (cycle  $I - $[ I - 1 ]): $DE "
+###		echo "Delta E (cycle  $I - $[ I - 1 ]): $DE (convergency will reach when Delta E is smaller than 0.0001)"
 	#	J=$[ $J + 1 ]
 	#	echo "Running Tonto, cycle number $J"
 	#	$TONTO
@@ -1278,7 +1294,8 @@ CHECK_ENERGY(){
 }
 
 CHECKCONV(){
-FINALPARAMESD=$(awk '{a[NR]=$0}/^Rigid-atom fit results/{b=NR}END {print a[b-4]}' stdout | awk '{print $5}')
+#FINALPARAMESD=$(awk '{a[NR]=$0}/^Rigid-atom fit results/{b=NR}END {print a[b-4]}' stdout | awk '{print $5}') This is from the last line
+FINALPARAMESD=$(awk '{a[NR]=$0}/^Begin rigid-atom fit/{b=NR}END {print a[b+10]}' stdout | awk '{print $5}')
 }
 ######################  End check energy ########################
 
@@ -1355,6 +1372,7 @@ run_script(){
 	echo "Input hkl		: $HKL" >> $JOBNAME.lst
 	echo "Wavelenght		: $WAVE" Angstrom >> $JOBNAME.lst
 	echo "F_sigma_cutoff		: $FCUT" >> $JOBNAME.lst
+	echo "Tol. for shift on esd	: $CONVTOL" >> $JOBNAME.lst
 	echo "Charge			: $CHARGE" >> $JOBNAME.lst
 	echo "Multiplicity		: $MULTIPLICITY" >> $JOBNAME.lst
 	if [ "$SCFCALCPROG" = "Tonto" ]; then 
@@ -1459,6 +1477,9 @@ run_script(){
 		echo "Reading cif with Tonto"
 		$TONTO
 		INITIALCHI=$(awk '{a[NR]=$0}/^Begin rigid-atom fit/{b=NR}END {print a[b+10]}' stdout | awk '{print $2}')
+		MAXSHIFT=$(awk '{a[NR]=$0}/^Begin rigid-atom fit/{b=NR+10}/^Rigid-atom fit results/{c=NR-4}END {for(d=b;d<=c;++d)print a[d]}' stdout | awk -v max=0 '{if($5>max){shift=$5; atom=$6; param=$7; max=$5}}END{print shift}')
+		MAXSHIFTATOM=$(awk '{a[NR]=$0}/^Begin rigid-atom fit/{b=NR+10}/^Rigid-atom fit results/{c=NR-4}END {for(d=b;d<=c;++d)print a[d]}' stdout | awk -v max=0 '{if($5>max){shift=$5; atom=$6; param=$7; max=$5}}END{print atom}')
+		MAXSHIFTPARAM=$(awk '{a[NR]=$0}/^Begin rigid-atom fit/{b=NR+10}/^Rigid-atom fit results/{c=NR-4}END {for(d=b;d<=c;++d)print a[d]}' stdout | awk -v max=0 '{if($5>max){shift=$5; atom=$6; param=$7; max=$5}}END{print param}')
 		if [[ "$SCFCALCPROG" != "Tonto" && "$SCFCALCPROG" != "elmodb" ]]; then
 			sed -i 's/(//g' $JOBNAME.xyz
 			sed -i 's/)//g' $JOBNAME.xyz
@@ -1623,7 +1644,8 @@ run_script(){
 		#echo "6.421e-09" | awk -F"E" 'BEGIN{OFMT="%10.10f"} {print $1 * (10 ^ $2)}' | bc  #aqui aparece um numero em notacao cientifica e a condicao nao pode ser testada, o comando acima transforma ele em float mas nao ta funcionando
 	
 		#awk -v a="$DE" -v b="0.00001" 'BEGIN{print (a > b)}'
-		while [ "$(awk -F'\t' 'function abs(x){return ((x < 0.0) ? -x : x)} BEGIN{print (abs('$DE') > 0.0001)}')" = 1 ]; do
+		while (( $(echo "$MAXSHIFT > $CONVTOL" | bc -l) || $( echo "$J <= 1" | bc -l )  )); do
+###		while [ "$(awk -F'\t' 'function abs(x){return ((x < 0.0) ? -x : x)} BEGIN{print (abs('$DE') > 0.0001)}')" = 1 ]; do
 		#while [ "$(echo "${DE=$(printf "%f", "$DE")} >= 0.000001" | bc -l)" -eq 1 ]; do  
 			SCF_TO_TONTO
 			if [ "$SCFCALCPROG" = "Gaussian" ]; then  
@@ -1633,7 +1655,7 @@ run_script(){
 			fi
 			CHECK_ENERGY
 		done
-		echo "_________________________________________________________________________________________________________________________________" >> $JOBNAME.lst
+		echo "__________________________________________________________________________________________________________________________________________________________" >> $JOBNAME.lst
 		echo "" >> $JOBNAME.lst
 		echo "###############################################################################################" >> $JOBNAME.lst
 		echo "                                     Final Geometry                                         " >> $JOBNAME.lst
@@ -1666,12 +1688,10 @@ run_script(){
 #		        CHECK_ELMO
 			SCF_TO_TONTO
 			ELMODB
-			CHECKCONV
-			while (( $(echo "$FINALPARAMESD > $CONVTOL" | bc -l) || $( echo "$J <= 1" | bc -l )  )); do
+			while (( $(echo "$MAXSHIFT > $CONVTOL" | bc -l) || $( echo "$J <= 1" | bc -l )  )); do
 #			while [[ "$(diff $JOBNAME.elmodb.out $[ I - 1 ].$SCFCALCPROG.cycle.$JOBNAME/$[ I - 1 ].$JOBNAME.elmodb.out | wc -l )" -gt $PERCENT1 ]]; do
 				SCF_TO_TONTO
 				ELMODB
-				CHECKCONV
 			done
 			echo "_________________________________________________________________________________________________________________________________" >> $JOBNAME.lst
 			echo "" >> $JOBNAME.lst
@@ -1689,12 +1709,10 @@ run_script(){
 			GAMESS_ELMODB_OLD_PDB
 			SCF_TO_TONTO
 			GAMESS_ELMODB_OLD_PDB
-			CHECKCONV
-			while (( $(echo "$FINALPARAMESD > $CONVTOL" | bc -l) || $( echo "$J <= 1" | bc -l )  )); do
+			while (( $(echo "$MAXSHIFT > $CONVTOL" | bc -l) || $( echo "$J <= 1" | bc -l )  )); do
 #			while [[ "$(diff $JOBNAME.elmodb.out $[ I - 1 ].$SCFCALCPROG.cycle.$JOBNAME/$[ I - 1 ].$JOBNAME.elmodb.out | wc -l )" -gt $PERCENT1 ]]; do
 				SCF_TO_TONTO
 				GAMESS_ELMODB_OLD_PDB
-				CHECKCONV
 			done
 			echo "_________________________________________________________________________________________________________________________________" >> $JOBNAME.lst
 			echo "" >> $JOBNAME.lst
@@ -1755,7 +1773,7 @@ run_script(){
 export MAIN_DIALOG='
 
 	<window window_position="1" title="lamaGOT">
-	
+
 	 <vbox scrollable="true" space-expand="true" space-fill="true" height="800" width="800" >
 	
 	  <hbox homogeneous="True" >
@@ -1773,10 +1791,16 @@ export MAIN_DIALOG='
 	    </hbox>
 	
 	  </hbox>
-	  
-	  <frame>
-	
+
+  	 <notebook 
+		tab-labels="Main|Andvanced Settings|Total XWR"
+		xx-tab-labels="which will be shown on tabs"
+		> 	  
+         <vbox>       
+	 <frame>
+
 	 <hbox>
+
 	    <text xalign="0" use-markup="true" wrap="false" space-fill="True"  space-expand="True"><label>Software for SCF calculation</label></text>
 	      <radiobutton space-fill="True"  space-expand="True">
 	        <label>Gaussian</label>
@@ -1877,6 +1901,7 @@ export MAIN_DIALOG='
 	        <action>if true enable:USEGAMESS</action>
 	        <action>if false disable:USEGAMESS</action>
 	      </radiobutton>
+
 	   </hbox>
 	
 	    <checkbox active="false" space-fill="True"  space-expand="True" sensitive="false">
@@ -2045,18 +2070,7 @@ export MAIN_DIALOG='
 	    </entry>
 
 	   </hbox>
-	   <hbox space-expand="true" space-fill="true">
 
-	    <text text-xalign="0" use-markup="true" wrap="false" space-expand="FALSE" space-fill="false"><label>Conv. tol. for shift on esd</label></text>
-	   <hbox space-expand="true" space-fill="true">
-	    <entry space-expand="FALSE">
-	     <default>0.010000</default>
-	     <variable>CONVTOL</variable>
-	    </entry>
-	
-	   </hbox>
-	   </hbox>
-	
 	   <hseparator></hseparator>
 	
 	   <hbox> 
@@ -2166,51 +2180,7 @@ export MAIN_DIALOG='
 	   </hbox>
 	
 	   <hseparator></hseparator>
-	
-	   <hbox>
-	    <checkbox sensitive="false" space-fill="True"  space-expand="True">
-	     <label>Use becke grid? </label>
-	      <variable>USEBECKE</variable>
-	      <action>if true enable:ACCURACY</action>
-	      <action>if true enable:BECKEPRUNINGSCHEME</action>
-	      <action>if false disable:ACCURACY</action>
-	      <action>if false disable:BECKEPRUNINGSCHEME</action>
-	    </checkbox>
-	
-	    <text use-markup="true" wrap="false"><label>Becke grid accuracy</label></text>
-	    <combobox has-tooltip="true" tooltip-markup="FOR TONTO SCF ONLY: 
-	'"'very_low'"' to '"'very_high'"' are Treutler-Ahlrichs settings, 
-	'"'extreme'"' and '"'best'"' are better than the Mura-Knowles settings. 
-	The '"'low'"' value is the one comparable to Gaussian." sensitive="false">
-	      <variable>ACCURACY</variable>
-	      <item>very_low</item>
-	      <item>low</item>
-	      <item>medium</item>
-	      <item>high</item>
-	      <item>very_high</item>
-	      <item>extreme</item>
-	      <item>best</item>
-	
-	    </combobox>
-	   </hbox>
-	
-	
-	   <hbox>
-	    <text use-markup="true" wrap="false"><label>Becke grid prunning scheme</label></text>
-	    <combobox sensitive="false" has-tooltip="true" tooltip-markup="FOR TONTO SCF ONLY: 
-	Set the angular pruning scheme for lebedev_grid given a radial point '"'i'"' out of a set of '"'nr'"' radial points arranged in increasing order.">
-	      <variable>BECKEPRUNINGSCHEME</variable>
-	      <item>none</item>
-	      <item>jayatilaka0</item>
-	      <item>jayatilaka1</item>
-	      <item>jayatilaka2</item>
-	      <item>treutler_ahlrichs</item>
-	    </combobox>
-	   </hbox>
-	
-	
-	   <hseparator></hseparator>
-	
+		
 	   <hbox>
 	    <text xalign="0" use-markup="true" wrap="false" space-fill="True"  space-expand="True"><label>Refinement options (all atom types): </label></text>
 	    <radiobutton>
@@ -2359,9 +2329,91 @@ export MAIN_DIALOG='
 	    <button cancel>
 	    </button>
 	   </hbox>
+
+	  </frame>
+         </vbox>
+         <vbox>
+ 
+	  <frame>
+
+	   <hbox space-expand="false" space-fill="false">
+
+	    <text text-xalign="0" use-markup="true" wrap="false" space-expand="FALSE" space-fill="false"><label>Conv. tol. for shift on esd</label></text>
+	   <hbox space-expand="true" space-fill="true">
+	    <entry space-expand="true">
+	     <default>0.010000</default>
+	     <variable>CONVTOL</variable>
+	    </entry>
 	
+	   </hbox>
+	   </hbox>
+
+	   <hseparator></hseparator>
+
+	   <hbox>
+	    <checkbox sensitive="false" space-fill="True"  space-expand="True">
+	     <label>Use becke grid? </label>
+	      <variable>USEBECKE</variable>
+	      <action>if true enable:ACCURACY</action>
+	      <action>if true enable:BECKEPRUNINGSCHEME</action>
+	      <action>if false disable:ACCURACY</action>
+	      <action>if false disable:BECKEPRUNINGSCHEME</action>
+	    </checkbox>
+	
+	    <text use-markup="true" wrap="false"><label>Becke grid accuracy</label></text>
+	    <combobox has-tooltip="true" tooltip-markup="FOR TONTO SCF ONLY: 
+	'"'very_low'"' to '"'very_high'"' are Treutler-Ahlrichs settings, 
+	'"'extreme'"' and '"'best'"' are better than the Mura-Knowles settings. 
+	The '"'low'"' value is the one comparable to Gaussian." sensitive="false">
+	      <variable>ACCURACY</variable>
+	      <item>very_low</item>
+	      <item>low</item>
+	      <item>medium</item>
+	      <item>high</item>
+	      <item>very_high</item>
+	      <item>extreme</item>
+	      <item>best</item>
+	
+	    </combobox>
+	   </hbox>
+	
+	
+	   <hbox>
+	    <text use-markup="true" wrap="false"><label>Becke grid prunning scheme</label></text>
+	    <combobox sensitive="false" has-tooltip="true" tooltip-markup="FOR TONTO SCF ONLY: 
+	Set the angular pruning scheme for lebedev_grid given a radial point '"'i'"' out of a set of '"'nr'"' radial points arranged in increasing order.">
+	      <variable>BECKEPRUNINGSCHEME</variable>
+	      <item>none</item>
+	      <item>jayatilaka0</item>
+	      <item>jayatilaka1</item>
+	      <item>jayatilaka2</item>
+	      <item>treutler_ahlrichs</item>
+	    </combobox>
+	   </hbox>
+	
+	
+	   <hseparator></hseparator>
+
+	  </frame>
+         </vbox>
+
+	 <vbox>
+	  <frame>
+   	  <hbox> 
+	    <text xalign="0" use-markup="true" wrap="false"justify="1"><label>How many lambda values would you like to use?</label></text>
+	    <spinbutton  range-min="1"  range-max="100" space-fill="True"  space-expand="True">
+		<default>1</default>
+		<variable>LAMBDA</variable>
+	    </spinbutton>
+	   </hbox>
+ 
 	  </frame>
 	 </vbox>
+
+
+	 </notebook>
+         </vbox>
+
 	</window>
 '
 
