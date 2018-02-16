@@ -1166,18 +1166,18 @@ SCF_TO_TONTO(){
 		echo "Begin rigid-atom fit" >> $JOBNAME.lst
 		echo "====================" >> $JOBNAME.lst
 		echo "" >> $JOBNAME.lst
-		echo "__________________________________________________________________________________________________________________________________________________________" >> $JOBNAME.lst
+		echo "__________________________________________________________________________________________________________________________________________________________________" >> $JOBNAME.lst
 		echo "" >> $JOBNAME.lst
-		echo "Cycle   Fit      initial    final            R             R_w             Max.          Max.      No. of   No. of     Energy         RMSD         Delta " >> $JOBNAME.lst
-		echo "       Iter       chi2      chi2                                           Shift         Shift     params   eig's    at final      at final       Energy " >> $JOBNAME.lst
-		echo "                                                                           /esd          param              near 0     Geom.          Geom.                " >> $JOBNAME.lst
+		echo "Cycle   Fit      initial        final            R              R_w              Max.           Max.      No. of     No. of     Energy         RMSD         Delta " >> $JOBNAME.lst
+		echo "       Iter       chi2          chi2                                             Shift          Shift     params     eig's    at final      at final       Energy " >> $JOBNAME.lst
+		echo "                                                                                 /esd           param                near 0     Geom.          Geom.                " >> $JOBNAME.lst
 		echo "" >> $JOBNAME.lst
-		echo "__________________________________________________________________________________________________________________________________________________________" >> $JOBNAME.lst
+		echo "__________________________________________________________________________________________________________________________________________________________________" >> $JOBNAME.lst
 		echo "" >> $JOBNAME.lst
 	#	echo " $J  $(awk '{a[NR]=$0}/^Rigid-atom fit results/{b=NR}END {print a[b-5]}' stdout)    $ENERGIA   $RMSD   $ENERGY "  >> $JOBNAME.lst
 	fi
 	if [[ "$SCFCALCPROG" != "Gaussian" && "$SCFCALCPROG" != "Orca" ]]; then 
-		echo -e " $J  $(awk '{a[NR]=$0}/^Rigid-atom fit results/{b=NR}END {print a[b-4]}' stdout | awk '{print $1"\t"}' ) $INITIALCHI $(awk '{a[NR]=$0}/^Rigid-atom fit results/{b=NR}END {print a[b-4]}' stdout | awk '{print  "\t"$2"\t"$3"\t"$4"\t"}') $MAXSHIFT\t$MAXSHIFTATOM $MAXSHIFTPARAM $(awk '{a[NR]=$0}/^Rigid-atom fit results/{b=NR}END {print a[b-4]}' stdout | awk '{print  "\t""    "$8" \t"$9 }' ) "  >> $JOBNAME.lst  
+		echo -e " $J\t$(awk '{a[NR]=$0}/^Rigid-atom fit results/{b=NR}END {print a[b-4]}' stdout | awk '{print $1}' )\t$INITIALCHI\t$(awk '{a[NR]=$0}/^Rigid-atom fit results/{b=NR}END {print a[b-4]}' stdout | awk '{print  $2"\t"$3"\t"$4"\t"}') $MAXSHIFT\t$MAXSHIFTATOM $MAXSHIFTPARAM $(awk '{a[NR]=$0}/^Rigid-atom fit results/{b=NR}END {print a[b-4]}' stdout | awk '{print  "\t""    "$8" \t"$9 }' ) "  >> $JOBNAME.lst  
 	fi
 #	echo " $J  $(awk '{a[NR]=$0}/^Rigid-atom fit results/{b=NR}END {print a[b-4]}' stdout | awk '{print $1"\t"}' ) $INITIALCHI $(awk '{a[NR]=$0}/^Rigid-atom fit results/{b=NR}END {print a[b-4]}' stdout | awk '{print  "\t"$2"\t"$3"\t"$4}') $(awk '{a[NR]=$0}/^Begin rigid-atom fit/{b=NR}END {print a[b+10]}' stdout | awk '{print "\t"$5"    "$6" "$7}') $(awk '{a[NR]=$0}/^Rigid-atom fit results/{b=NR}END {print a[b-4]}' stdout | awk '{print  "\t"$8"\t"$9 }' ) "  >> $JOBNAME.lst    
 	#	echo " $J  $(awk '{a[NR]=$0}/^Rigid-atom fit results/{b=NR}END {print a[b-5]}' stdout)"  >> $JOBNAME.lst
@@ -1280,7 +1280,7 @@ CHECK_ENERGY(){
 		DE=$(awk "BEGIN {print $ENERGIA2 - $ENERGIA}")
 	#	DE=$(echo "$ENERGIA - $ENERGIA2" | bc)
 	#	DRMSD=$(($RMSD - $RMSD2))
-		echo -e " $J  $(awk '{a[NR]=$0}/^Rigid-atom fit results/{b=NR}END {print a[b-4]}' stdout | awk '{print $1"\t"}' ) $INITIALCHI $(awk '{a[NR]=$0}/^Rigid-atom fit results/{b=NR}END {print a[b-4]}' stdout | awk '{print  "\t"$2"\t"$3"\t"$4"\t"}') $MAXSHIFT\t$MAXSHIFTATOM $MAXSHIFTPARAM $(awk '{a[NR]=$0}/^Rigid-atom fit results/{b=NR}END {print a[b-4]}' stdout | awk '{print  "\t""    "$8" \t"$9 }' )  $ENERGIA2   $RMSD2   \t$DE"   >> $JOBNAME.lst  
+		echo -e " $J\t$(awk '{a[NR]=$0}/^Rigid-atom fit results/{b=NR}END {print a[b-4]}' stdout | awk '{print $1}' )\t$INITIALCHI\t$(awk '{a[NR]=$0}/^Rigid-atom fit results/{b=NR}END {print a[b-4]}' stdout | awk '{print  $2"\t"$3"\t"$4"\t"}') $MAXSHIFT\t$MAXSHIFTATOM $MAXSHIFTPARAM $(awk '{a[NR]=$0}/^Rigid-atom fit results/{b=NR}END {print a[b-4]}' stdout | awk '{print  "\t""    "$8" \t"$9 }' )  $ENERGIA2   $RMSD2   \t$DE"   >> $JOBNAME.lst  
 #		echo " $J  $(awk '{a[NR]=$0}/^Rigid-atom fit results/{b=NR}END {print a[b-4]}' stdout)    $ENERGIA2   $RMSD2   $DE"  >> $JOBNAME.lst
 		ENERGIA=$ENERGIA2
 		RMSD=$RMSD2
@@ -1655,7 +1655,7 @@ run_script(){
 			fi
 			CHECK_ENERGY
 		done
-		echo "__________________________________________________________________________________________________________________________________________________________" >> $JOBNAME.lst
+		echo "__________________________________________________________________________________________________________________________________________________________________" >> $JOBNAME.lst
 		echo "" >> $JOBNAME.lst
 		echo "###############################################################################################" >> $JOBNAME.lst
 		echo "                                     Final Geometry                                         " >> $JOBNAME.lst
@@ -1671,7 +1671,7 @@ run_script(){
 		exit
 	elif [ "$SCFCALCPROG" = "Tonto" ]; then
 		SCF_TO_TONTO
-		echo "_________________________________________________________________________________________________________________________________" >> $JOBNAME.lst
+		echo "__________________________________________________________________________________________________________________________________________________________________" >> $JOBNAME.lst
 		echo "" >> $JOBNAME.lst
 		echo "###############################################################################################" >> $JOBNAME.lst
 		echo "                                     Final Geometry                                         " >> $JOBNAME.lst
@@ -1693,7 +1693,7 @@ run_script(){
 				SCF_TO_TONTO
 				ELMODB
 			done
-			echo "_________________________________________________________________________________________________________________________________" >> $JOBNAME.lst
+			echo "__________________________________________________________________________________________________________________________________________________________________" >> $JOBNAME.lst
 			echo "" >> $JOBNAME.lst
 			echo "###############################################################################################" >> $JOBNAME.lst
 			echo "                                     Final Geometry                                         " >> $JOBNAME.lst
@@ -1714,7 +1714,7 @@ run_script(){
 				SCF_TO_TONTO
 				GAMESS_ELMODB_OLD_PDB
 			done
-			echo "_________________________________________________________________________________________________________________________________" >> $JOBNAME.lst
+			echo "__________________________________________________________________________________________________________________________________________________________________" >> $JOBNAME.lst
 			echo "" >> $JOBNAME.lst
 			echo "###############################################################################################" >> $JOBNAME.lst
 			echo "                                     Final Geometry                                         " >> $JOBNAME.lst
