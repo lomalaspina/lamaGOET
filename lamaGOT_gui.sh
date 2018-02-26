@@ -674,7 +674,8 @@ GAMESS_ELMODB_OLD_PDB(){
 #		if [[ ! -e "LIBRARIES" ]]; then
 #			ln -s $ELMOLIB LIBRARIES
 #		fi
-		if [[ ! -f "$SCFCALC_BIN" ]]; then
+    		if [[ ! -f "elmodb.exe" ]]; then
+#		if [[ ! -f "$SCFCALC_BIN" ]]; then
 			cp $SCFCALC_BIN .
 		fi
 	
@@ -689,7 +690,7 @@ GAMESS_ELMODB_OLD_PDB(){
 			echo " "'$INPUT_STRUCTURE'"   pdb_file='$PDB' xyz_file='$JOBNAME.xyz' "'$END'"  " >> $JOBNAME.elmodb.inp
 		fi
 		echo "Running elmodb"
-		./elmodb.exe < $JOBNAME.elmodb.inp > $JOBNAME.elmodb.out
+		./$( echo $SCFCALC_BIN | awk -F "/" '{print $NF}' ) < $JOBNAME.elmodb.inp > $JOBNAME.elmodb.out
 		if ! grep -q 'CONGRATULATIONS: THE ELMO-TRANSFERs ENDED GRACEFULLY!!!' "$JOBNAME.elmodb.out"; then
 			echo "ERROR: elmodb finished with error, please check the $I.th elmodb.out file for more details" | tee -a $JOBNAME.lst
 			unset MAIN_DIALOG
@@ -757,7 +758,7 @@ ELMODB(){
 		echo " "'$INPUT_METHOD'"      job_title='$JOBNAME' basis_set='$BASISSET' xyz=.true. iprint_level=1 ncpus=$NUMPROC alloc_mem=$MEM bset_path='$BASISSETDIR' lib_path='$ELMOLIB' nci=.true. "'$END'" " > $JOBNAME.elmodb.inp
 		echo " "'$INPUT_STRUCTURE'"   pdb_file='$PDB' xyz_file='$JOBNAME.xyz' "'$END'"  " >> $JOBNAME.elmodb.inp
 	fi
-	./elmodb.exe < $JOBNAME.elmodb.inp > $JOBNAME.elmodb.out
+	./$( echo $SCFCALC_BIN | awk -F "/" '{print $NF}' ) < $JOBNAME.elmodb.inp > $JOBNAME.elmodb.out
 	if ! grep -q 'CONGRATULATIONS: THE ELMO-TRANSFERs ENDED GRACEFULLY!!!' "$JOBNAME.elmodb.out"; then
 		echo "ERROR: elmodb finished with error, please check the $I.th elmodb.out file for more details" | tee -a $JOBNAME.lst
 		unset MAIN_DIALOG
@@ -825,7 +826,15 @@ TONTO_TO_ORCA(){
 
 SCF_TO_TONTO(){
 #	echo "Writing Tonto stdin"
-	echo "{ " > stdin
+	echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!" > stdin
+	echo "!!!                                                                                         !!!" >> stdin
+	echo "!!!                        This stdin was written with lamaGOET                             !!!" >> stdin
+	echo "!!!                                                                                         !!!" >> stdin
+	echo "!!!                    script written by Lorraine Andrade Malaspina                         !!!" >> stdin
+	echo "!!!                        contact: lorraine.malaspina@gmail.com                            !!!" >> stdin
+	echo "!!!                                                                                         !!!" >> stdin
+	echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!" >> stdin
+	echo "{ " >> stdin
 	echo "" >> stdin
 	echo "   keyword_echo_on" >> stdin
 	echo "" >> stdin
@@ -1428,7 +1437,15 @@ run_script(){
 	#sed '/^# Cartesian axis system ADPs$/,$d' $CIF > cut.cif
 	###commented but was working before, now with the new cifs the put_tonto command is not working because it doesnt have the vcv matrix to generate the geom table... should add a ensure that it has the vcv matrix to calculate the geom blocks... I will use the cif entered by the user then...
 	###sed -e '/# Tonto-specific key and data/,/# Standard CIF keys and data/d' $CIF > cut.cif
-		echo "{ " > stdin
+		echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!" > stdin
+		echo "!!!                                                                                         !!!" >> stdin
+		echo "!!!                        This stdin was written with lamaGOET                             !!!" >> stdin
+		echo "!!!                                                                                         !!!" >> stdin
+		echo "!!!                    script written by Lorraine Andrade Malaspina                         !!!" >> stdin
+		echo "!!!                        contact: lorraine.malaspina@gmail.com                            !!!" >> stdin
+		echo "!!!                                                                                         !!!" >> stdin
+		echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!" >> stdin
+		echo "{ " >> stdin
 		echo "" >> stdin
 		echo "   keyword_echo_on" >> stdin
 		echo "" >> stdin
