@@ -680,7 +680,7 @@ GAMESS_ELMODB_OLD_PDB(){
 		fi
 	
 		if [ "$I" = "1" ]; then
-			PDB=$( echo $CIF | awk -F "/" '{print $NF}' )
+#			PDB=$( echo $CIF | awk -F "/" '{print $NF}' )
 			BASISSETDIR=$( echo "$(dirname $BASISSETDIR)/" )
 			ELMOLIB=$( echo "$(dirname $ELMOLIB)/" )
 			echo " "'$INPUT_METHOD'"      job_title='$JOBNAME' basis_set='$BASISSET' iprint_level=1 ncpus=$NUMPROC alloc_mem=$MEM bset_path='$BASISSETDIR' lib_path='$ELMOLIB' nci=.true. comp_sao=.false. "'$END'" " > $JOBNAME.elmodb.inp
@@ -749,7 +749,7 @@ ELMODB(){
 		cp $SCFCALC_BIN .
 	fi
 	if [ "$I" = "1" ]; then
-		PDB=$( echo $CIF | awk -F "/" '{print $NF}' )
+#		PDB=$( echo $CIF | awk -F "/" '{print $NF}' )
 		BASISSETDIR=$( echo "$(dirname $BASISSETDIR)/" )
 		ELMOLIB=$( echo "$(dirname $ELMOLIB)/" )
 		echo " "'$INPUT_METHOD'"      job_title='$JOBNAME' basis_set='$BASISSET' iprint_level=1 ncpus=$NUMPROC alloc_mem=$MEM bset_path='$BASISSETDIR' lib_path='$ELMOLIB' nci=.true. "'$END'" " > $JOBNAME.elmodb.inp
@@ -990,7 +990,7 @@ SCF_TO_TONTO(){
 		echo "         wavelength= $WAVE Angstrom" >> stdin
 		echo "         REDIRECT $HKL" >> stdin
 		echo "         f_sigma_cutoff= $FCUT" >> stdin
-		echo "	       tol_for_shift_on_esd= $CONVTOL" >> stdin
+		echo "         tol_for_shift_on_esd= $CONVTOL" >> stdin
 		echo "         refine_H_U_iso= $HADP" >> stdin
 		echo "" >> stdin
 		echo "         show_fit_output= true" >> stdin
@@ -1029,7 +1029,7 @@ SCF_TO_TONTO(){
 	echo "         wavelength= $WAVE Angstrom" >> stdin
 	echo "         REDIRECT $HKL" >> stdin
 	echo "         f_sigma_cutoff= $FCUT" >> stdin
-	echo "	       tol_for_shift_on_esd= $CONVTOL" >> stdin
+	echo "         tol_for_shift_on_esd= $CONVTOL" >> stdin
 	echo "         refine_H_U_iso= $HADP" >> stdin
 	if [[ "$SCFCALCPROG" = "Tonto" && "$IAMTONTO" = "true" ]]; then 
 		echo "" >> stdin
@@ -1200,7 +1200,7 @@ SCF_TO_TONTO(){
 		cp $JOBNAME'.archive.cif' $J.fit_cycle.$JOBNAME/$J.$JOBNAME.archive.cif
 		cp $JOBNAME'.archive.fco' $J.fit_cycle.$JOBNAME/$J.$JOBNAME.archive.fco
 		cp $JOBNAME'.archive.fcf' $J.fit_cycle.$JOBNAME/$J.$JOBNAME.archive.fcf
-		if [[ "$SCFCALCPROG" != "elmodb" && "$SCCHARGES"="true" ]]; then
+		if [[ "$SCFCALCPROG" != "elmodb" &&  "$SCCHARGES" = "true" ]]; then
 			cp gaussian-point-charges $J.fit_cycle.$JOBNAME/$J.gaussian-point-charges
 		fi
 	fi
@@ -1219,22 +1219,22 @@ TONTO_TO_GAUSSIAN(){
 	#echo "# rb3lyp/$BASISSET output=wfn" >> $JOBNAME.com
 	if [ "$METHOD" = "rks" ]; then
 		if [ "$SCCHARGES" = "true" ]; then 
-	   		echo "# blyp/$BASISSET Charge nosymm output=wfn 6D 10F" >> $JOBNAME.com
+	   		echo "# blyp/$BASISSET Charge nosymm output=wfn 6D 10F $INT" >> $JOBNAME.com
 		else
-			echo "# blyp/$BASISSET nosymm output=wfn 6D 10F" >> $JOBNAME.com
+			echo "# blyp/$BASISSET nosymm output=wfn 6D 10F $INT" >> $JOBNAME.com
 	        fi
 	else
 		if [ "$METHOD" = "uks" ]; then
 			if [ "$SCCHARGES" = "true" ]; then 
-		   		echo "# ublyp/$BASISSET Charge nosymm output=wfn 6D 10F" >> $JOBNAME.com
+		   		echo "# ublyp/$BASISSET Charge nosymm output=wfn 6D 10F $INT" >> $JOBNAME.com
 			else
-				echo "# ublyp/$BASISSET nosymm output=wfn 6D 10F" >> $JOBNAME.com
+				echo "# ublyp/$BASISSET nosymm output=wfn 6D 10F $INT" >> $JOBNAME.com
 		        fi
 		else
 			if [ "$SCCHARGES" = "true" ]; then 
-		   		echo "# $METHOD/$BASISSET Charge nosymm output=wfn 6D 10F" >> $JOBNAME.com
+		   		echo "# $METHOD/$BASISSET Charge nosymm output=wfn 6D 10F $INT" >> $JOBNAME.com
 			else
-				echo "# $METHOD/$BASISSET nosymm output=wfn 6D 10F" >> $JOBNAME.com
+				echo "# $METHOD/$BASISSET nosymm output=wfn 6D 10F $INT" >> $JOBNAME.com
 		        fi
 		fi			
 	fi
@@ -1251,6 +1251,10 @@ TONTO_TO_GAUSSIAN(){
 	if [ "$SCCHARGES" = "true" ]; then 
         	awk '{a[NR]=$0}{b=12}/^------------------------------------------------------------------------/{c=NR}END{for(d=b;d<=c-1;++d)print a[d]}' gaussian-point-charges | awk '{printf "%s\t %s\t %s\t %s\t \n", $2, $3, $4, $1 }' >> $JOBNAME.com
 		echo "" | tee -a $JOBNAME.com  $JOBNAME.lst
+	fi
+	if [ "$GAUSGEN" = "true" ]; then
+	        cat basis_gen.txt >> $JOBNAME.com
+		echo "" >> $JOBNAME.com
 	fi
 	echo "./$JOBNAME.wfn" >> $JOBNAME.com
 	echo "" >> $JOBNAME.com
@@ -1289,7 +1293,8 @@ CHECK_ENERGY(){
 		DE=$(awk "BEGIN {print $ENERGIA2 - $ENERGIA}")
 	#	DE=$(echo "$ENERGIA - $ENERGIA2" | bc)
 	#	DRMSD=$(($RMSD - $RMSD2))
-		echo -e " $J\t$(awk '{a[NR]=$0}/^Rigid-atom fit results/{b=NR}END {print a[b-4]}' stdout | awk '{print $1}' )\t$INITIALCHI\t$(awk '{a[NR]=$0}/^Rigid-atom fit results/{b=NR}END {print a[b-4]}' stdout | awk '{print  $2"\t"$3"\t"$4"\t"}') $MAXSHIFT\t$MAXSHIFTATOM $MAXSHIFTPARAM $(awk '{a[NR]=$0}/^Rigid-atom fit results/{b=NR}END {print a[b-4]}' stdout | awk '{print  "\t""    "$8" \t"$9 }' )  $ENERGIA2   $RMSD2   \t$DE"   >> $JOBNAME.lst  
+		echo -e " $J\t$(awk '{a[NR]=$0}/^Rigid-atom fit results/{b=NR}END {print a[b-4]}' stdout | awk '{print $1}' )\t$INITIALCHI\t$(awk '{a[NR]=$0}/^Rigid-atom fit results/{b=NR}END {print a[b-4]}' stdout | awk '{print  $2"\t"$3"\t"$4"\t"}') $MAXSHIFT\t$MAXSHIFTATOM $MAXSHIFTPARAM $(awk '{a[NR]=$0}/^Rigid-atom fit results/{b=NR}END {print a[b-4]}' stdout | awk '{print  "    "$8" \t"$9 }' )  $ENERGIA2   $RMSD2   \t$DE"   >> $JOBNAME.lst  
+#		echo -e " $J\t$(awk '{a[NR]=$0}/^Rigid-atom fit results/{b=NR}END {print a[b-4]}' stdout | awk '{print $1}' )\t$INITIALCHI\t$(awk '{a[NR]=$0}/^Rigid-atom fit results/{b=NR}END {print a[b-4]}' stdout | awk '{print  $2"\t"$3"\t"$4"\t"}') $MAXSHIFT\t$MAXSHIFTATOM $MAXSHIFTPARAM $(awk '{a[NR]=$0}/^Rigid-atom fit results/{b=NR}END {print a[b-4]}' stdout | awk '{print  "\t""    "$8" \t"$9 }' )  $ENERGIA2   $RMSD2   \t$DE"   >> $JOBNAME.lst  
 #		echo " $J  $(awk '{a[NR]=$0}/^Rigid-atom fit results/{b=NR}END {print a[b-4]}' stdout)    $ENERGIA2   $RMSD2   $DE"  >> $JOBNAME.lst
 		ENERGIA=$ENERGIA2
 		RMSD=$RMSD2
@@ -1361,7 +1366,7 @@ run_script(){
 	if [[ -z "$(grep "reflection_data= {" $HKL)" ]]; then
 		echo "You are missing the tonto header in the hkl file."
 	fi
-	
+
 	#writing the lst file
 	echo "###############################################################################################" > $JOBNAME.lst
 	echo "                                           lamaGOT                                             " >> $JOBNAME.lst
@@ -1547,12 +1552,12 @@ run_script(){
 			echo "%nprocshared=$NUMPROC" | tee -a $JOBNAME.com $JOBNAME.lst
 			#this is the first SCF so no charges in!
 			if [ "$METHOD" = "rks" ]; then
-				echo "# blyp/$BASISSET nosymm output=wfn 6D 10F" | tee -a $JOBNAME.com $JOBNAME.lst    
+				echo "# blyp/$BASISSET nosymm output=wfn 6D 10F $INT" | tee -a $JOBNAME.com $JOBNAME.lst    
 			else
 				if [ "$METHOD" = "uks" ]; then
-					echo "# ublyp/$BASISSET nosymm output=wfn 6D 10F" | tee -a $JOBNAME.com $JOBNAME.lst
+					echo "# ublyp/$BASISSET nosymm output=wfn 6D 10F $INT" | tee -a $JOBNAME.com $JOBNAME.lst
 				else
-					echo "# $METHOD/$BASISSET nosymm output=wfn 6D 10F" | tee -a $JOBNAME.com $JOBNAME.lst
+					echo "# $METHOD/$BASISSET nosymm output=wfn 6D 10F $INT" | tee -a $JOBNAME.com $JOBNAME.lst
 			        fi
 			fi			
 			echo ""  | tee -a $JOBNAME.com $JOBNAME.lst
@@ -1568,6 +1573,10 @@ run_script(){
 			#awk '{gsub("[(][^)]*[)]","")}1 {print }' test.txt >> $JOBNAME.com
 			#rm test.txt
 			echo "" | tee -a $JOBNAME.com  $JOBNAME.lst
+			if [ "$GAUSGEN" = "true" ]; then
+		        	cat basis_gen.txt | tee -a $JOBNAME.com  $JOBNAME.lst
+				echo "" | tee -a $JOBNAME.com  $JOBNAME.lst
+			fi
 		 	#if [ "$SCCHARGES" = "true" ]; then 
 		        #	awk '{a[NR]=$0}{b=12}/^------------------------------------------------------------------------/{c=NR}END{for(d=b;d<=c-1;++d)print a[d]}' gaussian-point-charges | awk '{printf "%s\t %s\t %s\t %s\t \n", $2, $3, $4, $1 }' | tee -a $JOBNAME.com  $JOBNAME.lst
 			#	echo "" | tee -a $JOBNAME.com  $JOBNAME.lst
@@ -1789,9 +1798,9 @@ run_script(){
 
 export MAIN_DIALOG='
 
-	<window window_position="1" title="lamaGOT">
+	<window window_position="1" title="lamaGOET">
 
-	 <vbox scrollable="true" space-expand="true" space-fill="true" height="800" width="800" >
+	 <vbox scrollable="true" space-expand="true" space-fill="true" height="1000" width="800" >
 	
 	  <hbox homogeneous="True" >
 	
@@ -1812,6 +1821,7 @@ export MAIN_DIALOG='
   	 <notebook 
 		tab-labels="Main|Andvanced Settings|Total XWR"
 		xx-tab-labels="which will be shown on tabs"
+
 		> 	  
          <vbox>       
 	 <frame>
@@ -1842,6 +1852,10 @@ export MAIN_DIALOG='
 	        <action>if false disable:COMPLETECIF</action>
 	        <action>if true disable:USEGAMESS</action>
 	        <action>if false enable:USEGAMESS</action>
+	        <action>if true enable:GAUSGEN</action>
+	        <action>if false disable:GAUSGEN</action>
+	        <action>if true enable:GAUSSREL</action>
+	        <action>if false disable:GAUSSREL</action>
 	      </radiobutton>
 	      <radiobutton space-fill="True"  space-expand="True">
 	        <label>Orca</label>
@@ -1866,6 +1880,10 @@ export MAIN_DIALOG='
 	        <action>if false disable:COMPLETECIF</action>
 	        <action>if true disable:USEGAMESS</action>
 	        <action>if false enable:USEGAMESS</action>
+	        <action>if true disable:GAUSGEN</action>
+	        <action>if false enable:GAUSGEN</action>
+	        <action>if true disable:GAUSSREL</action>
+	        <action>if false enable:GAUSSREL</action>
 	      </radiobutton>
 	      <radiobutton space-fill="True"  space-expand="True">
 	        <label>Tonto</label>
@@ -1892,6 +1910,10 @@ export MAIN_DIALOG='
 	        <action>if false disable:COMPLETECIF</action>
 	        <action>if true disable:USEGAMESS</action>
 	        <action>if false enable:USEGAMESS</action>
+	        <action>if true disable:GAUSGEN</action>
+	        <action>if false enable:GAUSGEN</action>
+	        <action>if true disable:GAUSSREL</action>
+	        <action>if false enable:GAUSSREL</action>
 	      </radiobutton>
 	      <radiobutton space-fill="True"  space-expand="True">
 	        <label>elmodb</label>
@@ -1917,6 +1939,10 @@ export MAIN_DIALOG='
 	        <action>if false enable:COMPLETECIF</action>
 	        <action>if true enable:USEGAMESS</action>
 	        <action>if false disable:USEGAMESS</action>
+	        <action>if true disable:GAUSGEN</action>
+	        <action>if false enable:GAUSGEN</action>
+	        <action>if true disable:GAUSSREL</action>
+	        <action>if false enable:GAUSSREL</action>
 	      </radiobutton>
 
 	   </hbox>
@@ -2158,6 +2184,24 @@ export MAIN_DIALOG='
 	
 	   </hbox>
 	
+	   <hseparator></hseparator>
+
+	   <hbox>
+
+	    <checkbox active="false" space-fill="True"  space-expand="True">
+	     <label>Input external basis set manualy </label>
+	      <variable>GAUSGEN</variable>
+	      <action>if true disable:BASISSET</action>
+	      <action>if false enable:BASISSET</action>
+	    </checkbox>
+
+	    <checkbox active="false" space-fill="True"  space-expand="True">
+	     <label>Use relativistic method </label>
+	      <variable>GAUSSREL</variable>
+	    </checkbox>
+
+	   </hbox>
+
 	   <hseparator></hseparator>
 	
 	   <hbox>
@@ -2479,6 +2523,15 @@ if [[ -z "$SCFCALCPROG" ]]; then
 	SCFCALCPROG="Gaussian"
 fi
 
+if [ "$GAUSGEN" = "true" ]; then
+    BASISSET="gen"
+    zenity --entry --title="New basis set" --text="Enter or paste the basis set in the gaussian format as: \n !!NO EMPTY LINE!! \n C 0 \n S 5 \n exponent1 coefficient1 \n exponent2 coefficient2 \n exponent3 coefficient3 \n exponent4 coefficient4 \n exponent5 coefficient5 \n **** \n !!NO EMPTY LINE!! \n (Repeat this for all shells and all elements) " > basis_gen.txt
+fi
+
+if [ "$GAUSSREL" = "true" ]; then
+    INT="int=dkh"
+fi
+
 if [[ "$DISP" = "yes" && "$EXIT" = "OK" ]]; then
 	zenity --entry --title="Dispersion coefficients" --text="Enter the dispersion coefficients for each element type followed by f' and f'' values i.e.: \n \n C 0.0031 0.0016 H 0.0 0.0" > DISP_inst.txt
 	while [ $? -eq 1 ]; do 
@@ -2487,27 +2540,59 @@ if [[ "$DISP" = "yes" && "$EXIT" = "OK" ]]; then
 fi
 
 if [[ "$SCFCALCPROG" = "elmodb" && "$EXIT" = "OK" ]]; then
+	PDB=$( echo $CIF | awk -F "/" '{print $NF}' ) 
 	if [[ ! -f "tonto.cell" ]]; then
-#		./space_group
-		SPACEGROUP
-		CELLA=$(awk -F'|' '{print $1}'  crystal_data.txt )
-		CELLB=$(awk -F'|' '{print $2}'  crystal_data.txt )
-		CELLC=$(awk -F'|' '{print $3}'  crystal_data.txt )
-		CELLALPHA=$(awk -F'|' '{print $4}'  crystal_data.txt )
-		CELLBETA=$(awk -F'|' '{print $5}'  crystal_data.txt )
-		CELLGAMMA=$(awk -F'|' '{print $6}'  crystal_data.txt )
-		SPACEGROUP=$(cat spacegroup.txt | awk -F'=' '{print $3}' )
-		rm spacegroup.txt
-		echo "      spacegroup= { hall_symbol= '$SPACEGROUP' }" > tonto.cell
-		echo "" >> tonto.cell
-		echo "      unit_cell= {" >> tonto.cell
-		echo "" >> tonto.cell
-		echo "         angles=       $CELLALPHA   $CELLBETA   $CELLGAMMA   Degree" >> tonto.cell
-		echo "         dimensions=   $CELLA   $CELLB   $CELLC   Angstrom" >> tonto.cell
-		echo "" >> tonto.cell
-		echo "      }" >> tonto.cell
-		echo "" >> tonto.cell
-		echo "      REVERT" >> tonto.cell
+		#extracting information from pdb file into new jobname.pdb file (only for elmodb)
+		# is tehre a cell in the pdb?
+		if [[ ! -z $(awk '$1 !~ /CRYST1/ {print $0}'  $PDB) ]]; then
+			CELLA=$(awk '$1 ~ /CRYST1/ {print $2}'  $PDB)
+			CELLB=$(awk '$1 ~ /CRYST1/ {print $3}'  $PDB)
+			CELLC=$(awk '$1 ~ /CRYST1/ {print $4}'  $PDB)
+			CELLALPHA=$(awk '$1 ~ /CRYST1/ {print $5}'  $PDB)
+			CELLBETA=$(awk '$1 ~ /CRYST1/ {print $6}'  $PDB)
+			CELLGAMMA=$(awk '$1 ~ /CRYST1/ {print $7}'  $PDB)
+			SPACEGROUP=$(awk '$1 ~ /CRYST1/ {print $0}' 1ejg.pdb | awk ' {print substr($0,index($0,$8),--NF)}')
+#####this one works with mac and linux
+#awk '$1 ~ /CRYST1/ {print $0}' 1ejg.pdb | awk ' {print substr($0,index($0,$8),--NF)}'
+# this one works on linux but not on mac!
+#awk '$1 ~ /CRYST1/ {print $0}' 1ejg.pdb | awk '{print substr($0,index($0,$8))}' | awk 'NF{NF-=1};1'
+# falta verificar se é vazio la em baixo
+	  		echo "      spacegroup= { hermann_mauguin_symbol= '$SPACEGROUP' }" > tonto.cell
+			echo "" >> tonto.cell
+			echo "      unit_cell= {" >> tonto.cell
+			echo "" >> tonto.cell
+			echo "         angles=       $CELLALPHA   $CELLBETA   $CELLGAMMA   Degree" >> tonto.cell
+			echo "         dimensions=   $CELLA   $CELLB   $CELLC   Angstrom" >> tonto.cell
+			echo "" >> tonto.cell
+			echo "      }" >> tonto.cell
+			echo "" >> tonto.cell
+			echo "      REVERT" >> tonto.cell
+		else
+			SPACEGROUP
+			CELLA=$(awk -F'|' '{print $1}'  crystal_data.txt )
+			CELLB=$(awk -F'|' '{print $2}'  crystal_data.txt )
+			CELLC=$(awk -F'|' '{print $3}'  crystal_data.txt )
+			CELLALPHA=$(awk -F'|' '{print $4}'  crystal_data.txt )
+			CELLBETA=$(awk -F'|' '{print $5}'  crystal_data.txt )
+			CELLGAMMA=$(awk -F'|' '{print $6}'  crystal_data.txt )
+			SPACEGROUP=$(cat spacegroup.txt | awk -F'=' '{print $3}' )
+			rm spacegroup.txt
+			echo "      spacegroup= { hall_symbol= '$SPACEGROUP' }" > tonto.cell
+			echo "" >> tonto.cell
+			echo "      unit_cell= {" >> tonto.cell
+			echo "" >> tonto.cell
+			echo "         angles=       $CELLALPHA   $CELLBETA   $CELLGAMMA   Degree" >> tonto.cell
+			echo "         dimensions=   $CELLA   $CELLB   $CELLC   Angstrom" >> tonto.cell
+			echo "" >> tonto.cell
+			echo "      }" >> tonto.cell
+			echo "" >> tonto.cell
+			echo "      REVERT" >> tonto.cell
+		fi
+		# are there more lines in the pdb then the ATOM lines?
+		if [[ ! -z $(awk '$1 !~ /ATOM/ {print $0}'  $PDB) ]]; then
+			awk '$1 ~ /ATOM/ {print $0}'  $PDB > $JOBNAME.cut.pdb
+			PDB=$JOBNAME.cut.pdb
+		fi
 	fi
 fi
 
