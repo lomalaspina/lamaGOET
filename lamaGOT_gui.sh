@@ -988,6 +988,19 @@ SCF_TO_TONTO(){
 		echo "         optimise_extinction= false" >> stdin
 		echo "         correct_dispersion= $DISP" >> stdin
 		echo "         wavelength= $WAVE Angstrom" >> stdin
+		if [ "$REFANHARM"="true" ]; then
+			if [[ "$THIRDORD"="true" && "$FOURTHORD"="true" ]]; then
+				echo "         refine_4th_order_for_atoms= { $ANHARMATOMS } " >> stdin
+			elif [[ "$THIRDORD"="true" && "$FOURTHORD"="false" ]]; then
+				echo "         refine_3rd_order_for_atoms= { $ANHARMATOMS } " >> stdin
+			elif [[ "$THIRDORD"="false" && "$FOURTHORD"="true" ]]; then
+				echo "         refine_4th_order_only= { $ANHARMATOMS } " >> stdin
+			else 
+				echo "ERROR: Please select at least one of the anharmonic terms to refine" | tee -a $JOBNAME.lst
+				unset MAIN_DIALOG
+				exit 0
+			fi
+		fi
 		echo "         REDIRECT $HKL" >> stdin
 		echo "         f_sigma_cutoff= $FCUT" >> stdin
 		echo "         tol_for_shift_on_esd= $CONVTOL" >> stdin
@@ -1027,6 +1040,19 @@ SCF_TO_TONTO(){
 	echo "         correct_dispersion= $DISP" >> stdin
 	echo "         optimise_scale_factor= true" >> stdin
 	echo "         wavelength= $WAVE Angstrom" >> stdin
+	if [ "$REFANHARM"="true" ]; then
+		if [[ "$THIRDORD"="true" && "$FOURTHORD"="true" ]]; then
+			echo "         refine_4th_order_for_atoms= { $ANHARMATOMS } " >> stdin
+		elif [[ "$THIRDORD"="true" && "$FOURTHORD"="false" ]]; then
+			echo "         refine_3rd_order_for_atoms= { $ANHARMATOMS } " >> stdin
+		elif [[ "$THIRDORD"="false" && "$FOURTHORD"="true" ]]; then
+			echo "         refine_4th_order_only= { $ANHARMATOMS } " >> stdin
+		else 
+			echo "ERROR: Please select at least one of the anharmonic terms to refine" | tee -a $JOBNAME.lst
+			unset MAIN_DIALOG
+			exit 0
+		fi
+	fi
 	echo "         REDIRECT $HKL" >> stdin
 	echo "         f_sigma_cutoff= $FCUT" >> stdin
 	echo "         tol_for_shift_on_esd= $CONVTOL" >> stdin
@@ -1806,7 +1832,7 @@ export MAIN_DIALOG='
 	
 	    <hbox homogeneous="True">
 	     <frame>
-	      <text use-markup="true" wrap="false"><label>"<span color='"'blue'"'>Welcome to the interface for Hirsfeld Atom fit and Gaussian/Orca</span>"</label></text>
+	      <text use-markup="true" wrap="false"><label>"<span color='"'blue'"'>Welcome to the interface for Hirshfeld Atom fit and Gaussian/Orca/Elmodb</span>"</label></text>
 	      <text use-markup="true" wrap="false"><label>"<span color='"'blue'"'>(You need to have coreutils installed on your machine to use this script)</span>"</label></text>
 	      <pixmap>
 	       <width>40</width>
@@ -1819,7 +1845,7 @@ export MAIN_DIALOG='
 	  </hbox>
 
   	 <notebook 
-		tab-labels="Main|Andvanced Settings|Total XWR"
+		tab-labels="Main|Advanced Settings|Total XWR|Tools"
 		xx-tab-labels="which will be shown on tabs"
 
 		> 	  
@@ -2301,13 +2327,47 @@ export MAIN_DIALOG='
 	      <item>yes</item>
 	    </combobox>
 	   </hbox>
+
+	   <hseparator></hseparator>
+
+	   <hbox>
+
+	    <checkbox sensitive="true" space-fill="True"  space-expand="True">
+	     <label>Refine anharmonic ADPs</label>
+	      <variable>REFANHARM</variable>
+	      <action>if true enable:ANHARMATOMS</action>
+	      <action>if false disable:ANHARMATOMS</action>
+	      <action>if true enable:THIRDORD</action>
+	      <action>if false disable:THIRDORD</action>
+	      <action>if true enable:FOURTHORD</action>
+	      <action>if false disable:FOURTHORD</action>
+	    </checkbox>
+	
+	    <text use-markup="true" wrap="false" sensitive="false" ><label>Atom labels</label></text>
+	    <entry has-tooltip="true" tooltip-markup="as in the cif" sensitive="false">
+	     <variable>ANHARMATOMS</variable>
+	    </entry>
+	
+	    <checkbox sensitive="false">
+	     <label>3rd Order</label>
+	     <default>false</default>
+	      <variable>THIRDORD</variable>
+	    </checkbox>
+
+	    <checkbox sensitive="false">
+	     <label>4rd Order</label>
+	     <default>false</default>
+	      <variable>FOURTHORD</variable>
+	    </checkbox>
+	   </hbox>
+	
 	
 	   <hseparator></hseparator>
 	
 	   <hbox>
 	
 	    <checkbox active="false" sensitive="true" space-fill="True"  space-expand="True" sensitive="false" >
-	     <label>Alongate X-H bond lengths ?</label>
+	     <label>Elongate X-H bond lengths ?</label>
 	     <variable>XHALONG</variable>
 	     <default>false</default>
 	     <action>if true enable:BHBOND</action>
@@ -2458,7 +2518,7 @@ export MAIN_DIALOG='
 	  </frame>
          </vbox>
 
-	 <vbox>
+	 <vbox visible="false">
 	  <frame>
    	  <hbox> 
 	    <text xalign="0" use-markup="true" wrap="false"justify="1"><label>How many lambda values would you like to use?</label></text>
@@ -2471,6 +2531,18 @@ export MAIN_DIALOG='
 	  </frame>
 	 </vbox>
 
+	 <vbox visible="false">
+	  <frame>
+   	  <hbox> 
+	    <text xalign="0" use-markup="true" wrap="false"justify="1"><label>How many lambda values would you like to use?</label></text>
+	    <spinbutton  range-min="1"  range-max="100" space-fill="True"  space-expand="True">
+		<default>1</default>
+		<variable>LAMBDA</variable>
+	    </spinbutton>
+	   </hbox>
+ 
+	  </frame>
+	 </vbox>
 
 	 </notebook>
          </vbox>
