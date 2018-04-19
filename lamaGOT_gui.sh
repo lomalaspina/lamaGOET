@@ -860,71 +860,38 @@ SCF_TO_TONTO(){
 	#echo "" >> stdin
 	if [ "$SCFCALCPROG" != "elmodb" ]; then
 	#	if [[ "$SCFCALCPROG" != "Gaussian" && "$SCFCALCPROG" != "Orca" && "$COMPLETECIF" != "true" ]]; then
-		if [ "$SCFCALCPROG" = "Tonto" ]; then
-			echo "   ! Process the CIF" >> stdin
-			echo "   CIF= {" >> stdin
-			if [ $J = 0 ]; then 
-				echo "       file_name= $CIF" >> stdin
-				if [ "$XHALONG" = "true" ]; then
-			           	if [[ ! -z "$BHBOND" ]]; then
-					   	echo "       BH_bond_length= $BHBOND angstrom" >> stdin
-				   	fi
-			           	if [[ ! -z "$CHBOND" ]]; then
-					   	echo "       CH_bond_length= $CHBOND angstrom" >> stdin
-				   	fi
-			           	if [[ ! -z "$NHBOND" ]]; then
-					   	echo "       NH_bond_length= $NHBOND angstrom" >> stdin
-				   	fi
-		        	   	if [[ ! -z "$OHBOND" ]]; then
-					   	echo "       OH_bond_length= $OHBOND angstrom" >> stdin
-				   	fi
-				fi
-			else 
-			#	cp $JOBNAME'_cartesian.cif2' $JOBNAME.cartesian.cif2
+		echo "   ! Process the CIF" >> stdin
+		echo "   CIF= {" >> stdin
+		if [ $J = 0 ]; then 
+			if [[ "$COMPLETECIF" == "true" ]]; then
 				echo "       file_name= $J.fit_cycle.$JOBNAME/$J.$JOBNAME.cartesian.cif2" >> stdin
-			fi
-			#if ( $J -gt 0 ); then
-			#cp $JOBNAME'_cartesian.cif2' $JOBNAME.cartesian.cif2
-			#echo "       file_name= $JOBNAME.cartesian.cif2" >> stdin
-			#else
-			#echo "       file_name= $CIF" >> stdin
-			#fi
-			echo "    }" >> stdin
-			echo "" >> stdin
-			echo "   process_CIF" >> stdin
-			echo "" >> stdin
-			echo "   name= $JOBNAME" >> stdin
-			echo "" >> stdin
-		elif [ "$COMPLETECIF" != "true" ]; then
-			echo "   ! Process the CIF" >> stdin
-			echo "   CIF= {" >> stdin
-			if [ $J = 0 ]; then 
+			else
 				echo "       file_name= $CIF" >> stdin
-				if [ "$XHALONG" = "true" ]; then
-			           	if [[ ! -z "$BHBOND" ]]; then
-					   	echo "       BH_bond_length= $BHBOND angstrom" >> stdin
-				   	fi
-			           	if [[ ! -z "$CHBOND" ]]; then
-					   	echo "       CH_bond_length= $CHBOND angstrom" >> stdin
-				   	fi
-			           	if [[ ! -z "$NHBOND" ]]; then
-					   	echo "       NH_bond_length= $NHBOND angstrom" >> stdin
-				   	fi
-		        	   	if [[ ! -z "$OHBOND" ]]; then
-					   	echo "       OH_bond_length= $OHBOND angstrom" >> stdin
-				   	fi
-				fi
-			else 
-			#	cp $JOBNAME'_cartesian.cif2' $JOBNAME.cartesian.cif2
-				echo "       file_name= $J.fit_cycle.$JOBNAME/$J.$JOBNAME.cartesian.cif2" >> stdin
 			fi
-			echo "    }" >> stdin
-			echo "" >> stdin
-			echo "   process_CIF" >> stdin
-			echo "" >> stdin
-			echo "   name= $JOBNAME" >> stdin
-			echo "" >> stdin
+			if [ "$XHALONG" = "true" ]; then
+		           	if [[ ! -z "$BHBOND" ]]; then
+				   	echo "       BH_bond_length= $BHBOND angstrom" >> stdin
+			   	fi
+		           	if [[ ! -z "$CHBOND" ]]; then
+				   	echo "       CH_bond_length= $CHBOND angstrom" >> stdin
+			   	fi
+		           	if [[ ! -z "$NHBOND" ]]; then
+				   	echo "       NH_bond_length= $NHBOND angstrom" >> stdin
+			   	fi
+	        	   	if [[ ! -z "$OHBOND" ]]; then
+				   	echo "       OH_bond_length= $OHBOND angstrom" >> stdin
+			   	fi
+			fi
+		else 
+		#	cp $JOBNAME'_cartesian.cif2' $JOBNAME.cartesian.cif2
+			echo "       file_name= $J.fit_cycle.$JOBNAME/$J.$JOBNAME.cartesian.cif2" >> stdin
 		fi
+		echo "    }" >> stdin
+		echo "" >> stdin
+		echo "   process_CIF" >> stdin
+		echo "" >> stdin
+		echo "   name= $JOBNAME" >> stdin
+		echo "" >> stdin
 	fi
 	if [[ $J -gt 0 && "$SCFCALCPROG" == "elmodb" ]]; then
 		echo "   ! Process the CIF" >> stdin
@@ -958,7 +925,7 @@ SCF_TO_TONTO(){
 		echo "" >> stdin
 	fi
 	if [ "$SCFCALCPROG" != "elmodb" ]; then
-		if [[ $J = 0 && "$COMPLETECIF" = "true" && "$SCFCALCPROG" != "Gaussian" && "$SCFCALCPROG" != "Orca" ]]; then
+		if [[ $J == 0 && "$COMPLETECIF" == "true" && "$SCFCALCPROG" != "Gaussian" && "$SCFCALCPROG" != "Orca" ]]; then
 			echo "   cluster= {" >> stdin
 			echo "      defragment= $COMPLETECIF" >> stdin
 			echo "      make_info" >> stdin
@@ -972,9 +939,8 @@ SCF_TO_TONTO(){
 	fi
 	echo "   charge= $CHARGE" >> stdin       
 	echo "   multiplicity= $MULTIPLICITY" >> stdin
-	echo "" >> stdin
-	if [[ $J = 0 && "$IAMTONTO" = "true" ]]; then 
-	#	echo ""
+	if [[ $J == 0 && "$IAMTONTO" == "true" ]]; then 
+		echo ""
 		echo "   crystal= {    " >> stdin
 		if [ "$SCFCALCPROG" = "elmodb" ]; then
 			echo "      REDIRECT tonto.cell" >> stdin
@@ -988,12 +954,12 @@ SCF_TO_TONTO(){
 		echo "         optimise_extinction= false" >> stdin
 		echo "         correct_dispersion= $DISP" >> stdin
 		echo "         wavelength= $WAVE Angstrom" >> stdin
-		if [ "$REFANHARM"="true" ]; then
-			if [[ "$THIRDORD"="true" && "$FOURTHORD"="true" ]]; then
+		if [ "$REFANHARM" == "true" ]; then
+			if [[ "$THIRDORD" == "true" && "$FOURTHORD" == "true" ]]; then
 				echo "         refine_4th_order_for_atoms= { $ANHARMATOMS } " >> stdin
-			elif [[ "$THIRDORD"="true" && "$FOURTHORD"="false" ]]; then
+			elif [[ "$THIRDORD" == "true" && "$FOURTHORD" == "false" ]]; then
 				echo "         refine_3rd_order_for_atoms= { $ANHARMATOMS } " >> stdin
-			elif [[ "$THIRDORD"="false" && "$FOURTHORD"="true" ]]; then
+			elif [[ "$THIRDORD" == "false" && "$FOURTHORD" == "true" ]]; then
 				echo "         refine_4th_order_only= { $ANHARMATOMS } " >> stdin
 			else 
 				echo "ERROR: Please select at least one of the anharmonic terms to refine" | tee -a $JOBNAME.lst
@@ -1020,14 +986,14 @@ SCF_TO_TONTO(){
 	fi
 	echo "" >> stdin
 	echo "   crystal= {    " >> stdin
-	if [[ "$SCFCALCPROG" = "elmodb" && $J = 0 ]]; then
+	if [[ "$SCFCALCPROG" == "elmodb" && $J == 0 ]]; then
 		echo "      REDIRECT tonto.cell" >> stdin
 	fi
-	if [[ "$SCFCALCPROG" != "elmodb" && "$SCFCALCPROG" != "Tonto" ]]; then
-		if [ $COMPLETECIF = "true" ]; then 
-			echo "      REDIRECT tonto.cell" >> stdin
-		fi
-	fi
+#	if [[ "$SCFCALCPROG" != "elmodb" && "$SCFCALCPROG" != "Tonto" ]]; then
+#		if [ $COMPLETECIF = "true" ]; then 
+#			echo "      REDIRECT tonto.cell" >> stdin
+#		fi
+#	fi
 	#if [[ $J = 0 && "$COMPLETECIF" = "true" ]]; then
 	#	echo "      defragment= $COMPLETECIF" >> stdin
 	#	echo "      make_info" >> stdin
@@ -1040,12 +1006,12 @@ SCF_TO_TONTO(){
 	echo "         correct_dispersion= $DISP" >> stdin
 	echo "         optimise_scale_factor= true" >> stdin
 	echo "         wavelength= $WAVE Angstrom" >> stdin
-	if [ "$REFANHARM"="true" ]; then
-		if [[ "$THIRDORD"="true" && "$FOURTHORD"="true" ]]; then
+	if [ "$REFANHARM" == "true" ]; then
+		if [[ "$THIRDORD" == "true" && "$FOURTHORD" == "true" ]]; then
 			echo "         refine_4th_order_for_atoms= { $ANHARMATOMS } " >> stdin
-		elif [[ "$THIRDORD"="true" && "$FOURTHORD"="false" ]]; then
+		elif [[ "$THIRDORD" == "true" && "$FOURTHORD" == "false" ]]; then
 			echo "         refine_3rd_order_for_atoms= { $ANHARMATOMS } " >> stdin
-		elif [[ "$THIRDORD"="false" && "$FOURTHORD"="true" ]]; then
+		elif [[ "$THIRDORD" == "false" && "$FOURTHORD" == "true" ]]; then
 			echo "         refine_4th_order_only= { $ANHARMATOMS } " >> stdin
 		else 
 			echo "ERROR: Please select at least one of the anharmonic terms to refine" | tee -a $JOBNAME.lst
@@ -1226,7 +1192,7 @@ SCF_TO_TONTO(){
 		cp $JOBNAME'.archive.cif' $J.fit_cycle.$JOBNAME/$J.$JOBNAME.archive.cif
 		cp $JOBNAME'.archive.fco' $J.fit_cycle.$JOBNAME/$J.$JOBNAME.archive.fco
 		cp $JOBNAME'.archive.fcf' $J.fit_cycle.$JOBNAME/$J.$JOBNAME.archive.fcf
-		if [[ "$SCFCALCPROG" != "elmodb" &&  "$SCCHARGES" = "true" ]]; then
+		if [[ "$SCFCALCPROG" != "elmodb" &&  "$SCCHARGES" == "true" ]]; then
 			cp gaussian-point-charges $J.fit_cycle.$JOBNAME/$J.gaussian-point-charges
 		fi
 	fi
@@ -1337,6 +1303,7 @@ CHECKCONV(){
 #FINALPARAMESD=$(awk '{a[NR]=$0}/^Rigid-atom fit results/{b=NR}END {print a[b-4]}' stdout | awk '{print $5}') This is from the last line
 FINALPARAMESD=$(awk '{a[NR]=$0}/^Begin rigid-atom fit/{b=NR}END {print a[b+10]}' stdout | awk '{print $5}')
 }
+
 ######################  End check energy ########################
 
 run_script(){
@@ -1518,6 +1485,10 @@ run_script(){
 		echo "   put" >> stdin 
 		echo "" >> stdin
 		echo "   write_xyz_file" >> stdin
+		if [ "$COMPLETECIF" = "true" ]; then
+			echo "" >> stdin
+			echo "   put_grown_cif" >> stdin
+		fi
 		#echo "###############################################################################################" >> $JOBNAME.lst
 		###echo "   put_cif" >> stdin
 		echo "" >> stdin
@@ -1541,6 +1512,7 @@ run_script(){
 		cp $JOBNAME.xyz $J.fit_cycle.$JOBNAME/$JOBNAME.starting_geom.xyz
 		cp stdin $J.fit_cycle.$JOBNAME/$J.stdin
 		cp stdout $J.fit_cycle.$JOBNAME/$J.stdout
+		cp $JOBNAME'.cartesian.cif2' $J.fit_cycle.$JOBNAME/$J.$JOBNAME.cartesian.cif2
 		awk '{a[NR]=$0}/^Atom coordinates/{b=NR}/^Unit cell information/{c=NR}END{for(d=b-1;d<=c-2;++d)print a[d]}' stdout >> $JOBNAME.lst
 		echo "Done reading cif with Tonto"
 		if [ "$COMPLETECIF" = "true" ]; then
@@ -1826,7 +1798,7 @@ export MAIN_DIALOG='
 
 	<window window_position="1" title="lamaGOET">
 
-	 <vbox scrollable="true" space-expand="true" space-fill="true" height="1000" width="800" >
+	 <vbox scrollable="true" space-expand="true" space-fill="true" height="600" width="800" >
 	
 	  <hbox homogeneous="True" >
 	
@@ -2594,6 +2566,8 @@ echo "" > $JOBNAME.lst
 if [[ -z "$SCFCALCPROG" ]]; then
 	SCFCALCPROG="Gaussian"
 fi
+
+echo "SCFCALCPROG=\"$SCFCALCPROG\"" >> job_options.txt
 
 if [ "$GAUSGEN" = "true" ]; then
     BASISSET="gen"
