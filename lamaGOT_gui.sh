@@ -863,7 +863,7 @@ SCF_TO_TONTO(){
 		echo "   ! Process the CIF" >> stdin
 		echo "   CIF= {" >> stdin
 		if [ $J = 0 ]; then 
-			if [[ "$COMPLETECIF" == "true" ]]; then
+			if [[ "$COMPLETECIF" == "true" && "$SCFCALCPROG" != "Tonto" ]]; then
 				echo "       file_name= $J.fit_cycle.$JOBNAME/$J.$JOBNAME.cartesian.cif2" >> stdin
 			else
 				echo "       file_name= $CIF" >> stdin
@@ -1153,8 +1153,10 @@ SCF_TO_TONTO(){
 	MAXSHIFT=$(awk '{a[NR]=$0}/^Begin rigid-atom fit/{b=NR+10}/^Rigid-atom fit results/{c=NR-4}END {for(d=b;d<=c;++d)print a[d]}' stdout | awk -v max=0 '{if($5>max){shift=$5; atom=$6; param=$7; max=$5}}END{print shift}')
 	MAXSHIFTATOM=$(awk '{a[NR]=$0}/^Begin rigid-atom fit/{b=NR+10}/^Rigid-atom fit results/{c=NR-4}END {for(d=b;d<=c;++d)print a[d]}' stdout | awk -v max=0 '{if($5>max){shift=$5; atom=$6; param=$7; max=$5}}END{print atom}')
 	MAXSHIFTPARAM=$(awk '{a[NR]=$0}/^Begin rigid-atom fit/{b=NR+10}/^Rigid-atom fit results/{c=NR-4}END {for(d=b;d<=c;++d)print a[d]}' stdout | awk -v max=0 '{if($5>max){shift=$5; atom=$6; param=$7; max=$5}}END{print param}')
-	sed -i 's/(//g' $JOBNAME.xyz
-	sed -i 's/)//g' $JOBNAME.xyz
+	if [[ "$SCFCALCPROG" != "Tonto" && "$SCFCALCPROG" != "elmodb" ]]; then
+		sed -i 's/(//g' $JOBNAME.xyz
+		sed -i 's/)//g' $JOBNAME.xyz
+	fi
 	echo "Tonto cycle number $J ended"
 	if ! grep -q 'Wall-clock time taken' "stdout"; then
 		echo "ERROR: problems in fit cycle, please check the $J.th stdout file for more details" | tee -a $JOBNAME.lst
@@ -2559,7 +2561,20 @@ export MAIN_DIALOG='
 
 #no need for basis set in tonto!!!
 
-gtkdialog --program=MAIN_DIALOG > job_options.txt
+#checking if job_options file exists for tests
+if [ -f job_options.txt  ]; then
+	source job_options.txt
+	if [[ "$TESTS" != "true" ]]; then
+		gtkdialog --program=MAIN_DIALOG > job_options.txt
+	else
+		if [[ "$SCFCALCPROG" = "elmodb" && "$EXIT" = "OK" ]]; then
+			PDB=$( echo $CIF | awk -F "/" '{print $NF}' ) 
+		fi
+	fi
+else
+	gtkdialog --program=MAIN_DIALOG > job_options.txt
+fi
+
 source job_options.txt
 #rm job_options.txt
 echo "" > $JOBNAME.lst
