@@ -1,7 +1,5 @@
 #!/bin/bash
 
-source job_options.txt
-
 GAMESS_ELMODB_OLD_PDB(){
 	I=$[ $I + 1 ]
 	PDB=$( echo $CIF | awk -F "/" '{print $NF}' )
@@ -44,7 +42,7 @@ GAMESS_ELMODB_OLD_PDB(){
 	echo "enter " >> $JOBNAME.gamess.inp
 #	echo "Calculating overlap integrals with gamessus, cycle number $I" 
 	$GAMESS < $JOBNAME.gamess.inp > $JOBNAME.gamess.out
-	echo "Gamess cycle number $I ended"
+#	echo "Gamess cycle number $I ended"
 	mkdir $I.$SCFCALCPROG.cycle.$JOBNAME
 	cp $JOBNAME.gamess.inp  $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.gamess.inp
 	cp $JOBNAME.gamess.out  $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.gamess.out
@@ -76,7 +74,7 @@ GAMESS_ELMODB_OLD_PDB(){
 			echo " "'$INPUT_STRUCTURE'"   pdb_file='$PDB' xyz_file='$JOBNAME.xyz' "'$END'"  " >> $JOBNAME.elmodb.inp
 		fi
 #		echo "Running elmodb"
-		./$( echo $SCFCALC_BIN | awk -F "/" '{print $NF}' ) < $JOBNAME.elmodb.inp > $JOBNAME.elmodb.out
+		./$( echo $SCFCALC_BIN | awk -F "/" '{print $NF}' ) < $JOBNAME.elmodb.inp > $JOBNAME.elmodb.out 
 		if ! grep -q 'CONGRATULATIONS: THE ELMO-TRANSFERs ENDED GRACEFULLY!!!' "$JOBNAME.elmodb.out"; then
 			echo "ERROR: elmodb finished with error, please check the $I.th elmodb.out file for more details" >> $JOBNAME.lst
 			unset MAIN_DIALOG
@@ -111,7 +109,7 @@ ELMODB(){
 		echo " "'$INPUT_METHOD'"      job_title='$JOBNAME' basis_set='$BASISSET' xyz=.true. iprint_level=1 ncpus=$NUMPROC alloc_mem=$MEM bset_path='$BASISSETDIR' lib_path='$ELMOLIB' nci=.true. "'$END'" " > $JOBNAME.elmodb.inp
 		echo " "'$INPUT_STRUCTURE'"   pdb_file='$PDB' xyz_file='$JOBNAME.xyz' "'$END'"  " >> $JOBNAME.elmodb.inp
 	fi
-	./$( echo $SCFCALC_BIN | awk -F "/" '{print $NF}' ) < $JOBNAME.elmodb.inp > $JOBNAME.elmodb.out
+	./$( echo $SCFCALC_BIN | awk -F "/" '{print $NF}' ) < $JOBNAME.elmodb.inp > $JOBNAME.elmodb.out  
 	if ! grep -q 'CONGRATULATIONS: THE ELMO-TRANSFERs ENDED GRACEFULLY!!!' "$JOBNAME.elmodb.out"; then
 		echo "ERROR: elmodb finished with error, please check the $I.th elmodb.out file for more details" >> $JOBNAME.lst
 		unset MAIN_DIALOG
@@ -161,7 +159,7 @@ TONTO_TO_ORCA(){
 	fi
 	echo "*"  >> $JOBNAME.inp
 #	echo "Running Orca, cycle number $I" 
-	$SCFCALC_BIN $JOBNAME.inp > $JOBNAME.log
+	$SCFCALC_BIN $JOBNAME.inp > $JOBNAME.log  
 	echo "Orca cycle number $I ended"
 	if ! grep -q '****ORCA TERMINATED NORMALLY****' "$JOBNAME.out"; then
 		echo "ERROR: Orca job finished with error, please check the $I.th out file for more details" >> $JOBNAME.lst
@@ -612,7 +610,7 @@ TONTO_TO_GAUSSIAN(){
 	echo "./$JOBNAME.wfn" >> $JOBNAME.com
 	echo "" >> $JOBNAME.com
 #	echo "Running Gaussian, cycle number $I"
-	$SCFCALC_BIN $JOBNAME.com
+	$SCFCALC_BIN $JOBNAME.com  
 #	echo "Gaussian cycle number $I ended"
 	if ! grep -q 'Normal termination of Gaussian' "$JOBNAME.log"; then
 		echo "ERROR: Gaussian job finished with error, please check the $I.th log file for more details">> $JOBNAME.lst
@@ -668,10 +666,10 @@ FINALPARAMESD=$(awk '{a[NR]=$0}/^Begin rigid-atom fit/{b=NR}END {print a[b+10]}'
 ######################  End check energy ########################
 
 run_script(){
-	if [ -d *.cycle.$JOBNAME ]; then
+	if [ ! -z "$(compgen -G "*.cycle.$JOBNAME")" ]; then
 		rm -r *.cycle.$JOBNAME
 	fi
-	if [ -d *.fit_cycle.$JOBNAME ]; then
+	if [ ! -z "$(compgen -G "*.fit_cycle.$JOBNAME")" ]; then
 		rm -r *.fit_cycle.$JOBNAME
 	fi
 	SECONDS=0
@@ -959,7 +957,7 @@ run_script(){
 			#put if Gaussian or Orca
 			I=$"1"
 #			echo "Running Gaussian, cycle number $I" 
-			$SCFCALC_BIN $JOBNAME.com
+			$SCFCALC_BIN $JOBNAME.com  
 #			echo "Gaussian cycle number $I ended"
 			if ! grep -q 'Normal termination of Gaussian' "$JOBNAME.log"; then
 				echo "ERROR: Gaussian job finished with error, please check the $I.th log file for more details" >> $JOBNAME.lst
@@ -1012,7 +1010,7 @@ run_script(){
 			echo "*" | tee -a $JOBNAME.inp $JOBNAME.lst >/dev/null
 			I=$"1"
 #			echo "Running Orca, cycle number $I" 
-	 		$SCFCALC_BIN $JOBNAME.inp > $JOBNAME.log
+	 		$SCFCALC_BIN $JOBNAME.inp > $JOBNAME.log  
 #			echo "Orca cycle number $I ended"
 			if ! grep -q '****ORCA TERMINATED NORMALLY****' "$JOBNAME.out"; then
 				echo "ERROR: Orca job finished with error, please check the $I.th out file for more details" >> $JOBNAME.lst
@@ -1065,8 +1063,12 @@ run_script(){
 		DURATION=$SECONDS
 		echo "Job ended, elapsed time:" >> $JOBNAME.lst
 		echo "$(($DURATION / 86400 )) days,  $((($DURATION / 3600) % 24 )) hours, $((($DURATION / 60) % 60 ))minutes and $(($DURATION % 60 )) seconds elapsed." >> $JOBNAME.lst
-		rm -r *.cycle.$JOBNAME 
-		rm -r *.fit_cycle.$JOBNAME
+		if [ ! -z "$(compgen -G "*.cycle.$JOBNAME")" ]; then
+			rm -r *.cycle.$JOBNAME
+		fi
+		if [ ! -z "$(compgen -G "*.fit_cycle.$JOBNAME")" ]; then
+			rm -r *.fit_cycle.$JOBNAME
+		fi
 		exit
 	elif [ "$SCFCALCPROG" = "Tonto" ]; then
 		SCF_TO_TONTO
@@ -1080,8 +1082,12 @@ run_script(){
 		DURATION=$SECONDS
 		echo "Job ended, elapsed time:" >> $JOBNAME.lst
 		echo "$(($DURATION / 86400 )) days,  $((($DURATION / 3600) % 24 )) hours, $((($DURATION / 60) % 60 ))minutes and $(($DURATION % 60 )) seconds elapsed." >> $JOBNAME.lst
-		rm -r *.cycle.$JOBNAME
-		rm -r *.fit_cycle.$JOBNAME
+		if [ ! -z "$(compgen -G "*.cycle.$JOBNAME")" ]; then
+			rm -r *.cycle.$JOBNAME
+		fi
+		if [ ! -z "$(compgen -G "*.fit_cycle.$JOBNAME")" ]; then
+			rm -r *.fit_cycle.$JOBNAME
+		fi
 		exit
 	else
 		if [ "$USEGAMESS" = "false" ]; then    
@@ -1102,10 +1108,14 @@ run_script(){
 			echo "" >> $JOBNAME.lst
 			echo " $(awk '{a[NR]=$0}/^Rigid-atom fit results/{b=NR}/^Wall-clock time taken for job /{c=NR}END{for (d=b-2;d<c-1;++d) print a[d]}' stdout)"  >> $JOBNAME.lst
 			DURATION=$SECONDS
-			echo "Job ended, elapsed time:" | tee -a $JOBNAME.lst
+			echo "Job ended, elapsed time:" >> $JOBNAME.lst
 			echo "$(($DURATION / 86400 )) days,  $((($DURATION / 3600) % 24 )) hours, $((($DURATION / 60) % 60 ))minutes and $(($DURATION % 60 )) seconds elapsed."  >> $JOBNAME.lst
-			rm -r *.cycle.$JOBNAME
-			rm -r *.fit_cycle.$JOBNAME
+			if [ ! -z "$(compgen -G "*.cycle.$JOBNAME")" ]; then
+				rm -r *.cycle.$JOBNAME
+			fi
+			if [ ! -z "$(compgen -G "*.fit_cycle.$JOBNAME")" ]; then
+				rm -r *.fit_cycle.$JOBNAME
+			fi
 			exit
 
 		else 
@@ -1125,38 +1135,51 @@ run_script(){
 			echo "" >> $JOBNAME.lst
 			echo " $(awk '{a[NR]=$0}/^Rigid-atom fit results/{b=NR}/^Wall-clock time taken for job /{c=NR}END{for (d=b-2;d<c-1;++d) print a[d]}' stdout)"  >> $JOBNAME.lst
 			DURATION=$SECONDS
-			echo "Job ended, elapsed time:" | tee -a $JOBNAME.lst
+			echo "Job ended, elapsed time:" >> $JOBNAME.lst
 			echo "$(($DURATION / 86400 )) days,  $((($DURATION / 3600) % 24 )) hours, $((($DURATION / 60) % 60 ))minutes and $(($DURATION % 60 )) seconds elapsed." >> $JOBNAME.lst
-			rm -r *.cycle.$JOBNAME
-			rm -r *.fit_cycle.$JOBNAME
+			if [ ! -z "$(compgen -G "*.cycle.$JOBNAME")" ]; then
+				rm -r *.cycle.$JOBNAME
+			fi
+			if [ ! -z "$(compgen -G "*.fit_cycle.$JOBNAME")" ]; then
+				rm -r *.fit_cycle.$JOBNAME
+			fi
 			exit
 		fi
 	fi
 }
 
-if [[ "$SCFCALCPROG" = "elmodb" && "$EXIT" = "OK" ]]; then
-	cp $CIF .
-	PDB=$( echo $CIF | awk -F "/" '{print $NF}' ) 
-	echo "PDB=\"$PDB\"" >> job_options.txt
-fi
+for dir in `cat run_tests.txt`
+do
+	( cd $dir 
 
-if [[ -z "$SCFCALCPROG" ]]; then
-	SCFCALCPROG="Gaussian"
-fi
+	source job_options.txt
 
-if [ "$GAUSGEN" = "true" ]; then
-	BASISSET="gen"
-	sed -i '/BASISSET=/c\BASISSET=\".\/'$BASISSET'"' job_options.txt
-fi
+	if [[ "$SCFCALCPROG" = "elmodb" && "$EXIT" = "OK" ]]; then
+		cp $CIF .
+		PDB=$( echo $CIF | awk -F "/" '{print $NF}' ) 
+		echo "PDB=\"$PDB\"" >> job_options.txt
+	fi
 
-if [ "$GAUSSREL" = "true" ]; then
-	INT="int=dkh"
-	echo "INT=\"$INT\"" >> job_options.txt
-fi
+	if [[ -z "$SCFCALCPROG" ]]; then
+		SCFCALCPROG="Gaussian"
+	fi
 
-echo "SCFCALCPROG=\"$SCFCALCPROG\"" >> job_options.txt
+	if [ "$GAUSGEN" = "true" ]; then
+		BASISSET="gen"
+		sed -i '/BASISSET=/c\BASISSET=\".\/'$BASISSET'"' job_options.txt
+	fi
+
+	if [ "$GAUSSREL" = "true" ]; then
+		INT="int=dkh"
+		echo "INT=\"$INT\"" >> job_options.txt
+	fi
+
+	echo "SCFCALCPROG=\"$SCFCALCPROG\"" >> job_options.txt
+	
+
+	source job_options.txt
+
+	run_script );
+done
 
 
-source job_options.txt
-
-run_script
