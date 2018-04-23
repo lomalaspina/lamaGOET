@@ -2587,10 +2587,12 @@ echo "SCFCALCPROG=\"$SCFCALCPROG\"" >> job_options.txt
 if [ "$GAUSGEN" = "true" ]; then
     BASISSET="gen"
     zenity --entry --title="New basis set" --text="Enter or paste the basis set in the gaussian format as: \n !!NO EMPTY LINE!! \n C 0 \n S 5 \n exponent1 coefficient1 \n exponent2 coefficient2 \n exponent3 coefficient3 \n exponent4 coefficient4 \n exponent5 coefficient5 \n **** \n !!NO EMPTY LINE!! \n (Repeat this for all shells and all elements) " > basis_gen.txt
+    sed -i '/BASISSET=/c\BASISSET=\".\/'$BASISSET'"' job_options.txt
 fi
 
 if [ "$GAUSSREL" = "true" ]; then
     INT="int=dkh"
+    echo "INT=\"$INT\"" >> job_options.txt
 fi
 
 if [[ "$DISP" = "yes" && "$EXIT" = "OK" ]]; then
@@ -2601,7 +2603,9 @@ if [[ "$DISP" = "yes" && "$EXIT" = "OK" ]]; then
 fi
 
 if [[ "$SCFCALCPROG" = "elmodb" && "$EXIT" = "OK" ]]; then
+	cp $CIF .
 	PDB=$( echo $CIF | awk -F "/" '{print $NF}' ) 
+	echo "PDB=\"$PDB\"" >> job_options.txt
 	if [[ ! -f "tonto.cell" ]]; then
 		#extracting information from pdb file into new jobname.pdb file (only for elmodb)
 		# is tehre a cell in the pdb?
