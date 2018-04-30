@@ -684,10 +684,16 @@ GAMESS_ELMODB_OLD_PDB(){
 			BASISSETDIR=$( echo "$(dirname $BASISSETDIR)/" )
 			ELMOLIB=$( echo "$(dirname $ELMOLIB)/" )
 			echo " "'$INPUT_METHOD'"      job_title='$JOBNAME' basis_set='$BASISSET' iprint_level=1 ncpus=$NUMPROC alloc_mem=$MEM bset_path='$BASISSETDIR' lib_path='$ELMOLIB' nci=.true. comp_sao=.false. "'$END'" " > $JOBNAME.elmodb.inp
-			echo " "'$INPUT_STRUCTURE'"   pdb_file='$PDB' "'$END'"  " >> $JOBNAME.elmodb.inp
+			echo " "'$INPUT_STRUCTURE'"   pdb_file='$PDB' ntail=$NTAIL "'$END'"  " >> $JOBNAME.elmodb.inp
+			if [[ "$NTAIL" != "0" ]]; then
+				echo "$MANUALRESIDUE" >> $JOBNAME.elmodb.inp
+			fi
 		else 
 			echo " "'$INPUT_METHOD'"      job_title='$JOBNAME' basis_set='$BASISSET' xyz=.true. iprint_level=1 ncpus=$NUMPROC alloc_mem=$MEM bset_path='$BASISSETDIR' lib_path='$ELMOLIB' nci=.true. comp_sao=.false. "'$END'" " > $JOBNAME.elmodb.inp
-			echo " "'$INPUT_STRUCTURE'"   pdb_file='$PDB' xyz_file='$JOBNAME.xyz' "'$END'"  " >> $JOBNAME.elmodb.inp
+			echo " "'$INPUT_STRUCTURE'"   pdb_file='$PDB' xyz_file='$JOBNAME.xyz' ntail=$NTAIL "'$END'"  " >> $JOBNAME.elmodb.inp
+			if [[ "$NTAIL" != "0" ]]; then
+				echo "$MANUALRESIDUE" >> $JOBNAME.elmodb.inp
+			fi
 		fi
 		echo "Running elmodb"
 		./$( echo $SCFCALC_BIN | awk -F "/" '{print $NF}' ) < $JOBNAME.elmodb.inp > $JOBNAME.elmodb.out
@@ -753,10 +759,16 @@ ELMODB(){
 		BASISSETDIR=$( echo "$(dirname $BASISSETDIR)/" )
 		ELMOLIB=$( echo "$(dirname $ELMOLIB)/" )
 		echo " "'$INPUT_METHOD'"      job_title='$JOBNAME' basis_set='$BASISSET' iprint_level=1 ncpus=$NUMPROC alloc_mem=$MEM bset_path='$BASISSETDIR' lib_path='$ELMOLIB' nci=.true. "'$END'" " > $JOBNAME.elmodb.inp
-		echo " "'$INPUT_STRUCTURE'"   pdb_file='$PDB' "'$END'"  " >> $JOBNAME.elmodb.inp
+		echo " "'$INPUT_STRUCTURE'"   pdb_file='$PDB' ntail=$NTAIL "'$END'"  " >> $JOBNAME.elmodb.inp
+		if [[ "$NTAIL" != "0" ]]; then
+			echo "$MANUALRESIDUE" >> $JOBNAME.elmodb.inp
+		fi
 	else 
 		echo " "'$INPUT_METHOD'"      job_title='$JOBNAME' basis_set='$BASISSET' xyz=.true. iprint_level=1 ncpus=$NUMPROC alloc_mem=$MEM bset_path='$BASISSETDIR' lib_path='$ELMOLIB' nci=.true. "'$END'" " > $JOBNAME.elmodb.inp
-		echo " "'$INPUT_STRUCTURE'"   pdb_file='$PDB' xyz_file='$JOBNAME.xyz' "'$END'"  " >> $JOBNAME.elmodb.inp
+		echo " "'$INPUT_STRUCTURE'"   pdb_file='$PDB' xyz_file='$JOBNAME.xyz' ntail=$NTAIL "'$END'"  " >> $JOBNAME.elmodb.inp
+		if [[ "$NTAIL" != "0" ]]; then
+			echo "$MANUALRESIDUE" >> $JOBNAME.elmodb.inp
+		fi
 	fi
 	./$( echo $SCFCALC_BIN | awk -F "/" '{print $NF}' ) < $JOBNAME.elmodb.inp > $JOBNAME.elmodb.out
 	if ! grep -q 'CONGRATULATIONS: THE ELMO-TRANSFERs ENDED GRACEFULLY!!!' "$JOBNAME.elmodb.out"; then
@@ -1800,7 +1812,7 @@ export MAIN_DIALOG='
 
 	<window window_position="1" title="lamaGOET">
 
-	 <vbox scrollable="true" space-expand="true" space-fill="true" height="600" width="800" >
+	 <vbox scrollable="true" space-expand="true" space-fill="true" height="1000" width="800" >
 	
 	  <hbox homogeneous="True" >
 	
@@ -1819,7 +1831,7 @@ export MAIN_DIALOG='
 	  </hbox>
 
   	 <notebook 
-		tab-labels="Main|Advanced Settings|Total XWR|Tools"
+		tab-labels="Main|Advanced Settings|Total XWR|Tools|Elmodb advanced specific"
 		xx-tab-labels="which will be shown on tabs"
 
 		> 	  
@@ -1856,6 +1868,10 @@ export MAIN_DIALOG='
 	        <action>if false disable:GAUSGEN</action>
 	        <action>if true enable:GAUSSREL</action>
 	        <action>if false disable:GAUSSREL</action>
+	        <action>if true disable:NTAIL</action>
+	        <action>if false enable:NTAIL</action>
+	        <action>if true disable:MANUALRESIDUE</action>
+	        <action>if false enable:MANUALRESIDUE</action>
 	      </radiobutton>
 	      <radiobutton space-fill="True"  space-expand="True">
 	        <label>Orca</label>
@@ -1884,6 +1900,10 @@ export MAIN_DIALOG='
 	        <action>if false enable:GAUSGEN</action>
 	        <action>if true disable:GAUSSREL</action>
 	        <action>if false enable:GAUSSREL</action>
+	        <action>if true disable:NTAIL</action>
+	        <action>if false enable:NTAIL</action>
+	        <action>if true disable:MANUALRESIDUE</action>
+	        <action>if false enable:MANUALRESIDUE</action>
 	      </radiobutton>
 	      <radiobutton space-fill="True"  space-expand="True">
 	        <label>Tonto</label>
@@ -1914,6 +1934,10 @@ export MAIN_DIALOG='
 	        <action>if false enable:GAUSGEN</action>
 	        <action>if true disable:GAUSSREL</action>
 	        <action>if false enable:GAUSSREL</action>
+	        <action>if true disable:NTAIL</action>
+	        <action>if false enable:NTAIL</action>
+	        <action>if true disable:MANUALRESIDUE</action>
+	        <action>if false enable:MANUALRESIDUE</action>
 	      </radiobutton>
 	      <radiobutton space-fill="True"  space-expand="True">
 	        <label>elmodb</label>
@@ -1943,6 +1967,10 @@ export MAIN_DIALOG='
 	        <action>if false enable:GAUSGEN</action>
 	        <action>if true disable:GAUSSREL</action>
 	        <action>if false enable:GAUSSREL</action>
+	        <action>if true enable:NTAIL</action>
+	        <action>if false disable:NTAIL</action>
+	        <action>if true enable:MANUALRESIDUE</action>
+	        <action>if false disable:MANUALRESIDUE</action>
 	      </radiobutton>
 
 	   </hbox>
@@ -2518,6 +2546,52 @@ export MAIN_DIALOG='
 	  </frame>
 	 </vbox>
 
+	 <vbox visible="true">
+	  <frame>
+   	  <hbox> 
+           <text xalign="0" use-markup="true" wrap="false" justify="1"><label>Enter number of tailor made residues:</label></text>
+           <spinbutton  range-min="0"  range-max="100" space-fill="True"  space-expand="True" sensitive="false">
+	    <default>0</default>
+	    <variable>NTAIL</variable>
+	   </spinbutton>
+	   </hbox>
+
+
+	   <hbox>
+	    <text text-xalign="0" use-markup="true" wrap="false" space-expand="FALSE" space-fill="false"><label>Enter the residue information manually:</label></text>
+ 	    <edit space-expand="true" space-fill="true" sensitive="false">
+             <default>
+" 
+ALE   0   17  .t.        !Input for the first tailor-made residue 
+		
+CA        1    1   .f.     N   CA  C     
+N         1    1   .f.     CA  N   H1     
+C         1    1   .f.     CA  C   O     
+O         3    1   .f.     C   O   OXT     
+OXT       3    1   .f.     C   OXT O
+CB        1    1   .f.     CA  CB  HB1   
+CA_HA     1    2   .f.     CA  HA  C    
+CA_N      1    2   .f.     CA  N   HA     
+N_H1      1    2   .f.     N   H1  CA
+N_H2      1    2   .f.     N   H2  CA
+N_H3      1    2   .f.     N   H3  CA  
+CA_C      1    2   .f.     CA  C   O     
+C_O_OXT   4    3   .f.     C   O   OXT      
+CA_CB     1    2   .f.     CA  CB  C    
+CB_HB1    1    2   .f.     CB  HB1 CA   
+CB_HB2    1    2   .f.     CB  HB2 CA   
+CB_HB3    1    2   .f.     CB  HB3 CA 
+ "
+             </default>
+	     <variable>MANUALRESIDUE</variable>
+      	     <width>350</width><height>350</height>
+             <action  condition="file_is_false(ntail.txt)">touch ntail.txt</action>
+    	    </edit>
+	   </hbox>
+ 
+	  </frame>
+	 </vbox>
+
 	 </notebook>
          </vbox>
 
@@ -2567,7 +2641,7 @@ if [ -f job_options.txt  ]; then
 	if [[ "$TESTS" != "true" ]]; then
 		gtkdialog --program=MAIN_DIALOG > job_options.txt
 	else
-		if [[ "$SCFCALCPROG" = "elmodb" && "$EXIT" = "OK" ]]; then
+		if [[ "$SCFCALCPROG" == "elmodb" && "$EXIT" == "OK" ]]; then
 			PDB=$( echo $CIF | awk -F "/" '{print $NF}' ) 
 		fi
 	fi
@@ -2602,14 +2676,14 @@ if [[ "$DISP" = "yes" && "$EXIT" = "OK" ]]; then
 	done
 fi
 
-if [[ "$SCFCALCPROG" = "elmodb" && "$EXIT" = "OK" ]]; then
+if [[ "$SCFCALCPROG" == "elmodb" && "$EXIT" == "OK" ]]; then
 	cp $CIF .
 	PDB=$( echo $CIF | awk -F "/" '{print $NF}' ) 
 	echo "PDB=\"$PDB\"" >> job_options.txt
 	if [[ ! -f "tonto.cell" ]]; then
 		#extracting information from pdb file into new jobname.pdb file (only for elmodb)
 		# is tehre a cell in the pdb?
-		if [[ ! -z $(awk '$1 !~ /CRYST1/ {print $0}'  $PDB) ]]; then
+		if [[ ! -z $(awk '$1 ~ /CRYST1/ {print $0}'  $PDB) ]]; then
 			CELLA=$(awk '$1 ~ /CRYST1/ {print $2}'  $PDB)
 			CELLB=$(awk '$1 ~ /CRYST1/ {print $3}'  $PDB)
 			CELLC=$(awk '$1 ~ /CRYST1/ {print $4}'  $PDB)
@@ -2656,7 +2730,10 @@ if [[ "$SCFCALCPROG" = "elmodb" && "$EXIT" = "OK" ]]; then
 		# are there more lines in the pdb then the ATOM lines?
 		if [[ ! -z $(awk '$1 !~ /ATOM/ {print $0}'  $PDB) ]]; then
 			awk '$1 ~ /ATOM/ {print $0}'  $PDB > $JOBNAME.cut.pdb
-			PDB=$JOBNAME.cut.pdb
+			echo "END" >> $JOBNAME.cut.pdb
+			if [[ ! -z $(diff -ZB $PDB $JOBNAME.cut.pdb ]]; then
+				PDB=$JOBNAME.cut.pdb	
+			fi
 		fi
 	fi
 fi
