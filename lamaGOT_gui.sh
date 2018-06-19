@@ -1077,7 +1077,13 @@ SCF_TO_TONTO(){
 			echo "     ! SC cluster charge SCF" >> stdin
 			echo "      scfdata= {" >> stdin
 			echo "      initial_MOs= existing" >> stdin
-			echo "      kind= $METHOD" >> stdin
+			if [[ "$METHOD" != "rks" && "$METHOD" != "rhf" && "$METHOD" != "uhf" && "$METHOD" != "uks" ]]; then
+				echo "      kind= rks " >> stdin
+				echo "      dft_exchange_functional= b3lypgx" >> stdin
+				echo "      dft_correlation_functional= b3lypgc" >> stdin
+			else
+				echo "      kind= $METHOD" >> stdin
+			fi
 			echo "      use_SC_cluster_charges= TRUE" >> stdin
 			echo "      cluster_radius= $SCCRADIUS angstrom" >> stdin
 			echo "      defragment= $DEFRAG" >> stdin
@@ -1095,7 +1101,13 @@ SCF_TO_TONTO(){
 			echo "   scfdata= {" >> stdin
 			echo "      initial_density= promolecule" >> stdin
 			echo "      initial_MOs= existing" >> stdin
-			echo "      kind= $METHOD" >> stdin
+			if [[ "$METHOD" != "rks" && "$METHOD" != "rhf" && "$METHOD" != "uhf" && "$METHOD" != "uks" ]]; then
+				echo "      kind= rks " >> stdin
+				echo "      dft_exchange_functional= b3lypgx" >> stdin
+				echo "      dft_correlation_functional= b3lypgc" >> stdin
+			else
+				echo "      kind= $METHOD" >> stdin
+			fi
 			echo "      use_SC_cluster_charges= TRUE" >> stdin
 			echo "      cluster_radius= $SCCRADIUS angstrom" >> stdin
 			echo "      defragment= $DEFRAG" >> stdin
@@ -1128,7 +1140,13 @@ SCF_TO_TONTO(){
 		echo "   ! Normal SCF" >> stdin
 		echo "   scfdata= {" >> stdin
 		echo "      initial_density= promolecule " >> stdin
-		echo "      kind= $METHOD" >> stdin
+		if [ "$METHOD" = "b3lyp" ]; then
+			echo "      kind= rks " >> stdin
+			echo "      dft_exchange_functional= b3lypgx" >> stdin
+			echo "      dft_correlation_functional= b3lypgc" >> stdin
+		else 
+			echo "      kind= $METHOD" >> stdin
+		fi
 		echo "      use_SC_cluster_charges= FALSE" >> stdin
 		echo "      convergence= 0.001" >> stdin
 		echo "      diis= { convergence_tolerance= 0.0002 }" >> stdin
@@ -1139,7 +1157,13 @@ SCF_TO_TONTO(){
 		echo "   ! SC cluster charge SCF" >> stdin
 		echo "   scfdata= {" >> stdin
 		echo "      initial_MOs= restricted" >> stdin
-		echo "      kind= $METHOD" >> stdin
+		if [ "$METHOD" = "b3lyp" ]; then
+			echo "      kind= rks" >> stdin
+			echo "      dft_exchange_functional= b3lypgx" >> stdin
+			echo "      dft_correlation_functional= b3lypgc" >> stdin
+		else 
+			echo "      kind= $METHOD" >> stdin
+		fi
 		if [ "$SCCHARGES" = "true" ]; then 
 			echo "      use_SC_cluster_charges= TRUE" >> stdin
 			echo "      cluster_radius= $SCCRADIUS angstrom" >> stdin
@@ -2162,7 +2186,7 @@ export MAIN_DIALOG='
 	
 	   <hbox>
 	    <text xalign="0" use-markup="true" wrap="false" > <label>Method: </label></text>
-	    <combobox has-tooltip="true" tooltip-markup="'"'rhf'"' - Restricted Hartree-Fock, 
+	    <combobox allow-empty="true" has-tooltip="true" tooltip-markup="'"'rhf'"' - Restricted Hartree-Fock, 
 	'"'rks'"' - Restricted Kohn-Sham, 
 	'"'rohf'"' - Restricted open shell Hartree-Fock, 
 	'"'uhf'"' - Unrestricted Hartree-Fock, 
@@ -2173,6 +2197,7 @@ export MAIN_DIALOG='
 	     <item>rohf</item>
 	     <item>uhf</item>
 	     <item>uks</item>
+	     <item>b3lyp</item>
 	    </combobox>
 	
 	
@@ -2731,7 +2756,7 @@ if [[ "$SCFCALCPROG" == "elmodb" && "$EXIT" == "OK" ]]; then
 		if [[ ! -z $(awk '$1 !~ /ATOM/ {print $0}'  $PDB) ]]; then
 			awk '$1 ~ /ATOM/ {print $0}'  $PDB > $JOBNAME.cut.pdb
 			echo "END" >> $JOBNAME.cut.pdb
-			if [[ ! -z $(diff -ZB $PDB $JOBNAME.cut.pdb ]]; then
+			if [[ ! -z $(diff -ZB $PDB $JOBNAME.cut.pdb) ]]; then
 				PDB=$JOBNAME.cut.pdb	
 			fi
 		fi

@@ -458,7 +458,13 @@ SCF_TO_TONTO(){
 			echo "     ! SC cluster charge SCF" >> stdin
 			echo "      scfdata= {" >> stdin
 			echo "      initial_MOs= existing" >> stdin
-			echo "      kind= $METHOD" >> stdin
+			if [[ "$METHOD" != "rks" && "$METHOD" != "rhf" && "$METHOD" != "uhf" && "$METHOD" != "uks" ]]; then
+				echo "      kind= rks " >> stdin
+				echo "      dft_exchange_functional= b3lypgx" >> stdin
+				echo "      dft_correlation_functional= b3lypgc" >> stdin
+			else
+				echo "      kind= $METHOD" >> stdin
+			fi
 			echo "      use_SC_cluster_charges= TRUE" >> stdin
 			echo "      cluster_radius= $SCCRADIUS angstrom" >> stdin
 			echo "      defragment= $DEFRAG" >> stdin
@@ -476,7 +482,13 @@ SCF_TO_TONTO(){
 			echo "   scfdata= {" >> stdin
 			echo "      initial_density= promolecule" >> stdin
 			echo "      initial_MOs= existing" >> stdin
-			echo "      kind= $METHOD" >> stdin
+			if [[ "$METHOD" != "rks" && "$METHOD" != "rhf" && "$METHOD" != "uhf" && "$METHOD" != "uks" ]]; then
+				echo "      kind= rks " >> stdin
+				echo "      dft_exchange_functional= b3lypgx" >> stdin
+				echo "      dft_correlation_functional= b3lypgc" >> stdin
+			else
+				echo "      kind= $METHOD" >> stdin
+			fi
 			echo "      use_SC_cluster_charges= TRUE" >> stdin
 			echo "      cluster_radius= $SCCRADIUS angstrom" >> stdin
 			echo "      defragment= $DEFRAG" >> stdin

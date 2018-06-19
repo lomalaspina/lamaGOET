@@ -698,22 +698,23 @@ run_script(){
 	fi
 	
 	#writing the lst file
+#remove from here for tests!
 	echo "###############################################################################################" > $JOBNAME.lst
 	echo "                                           lamaGOT                                             " >> $JOBNAME.lst
 	echo "###############################################################################################" >> $JOBNAME.lst
-	echo "Job started on:" >> $JOBNAME.lst
-	date >> $JOBNAME.lst
+#	echo "Job started on:" >> $JOBNAME.lst
+#	date >> $JOBNAME.lst
 	echo "User Inputs: " >> $JOBNAME.lst
-	echo "Tonto executable	:  $TONTO"  >> $JOBNAME.lst 
-	echo "$($TONTO -v)" >> $JOBNAME.lst 
-	#awk 'NR==7 { print }' stdout >> $JOBNAME.lst      #print the tonto version, but there is no stdout yet
+#	echo "Tonto executable	:  $TONTO"  >> $JOBNAME.lst 
+#	echo "$($TONTO -v)" >> $JOBNAME.lst 
+#	#awk 'NR==7 { print }' stdout >> $JOBNAME.lst      #print the tonto version, but there is no stdout yet
 	echo "SCF program		: $SCFCALCPROG" >> $JOBNAME.lst
 	if [ "$SCFCALCPROG" != "Tonto" ]; then 
-		echo "SCF executable		: $SCFCALC_BIN" >> $JOBNAME.lst
+#		echo "SCF executable		: $SCFCALC_BIN" >> $JOBNAME.lst
 	fi
 	echo "Job name		: $JOBNAME" >> $JOBNAME.lst
-	echo "Input cif		: $CIF" >> $JOBNAME.lst
-	echo "Input hkl		: $HKL" >> $JOBNAME.lst
+#	echo "Input cif		: $CIF" >> $JOBNAME.lst
+#	echo "Input hkl		: $HKL" >> $JOBNAME.lst
 	echo "Wavelenght		: $WAVE" Angstrom >> $JOBNAME.lst
 	echo "F_sigma_cutoff		: $FCUT" >> $JOBNAME.lst
 	echo "Tol. for shift on esd	: $CONVTOL" >> $JOBNAME.lst
@@ -1062,7 +1063,8 @@ run_script(){
 		echo " $(awk '{a[NR]=$0}/^Rigid-atom fit results/{b=NR}/^Wall-clock time taken for job /{c=NR}END{for (d=b-2;d<c-1;++d) print a[d]}' stdout)"  >> $JOBNAME.lst
 		DURATION=$SECONDS
 		echo "Job ended, elapsed time:" >> $JOBNAME.lst
-		echo "$(($DURATION / 86400 )) days,  $((($DURATION / 3600) % 24 )) hours, $((($DURATION / 60) % 60 ))minutes and $(($DURATION % 60 )) seconds elapsed." >> $JOBNAME.lst
+		#remove from here and throw it on the test screen output!
+#		echo "$(($DURATION / 86400 )) days,  $((($DURATION / 3600) % 24 )) hours, $((($DURATION / 60) % 60 ))minutes and $(($DURATION % 60 )) seconds elapsed." >> $JOBNAME.lst
 		if [ ! -z "$(compgen -G "*.cycle.$JOBNAME")" ]; then
 			rm -r *.cycle.$JOBNAME
 		fi
@@ -1081,7 +1083,8 @@ run_script(){
 		echo " $(awk '{a[NR]=$0}/^Rigid-atom fit results/{b=NR}/^Wall-clock time taken for job /{c=NR}END{for (d=b-2;d<c-1;++d) print a[d]}' stdout)"  >> $JOBNAME.lst
 		DURATION=$SECONDS
 		echo "Job ended, elapsed time:" >> $JOBNAME.lst
-		echo "$(($DURATION / 86400 )) days,  $((($DURATION / 3600) % 24 )) hours, $((($DURATION / 60) % 60 ))minutes and $(($DURATION % 60 )) seconds elapsed." >> $JOBNAME.lst
+#remove from here and throw it on the test screen output!
+#		echo "$(($DURATION / 86400 )) days,  $((($DURATION / 3600) % 24 )) hours, $((($DURATION / 60) % 60 ))minutes and $(($DURATION % 60 )) seconds elapsed." >> $JOBNAME.lst
 		if [ ! -z "$(compgen -G "*.cycle.$JOBNAME")" ]; then
 			rm -r *.cycle.$JOBNAME
 		fi
@@ -1109,7 +1112,8 @@ run_script(){
 			echo " $(awk '{a[NR]=$0}/^Rigid-atom fit results/{b=NR}/^Wall-clock time taken for job /{c=NR}END{for (d=b-2;d<c-1;++d) print a[d]}' stdout)"  >> $JOBNAME.lst
 			DURATION=$SECONDS
 			echo "Job ended, elapsed time:" >> $JOBNAME.lst
-			echo "$(($DURATION / 86400 )) days,  $((($DURATION / 3600) % 24 )) hours, $((($DURATION / 60) % 60 ))minutes and $(($DURATION % 60 )) seconds elapsed."  >> $JOBNAME.lst
+			#remove from here and throw it on the test screen output!
+#			echo "$(($DURATION / 86400 )) days,  $((($DURATION / 3600) % 24 )) hours, $((($DURATION / 60) % 60 ))minutes and $(($DURATION % 60 )) seconds elapsed."  >> $JOBNAME.lst
 			if [ ! -z "$(compgen -G "*.cycle.$JOBNAME")" ]; then
 				rm -r *.cycle.$JOBNAME
 			fi
@@ -1136,7 +1140,8 @@ run_script(){
 			echo " $(awk '{a[NR]=$0}/^Rigid-atom fit results/{b=NR}/^Wall-clock time taken for job /{c=NR}END{for (d=b-2;d<c-1;++d) print a[d]}' stdout)"  >> $JOBNAME.lst
 			DURATION=$SECONDS
 			echo "Job ended, elapsed time:" >> $JOBNAME.lst
-			echo "$(($DURATION / 86400 )) days,  $((($DURATION / 3600) % 24 )) hours, $((($DURATION / 60) % 60 ))minutes and $(($DURATION % 60 )) seconds elapsed." >> $JOBNAME.lst
+			#remove from here and throw it on the test screen output!
+#			echo "$(($DURATION / 86400 )) days,  $((($DURATION / 3600) % 24 )) hours, $((($DURATION / 60) % 60 ))minutes and $(($DURATION % 60 )) seconds elapsed." >> $JOBNAME.lst
 			if [ ! -z "$(compgen -G "*.cycle.$JOBNAME")" ]; then
 				rm -r *.cycle.$JOBNAME
 			fi
@@ -1154,7 +1159,7 @@ do
 
 	source job_options.txt
 
-	if [[ "$SCFCALCPROG" = "elmodb" && "$EXIT" = "OK" ]]; then
+	if [[ "$SCFCALCPROG" == "elmodb" && "$EXIT" == "OK" ]]; then
 		cp $CIF .
 		PDB=$( echo $CIF | awk -F "/" '{print $NF}' ) 
 		echo "PDB=\"$PDB\"" >> job_options.txt
@@ -1179,7 +1184,13 @@ do
 
 	source job_options.txt
 
-	run_script );
+	run_script 
+	if [ -z my_job.lst ../../inputs/$(basename "$PWD")/my_job.lst ]; then
+		echo -e "$(basename "$PWD")  \t\t\t ---------------- PASSED)"
+	else
+		echo -e "$(basename "$PWD")  \t\t\t ---------------- FAILED!!!!!)"
+	fi
+	);
 done
 
 
