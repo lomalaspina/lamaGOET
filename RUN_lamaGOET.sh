@@ -80,8 +80,9 @@ GAMESS_ELMODB_OLD_PDB(){
 			echo " "'$INPUT_STRUCTURE'"   pdb_file='$PDB' ntail=$NTAIL "'$END'"  " >> $JOBNAME.elmodb.inp
 			if [[ "$NTAIL" != "0" ]]; then
 				echo "$MANUALRESIDUE" >> $JOBNAME.elmodb.inp
-			fi			
+			fi
 		else 
+			echo " "'$INPUT_METHOD'"      job_title='$JOBNAME' basis_set='$BASISSET' xyz=.true. iprint_level=1 ncpus=$NUMPROC alloc_mem=$MEM bset_path='$BASISSETDIR' lib_path='$ELMOLIB' nci=.true. comp_sao=.false. "'$END'" " > $JOBNAME.elmodb.inp
 			echo " "'$INPUT_STRUCTURE'"   pdb_file='$PDB' xyz_file='$JOBNAME.xyz' ntail=$NTAIL "'$END'"  " >> $JOBNAME.elmodb.inp
 			if [[ "$NTAIL" != "0" ]]; then
 				echo "$MANUALRESIDUE" >> $JOBNAME.elmodb.inp
@@ -1233,5 +1234,30 @@ run_script(){
 
 	fi
 }
+
+if [[ "$SCFCALCPROG" = "elmodb" && "$EXIT" = "OK" ]]; then
+	cp $CIF .
+	PDB=$( echo $CIF | awk -F "/" '{print $NF}' ) 
+	echo "PDB=\"$PDB\"" >> job_options.txt
+fi
+
+if [[ -z "$SCFCALCPROG" ]]; then
+	SCFCALCPROG="Gaussian"
+fi
+
+if [ "$GAUSGEN" = "true" ]; then
+	BASISSET="gen"
+	sed -i '/BASISSET=/c\BASISSET=\".\/'$BASISSET'"' job_options.txt
+fi
+
+if [ "$GAUSSREL" = "true" ]; then
+	INT="int=dkh"
+	echo "INT=\"$INT\"" >> job_options.txt
+fi
+
+echo "SCFCALCPROG=\"$SCFCALCPROG\"" >> job_options.txt
+
+
+source job_options.txt
 
 run_script
