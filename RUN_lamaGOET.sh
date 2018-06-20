@@ -77,10 +77,15 @@ GAMESS_ELMODB_OLD_PDB(){
 			BASISSETDIR=$( echo "$(dirname $BASISSETDIR)/" )
 			ELMOLIB=$( echo "$(dirname $ELMOLIB)/" )
 			echo " "'$INPUT_METHOD'"      job_title='$JOBNAME' basis_set='$BASISSET' iprint_level=1 ncpus=$NUMPROC alloc_mem=$MEM bset_path='$BASISSETDIR' lib_path='$ELMOLIB' nci=.true. comp_sao=.false. "'$END'" " > $JOBNAME.elmodb.inp
-			echo " "'$INPUT_STRUCTURE'"   pdb_file='$PDB' "'$END'"  " >> $JOBNAME.elmodb.inp
+			echo " "'$INPUT_STRUCTURE'"   pdb_file='$PDB' ntail=$NTAIL "'$END'"  " >> $JOBNAME.elmodb.inp
+			if [[ "$NTAIL" != "0" ]]; then
+				echo "$MANUALRESIDUE" >> $JOBNAME.elmodb.inp
+			fi			
 		else 
-			echo " "'$INPUT_METHOD'"      job_title='$JOBNAME' basis_set='$BASISSET' xyz=.true. iprint_level=1 ncpus=$NUMPROC alloc_mem=$MEM bset_path='$BASISSETDIR' lib_path='$ELMOLIB' nci=.true. comp_sao=.false. "'$END'" " > $JOBNAME.elmodb.inp
-			echo " "'$INPUT_STRUCTURE'"   pdb_file='$PDB' xyz_file='$JOBNAME.xyz' "'$END'"  " >> $JOBNAME.elmodb.inp
+			echo " "'$INPUT_STRUCTURE'"   pdb_file='$PDB' xyz_file='$JOBNAME.xyz' ntail=$NTAIL "'$END'"  " >> $JOBNAME.elmodb.inp
+			if [[ "$NTAIL" != "0" ]]; then
+				echo "$MANUALRESIDUE" >> $JOBNAME.elmodb.inp
+			fi
 		fi
 		echo "Running elmodb"
 		./$( echo $SCFCALC_BIN | awk -F "/" '{print $NF}' ) < $JOBNAME.elmodb.inp > $JOBNAME.elmodb.out
@@ -146,10 +151,16 @@ ELMODB(){
 		BASISSETDIR=$( echo "$(dirname $BASISSETDIR)/" )
 		ELMOLIB=$( echo "$(dirname $ELMOLIB)/" )
 		echo " "'$INPUT_METHOD'"      job_title='$JOBNAME' basis_set='$BASISSET' iprint_level=1 ncpus=$NUMPROC alloc_mem=$MEM bset_path='$BASISSETDIR' lib_path='$ELMOLIB' nci=.true. "'$END'" " > $JOBNAME.elmodb.inp
-		echo " "'$INPUT_STRUCTURE'"   pdb_file='$PDB' "'$END'"  " >> $JOBNAME.elmodb.inp
+		echo " "'$INPUT_STRUCTURE'"   pdb_file='$PDB' ntail=$NTAIL "'$END'"  " >> $JOBNAME.elmodb.inp
+		if [[ "$NTAIL" != "0" ]]; then
+			echo "$MANUALRESIDUE" >> $JOBNAME.elmodb.inp
+		fi
 	else 
 		echo " "'$INPUT_METHOD'"      job_title='$JOBNAME' basis_set='$BASISSET' xyz=.true. iprint_level=1 ncpus=$NUMPROC alloc_mem=$MEM bset_path='$BASISSETDIR' lib_path='$ELMOLIB' nci=.true. "'$END'" " > $JOBNAME.elmodb.inp
-		echo " "'$INPUT_STRUCTURE'"   pdb_file='$PDB' xyz_file='$JOBNAME.xyz' "'$END'"  " >> $JOBNAME.elmodb.inp
+		echo " "'$INPUT_STRUCTURE'"   pdb_file='$PDB' xyz_file='$JOBNAME.xyz' ntail=$NTAIL "'$END'"  " >> $JOBNAME.elmodb.inp
+		if [[ "$NTAIL" != "0" ]]; then
+			echo "$MANUALRESIDUE" >> $JOBNAME.elmodb.inp
+		fi
 	fi
 	./$( echo $SCFCALC_BIN | awk -F "/" '{print $NF}' ) < $JOBNAME.elmodb.inp > $JOBNAME.elmodb.out
 	if ! grep -q 'CONGRATULATIONS: THE ELMO-TRANSFERs ENDED GRACEFULLY!!!' "$JOBNAME.elmodb.out"; then
@@ -521,7 +532,13 @@ SCF_TO_TONTO(){
 		echo "   ! Normal SCF" >> stdin
 		echo "   scfdata= {" >> stdin
 		echo "      initial_density= promolecule " >> stdin
-		echo "      kind= $METHOD" >> stdin
+		if [ "$METHOD" = "b3lyp" ]; then
+			echo "      kind= rks " >> stdin
+			echo "      dft_exchange_functional= b3lypgx" >> stdin
+			echo "      dft_correlation_functional= b3lypgc" >> stdin
+		else 
+			echo "      kind= $METHOD" >> stdin
+		fi
 		echo "      use_SC_cluster_charges= FALSE" >> stdin
 		echo "      convergence= 0.001" >> stdin
 		echo "      diis= { convergence_tolerance= 0.0002 }" >> stdin
@@ -532,7 +549,13 @@ SCF_TO_TONTO(){
 		echo "   ! SC cluster charge SCF" >> stdin
 		echo "   scfdata= {" >> stdin
 		echo "      initial_MOs= restricted" >> stdin
-		echo "      kind= $METHOD" >> stdin
+		if [ "$METHOD" = "b3lyp" ]; then
+			echo "      kind= rks" >> stdin
+			echo "      dft_exchange_functional= b3lypgx" >> stdin
+			echo "      dft_correlation_functional= b3lypgc" >> stdin
+		else 
+			echo "      kind= $METHOD" >> stdin
+		fi
 		if [ "$SCCHARGES" = "true" ]; then 
 			echo "      use_SC_cluster_charges= TRUE" >> stdin
 			echo "      cluster_radius= $SCCRADIUS angstrom" >> stdin
@@ -780,7 +803,7 @@ run_script(){
 	echo "Job started on:" >> $JOBNAME.lst
 	date >> $JOBNAME.lst
 	echo "User Inputs: " >> $JOBNAME.lst
-	echo "Tonto executable	:  $TONTO"  >> $JOBNAME.lst 
+	echo "Tonto executable	: $TONTO"  >> $JOBNAME.lst 
 	echo "$($TONTO -v)" >> $JOBNAME.lst 
 	#awk 'NR==7 { print }' stdout >> $JOBNAME.lst      #print the tonto version, but there is no stdout yet
 	echo "SCF program		: $SCFCALCPROG" >> $JOBNAME.lst
