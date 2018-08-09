@@ -967,12 +967,13 @@ SCF_TO_TONTO(){
 		echo "         correct_dispersion= $DISP" >> stdin
 		echo "         wavelength= $WAVE Angstrom" >> stdin
 		if [ "$REFANHARM" == "true" ]; then
-			if [[ "$THIRDORD" == "true" && "$FOURTHORD" == "true" ]]; then
+			if [[ "$THIRDORD" == "false" && "$FOURTHORD" == "true" ]]; then
+				echo "         refine_4th_order_only= true " >> stdin
+				echo "         refine_4th_order_for_atoms= { $ANHARMATOMS } " >> stdin
+			elif [[ "$THIRDORD" == "true" && "$FOURTHORD" == "true" ]]; then
 				echo "         refine_4th_order_for_atoms= { $ANHARMATOMS } " >> stdin
 			elif [[ "$THIRDORD" == "true" && "$FOURTHORD" == "false" ]]; then
 				echo "         refine_3rd_order_for_atoms= { $ANHARMATOMS } " >> stdin
-			elif [[ "$THIRDORD" == "false" && "$FOURTHORD" == "true" ]]; then
-				echo "         refine_4th_order_only= { $ANHARMATOMS } " >> stdin
 			else 
 				echo "ERROR: Please select at least one of the anharmonic terms to refine" | tee -a $JOBNAME.lst
 				unset MAIN_DIALOG
@@ -1019,12 +1020,13 @@ SCF_TO_TONTO(){
 	echo "         optimise_scale_factor= true" >> stdin
 	echo "         wavelength= $WAVE Angstrom" >> stdin
 	if [ "$REFANHARM" == "true" ]; then
-		if [[ "$THIRDORD" == "true" && "$FOURTHORD" == "true" ]]; then
+		if [[ "$THIRDORD" == "false" && "$FOURTHORD" == "true" ]]; then
+			echo "         refine_4th_order_only= true " >> stdin
+			echo "         refine_4th_order_for_atoms= { $ANHARMATOMS } " >> stdin
+		elif [[ "$THIRDORD" == "true" && "$FOURTHORD" == "true" ]]; then
 			echo "         refine_4th_order_for_atoms= { $ANHARMATOMS } " >> stdin
 		elif [[ "$THIRDORD" == "true" && "$FOURTHORD" == "false" ]]; then
 			echo "         refine_3rd_order_for_atoms= { $ANHARMATOMS } " >> stdin
-		elif [[ "$THIRDORD" == "false" && "$FOURTHORD" == "true" ]]; then
-			echo "         refine_4th_order_only= { $ANHARMATOMS } " >> stdin
 		else 
 			echo "ERROR: Please select at least one of the anharmonic terms to refine" | tee -a $JOBNAME.lst
 			unset MAIN_DIALOG
@@ -1059,8 +1061,11 @@ SCF_TO_TONTO(){
 	fi
 	if [ "$REFHPOS" = "false" ]; then
 		if [ "$ADPSONLY" != "true" ]; then
-			echo "	 refine_H_pos= $REFHPOS" >> stdin 
+			echo "	 refine_H_positions= $REFHPOS" >> stdin 
 		fi
+	fi
+	if [ "$REFNOTHING" = "true" ]; then
+		echo "	 refine_nothing_for_atoms= { $ATOMLIST }" >> stdin 
 	fi
 	echo "      }  " >> stdin
 	echo "   }  " >> stdin
@@ -1253,20 +1258,24 @@ TONTO_TO_GAUSSIAN(){
 		else
 			echo "# blyp/$BASISSET nosymm output=wfn 6D 10F $INT" >> $JOBNAME.com
 	        fi
-	else
-		if [ "$METHOD" = "uks" ]; then
-			if [ "$SCCHARGES" = "true" ]; then 
-		   		echo "# ublyp/$BASISSET Charge nosymm output=wfn 6D 10F $INT" >> $JOBNAME.com
-			else
-				echo "# ublyp/$BASISSET nosymm output=wfn 6D 10F $INT" >> $JOBNAME.com
-		        fi
+	elif [ "$METHOD" = "uks" ]; then
+		if [ "$SCCHARGES" = "true" ]; then 
+	   		echo "# ublyp/$BASISSET Charge nosymm output=wfn 6D 10F $INT" >> $JOBNAME.com
 		else
-			if [ "$SCCHARGES" = "true" ]; then 
-		   		echo "# $METHOD/$BASISSET Charge nosymm output=wfn 6D 10F $INT" >> $JOBNAME.com
-			else
-				echo "# $METHOD/$BASISSET nosymm output=wfn 6D 10F $INT" >> $JOBNAME.com
-		        fi
-		fi			
+			echo "# ublyp/$BASISSET nosymm output=wfn 6D 10F $INT" >> $JOBNAME.com
+	        fi
+	elif [ "$METHOD" = "rhf" ]; then
+		if [ "$SCCHARGES" = "true" ]; then 
+	   		echo "# HF/$BASISSET Charge nosymm output=wfn 6D 10F $INT" >> $JOBNAME.com
+		else
+			echo "# HF/$BASISSET nosymm output=wfn 6D 10F $INT" >> $JOBNAME.com
+	        fi
+	else
+		if [ "$SCCHARGES" = "true" ]; then 
+	   		echo "# $METHOD/$BASISSET Charge nosymm output=wfn 6D 10F $INT" >> $JOBNAME.com
+		else
+			echo "# $METHOD/$BASISSET nosymm output=wfn 6D 10F $INT" >> $JOBNAME.com
+	        fi
 	fi
 	echo "" >> $JOBNAME.com
 	echo "$JOBNAME" >> $JOBNAME.com
@@ -1836,7 +1845,7 @@ export MAIN_DIALOG='
 
 	<window window_position="1" title="lamaGOET">
 
-	 <vbox scrollable="true" space-expand="true" space-fill="true" height="1000" width="800" >
+	 <vbox scrollable="true" space-expand="true" space-fill="true" height="600" width="800" >
 	
 	  <hbox homogeneous="True" >
 	
@@ -2297,6 +2306,23 @@ export MAIN_DIALOG='
 		
 	   <hbox>
 	    <text xalign="0" use-markup="true" wrap="false" space-fill="True"  space-expand="True"><label>Refinement options (all atom types): </label></text>
+	    <radiobutton>
+	        <label>Refine nothing for atoms:</label>
+	        <default>true</default>
+	        <variable>REFNOTHING</variable>
+	        <action>if true disable:POSADP</action>
+	        <action>if false enable:POSADP</action>
+	        <action>if true disable:REFHADP</action>
+	        <action>if false enable:REFHADP</action>
+	        <action>if true disable:HADP</action>
+	        <action>if false enable:HADP</action>
+	        <action>if true enable:ATOMLIST</action>
+	        <action>if false disable:ATOMLIST</action>
+	    </radiobutton>
+	    <text use-markup="true" wrap="false" ><label>atom labels:</label></text>
+	    <entry sensitive="false">
+	     <variable>ATOMLIST</variable>
+	    </entry>
 	    <radiobutton>
 	        <label>positions and ADPs</label>
 	        <default>true</default>
