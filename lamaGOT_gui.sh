@@ -983,7 +983,8 @@ SCF_TO_TONTO(){
 		echo "         REDIRECT $HKL" >> stdin
 		echo "         f_sigma_cutoff= $FCUT" >> stdin
 		echo "         tol_for_shift_on_esd= $CONVTOL" >> stdin
-		echo "         refine_H_U_iso= $HADP" >> stdin
+#		echo "         refine_H_U_iso= $HADP" >> stdin
+		echo "         refine_H_U_iso= yes" >> stdin
 		echo "" >> stdin
 		echo "         show_fit_output= true" >> stdin
 		echo "         show_fit_results= true" >> stdin
@@ -2307,23 +2308,6 @@ export MAIN_DIALOG='
 	   <hbox>
 	    <text xalign="0" use-markup="true" wrap="false" space-fill="True"  space-expand="True"><label>Refinement options (all atom types): </label></text>
 	    <radiobutton>
-	        <label>Refine nothing for atoms:</label>
-	        <default>true</default>
-	        <variable>REFNOTHING</variable>
-	        <action>if true disable:POSADP</action>
-	        <action>if false enable:POSADP</action>
-	        <action>if true disable:REFHADP</action>
-	        <action>if false enable:REFHADP</action>
-	        <action>if true disable:HADP</action>
-	        <action>if false enable:HADP</action>
-	        <action>if true enable:ATOMLIST</action>
-	        <action>if false disable:ATOMLIST</action>
-	    </radiobutton>
-	    <text use-markup="true" wrap="false" ><label>atom labels:</label></text>
-	    <entry sensitive="false">
-	     <variable>ATOMLIST</variable>
-	    </entry>
-	    <radiobutton>
 	        <label>positions and ADPs</label>
 	        <default>true</default>
 	        <variable>POSADP</variable>
@@ -2354,6 +2338,20 @@ export MAIN_DIALOG='
 	      <action>if false enable:XHALONG</action>
 	    </checkbox>
 	   </hbox>
+           
+           <hbox>
+	    <checkbox active="false" space-fill="True"  space-expand="True">
+	        <label>Refine nothing for atoms:</label>
+	        <default>true</default>
+	        <variable>REFNOTHING</variable>
+	        <action>if true enable:ATOMLIST</action>
+	        <action>if false disable:ATOMLIST</action>
+	    </checkbox>
+	    <text use-markup="true" wrap="false" ><label>atom labels:</label></text>
+	    <entry sensitive="false">
+	     <variable>ATOMLIST</variable>
+	    </entry>
+           </hbox>
 	
 	   <hseparator></hseparator>
 	
