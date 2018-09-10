@@ -68,10 +68,10 @@ GAMESS_ELMODB_OLD_PDB(){
 			BASISSETDIR=$( echo "$(dirname $BASISSETDIR)/" )
 			ELMOLIB=$( echo "$(dirname $ELMOLIB)/" )
 			echo " "'$INPUT_METHOD'"      job_title='$JOBNAME' basis_set='$BASISSET' iprint_level=1 ncpus=$NUMPROC alloc_mem=$MEM bset_path='$BASISSETDIR' lib_path='$ELMOLIB' nci=.true. comp_sao=.false. "'$END'" " > $JOBNAME.elmodb.inp
-			echo " "'$INPUT_STRUCTURE'"   pdb_file='$PDB' "'$END'"  " >> $JOBNAME.elmodb.inp
+			echo " "'$INPUT_STRUCTURE'"   pdb_file='$PDB' ntail=$NTAIL "'$END'"  " >> $JOBNAME.elmodb.inp
 		else 
 			echo " "'$INPUT_METHOD'"      job_title='$JOBNAME' basis_set='$BASISSET' xyz=.true. iprint_level=1 ncpus=$NUMPROC alloc_mem=$MEM bset_path='$BASISSETDIR' lib_path='$ELMOLIB' nci=.true. comp_sao=.false. "'$END'" " > $JOBNAME.elmodb.inp
-			echo " "'$INPUT_STRUCTURE'"   pdb_file='$PDB' xyz_file='$JOBNAME.xyz' "'$END'"  " >> $JOBNAME.elmodb.inp
+			echo " "'$INPUT_STRUCTURE'"   pdb_file='$PDB' xyz_file='$JOBNAME.xyz' ntail=$NTAIL "'$END'"  " >> $JOBNAME.elmodb.inp
 		fi
 #		echo "Running elmodb"
 		./$( echo $SCFCALC_BIN | awk -F "/" '{print $NF}' ) < $JOBNAME.elmodb.inp > $JOBNAME.elmodb.out 
@@ -104,10 +104,10 @@ ELMODB(){
 		BASISSETDIR=$( echo "$(dirname $BASISSETDIR)/" )
 		ELMOLIB=$( echo "$(dirname $ELMOLIB)/" )
 		echo " "'$INPUT_METHOD'"      job_title='$JOBNAME' basis_set='$BASISSET' iprint_level=1 ncpus=$NUMPROC alloc_mem=$MEM bset_path='$BASISSETDIR' lib_path='$ELMOLIB' nci=.true. "'$END'" " > $JOBNAME.elmodb.inp
-		echo " "'$INPUT_STRUCTURE'"   pdb_file='$PDB' "'$END'"  " >> $JOBNAME.elmodb.inp
+		echo " "'$INPUT_STRUCTURE'"   pdb_file='$PDB' ntail=$NTAIL "'$END'"  " >> $JOBNAME.elmodb.inp
 	else 
 		echo " "'$INPUT_METHOD'"      job_title='$JOBNAME' basis_set='$BASISSET' xyz=.true. iprint_level=1 ncpus=$NUMPROC alloc_mem=$MEM bset_path='$BASISSETDIR' lib_path='$ELMOLIB' nci=.true. "'$END'" " > $JOBNAME.elmodb.inp
-		echo " "'$INPUT_STRUCTURE'"   pdb_file='$PDB' xyz_file='$JOBNAME.xyz' "'$END'"  " >> $JOBNAME.elmodb.inp
+		echo " "'$INPUT_STRUCTURE'"   pdb_file='$PDB' xyz_file='$JOBNAME.xyz' ntail=$NTAIL "'$END'"  " >> $JOBNAME.elmodb.inp
 	fi
 	./$( echo $SCFCALC_BIN | awk -F "/" '{print $NF}' ) < $JOBNAME.elmodb.inp > $JOBNAME.elmodb.out  
 	if ! grep -q 'CONGRATULATIONS: THE ELMO-TRANSFERs ENDED GRACEFULLY!!!' "$JOBNAME.elmodb.out"; then
@@ -398,7 +398,7 @@ SCF_TO_TONTO(){
 	fi
 	if [ "$REFHPOS" = "false" ]; then
 		if [ "$ADPSONLY" != "true" ]; then
-			echo "	 refine_H_pos= $REFHPOS" >> stdin 
+			echo "	 refine_H_positions= $REFHPOS" >> stdin 
 		fi
 	fi
 	echo "      }  " >> stdin
@@ -416,7 +416,13 @@ SCF_TO_TONTO(){
 			echo "     ! SC cluster charge SCF" >> stdin
 			echo "      scfdata= {" >> stdin
 			echo "      initial_MOs= existing" >> stdin
-			echo "      kind= $METHOD" >> stdin
+			if [[ "$METHOD" != "rks" && "$METHOD" != "rhf" && "$METHOD" != "uhf" && "$METHOD" != "uks" ]]; then
+				echo "      kind= rks " >> stdin
+				echo "      dft_exchange_functional= b3lypgx" >> stdin
+				echo "      dft_correlation_functional= b3lypgc" >> stdin
+			else
+				echo "      kind= $METHOD" >> stdin
+			fi
 			echo "      use_SC_cluster_charges= TRUE" >> stdin
 			echo "      cluster_radius= $SCCRADIUS angstrom" >> stdin
 			echo "      defragment= $DEFRAG" >> stdin
@@ -434,7 +440,13 @@ SCF_TO_TONTO(){
 			echo "   scfdata= {" >> stdin
 			echo "      initial_density= promolecule" >> stdin
 			echo "      initial_MOs= existing" >> stdin
-			echo "      kind= $METHOD" >> stdin
+			if [[ "$METHOD" != "rks" && "$METHOD" != "rhf" && "$METHOD" != "uhf" && "$METHOD" != "uks" ]]; then
+				echo "      kind= rks " >> stdin
+				echo "      dft_exchange_functional= b3lypgx" >> stdin
+				echo "      dft_correlation_functional= b3lypgc" >> stdin
+			else
+				echo "      kind= $METHOD" >> stdin
+			fi
 			echo "      use_SC_cluster_charges= TRUE" >> stdin
 			echo "      cluster_radius= $SCCRADIUS angstrom" >> stdin
 			echo "      defragment= $DEFRAG" >> stdin
@@ -467,7 +479,13 @@ SCF_TO_TONTO(){
 		echo "   ! Normal SCF" >> stdin
 		echo "   scfdata= {" >> stdin
 		echo "      initial_density= promolecule " >> stdin
-		echo "      kind= $METHOD" >> stdin
+		if [ "$METHOD" = "b3lyp" ]; then
+			echo "      kind= rks " >> stdin
+			echo "      dft_exchange_functional= b3lypgx" >> stdin
+			echo "      dft_correlation_functional= b3lypgc" >> stdin
+		else 
+			echo "      kind= $METHOD" >> stdin
+		fi
 		echo "      use_SC_cluster_charges= FALSE" >> stdin
 		echo "      convergence= 0.001" >> stdin
 		echo "      diis= { convergence_tolerance= 0.0002 }" >> stdin
@@ -478,7 +496,13 @@ SCF_TO_TONTO(){
 		echo "   ! SC cluster charge SCF" >> stdin
 		echo "   scfdata= {" >> stdin
 		echo "      initial_MOs= restricted" >> stdin
-		echo "      kind= $METHOD" >> stdin
+		if [ "$METHOD" = "b3lyp" ]; then
+			echo "      kind= rks " >> stdin
+			echo "      dft_exchange_functional= b3lypgx" >> stdin
+			echo "      dft_correlation_functional= b3lypgc" >> stdin
+		else 
+			echo "      kind= $METHOD" >> stdin
+		fi
 		if [ "$SCCHARGES" = "true" ]; then 
 			echo "      use_SC_cluster_charges= TRUE" >> stdin
 			echo "      cluster_radius= $SCCRADIUS angstrom" >> stdin
@@ -574,20 +598,24 @@ TONTO_TO_GAUSSIAN(){
 		else
 			echo "# blyp/$BASISSET nosymm output=wfn 6D 10F $INT" >> $JOBNAME.com
 	        fi
-	else
-		if [ "$METHOD" = "uks" ]; then
-			if [ "$SCCHARGES" = "true" ]; then 
-		   		echo "# ublyp/$BASISSET Charge nosymm output=wfn 6D 10F $INT" >> $JOBNAME.com
-			else
-				echo "# ublyp/$BASISSET nosymm output=wfn 6D 10F $INT" >> $JOBNAME.com
-		        fi
+	elif [ "$METHOD" = "uks" ]; then
+		if [ "$SCCHARGES" = "true" ]; then 
+	   		echo "# ublyp/$BASISSET Charge nosymm output=wfn 6D 10F $INT" >> $JOBNAME.com
 		else
-			if [ "$SCCHARGES" = "true" ]; then 
-		   		echo "# $METHOD/$BASISSET Charge nosymm output=wfn 6D 10F $INT" >> $JOBNAME.com
-			else
-				echo "# $METHOD/$BASISSET nosymm output=wfn 6D 10F $INT" >> $JOBNAME.com
-		        fi
-		fi			
+			echo "# ublyp/$BASISSET nosymm output=wfn 6D 10F $INT" >> $JOBNAME.com
+	        fi
+	elif [ "$METHOD" = "rhf" ]; then
+		if [ "$SCCHARGES" = "true" ]; then 
+	   		echo "# HF/$BASISSET Charge nosymm output=wfn 6D 10F $INT" >> $JOBNAME.com
+		else
+			echo "# HF/$BASISSET nosymm output=wfn 6D 10F $INT" >> $JOBNAME.com
+	        fi
+	else
+		if [ "$SCCHARGES" = "true" ]; then 
+	   		echo "# $METHOD/$BASISSET Charge nosymm output=wfn 6D 10F $INT" >> $JOBNAME.com
+		else
+			echo "# $METHOD/$BASISSET nosymm output=wfn 6D 10F $INT" >> $JOBNAME.com
+	        fi
 	fi
 	echo "" >> $JOBNAME.com
 	echo "$JOBNAME" >> $JOBNAME.com
@@ -710,7 +738,7 @@ run_script(){
 #	#awk 'NR==7 { print }' stdout >> $JOBNAME.lst      #print the tonto version, but there is no stdout yet
 	echo "SCF program		: $SCFCALCPROG" >> $JOBNAME.lst
 	if [ "$SCFCALCPROG" != "Tonto" ]; then 
-#		echo "SCF executable		: $SCFCALC_BIN" >> $JOBNAME.lst
+		echo "SCF executable		: $SCFCALC_BIN" >> $JOBNAME.lst
 	fi
 	echo "Job name		: $JOBNAME" >> $JOBNAME.lst
 #	echo "Input cif		: $CIF" >> $JOBNAME.lst
