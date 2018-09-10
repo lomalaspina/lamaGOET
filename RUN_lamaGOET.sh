@@ -452,7 +452,7 @@ SCF_TO_TONTO(){
 	fi
 	if [ "$REFHPOS" = "false" ]; then
 		if [ "$ADPSONLY" != "true" ]; then
-			echo "	 refine_H_pos= $REFHPOS" >> stdin 
+			echo "	 refine_H_positions= $REFHPOS" >> stdin 
 		fi
 	fi
 	echo "      }  " >> stdin
@@ -578,7 +578,7 @@ SCF_TO_TONTO(){
 	J=$[ $J + 1 ]
 	echo "Running Tonto, cycle number $J" 
 	if [[ "$NUMPROC" != "1" ]]; then
-		mpirun -n $NUMPROC $TONTO	
+		mpirun_tonto -n $NUMPROC $TONTO	
 	else
 		$TONTO
 	fi
@@ -932,7 +932,7 @@ run_script(){
 		echo "}" >> stdin 
 		echo "Reading cif with Tonto"
 		if [[ "$NUMPROC" != "1" ]]; then
-			mpirun -n $NUMPROC $TONTO	
+			mpirun_tonto -n $NUMPROC $TONTO	
 		else
 			$TONTO
 		fi

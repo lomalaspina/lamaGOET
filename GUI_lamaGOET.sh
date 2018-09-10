@@ -655,7 +655,8 @@ echo '	echo Transferring files from server to computer node' >> lamaGOET.pbs
 echo '	echo Writing files in node directory ${WORKDIR}' >> lamaGOET.pbs
 echo '	cd ${WORKDIR}' >> lamaGOET.pbs
 echo '' >> lamaGOET.pbs
-echo '	${SCP} -r -P 2244 ${SERVERPERMDIR}/* $WORKDIR' >> lamaGOET.pbs
+#echo '	${SCP} -r -P 2244 ${SERVERPERMDIR}/* $WORKDIR' >> lamaGOET.pbs
+echo '	${SCP} -P 2244 ${SERVERPERMDIR}/* $WORKDIR' >> lamaGOET.pbs
 echo '' >> lamaGOET.pbs
 echo '	echo files in node work directory are:' >> lamaGOET.pbs
 echo '	ls -l' >> lamaGOET.pbs
@@ -1053,6 +1054,7 @@ export MAIN_DIALOG='
 	     <item>rohf</item>
 	     <item>uhf</item>
 	     <item>uks</item>
+	     <item>b3lyp</item>
 	    </combobox>
 	
 	
