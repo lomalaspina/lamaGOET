@@ -2349,7 +2349,7 @@ export MAIN_DIALOG='
 	        <action>if true enable:ATOMLIST</action>
 	        <action>if false disable:ATOMLIST</action>
 	    </checkbox>
-	    <text use-markup="true" wrap="false" ><label>atom labels:</label></text>
+	    <text use-markup="true" wrap="false"  ><label>atom labels:</label></text>
 	    <entry sensitive="false">
 	     <variable>ATOMLIST</variable>
 	    </entry>
@@ -2396,7 +2396,7 @@ export MAIN_DIALOG='
 	      <action>if false disable:FOURTHORD</action>
 	    </checkbox>
 	
-	    <text use-markup="true" wrap="false" sensitive="false" ><label>Atom labels</label></text>
+	    <text use-markup="true" wrap="false"  ><label>Atom labels</label></text>
 	    <entry has-tooltip="true" tooltip-markup="as in the cif" sensitive="false">
 	     <variable>ANHARMATOMS</variable>
 	    </entry>
