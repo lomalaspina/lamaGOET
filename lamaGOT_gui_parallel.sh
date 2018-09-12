@@ -1146,13 +1146,14 @@ SCF_TO_TONTO(){
 		echo "   ! Normal SCF" >> stdin
 		echo "   scfdata= {" >> stdin
 		echo "      initial_density= promolecule " >> stdin
-		if [ "$METHOD" = "b3lyp" ]; then
-			echo "      kind= rks " >> stdin
-			echo "      dft_exchange_functional= b3lypgx" >> stdin
-			echo "      dft_correlation_functional= b3lypgc" >> stdin
-		else 
-			echo "      kind= $METHOD" >> stdin
-		fi
+		echo "      kind= rhf" >> stdin   # this is the promolecule guess, should be always rhf
+#		if [ "$METHOD" = "b3lyp" ]; then
+#			echo "      kind= rks " >> stdin
+#			echo "      dft_exchange_functional= b3lypgx" >> stdin
+#			echo "      dft_correlation_functional= b3lypgc" >> stdin
+#		else 
+#			echo "      kind= $METHOD" >> stdin
+#		fi
 		echo "      use_SC_cluster_charges= FALSE" >> stdin
 		echo "      convergence= 0.001" >> stdin
 		echo "      diis= { convergence_tolerance= 0.0002 }" >> stdin
