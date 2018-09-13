@@ -67,8 +67,8 @@ GAMESS_ELMODB_OLD_PDB(){
 #		if [[ ! -e "LIBRARIES" ]]; then
 #			ln -s $ELMOLIB LIBRARIES
 #		fi
-    		if [[ ! -f "elmodb.exe" ]]; then
-#		if [[ ! -f "$SCFCALC_BIN" ]]; then
+#    		if [[ ! -f "elmodb.exe" ]]; then
+		if [[ ! -f "$SCFCALC_BIN" ]]; then
 			cp $SCFCALC_BIN .
 		fi
 	
@@ -144,7 +144,8 @@ ELMODB(){
 	#if [[ ! -e "LIBRARIES" ]]; then
 	#	ln -s $ELMOLIB LIBRARIES
 	#fi
-	if [[ ! -f "elmodb.exe" ]]; then
+#	if [[ ! -f "elmodb.exe" ]]; then
+	if [[ ! -f "$SCFCALC_BIN" ]]; then
 		cp $SCFCALC_BIN .
 	fi
 	if [ "$I" = "1" ]; then
@@ -360,12 +361,13 @@ SCF_TO_TONTO(){
 		echo "         correct_dispersion= $DISP" >> stdin
 		echo "         wavelength= $WAVE Angstrom" >> stdin
 		if [ "$REFANHARM" == "true" ]; then
-			if [[ "$THIRDORD" == "true" && "$FOURTHORD" == "true" ]]; then
+			if [[ "$THIRDORD" == "false" && "$FOURTHORD" == "true" ]]; then
+				echo "         refine_4th_order_only= true " >> stdin
+				echo "         refine_4th_order_for_atoms= { $ANHARMATOMS } " >> stdin
+			elif [[ "$THIRDORD" == "true" && "$FOURTHORD" == "true" ]]; then
 				echo "         refine_4th_order_for_atoms= { $ANHARMATOMS } " >> stdin
 			elif [[ "$THIRDORD" == "true" && "$FOURTHORD" == "false" ]]; then
 				echo "         refine_3rd_order_for_atoms= { $ANHARMATOMS } " >> stdin
-			elif [[ "$THIRDORD" == "false" && "$FOURTHORD" == "true" ]]; then
-				echo "         refine_4th_order_only= { $ANHARMATOMS } " >> stdin
 			else 
 				echo "ERROR: Please select at least one of the anharmonic terms to refine" | tee -a $JOBNAME.lst
 				unset MAIN_DIALOG
@@ -375,7 +377,8 @@ SCF_TO_TONTO(){
 		echo "         REDIRECT $HKL" >> stdin
 		echo "         f_sigma_cutoff= $FCUT" >> stdin
 		echo "         tol_for_shift_on_esd= $CONVTOL" >> stdin
-		echo "         refine_H_U_iso= $HADP" >> stdin
+#		echo "         refine_H_U_iso= $HADP" >> stdin
+		echo "         refine_H_U_iso= yes" >> stdin
 		echo "" >> stdin
 		echo "         show_fit_output= true" >> stdin
 		echo "         show_fit_results= true" >> stdin
@@ -412,12 +415,13 @@ SCF_TO_TONTO(){
 	echo "         optimise_scale_factor= true" >> stdin
 	echo "         wavelength= $WAVE Angstrom" >> stdin
 	if [ "$REFANHARM" == "true" ]; then
-		if [[ "$THIRDORD" == "true" && "$FOURTHORD" == "true" ]]; then
+		if [[ "$THIRDORD" == "false" && "$FOURTHORD" == "true" ]]; then
+			echo "         refine_4th_order_only= true " >> stdin
+			echo "         refine_4th_order_for_atoms= { $ANHARMATOMS } " >> stdin
+		elif [[ "$THIRDORD" == "true" && "$FOURTHORD" == "true" ]]; then
 			echo "         refine_4th_order_for_atoms= { $ANHARMATOMS } " >> stdin
 		elif [[ "$THIRDORD" == "true" && "$FOURTHORD" == "false" ]]; then
 			echo "         refine_3rd_order_for_atoms= { $ANHARMATOMS } " >> stdin
-		elif [[ "$THIRDORD" == "false" && "$FOURTHORD" == "true" ]]; then
-			echo "         refine_4th_order_only= { $ANHARMATOMS } " >> stdin
 		else 
 			echo "ERROR: Please select at least one of the anharmonic terms to refine" | tee -a $JOBNAME.lst
 			unset MAIN_DIALOG
@@ -455,6 +459,9 @@ SCF_TO_TONTO(){
 			echo "	 refine_H_positions= $REFHPOS" >> stdin 
 		fi
 	fi
+	if [ "$REFNOTHING" = "true" ]; then
+		echo "	 refine_nothing_for_atoms= { $ATOMLIST }" >> stdin 
+	fi
 	echo "      }  " >> stdin
 	echo "   }  " >> stdin
 	echo "" >> stdin
@@ -466,7 +473,7 @@ SCF_TO_TONTO(){
 	echo "   put" >> stdin
 	echo "" >> stdin
 	if [ "$SCFCALCPROG" != "Tonto" ]; then 
-		if [[ "$SCCHARGES" = "true" && "$SCFCALCPROG" != "elmodb" ]]; then 
+		if [[ "$SCCHARGES" == "true" && "$SCFCALCPROG" != "elmodb" ]]; then 
 			echo "     ! SC cluster charge SCF" >> stdin
 			echo "      scfdata= {" >> stdin
 			echo "      initial_MOs= existing" >> stdin
@@ -533,13 +540,14 @@ SCF_TO_TONTO(){
 		echo "   ! Normal SCF" >> stdin
 		echo "   scfdata= {" >> stdin
 		echo "      initial_density= promolecule " >> stdin
-		if [ "$METHOD" = "b3lyp" ]; then
-			echo "      kind= rks " >> stdin
-			echo "      dft_exchange_functional= b3lypgx" >> stdin
-			echo "      dft_correlation_functional= b3lypgc" >> stdin
-		else 
-			echo "      kind= $METHOD" >> stdin
-		fi
+		echo "      kind= rhf" >> stdin   # this is the promolecule guess, should be always rhf
+#		if [ "$METHOD" = "b3lyp" ]; then
+#			echo "      kind= rks " >> stdin
+#			echo "      dft_exchange_functional= b3lypgx" >> stdin
+#			echo "      dft_correlation_functional= b3lypgc" >> stdin
+#		else 
+#			echo "      kind= $METHOD" >> stdin
+#		fi
 		echo "      use_SC_cluster_charges= FALSE" >> stdin
 		echo "      convergence= 0.001" >> stdin
 		echo "      diis= { convergence_tolerance= 0.0002 }" >> stdin
@@ -633,8 +641,6 @@ SCF_TO_TONTO(){
 	fi
 }
 
-
-
 #######################################################################
 
 TONTO_TO_GAUSSIAN(){
@@ -648,24 +654,28 @@ TONTO_TO_GAUSSIAN(){
 	#echo "# rb3lyp/$BASISSET output=wfn" >> $JOBNAME.com
 	if [ "$METHOD" = "rks" ]; then
 		if [ "$SCCHARGES" = "true" ]; then 
-	   		echo "# blyp/$BASISSET Charge nosymm output=wfn 6D 10F $INT" >> $JOBNAME.com
+	   		echo "# blyp/$BASISSET Charge nosymm output=wfn 6D 10F Fchk $INT" >> $JOBNAME.com
 		else
-			echo "# blyp/$BASISSET nosymm output=wfn 6D 10F $INT" >> $JOBNAME.com
+			echo "# blyp/$BASISSET nosymm output=wfn 6D 10F Fchk $INT" >> $JOBNAME.com
+	        fi
+	elif [ "$METHOD" = "uks" ]; then
+		if [ "$SCCHARGES" = "true" ]; then 
+	   		echo "# ublyp/$BASISSET Charge nosymm output=wfn 6D 10F Fchk $INT" >> $JOBNAME.com
+		else
+			echo "# ublyp/$BASISSET nosymm output=wfn 6D 10F Fchk $INT" >> $JOBNAME.com
+	        fi
+	elif [ "$METHOD" = "rhf" ]; then
+		if [ "$SCCHARGES" = "true" ]; then 
+	   		echo "# HF/$BASISSET Charge nosymm output=wfn 6D 10F Fchk $INT" >> $JOBNAME.com
+		else
+			echo "# HF/$BASISSET nosymm output=wfn 6D 10F Fchk $INT" >> $JOBNAME.com
 	        fi
 	else
-		if [ "$METHOD" = "uks" ]; then
-			if [ "$SCCHARGES" = "true" ]; then 
-		   		echo "# ublyp/$BASISSET Charge nosymm output=wfn 6D 10F $INT" >> $JOBNAME.com
-			else
-				echo "# ublyp/$BASISSET nosymm output=wfn 6D 10F $INT" >> $JOBNAME.com
-		        fi
+		if [ "$SCCHARGES" = "true" ]; then 
+	   		echo "# $METHOD/$BASISSET Charge nosymm output=wfn 6D 10F Fchk $INT" >> $JOBNAME.com
 		else
-			if [ "$SCCHARGES" = "true" ]; then 
-		   		echo "# $METHOD/$BASISSET Charge nosymm output=wfn 6D 10F $INT" >> $JOBNAME.com
-			else
-				echo "# $METHOD/$BASISSET nosymm output=wfn 6D 10F $INT" >> $JOBNAME.com
-		        fi
-		fi			
+			echo "# $METHOD/$BASISSET nosymm output=wfn 6D 10F Fchk $INT" >> $JOBNAME.com
+	        fi
 	fi
 	echo "" >> $JOBNAME.com
 	echo "$JOBNAME" >> $JOBNAME.com
@@ -696,10 +706,11 @@ TONTO_TO_GAUSSIAN(){
 		exit 0
 	fi
 	echo "Generation fcheck file for Gaussian cycle number $I"
-	formchk $JOBNAME.chk $JOBNAME.fchk
+#	formchk $JOBNAME.chk $JOBNAME.fchk
      	mkdir $I.$SCFCALCPROG.cycle.$JOBNAME
 	cp $JOBNAME.com  $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.com
-	cp $JOBNAME.fchk $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.fchk
+#	cp $JOBNAME.fchk $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.fchk
+	cp Test.FChk $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.fchk
 	cp $JOBNAME.log  $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.log
 }
 
@@ -709,8 +720,11 @@ TONTO_TO_GAUSSIAN(){
 
 CHECK_ENERGY(){
 	if [ "$SCFCALCPROG" = "Gaussian" ]; then 
-		ENERGIA2=$(sed 's/^ //' $JOBNAME.log | sed 'N;s/\n//' | sed 'N;s/\n//' | sed -n '/HF=/{N;p;}' | sed 's/^.*HF=//' | sed 'N;s/\n//' | sed '2d' | sed 's/RMSD=//g' | awk -F '\' '{ print $1}' | tr -d '\r')
-		RMSD2=$(sed 's/^ //' $JOBNAME.log | sed 'N;s/\n//' | sed 'N;s/\n//' | sed -n '/HF=/{N;p;}' | sed 's/^.*HF=//' | sed 'N;s/\n//' | sed '2d' | sed 's/RMSD=//g' | awk -F '\' '{ print $2}'| tr -d '\r')
+#		ENERGIA2=$(sed 's/^ //' $JOBNAME.log | sed 'N;s/\n//' | sed 'N;s/\n//' | sed -n '/HF=/{N;p;}' | sed 's/^.*HF=//' | sed 'N;s/\n//' | sed '2d' | sed 's/RMSD=//g' | awk -F '\' '{ print $1}' | tr -d '\r') # exchanging for another one where I join the lines 2x more.
+		ENERGIA2=$(sed 's/^ //' $JOBNAME.log | sed 'N;s/\n//' | sed 'N;s/\n//' | sed 'N;s/\n//' | sed 'N;s/\n//' | sed -n '/HF=/{N;p;}' | sed 's/^.*HF=//' | sed 'N;s/\n//' | sed '2d' | sed 's/RMSD=//g' | awk -F '\' '{ print $1}' | tr -d '\r')
+#this one was not working whenever relativistics was used in gaussian, the bottom one works.
+#		RMSD2=$(sed 's/^ //' $JOBNAME.log | sed 'N;s/\n//' | sed 'N;s/\n//' | sed -n '/HF=/{N;p;}' | sed 's/^.*HF=//' | sed 'N;s/\n//' | sed '2d' | sed 's/RMSD=//g' | awk -F '\' '{ print $2}'| tr -d '\r')
+		RMSD2=$(sed 's/^ //' $JOBNAME.log | sed 'N;s/\n//' | sed 'N;s/\n//' | sed 'N;s/\n//'| sed -n '/RMSD=/{N;p;}' | sed 's/^.*RMSD=//' | sed 'N;s/\n//' | sed '2d' | sed 's/RMSD=//g' | awk -F '\' '{ print $1}'| tr -d '\r')
 		echo "Gaussian cycle number $I, final energy is: $ENERGIA2, RMSD is: $RMSD2 "
 	else
 		ENERGIA2=$(sed -n '/Total Energy       :/p' $JOBNAME.log | awk '{print $4}' | tr -d '\r')
@@ -742,6 +756,134 @@ CHECKCONV(){
 FINALPARAMESD=$(awk '{a[NR]=$0}/^Begin rigid-atom fit/{b=NR}END {print a[b+10]}' stdout | awk '{print $5}')
 }
 ######################  End check energy ########################
+
+# function to get the residual density, only needed for scf program different than tonto, since we remove the residual calculation from inside the fits.
+GET_RESIDUALS(){
+	echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!" > stdin
+	echo "!!!                                                                                         !!!" >> stdin
+	echo "!!!                        This stdin was written with lamaGOET                             !!!" >> stdin
+	echo "!!!                                                                                         !!!" >> stdin
+	echo "!!!   This stdin is only to get the residual density after the HAR using an SCF program     !!!" >> stdin
+	echo "!!!   that is different than Tonto. A cube file containing the residual density will be     !!!" >> stdin
+	echo "!!!                         written where the units are e/A^3.                              !!!" >> stdin
+	echo "!!!                                                                                         !!!" >> stdin
+	echo "!!!                    script written by Lorraine Andrade Malaspina                         !!!" >> stdin
+	echo "!!!                        contact: lorraine.malaspina@gmail.com                            !!!" >> stdin
+	echo "!!!                                                                                         !!!" >> stdin
+	echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!" >> stdin
+	echo "{ " >> stdin
+	echo "" >> stdin
+	echo "   keyword_echo_on" >> stdin
+	echo "" >> stdin
+	if [ "$SCFCALCPROG" = "elmodb" ]; then
+	        echo "   name= $JOBNAME" >> stdin 
+	        echo "" >> stdin
+		echo "   read_g09_fchk_file $JOBNAME.fchk" >> stdin
+	fi
+	if [ "$SCFCALCPROG" = "Gaussian" ]; then
+	        echo "   name= $JOBNAME" >> stdin 
+	        echo "" >> stdin
+		echo "   read_g09_fchk_file $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.fchk" >> stdin
+	elif [ "$SCFCALCPROG" = "Orca" ]; then
+	        echo "   name= $JOBNAME" >> stdin 
+	        echo "" >> stdin
+		echo "   read_molden_file $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.molden.input" >> stdin
+	else
+		echo "   name= $JOBNAME" >> stdin
+	fi
+	echo "" >> stdin
+	if [ "$SCFCALCPROG" != "elmodb" ]; then
+		echo "   ! Process the CIF" >> stdin
+		echo "   CIF= {" >> stdin
+		echo "       file_name= $J.fit_cycle.$JOBNAME/$J.$JOBNAME.cartesian.cif2" >> stdin
+		echo "    }" >> stdin
+		echo "" >> stdin
+		echo "   process_CIF" >> stdin
+		echo "" >> stdin
+		echo "   name= $JOBNAME" >> stdin
+		echo "" >> stdin
+	fi
+	if [ "$SCFCALCPROG" == "elmodb" ]; then
+		echo "   ! Process the CIF" >> stdin
+		echo "   CIF= {" >> stdin
+		echo "       file_name= $J.fit_cycle.$JOBNAME/$J.$JOBNAME.cartesian.cif2" >> stdin
+		echo "    }" >> stdin
+		echo "" >> stdin
+		echo "   process_CIF" >> stdin
+		echo "" >> stdin
+		echo "   name= $JOBNAME" >> stdin
+		echo "" >> stdin
+	fi
+	if [ "$SCFCALCPROG" = "Tonto" ]; then 
+		echo "   basis_directory= $BASISSETDIR" >> stdin
+		echo "   basis_name= $BASISSETT" >> stdin
+		echo "" >> stdin
+	fi
+	if [ "$DISP" = "yes" ]; then 
+		echo "   	 dispersion_coefficients= {" >> stdin
+		echo "   	 $(cat DISP_inst.txt)" >> stdin
+		echo "   	 }" >> stdin
+		echo "" >> stdin
+	fi
+	echo "   charge= $CHARGE" >> stdin       
+	echo "   multiplicity= $MULTIPLICITY" >> stdin
+	echo "" >> stdin
+	echo "   crystal= {    " >> stdin
+	echo "      xray_data= {   " >> stdin
+	echo "         thermal_smearing_model= hirshfeld" >> stdin
+	echo "         partition_model= mulliken" >> stdin
+	echo "         optimise_extinction= false" >> stdin
+	echo "         correct_dispersion= $DISP" >> stdin
+	echo "         optimise_scale_factor= true" >> stdin
+	echo "         wavelength= $WAVE Angstrom" >> stdin
+	echo "         REDIRECT $HKL" >> stdin
+	echo "         f_sigma_cutoff= $FCUT" >> stdin
+	echo "         tol_for_shift_on_esd= $CONVTOL" >> stdin
+	echo "" >> stdin
+	echo "      }  " >> stdin
+	echo "   }  " >> stdin
+	echo "" >> stdin
+	echo "   ! Geometry    " >> stdin
+	echo "   put" >> stdin
+	echo "" >> stdin
+	echo "   scfdata= {" >> stdin
+	echo "      initial_MOs= existing" >> stdin
+	if [[ "$METHOD" != "rks" && "$METHOD" != "rhf" && "$METHOD" != "uhf" && "$METHOD" != "uks" ]]; then
+		echo "      kind= rks " >> stdin
+		echo "      dft_exchange_functional= b3lypgx" >> stdin
+		echo "      dft_correlation_functional= b3lypgc" >> stdin
+	else
+		echo "      kind= $METHOD" >> stdin
+	fi
+	echo "      use_SC_cluster_charges= $SCCHARGES" >> stdin
+	if [ "$SCCHARGES" == "true" ]; then 
+		echo "      cluster_radius= $SCCRADIUS angstrom" >> stdin
+		echo "      defragment= $DEFRAG" >> stdin
+		echo "      save_cluster_charges= true" >> stdin
+	fi
+	echo "      convergence= 0.001" >> stdin
+	echo "      diis= { convergence_tolerance= 0.0002 }" >> stdin
+	echo "   }" >> stdin
+	echo "" >> stdin
+	echo "   make_scf_density_matrix" >> stdin
+	echo "   make_structure_factors" >> stdin
+	echo "" >> stdin
+	echo "   plot_grid= {                           " >> stdin
+	echo "" >> stdin
+	echo "      kind= residual_density_map" >> stdin
+	echo "      use_unit_cell_as_bbox" >> stdin
+	echo "      desired_separation= 0.1 angstrom" >> stdin
+	echo "      plot_format= cell.cube" >> stdin
+	echo "      plot_units= angstrom^-3" >> stdin
+	echo "" >> stdin
+	echo "    }" >> stdin
+	echo "" >> stdin
+	echo "   plot" >> stdin
+	echo "" >> stdin
+	echo "}" >> stdin 
+	echo "Calculating residual density at final geometry" 
+	$TONTO
+}
 
 run_script(){
 	SECONDS=0
@@ -991,12 +1133,12 @@ run_script(){
 			echo "%nprocshared=$NUMPROC" | tee -a $JOBNAME.com $JOBNAME.lst
 			#this is the first SCF so no charges in!
 			if [ "$METHOD" = "rks" ]; then
-				echo "# blyp/$BASISSET nosymm output=wfn 6D 10F $INT" | tee -a $JOBNAME.com $JOBNAME.lst    
+				echo "# blyp/$BASISSET nosymm output=wfn 6D 10F Fchk $INT" | tee -a $JOBNAME.com $JOBNAME.lst    
 			else
 				if [ "$METHOD" = "uks" ]; then
-					echo "# ublyp/$BASISSET nosymm output=wfn 6D 10F $INT" | tee -a $JOBNAME.com $JOBNAME.lst
+					echo "# ublyp/$BASISSET nosymm output=wfn 6D 10F Fchk $INT" | tee -a $JOBNAME.com $JOBNAME.lst
 				else
-					echo "# $METHOD/$BASISSET nosymm output=wfn 6D 10F $INT" | tee -a $JOBNAME.com $JOBNAME.lst
+					echo "# $METHOD/$BASISSET nosymm output=wfn 6D 10F Fchk $INT" | tee -a $JOBNAME.com $JOBNAME.lst
 			        fi
 			fi			
 			echo ""  | tee -a $JOBNAME.com $JOBNAME.lst
@@ -1034,17 +1176,20 @@ run_script(){
 				unset MAIN_DIALOG
 				exit 0
 			fi
-			ENERGIA=$(sed 's/^ //' $JOBNAME.log | sed 'N;s/\n//' | sed 'N;s/\n//' | sed -n '/HF=/{N;p;}' | sed 's/^.*HF=//' | sed 'N;s/\n//' | sed '2d' | sed 's/RMSD=//g' | awk -F '\' '{ print $1}' | tr -d '\r')
-			RMSD=$(sed 's/^ //' $JOBNAME.log | sed 'N;s/\n//' | sed 'N;s/\n//' | sed -n '/HF=/{N;p;}' | sed 's/^.*HF=//' | sed 'N;s/\n//' | sed '2d' | sed 's/RMSD=//g' | awk -F '\' '{ print $2}' | tr -d '\r')
+			ENERGIA=$(sed 's/^ //' $JOBNAME.log | sed 'N;s/\n//' | sed 'N;s/\n//' | sed 'N;s/\n//' | sed 'N;s/\n//' | sed -n '/HF=/{N;p;}' | sed 's/^.*HF=//' | sed 'N;s/\n//' | sed '2d' | sed 's/RMSD=//g' | awk -F '\' '{ print $1}' | tr -d '\r')
+			RMSD=$(sed 's/^ //' $JOBNAME.log | sed 'N;s/\n//' | sed 'N;s/\n//' | sed 'N;s/\n//'| sed -n '/RMSD=/{N;p;}' | sed 's/^.*RMSD=//' | sed 'N;s/\n//' | sed '2d' | sed 's/RMSD=//g' | awk -F '\' '{ print $1}'| tr -d '\r')
+#exchanged this line by the one above, better way of cuting it because the bottom one would crash with relativistics.
+#			RMSD=$(sed 's/^ //' $JOBNAME.log | sed 'N;s/\n//' | sed 'N;s/\n//' | sed -n '/HF=/{N;p;}' | sed 's/^.*HF=//' | sed 'N;s/\n//' | sed '2d' | sed 's/RMSD=//g' | awk -F '\' '{ print $2}' | tr -d '\r')
 			echo "Starting geometry: Energy= $ENERGIA, RMSD= $RMSD" >> $JOBNAME.lst
 			echo "" >> $JOBNAME.lst
 			echo "###############################################################################################" >> $JOBNAME.lst
 			echo "Generation fcheck file for Gaussian cycle number $I"
-			formchk $JOBNAME.chk $JOBNAME.fchk
+#			formchk $JOBNAME.chk $JOBNAME.fchk
 			echo "Gaussian cycle number $I, final energy is: $ENERGIA, RMSD is: $RMSD "
 	     		mkdir $I.$SCFCALCPROG.cycle.$JOBNAME
 			cp $JOBNAME.com  $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.com
-			cp $JOBNAME.fchk $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.fchk
+#			cp $JOBNAME.fchk $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.fchk
+			cp Test.FChk $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.fchk
 			cp $JOBNAME.log  $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.log
 		###################### End first gaussian single point calculation and storing energy and RMSD ########################
 		###################### Begin first tonto fit ########################
@@ -1130,6 +1275,8 @@ run_script(){
 		###commented but working, will change because the residual data is not being printed in the .lst file
 		###echo " $(awk '{a[NR]=$0}/^Rigid-atom fit results/{b=NR}/^Analysis of the Hirshfeld atom fit/{c=NR}END{for (d=b-2;d<c-1;++d) print a[d]}' stdout)"  >> $JOBNAME.lst
 		echo " $(awk '{a[NR]=$0}/^Rigid-atom fit results/{b=NR}/^Wall-clock time taken for job /{c=NR}END{for (d=b-2;d<c-1;++d) print a[d]}' stdout)"  >> $JOBNAME.lst
+#		get the residual density running tonto once, only needed if not using tonto for the scf			
+		GET_RESIDUALS
 		DURATION=$SECONDS
 		echo "Job ended, elapsed time:" | tee -a $JOBNAME.lst
 		echo "$(($DURATION / 86400 )) days,  $((($DURATION / 3600) % 24 )) hours, $((($DURATION / 60) % 60 ))minutes and $(($DURATION % 60 )) seconds elapsed." | tee -a $JOBNAME.lst
@@ -1165,11 +1312,12 @@ run_script(){
 				echo "###############################################################################################" >> $JOBNAME.lst
 			echo "" >> $JOBNAME.lst
 			echo " $(awk '{a[NR]=$0}/^Rigid-atom fit results/{b=NR}/^Wall-clock time taken for job /{c=NR}END{for (d=b-2;d<c-1;++d) print a[d]}' stdout)"  >> $JOBNAME.lst
+#			get the residual density running tonto once, only needed if not using tonto for the scf			
+			GET_RESIDUALS
 			DURATION=$SECONDS
 			echo "Job ended, elapsed time:" | tee -a $JOBNAME.lst
 			echo "$(($DURATION / 86400 )) days,  $((($DURATION / 3600) % 24 )) hours, $((($DURATION / 60) % 60 ))minutes and $(($DURATION % 60 )) seconds elapsed." | tee -a $JOBNAME.lst
 			exit
-
 		else 
 			GAMESS_ELMODB_OLD_PDB
 			SCF_TO_TONTO
@@ -1186,6 +1334,8 @@ run_script(){
 				echo "###############################################################################################" >> $JOBNAME.lst
 			echo "" >> $JOBNAME.lst
 			echo " $(awk '{a[NR]=$0}/^Rigid-atom fit results/{b=NR}/^Wall-clock time taken for job /{c=NR}END{for (d=b-2;d<c-1;++d) print a[d]}' stdout)"  >> $JOBNAME.lst
+#			get the residual density running tonto once, only needed if not using tonto for the scf			
+			GET_RESIDUALS
 			DURATION=$SECONDS
 			echo "Job ended, elapsed time:" | tee -a $JOBNAME.lst
 			echo "$(($DURATION / 86400 )) days,  $((($DURATION / 3600) % 24 )) hours, $((($DURATION / 60) % 60 ))minutes and $(($DURATION % 60 )) seconds elapsed." | tee -a $JOBNAME.lst
