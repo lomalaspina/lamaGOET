@@ -1263,27 +1263,27 @@ TONTO_TO_GAUSSIAN(){
 	#echo "# rb3lyp/$BASISSET output=wfn" >> $JOBNAME.com
 	if [ "$METHOD" = "rks" ]; then
 		if [ "$SCCHARGES" = "true" ]; then 
-	   		echo "# blyp/$BASISSET Charge nosymm output=wfn 6D 10F $INT" >> $JOBNAME.com
+	   		echo "# blyp/$BASISSET Charge nosymm output=wfn 6D 10F Fchk $INT" >> $JOBNAME.com
 		else
-			echo "# blyp/$BASISSET nosymm output=wfn 6D 10F $INT" >> $JOBNAME.com
+			echo "# blyp/$BASISSET nosymm output=wfn 6D 10F Fchk $INT" >> $JOBNAME.com
 	        fi
 	elif [ "$METHOD" = "uks" ]; then
 		if [ "$SCCHARGES" = "true" ]; then 
-	   		echo "# ublyp/$BASISSET Charge nosymm output=wfn 6D 10F $INT" >> $JOBNAME.com
+	   		echo "# ublyp/$BASISSET Charge nosymm output=wfn 6D 10F Fchk $INT" >> $JOBNAME.com
 		else
-			echo "# ublyp/$BASISSET nosymm output=wfn 6D 10F $INT" >> $JOBNAME.com
+			echo "# ublyp/$BASISSET nosymm output=wfn 6D 10F Fchk $INT" >> $JOBNAME.com
 	        fi
 	elif [ "$METHOD" = "rhf" ]; then
 		if [ "$SCCHARGES" = "true" ]; then 
-	   		echo "# HF/$BASISSET Charge nosymm output=wfn 6D 10F $INT" >> $JOBNAME.com
+	   		echo "# HF/$BASISSET Charge nosymm output=wfn 6D 10F Fchk $INT" >> $JOBNAME.com
 		else
-			echo "# HF/$BASISSET nosymm output=wfn 6D 10F $INT" >> $JOBNAME.com
+			echo "# HF/$BASISSET nosymm output=wfn 6D 10F Fchk $INT" >> $JOBNAME.com
 	        fi
 	else
 		if [ "$SCCHARGES" = "true" ]; then 
-	   		echo "# $METHOD/$BASISSET Charge nosymm output=wfn 6D 10F $INT" >> $JOBNAME.com
+	   		echo "# $METHOD/$BASISSET Charge nosymm output=wfn 6D 10F Fchk $INT" >> $JOBNAME.com
 		else
-			echo "# $METHOD/$BASISSET nosymm output=wfn 6D 10F $INT" >> $JOBNAME.com
+			echo "# $METHOD/$BASISSET nosymm output=wfn 6D 10F Fchk $INT" >> $JOBNAME.com
 	        fi
 	fi
 	echo "" >> $JOBNAME.com
@@ -1315,10 +1315,11 @@ TONTO_TO_GAUSSIAN(){
 		exit 0
 	fi
 	echo "Generation fcheck file for Gaussian cycle number $I"
-	formchk $JOBNAME.chk $JOBNAME.fchk
+#	formchk $JOBNAME.chk $JOBNAME.fchk
      	mkdir $I.$SCFCALCPROG.cycle.$JOBNAME
 	cp $JOBNAME.com  $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.com
-	cp $JOBNAME.fchk $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.fchk
+#	cp $JOBNAME.fchk $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.fchk
+	cp Test.FChk $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.fchk
 	cp $JOBNAME.log  $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.log
 }
 
@@ -1332,7 +1333,7 @@ CHECK_ENERGY(){
 		ENERGIA2=$(sed 's/^ //' $JOBNAME.log | sed 'N;s/\n//' | sed 'N;s/\n//' | sed 'N;s/\n//' | sed 'N;s/\n//' | sed -n '/HF=/{N;p;}' | sed 's/^.*HF=//' | sed 'N;s/\n//' | sed '2d' | sed 's/RMSD=//g' | awk -F '\' '{ print $1}' | tr -d '\r')
 #this one was not working whenever relativistics was used in gaussian, the bottom one works.
 #		RMSD2=$(sed 's/^ //' $JOBNAME.log | sed 'N;s/\n//' | sed 'N;s/\n//' | sed -n '/HF=/{N;p;}' | sed 's/^.*HF=//' | sed 'N;s/\n//' | sed '2d' | sed 's/RMSD=//g' | awk -F '\' '{ print $2}'| tr -d '\r')
-		RMSD2=$(sed 's/^ //' $JOBNAME.log | sed 'N;s/\n//' | sed 'N;s/\n//' | sed -n '/RMSD=/{N;p;}' | sed 's/^.*RMSD=//' | sed 'N;s/\n//' | sed '2d' | sed 's/RMSD=//g' | awk -F '\' '{ print $1}'| tr -d '\r')
+		RMSD2=$(sed 's/^ //' $JOBNAME.log | sed 'N;s/\n//' | sed 'N;s/\n//' | sed 'N;s/\n//'| sed -n '/RMSD=/{N;p;}' | sed 's/^.*RMSD=//' | sed 'N;s/\n//' | sed '2d' | sed 's/RMSD=//g' | awk -F '\' '{ print $1}'| tr -d '\r')
 		echo "Gaussian cycle number $I, final energy is: $ENERGIA2, RMSD is: $RMSD2 "
 	else
 		ENERGIA2=$(sed -n '/Total Energy       :/p' $JOBNAME.log | awk '{print $4}' | tr -d '\r')
@@ -1741,12 +1742,12 @@ run_script(){
 			echo "%nprocshared=$NUMPROC" | tee -a $JOBNAME.com $JOBNAME.lst
 			#this is the first SCF so no charges in!
 			if [ "$METHOD" = "rks" ]; then
-				echo "# blyp/$BASISSET nosymm output=wfn 6D 10F $INT" | tee -a $JOBNAME.com $JOBNAME.lst    
+				echo "# blyp/$BASISSET nosymm output=wfn 6D 10F Fchk $INT" | tee -a $JOBNAME.com $JOBNAME.lst    
 			else
 				if [ "$METHOD" = "uks" ]; then
-					echo "# ublyp/$BASISSET nosymm output=wfn 6D 10F $INT" | tee -a $JOBNAME.com $JOBNAME.lst
+					echo "# ublyp/$BASISSET nosymm output=wfn 6D 10F Fchk $INT" | tee -a $JOBNAME.com $JOBNAME.lst
 				else
-					echo "# $METHOD/$BASISSET nosymm output=wfn 6D 10F $INT" | tee -a $JOBNAME.com $JOBNAME.lst
+					echo "# $METHOD/$BASISSET nosymm output=wfn 6D 10F Fchk $INT" | tee -a $JOBNAME.com $JOBNAME.lst
 			        fi
 			fi			
 			echo ""  | tee -a $JOBNAME.com $JOBNAME.lst
@@ -1785,18 +1786,19 @@ run_script(){
 				exit 0
 			fi
 			ENERGIA=$(sed 's/^ //' $JOBNAME.log | sed 'N;s/\n//' | sed 'N;s/\n//' | sed 'N;s/\n//' | sed 'N;s/\n//' | sed -n '/HF=/{N;p;}' | sed 's/^.*HF=//' | sed 'N;s/\n//' | sed '2d' | sed 's/RMSD=//g' | awk -F '\' '{ print $1}' | tr -d '\r')
-			RMSD=$(sed 's/^ //' $JOBNAME.log | sed 'N;s/\n//' | sed 'N;s/\n//' | sed -n '/RMSD=/{N;p;}' | sed 's/^.*RMSD=//' | sed 'N;s/\n//' | sed '2d' | sed 's/RMSD=//g' | awk -F '\' '{ print $1}'| tr -d '\r')
+			RMSD=$(sed 's/^ //' $JOBNAME.log | sed 'N;s/\n//' | sed 'N;s/\n//' | sed 'N;s/\n//' | sed -n '/RMSD=/{N;p;}' | sed 's/^.*RMSD=//' | sed 'N;s/\n//' | sed '2d' | sed 's/RMSD=//g' | awk -F '\' '{ print $1}'| tr -d '\r')
 #exchanged this line by the one above, better way of cuting it because the bottom one would crash with relativistics.
 #			RMSD=$(sed 's/^ //' $JOBNAME.log | sed 'N;s/\n//' | sed 'N;s/\n//' | sed -n '/HF=/{N;p;}' | sed 's/^.*HF=//' | sed 'N;s/\n//' | sed '2d' | sed 's/RMSD=//g' | awk -F '\' '{ print $2}' | tr -d '\r')
 			echo "Starting geometry: Energy= $ENERGIA, RMSD= $RMSD" >> $JOBNAME.lst
 			echo "" >> $JOBNAME.lst
 			echo "###############################################################################################" >> $JOBNAME.lst
 			echo "Generation fcheck file for Gaussian cycle number $I"
-			formchk $JOBNAME.chk $JOBNAME.fchk
+#			formchk $JOBNAME.chk $JOBNAME.fchk
 			echo "Gaussian cycle number $I, final energy is: $ENERGIA, RMSD is: $RMSD "
 	     		mkdir $I.$SCFCALCPROG.cycle.$JOBNAME
 			cp $JOBNAME.com  $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.com
-			cp $JOBNAME.fchk $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.fchk
+#			cp $JOBNAME.fchk $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.fchk
+			cp Test.FChk $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.fchk
 			cp $JOBNAME.log  $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.log
 		###################### End first gaussian single point calculation and storing energy and RMSD ########################
 		###################### Begin first tonto fit ########################
