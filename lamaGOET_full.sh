@@ -1544,6 +1544,221 @@ run_script(){
 		echo "You are missing the tonto header in the hkl file."
 	fi
 
+	if [ "$PLOT_TONTO" = "true" ]; then
+		echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!" > stdin
+		echo "!!!                                                                                         !!!" >> stdin
+		echo "!!!                        This stdin was written with lamaGOET                             !!!" >> stdin
+		echo "!!!                                                                                         !!!" >> stdin
+		echo "!!!                    script written by Lorraine Andrade Malaspina                         !!!" >> stdin
+		echo "!!!                        contact: lorraine.malaspina@gmail.com                            !!!" >> stdin
+		echo "!!!                                                                                         !!!" >> stdin
+		echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!" >> stdin
+		echo "{ " >> stdin
+		echo "" >> stdin
+		echo "   keyword_echo_on" >> stdin
+		echo "" >> stdin
+		echo "   ! Process the CIF" >> stdin
+		echo "   CIF= {" >> stdin
+		echo "       file_name= $CIF" >> stdin
+		echo "    }" >> stdin
+		echo "" >> stdin
+		echo "   process_CIF" >> stdin
+		echo "" >> stdin
+		echo "   name= $JOBNAME" >> stdin
+		echo "" >> stdin
+		echo "   basis_directory= $BASISSETDIR" >> stdin
+		echo "   basis_name= $BASISSETT" >> stdin
+		echo "" >> stdin
+		echo "   charge= $CHARGE" >> stdin       
+		echo "   multiplicity= $MULTIPLICITY" >> stdin
+		echo "" >> stdin
+		echo "   crystal= {    " >> stdin
+ 		echo "      xray_data= {   " >> stdin
+		echo "         wavelength= $WAVE Angstrom" >> stdin
+		echo "         REDIRECT $HKL" >> stdin
+		echo "         f_sigma_cutoff= $FCUT" >> stdin
+		echo "      }  " >> stdin
+		echo "   }  " >> stdin
+		echo "" >> stdin
+		echo "   ! Geometry    " >> stdin
+		echo "   put" >> stdin
+		echo "" >> stdin
+		if [ "$USEBECKE" = "true" ]; then 
+			echo "   !Tight grid" >> stdin
+			echo "   becke_grid = {" >> stdin
+			echo "      set_defaults" >> stdin
+			echo "      accuracy= $ACCURACY" >> stdin
+			echo "      pruning_scheme= $BECKEPRUNINGSCHEME" >> stdin
+			echo "   }" >> stdin
+			echo "" >> stdin
+		fi
+		echo "   read_archive molecular_orbitals restricted" >> stdin
+		echo "   read_archive orbital_energies restricted" >> stdin
+		echo "" >> stdin
+		echo "   ! SC cluster charge SCF" >> stdin
+		echo "   scfdata= {" >> stdin
+		echo "      initial_MOs= restricted" >> stdin
+		if [ "$METHOD" = "b3lyp" ]; then
+			echo "      kind= rks" >> stdin
+			echo "      dft_exchange_functional= b3lypgx" >> stdin
+			echo "      dft_correlation_functional= b3lypgc" >> stdin
+		else 
+			echo "      kind= $METHOD" >> stdin
+		fi
+		if [ "$SCCHARGES" = "true" ]; then 
+			echo "      use_SC_cluster_charges= TRUE" >> stdin
+			echo "      cluster_radius= $SCCRADIUS angstrom" >> stdin
+			echo "      defragment= $DEFRAG" >> stdin
+		else
+			echo "      use_SC_cluster_charges= FALSE" >> stdin
+		fi
+		echo "      convergence= 0.001" >> stdin
+		echo "      diis= {" >> stdin
+		echo "         convergence_tolerance= 0.0002" >> stdin
+		echo "      }" >> stdin
+		echo "   }" >> stdin
+		echo "" >> stdin
+		echo "   make_scf_density_matrix" >> stdin
+		echo "" >> stdin
+		if [ "$DEFDEN" = "true" ]; then
+			echo "   plot_grid= {" >> stdin
+			echo "      kind= deformation_density" >> stdin
+			echo "      use_unit_cell_as_bbox" >> stdin
+			if [ -z $SEPARATION ]; then
+				echo "      n_all_points= $PTSX $PTSY $PTSZ" >> stdin
+			else
+				echo "      desired_separation= $SEPARATION angstrom" >> stdin
+			fi
+			echo "      plot_format= cell.cube" >> stdin
+			if [ "$PLOT_ANGS" = "true" ]; then
+				echo "      plot_units= angstrom^-3" >> stdin
+			fi
+			echo "" >> stdin
+			echo "    }" >> stdin
+			echo "" >> stdin
+			echo "   plot" >> stdin
+			echo "" >> stdin
+		fi
+		if [ "$DFTXCPOT" = "true" ]; then
+			echo "   plot_grid= {" >> stdin
+			echo "      kind= dft_xc_potential" >> stdin
+			echo "      use_unit_cell_as_bbox" >> stdin
+			if [ -z $SEPARATION ]; then
+				echo "      n_all_points= $PTSX $PTSY $PTSZ" >> stdin
+			else
+				echo "      desired_separation= $SEPARATION angstrom" >> stdin
+			fi
+			echo "      plot_format= cell.cube" >> stdin
+			if [ "$PLOT_ANGS" = "true" ]; then
+				echo "      plot_units= angstrom^-3" >> stdin
+			fi
+			echo "" >> stdin
+			echo "    }" >> stdin
+			echo "" >> stdin
+			echo "   plot" >> stdin
+			echo "" >> stdin
+		fi
+		if [ "$DENS" = "true" ]; then
+			echo "   plot_grid= {" >> stdin
+			echo "      kind= electron_density" >> stdin
+			echo "      use_unit_cell_as_bbox" >> stdin
+			if [ -z $SEPARATION ]; then
+				echo "      n_all_points= $PTSX $PTSY $PTSZ" >> stdin
+			else
+				echo "      desired_separation= $SEPARATION angstrom" >> stdin
+			fi
+			echo "      plot_format= cell.cube" >> stdin
+			if [ "$PLOT_ANGS" = "true" ]; then
+				echo "      plot_units= angstrom^-3" >> stdin
+			fi
+			echo "" >> stdin
+			echo "    }" >> stdin
+			echo "" >> stdin
+			echo "   plot" >> stdin
+			echo "" >> stdin
+		fi
+		if [ "$LAPL" = "true" ]; then
+			echo "   plot_grid= {" >> stdin
+			echo "      kind= laplacian" >> stdin
+			echo "      use_unit_cell_as_bbox" >> stdin
+			if [ -z $SEPARATION ]; then
+				echo "      n_all_points= $PTSX $PTSY $PTSZ" >> stdin
+			else
+				echo "      desired_separation= $SEPARATION angstrom" >> stdin
+			fi
+			echo "      plot_format= cell.cube" >> stdin
+			if [ "$PLOT_ANGS" = "true" ]; then
+				echo "      plot_units= angstrom^-3" >> stdin
+			fi
+			echo "" >> stdin
+			echo "    }" >> stdin
+			echo "" >> stdin
+			echo "   plot" >> stdin
+			echo "" >> stdin
+		fi
+		if [ "$NEGLAPL" = "true" ]; then
+			echo "   plot_grid= {" >> stdin
+			echo "      kind= negative_laplacian" >> stdin
+			echo "      use_unit_cell_as_bbox" >> stdin
+			if [ -z $SEPARATION ]; then
+				echo "      n_all_points= $PTSX $PTSY $PTSZ" >> stdin
+			else
+				echo "      desired_separation= $SEPARATION angstrom" >> stdin
+			fi
+			echo "      plot_format= cell.cube" >> stdin
+			if [ "$PLOT_ANGS" = "true" ]; then
+				echo "      plot_units= angstrom^-3" >> stdin
+			fi
+			echo "" >> stdin
+			echo "    }" >> stdin
+			echo "" >> stdin
+			echo "   plot" >> stdin
+			echo "" >> stdin
+		fi
+		if [ "$PROMOL" = "true" ]; then
+			echo "   plot_grid= {" >> stdin
+			echo "      kind= promolecule_density" >> stdin
+			echo "      use_unit_cell_as_bbox" >> stdin
+			if [ -z $SEPARATION ]; then
+				echo "      n_all_points= $PTSX $PTSY $PTSZ" >> stdin
+			else
+				echo "      desired_separation= $SEPARATION angstrom" >> stdin
+			fi
+			echo "      plot_format= cell.cube" >> stdin
+			if [ "$PLOT_ANGS" = "true" ]; then
+				echo "      plot_units= angstrom^-3" >> stdin
+			fi
+			echo "" >> stdin
+			echo "    }" >> stdin
+			echo "" >> stdin
+			echo "   plot" >> stdin
+			echo "" >> stdin
+		fi
+		if [ "$RESDENS" = "true" ]; then
+			echo "   plot_grid= {" >> stdin
+			echo "      kind= residual_density_map" >> stdin
+			echo "      use_unit_cell_as_bbox" >> stdin
+			if [ -z $SEPARATION ]; then
+				echo "      n_all_points= $PTSX $PTSY $PTSZ" >> stdin
+			else
+				echo "      desired_separation= $SEPARATION angstrom" >> stdin
+			fi
+			echo "      plot_format= cell.cube" >> stdin
+			if [ "$PLOT_ANGS" = "true" ]; then
+				echo "      plot_units= angstrom^-3" >> stdin
+			fi
+			echo "" >> stdin
+			echo "    }" >> stdin
+			echo "" >> stdin
+			echo "   plot" >> stdin
+			echo "" >> stdin
+		fi
+	echo "}" >> stdin 
+	$TONTO
+	exit 0
+	exit
+	fi
+
 	#writing the lst file
 	echo "###############################################################################################" > $JOBNAME.lst
 	echo "                                           lamaGOT                                             " >> $JOBNAME.lst
@@ -1990,7 +2205,7 @@ export MAIN_DIALOG='
 
 	<window window_position="1" title="lamaGOET">
 
-	 <vbox scrollable="true" space-expand="true" space-fill="true" height="600" width="800" >
+	 <vbox scrollable="true" space-expand="true" space-fill="true" height="600" width="850" >
 	
 	  <hbox homogeneous="True" >
 	
@@ -2009,7 +2224,7 @@ export MAIN_DIALOG='
 	  </hbox>
 
   	 <notebook 
-		tab-labels="Main|Advanced Settings|Total XWR|Tools|Elmodb advanced specific"
+		tab-labels="Main|Advanced Settings|Total XWR|Tools|Elmodb advanced specific|Plots"
 		xx-tab-labels="which will be shown on tabs"
 
 		> 	  
@@ -2782,6 +2997,137 @@ CB_HB3    1    2   .f.     CB  HB3 CA
     	    </edit>
 	   </hbox>
  
+	  </frame>
+	 </vbox>
+
+	 <vbox visible="true">
+	  <frame>
+
+	   <hbox>
+	
+	    <checkbox active="false" sensitive="true" space-fill="True"  space-expand="True" >
+	     <label>Only plot properties from Tonto restricted files</label>
+	     <variable>PLOT_TONTO</variable>		
+	     <default>false</default>
+	     <action>if true enable:DEFDEN</action>
+	     <action>if true enable:DFTXCPOT</action>
+	     <action>if true enable:DENS</action>
+	     <action>if true enable:LAPL</action>
+	     <action>if true enable:NEGLAPL</action>
+	     <action>if true enable:PROMOL</action>
+	     <action>if true enable:RESDENS</action>
+	     <action>if false disable:DEFDEN</action>
+	     <action>if false disable:DFTXCPOT</action>
+	     <action>if false disable:DENS</action>
+	     <action>if false disable:LAPL</action>
+	     <action>if false disable:NEGLAPL</action>
+	     <action>if false disable:PROMOL</action>
+	     <action>if false disable:RESDENS</action>
+	    </checkbox>
+	   </hbox> 
+
+	   <hbox>
+	    <text xalign="0" use-markup="true" wrap="true"justify="1" space-fill="True"  space-expand="True"><label>Please select the property to plot:</label></text>
+	   </hbox> 
+
+	   <hbox>
+	    <checkbox active="false" sensitive="true" space-fill="True"  space-expand="True" sensitive="false" >
+  	     <label>deformation_density</label>
+	     <variable>DEFDEN</variable>		
+	     <default>false</default>
+	    </checkbox>
+	   </hbox> 
+
+
+	   <hbox>
+	    <checkbox active="false" sensitive="true" space-fill="True"  space-expand="True" sensitive="false" >
+  	     <label>dft_xc_potential</label>
+	     <variable>DFTXCPOT</variable>		
+	     <default>false</default>
+	    </checkbox>
+	   </hbox> 
+
+
+	   <hbox>
+	    <checkbox active="false" sensitive="true" space-fill="True"  space-expand="True" sensitive="false" >
+  	     <label>electron_density</label>
+	     <variable>DENS</variable>		
+	     <default>false</default>
+	    </checkbox>
+	   </hbox> 
+
+
+	   <hbox>
+	    <checkbox active="false" sensitive="true" space-fill="True"  space-expand="True" sensitive="false" >
+  	     <label>laplacian</label>
+	     <variable>LAPL</variable>		
+	     <default>false</default>
+	    </checkbox>
+	   </hbox> 
+
+
+	   <hbox>
+	    <checkbox active="false" sensitive="true" space-fill="True"  space-expand="True" sensitive="false" >
+  	     <label>negative_laplacian</label>
+	     <variable>NEGLAPL</variable>		
+	     <default>false</default>
+	    </checkbox>
+	   </hbox> 
+
+
+	   <hbox>
+	    <checkbox active="false" sensitive="true" space-fill="True"  space-expand="True" sensitive="false" >
+  	     <label>promolecule_density</label>
+	     <variable>PROMOL</variable>		
+	     <default>false</default>
+	    </checkbox>
+	   </hbox> 
+
+	   <hbox>
+	    <checkbox active="false" sensitive="true" space-fill="True"  space-expand="True" sensitive="false" >
+  	     <label>residual_density_map</label>
+	     <variable>RESDENS</variable>		
+	     <default>false</default>
+	    </checkbox>
+	   </hbox> 
+
+	   <hseparator></hseparator>
+
+	   <hbox>
+	    <checkbox active="false" sensitive="true" space-fill="True"  space-expand="True">
+  	     <label>Cube file in Angstroms</label>
+	     <variable>PLOT_ANGS</variable>		
+	     <default>false</default>
+	    </checkbox>
+	   </hbox> 
+
+
+	  <hbox space-expand="false" space-fill="false">
+	   <text text-xalign="0" use-markup="true" wrap="false" space-expand="FALSE" space-fill="false"><label>Desired point separation (in Angstrom)</label></text>
+	   <hbox space-expand="true" space-fill="true">
+	    <entry space-expand="true">
+	     <variable>SEPARATION</variable>
+	    </entry>
+	   </hbox>
+	   </hbox>
+
+	  <hbox space-expand="false" space-fill="false">
+	   <text text-xalign="0" use-markup="true" wrap="false" space-expand="FALSE" space-fill="false"><label>Or number of points in X, Y and Z (in Angstrom)</label></text>
+	   <hbox space-expand="true" space-fill="true">
+	    <entry space-expand="true">
+	     <default>10</default>
+	     <variable>PTSX</variable>
+	    </entry>
+	    <entry space-expand="true">
+	     <default>10</default>
+	     <variable>PTSY</variable>
+	    </entry>
+	    <entry space-expand="true">
+	     <default>10</default>
+	     <variable>PTSZ</variable>
+	    </entry>
+	   </hbox>
+	   </hbox>
 	  </frame>
 	 </vbox>
 

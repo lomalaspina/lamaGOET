@@ -632,8 +632,6 @@ GAMESS_ELMODB_OLD_PDB(){
 	cp full atoms
 	awk 'FNR==NR{a[NR]=$1;next}{$5=a[FNR]}1' atoms_names atoms > full
 	awk '{printf "%f\t %f\t %f\t %s\t %s\n", $1, $2, $3, $4, $5}' full >> $JOBNAME.gamess.inp
-#	awk '{printf "%8.3f\t %8.3f\t %8.3f\t %s\t %s\n", $1, $2, $3, $4, $5}' full >> $JOBNAME.gamess.inp
-	#awk '$1 ~ /ATOM/ {printf "%f\t %f\t %f\t %s\t %s\n", $6, $7, $8, "carga", $3} ' $CIF >> $JOBNAME.gamess.inp
 	rm atoms 
 	rm atoms_Z 
 	rm full
@@ -646,13 +644,6 @@ GAMESS_ELMODB_OLD_PDB(){
 		 *)	echo "basis $BASISSET" >> $JOBNAME.gamess.inp;;
 		esac;;
 	esac
-#	if [ $BASISSET == "6-31g(d,p)" ]; then
-#		echo "basis 6-31G**" >> $JOBNAME.gamess.inp
-#	elif [ $BASISSET == "6-311g(d,p)" ]; then
-#		echo "basis 6-311G**" >> $JOBNAME.gamess.inp
-#	else
-#		echo "basis $BASISSET" >> $JOBNAME.gamess.inp
-#	fi
 	echo "runtype scf" >> $JOBNAME.gamess.inp
 	echo "scftype rhf" >> $JOBNAME.gamess.inp
 	echo "enter " >> $JOBNAME.gamess.inp
@@ -671,16 +662,11 @@ GAMESS_ELMODB_OLD_PDB(){
 		exit 0
 	else 
 		echo "Calculation of overlap integrals with gamess done, writing elmodb input files"
-#		if [[ ! -e "LIBRARIES" ]]; then
-#			ln -s $ELMOLIB LIBRARIES
-#		fi
-#    		if [[ ! -f "elmodb.exe" ]]; then
 		if [[ ! -f "$SCFCALC_BIN" ]]; then
 			cp $SCFCALC_BIN .
 		fi
 	
 		if [ "$I" = "1" ]; then
-#			PDB=$( echo $CIF | awk -F "/" '{print $NF}' )
 			BASISSETDIR=$( echo "$(dirname $BASISSETDIR)/" )
 			ELMOLIB=$( echo "$(dirname $ELMOLIB)/" )
 			echo " "'$INPUT_METHOD'"      job_title='$JOBNAME' basis_set='$BASISSET' iprint_level=1 ncpus=$NUMPROC alloc_mem=$MEM bset_path='$BASISSETDIR' lib_path='$ELMOLIB' nci=.true. comp_sao=.false. "'$END'" " > $JOBNAME.elmodb.inp
@@ -711,64 +697,30 @@ GAMESS_ELMODB_OLD_PDB(){
 			fi
 		fi
 	fi
-	
-	#elmo part finished here, now we will run gaussian only once to obtain a formated fchk file that will be edited with the results from elmo
-	#if [ "$I" = "1" ]; then
-	#	echo "Writing fchk file with Gaussian"
-	#	echo "%chk=./$JOBNAME.chk" > $JOBNAME.com
-	#	echo "%rwf=./$JOBNAME.rwf" >> $JOBNAME.com
-	#	echo "%int=./$JOBNAME.int" >> $JOBNAME.com
-	#	echo "%mem=$MEM" >> $JOBNAME.com
-	#	echo "%nprocshared=$NUMPROC" >> $JOBNAME.com
-	#BEWARE only rhf for elmodb
-	#	echo "# $METHOD/$BASISSET nosymm output=wfn 6D 10F" >> $JOBNAME.com
-	#	echo "" >> $JOBNAME.com
-	#	echo "$JOBNAME" >> $JOBNAME.com
-	#	echo "" >> $JOBNAME.com
-	#	echo "$CHARGE $MULTIPLICITY" >> $JOBNAME.com
-	#       awk '$1 ~ /ATOM/ {printf "%s\t %8.3f\t %8.3f\t %8.3f\n", substr($3,1,1), $6, $7, $8}' $CIF >> $JOBNAME.com
-	#	echo "" >> $JOBNAME.com
-	#	echo "./$JOBNAME.wfn" >> $JOBNAME.com
-	#	echo "" >> $JOBNAME.com
-	#	echo "Runing Gaussian, cycle number $I"
-	#	g09 $JOBNAME.com
-	#	echo "Gaussian cycle number $I ended"
-	#	if ! grep -q 'Normal termination of Gaussian' "$JOBNAME.log"; then
-	#		echo "ERROR: Gaussian job finished with error, please check the $I.th log file for more details" | tee -a $JOBNAME.lst
-	#		unset MAIN_DIALOG
-	#		exit 0
-	#	fi
-	#	echo "Generation fcheck file for Gaussian cycle number $I"
-	#	formchk $JOBNAME.chk $JOBNAME.fchk
-	#fi
-	#sed -i -ne '/Alpha MO coefficients/ {p; r MOs' -e ':a; n; /Total SCF Density/ {p; b}; ba}; p' $JOBNAME.fchk
-	#sed -i -ne '/Total SCF Density/ {p; r DMAT' -e ':a; n; /Mulliken Charges/ {p; b}; ba}; p' $JOBNAME.fchk
-	#cp  $JOBNAME.fchk  $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.elmodb.fchk
 }
 
 ELMODB(){
 	I=$[ $I + 1 ]
-	#if [[ ! -e "LIBRARIES" ]]; then
-	#	ln -s $ELMOLIB LIBRARIES
-	#fi
-#	if [[ ! -f "elmodb.exe" ]]; then
-	if [[ ! -f "$SCFCALC_BIN" ]]; then
+	if [[ ! -f "$( echo $SCFCALC_BIN | awk -F "/" '{print $NF}' )" ]]; then
 		cp $SCFCALC_BIN .
 	fi
 	if [ "$I" = "1" ]; then
-#		PDB=$( echo $CIF | awk -F "/" '{print $NF}' )
 		BASISSETDIR=$( echo "$(dirname $BASISSETDIR)/" )
 		ELMOLIB=$( echo "$(dirname $ELMOLIB)/" )
-		echo " "'$INPUT_METHOD'"      job_title='$JOBNAME' basis_set='$BASISSET' iprint_level=1 ncpus=$NUMPROC alloc_mem=$MEM bset_path='$BASISSETDIR' lib_path='$ELMOLIB' nci=.true. "'$END'" " > $JOBNAME.elmodb.inp
-		echo " "'$INPUT_STRUCTURE'"   pdb_file='$PDB' ntail=$NTAIL "'$END'"  " >> $JOBNAME.elmodb.inp
+			echo " "'$INPUT_METHOD'"      job_title='$JOBNAME' basis_set='$BASISSET' iprint_level=1 ncpus=$NUMPROC alloc_mem=$MEM bset_path='$BASISSETDIR' lib_path='$ELMOLIB' nci=.true. "'$END'" " > $JOBNAME.elmodb.inp
 		if [[ "$NTAIL" != "0" ]]; then
+			echo " "'$INPUT_STRUCTURE'"   pdb_file='$PDB' ntail=$NTAIL max_atail=$ATAIL max_frtail=$FRTAIL "'$END'"  " >> $JOBNAME.elmodb.inp
 			echo "$MANUALRESIDUE" >> $JOBNAME.elmodb.inp
+		else
+			echo " "'$INPUT_STRUCTURE'"   pdb_file='$PDB' ntail=$NTAIL "'$END'"  " >> $JOBNAME.elmodb.inp
 		fi
 	else 
 		echo " "'$INPUT_METHOD'"      job_title='$JOBNAME' basis_set='$BASISSET' xyz=.true. iprint_level=1 ncpus=$NUMPROC alloc_mem=$MEM bset_path='$BASISSETDIR' lib_path='$ELMOLIB' nci=.true. "'$END'" " > $JOBNAME.elmodb.inp
-		echo " "'$INPUT_STRUCTURE'"   pdb_file='$PDB' xyz_file='$JOBNAME.xyz' ntail=$NTAIL "'$END'"  " >> $JOBNAME.elmodb.inp
 		if [[ "$NTAIL" != "0" ]]; then
+			echo " "'$INPUT_STRUCTURE'"   pdb_file='$PDB' xyz_file='$JOBNAME.xyz' ntail=$NTAIL max_atail=$ATAIL max_frtail=$FRTAIL "'$END'"  " >> $JOBNAME.elmodb.inp
 			echo "$MANUALRESIDUE" >> $JOBNAME.elmodb.inp
+		else
+			echo " "'$INPUT_STRUCTURE'"   pdb_file='$PDB' xyz_file='$JOBNAME.xyz' "'$END'"  " >> $JOBNAME.elmodb.inp
 		fi
 	fi
 	./$( echo $SCFCALC_BIN | awk -F "/" '{print $NF}' ) < $JOBNAME.elmodb.inp > $JOBNAME.elmodb.out
@@ -868,11 +820,7 @@ SCF_TO_TONTO(){
 		echo "   name= $JOBNAME" >> stdin
 	fi
 	echo "" >> stdin
-	#echo "   charge= $CHARGE" >> stdin       
-	#echo "   multiplicity= $MULTIPLICITY" >> stdin
-	#echo "" >> stdin
 	if [ "$SCFCALCPROG" != "elmodb" ]; then
-	#	if [[ "$SCFCALCPROG" != "Gaussian" && "$SCFCALCPROG" != "Orca" && "$COMPLETECIF" != "true" ]]; then
 		echo "   ! Process the CIF" >> stdin
 		echo "   CIF= {" >> stdin
 		if [ $J = 0 ]; then 
@@ -896,7 +844,6 @@ SCF_TO_TONTO(){
 			   	fi
 			fi
 		else 
-		#	cp $JOBNAME'_cartesian.cif2' $JOBNAME.cartesian.cif2
 			echo "       file_name= $J.fit_cycle.$JOBNAME/$J.$JOBNAME.cartesian.cif2" >> stdin
 		fi
 		echo "    }" >> stdin
@@ -916,10 +863,6 @@ SCF_TO_TONTO(){
 		echo "" >> stdin
 		echo "   name= $JOBNAME" >> stdin
 		echo "" >> stdin
-	#cp $JOBNAME'_cartesian.cif2' $JOBNAME.cartesian.cif2
-	#echo "       file_name= $JOBNAME.cartesian.cif2" >> stdin
-	#else
-	#echo "       file_name= $CIF" >> stdin
 	fi
 	if [ "$SCFCALCPROG" = "Tonto" ]; then 
 		echo "   basis_directory= $BASISSETDIR" >> stdin
@@ -929,11 +872,6 @@ SCF_TO_TONTO(){
 	if [ "$DISP" = "yes" ]; then 
 		echo "   	 dispersion_coefficients= {" >> stdin
 		echo "   	 $(cat DISP_inst.txt)" >> stdin
-	#commented but its the working one
-	#	for ((L=0; i<${#XDISP[]*]}; L++));
-	#	do
-	#	    echo "      ${XDISP[L]}" >> stdin
-	#	done
 		echo "   	 }" >> stdin
 		echo "" >> stdin
 	fi
@@ -958,11 +896,6 @@ SCF_TO_TONTO(){
 		if [ "$SCFCALCPROG" = "elmodb" ]; then
 			echo "      REDIRECT tonto.cell" >> stdin
 		fi
-	#	if [ "$COMPLETECIF" = "true" ]; then
-	#		echo "      defragment= $COMPLETECIF" >> stdin
-	#		echo "      make_info" >> stdin
-	#		echo "      put_cluster_info" >> stdin
-	#	fi
 		echo "      xray_data= {   " >> stdin
 		echo "         optimise_extinction= false" >> stdin
 		echo "         correct_dispersion= $DISP" >> stdin
@@ -984,7 +917,6 @@ SCF_TO_TONTO(){
 		echo "         REDIRECT $HKL" >> stdin
 		echo "         f_sigma_cutoff= $FCUT" >> stdin
 		echo "         tol_for_shift_on_esd= $CONVTOL" >> stdin
-#		echo "         refine_H_U_iso= $HADP" >> stdin
 		echo "         refine_H_U_iso= yes" >> stdin
 		echo "" >> stdin
 		echo "         show_fit_output= true" >> stdin
@@ -1004,16 +936,6 @@ SCF_TO_TONTO(){
 	if [[ "$SCFCALCPROG" == "elmodb" && $J == 0 ]]; then
 		echo "      REDIRECT tonto.cell" >> stdin
 	fi
-#	if [[ "$SCFCALCPROG" != "elmodb" && "$SCFCALCPROG" != "Tonto" ]]; then
-#		if [ $COMPLETECIF = "true" ]; then 
-#			echo "      REDIRECT tonto.cell" >> stdin
-#		fi
-#	fi
-	#if [[ $J = 0 && "$COMPLETECIF" = "true" ]]; then
-	#	echo "      defragment= $COMPLETECIF" >> stdin
-	#	echo "      make_info" >> stdin
-	#	echo "      put_cluster_info" >> stdin
-	#fi
 	echo "      xray_data= {   " >> stdin
 	echo "         thermal_smearing_model= hirshfeld" >> stdin
 	echo "         partition_model= mulliken" >> stdin
@@ -1125,13 +1047,11 @@ SCF_TO_TONTO(){
 			echo "" >> stdin
 			echo "   ! Make Hirshfeld structure factors" >> stdin
 			echo "   fit_hirshfeld_atoms" >> stdin
-#			echo "   fit_hirshfeld_atoms_lamaGOET" >> stdin
 			echo "" >> stdin
 			echo "   write_xyz_file" >> stdin
 		else
 			echo "   ! Make Hirshfeld structure factors" >> stdin
 			echo "   fit_hirshfeld_atoms" >> stdin
-#			echo "   fit_hirshfeld_atoms_lamaGOET" >> stdin
 			echo "" >> stdin
 			echo "   write_xyz_file" >> stdin
 		fi
@@ -1150,13 +1070,6 @@ SCF_TO_TONTO(){
 		echo "   scfdata= {" >> stdin
 		echo "      initial_density= promolecule " >> stdin
 		echo "      kind= rhf" >> stdin   # this is the promolecule guess, should be always rhf
-#		if [ "$METHOD" = "b3lyp" ]; then
-#			echo "      kind= rks " >> stdin
-#			echo "      dft_exchange_functional= b3lypgx" >> stdin
-#			echo "      dft_correlation_functional= b3lypgc" >> stdin
-#		else 
-#			echo "      kind= $METHOD" >> stdin
-#		fi
 		echo "      use_SC_cluster_charges= FALSE" >> stdin
 		echo "      convergence= 0.001" >> stdin
 		echo "      diis= { convergence_tolerance= 0.0002 }" >> stdin
@@ -1210,7 +1123,6 @@ SCF_TO_TONTO(){
 		exit 0
 	fi
 	if [ $J = 1 ]; then 
-		#awk '{a[NR]=$0}/^Rigid-atom fit results/{b=NR}END {print a[b-5]}' stdout 
 		echo "====================" >> $JOBNAME.lst
 		echo "Begin rigid-atom fit" >> $JOBNAME.lst
 		echo "====================" >> $JOBNAME.lst
@@ -1223,14 +1135,10 @@ SCF_TO_TONTO(){
 		echo "" >> $JOBNAME.lst
 		echo "__________________________________________________________________________________________________________________________________________________________________" >> $JOBNAME.lst
 		echo "" >> $JOBNAME.lst
-	#	echo " $J  $(awk '{a[NR]=$0}/^Rigid-atom fit results/{b=NR}END {print a[b-5]}' stdout)    $ENERGIA   $RMSD   $ENERGY "  >> $JOBNAME.lst
 	fi
 	if [[ "$SCFCALCPROG" != "Gaussian" && "$SCFCALCPROG" != "Orca" ]]; then 
 		echo -e " $J\t$(awk '{a[NR]=$0}/^Rigid-atom fit results/{b=NR}END {print a[b-4]}' stdout | awk '{print $1}' )\t$INITIALCHI\t$(awk '{a[NR]=$0}/^Rigid-atom fit results/{b=NR}END {print a[b-4]}' stdout | awk '{print  $2"\t"$3"\t"$4"\t"}') $MAXSHIFT\t$MAXSHIFTATOM $MAXSHIFTPARAM $(awk '{a[NR]=$0}/^Rigid-atom fit results/{b=NR}END {print a[b-4]}' stdout | awk '{print  "\t""    "$8" \t"$9 }' ) "  >> $JOBNAME.lst  
 	fi
-#	echo " $J  $(awk '{a[NR]=$0}/^Rigid-atom fit results/{b=NR}END {print a[b-4]}' stdout | awk '{print $1"\t"}' ) $INITIALCHI $(awk '{a[NR]=$0}/^Rigid-atom fit results/{b=NR}END {print a[b-4]}' stdout | awk '{print  "\t"$2"\t"$3"\t"$4}') $(awk '{a[NR]=$0}/^Begin rigid-atom fit/{b=NR}END {print a[b+10]}' stdout | awk '{print "\t"$5"    "$6" "$7}') $(awk '{a[NR]=$0}/^Rigid-atom fit results/{b=NR}END {print a[b-4]}' stdout | awk '{print  "\t"$8"\t"$9 }' ) "  >> $JOBNAME.lst    
-	#	echo " $J  $(awk '{a[NR]=$0}/^Rigid-atom fit results/{b=NR}END {print a[b-5]}' stdout)"  >> $JOBNAME.lst
-	#echo " $J  $(awk '{a[NR]=$0}/^Rigid-atom fit results/{b=NR}END {print a[b-5]}' stdout)    $ENERGIA2   $RMSD2   $DE"  >> $JOBNAME.lst
 	if [ "$SCFCALCPROG" != "Tonto" ]; then 
 		mkdir $J.fit_cycle.$JOBNAME
 		cp $JOBNAME.xyz $J.fit_cycle.$JOBNAME/$J.$JOBNAME.xyz
@@ -1256,7 +1164,6 @@ TONTO_TO_GAUSSIAN(){
 	echo "%int=./$JOBNAME.int" >> $JOBNAME.com
 	echo "%mem=$MEM" >> $JOBNAME.com
 	echo "%nprocshared=$NUMPROC" >> $JOBNAME.com
-	#echo "# rb3lyp/$BASISSET output=wfn" >> $JOBNAME.com
 	if [ "$METHOD" = "rks" ]; then
 		if [ "$SCCHARGES" = "true" ]; then 
 	   		echo "# blyp/$BASISSET Charge nosymm output=wfn 6D 10F Fchk $INT" >> $JOBNAME.com
@@ -1286,11 +1193,7 @@ TONTO_TO_GAUSSIAN(){
 	echo "$JOBNAME" >> $JOBNAME.com
 	echo "" >> $JOBNAME.com
 	echo "$CHARGE $MULTIPLICITY" >> $JOBNAME.com
-### commented but working on new tonto, will use dylan's old write_xyz_file keyword because that one keeps the atom labels, florian's new one does not.
-###	awk '{a[NR]=$0}/^_atom_site_Cartn_disorder_group/{b=NR}/^# ==========================/{c=NR}END{for(d=b+4;d<=c-4;++d)print a[d]}' $JOBNAME.cartesian.cif2 | awk -v OFS='\t' 'NR%2==0 {print $1, $2, $3, $4}' | awk '{gsub("[(][^)]*[)]","")}1 {print }' >> $JOBNAME.com 
 	awk 'NR>2' $J.fit_cycle.$JOBNAME/$J.$JOBNAME.xyz >> $JOBNAME.com
-#	sleep 15 #check if needed
-#	awk '{a[NR]=$0}/^_atom_site_Cartn_U_iso_or_equiv_esd/{b=NR}/^# ==========================/{c=NR}END{for(d=b+1;d<=c-4;++d)print a[d]}' $JOBNAME.cartn-fragment.cif | awk 'NR%2==1 {print $1, $2, $3, $4}' >> $JOBNAME.com 
 	echo "" >> $JOBNAME.com
 	if [ "$SCCHARGES" = "true" ]; then 
         	awk '{a[NR]=$0}{b=12}/^------------------------------------------------------------------------/{c=NR}END{for(d=b;d<=c-1;++d)print a[d]}' gaussian-point-charges | awk '{printf "%s\t %s\t %s\t %s\t \n", $2, $3, $4, $1 }' >> $JOBNAME.com
@@ -1311,10 +1214,8 @@ TONTO_TO_GAUSSIAN(){
 		exit 0
 	fi
 	echo "Generation fcheck file for Gaussian cycle number $I"
-#	formchk $JOBNAME.chk $JOBNAME.fchk
      	mkdir $I.$SCFCALCPROG.cycle.$JOBNAME
 	cp $JOBNAME.com  $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.com
-#	cp $JOBNAME.fchk $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.fchk
 	cp Test.FChk $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.fchk
 	cp $JOBNAME.log  $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.log
 }
@@ -1325,10 +1226,7 @@ TONTO_TO_GAUSSIAN(){
 
 CHECK_ENERGY(){
 	if [ "$SCFCALCPROG" = "Gaussian" ]; then 
-#		ENERGIA2=$(sed 's/^ //' $JOBNAME.log | sed 'N;s/\n//' | sed 'N;s/\n//' | sed -n '/HF=/{N;p;}' | sed 's/^.*HF=//' | sed 'N;s/\n//' | sed '2d' | sed 's/RMSD=//g' | awk -F '\' '{ print $1}' | tr -d '\r') # exchanging for another one where I join the lines 2x more.
 		ENERGIA2=$(sed 's/^ //' $JOBNAME.log | sed 'N;s/\n//' | sed 'N;s/\n//' | sed 'N;s/\n//' | sed 'N;s/\n//' | sed -n '/HF=/{N;p;}' | sed 's/^.*HF=//' | sed 'N;s/\n//' | sed '2d' | sed 's/RMSD=//g' | awk -F '\' '{ print $1}' | tr -d '\r')
-#this one was not working whenever relativistics was used in gaussian, the bottom one works.
-#		RMSD2=$(sed 's/^ //' $JOBNAME.log | sed 'N;s/\n//' | sed 'N;s/\n//' | sed -n '/HF=/{N;p;}' | sed 's/^.*HF=//' | sed 'N;s/\n//' | sed '2d' | sed 's/RMSD=//g' | awk -F '\' '{ print $2}'| tr -d '\r')
 		RMSD2=$(sed 's/^ //' $JOBNAME.log | sed 'N;s/\n//' | sed 'N;s/\n//' | sed 'N;s/\n//'| sed -n '/RMSD=/{N;p;}' | sed 's/^.*RMSD=//' | sed 'N;s/\n//' | sed '2d' | sed 's/RMSD=//g' | awk -F '\' '{ print $1}'| tr -d '\r')
 		echo "Gaussian cycle number $I, final energy is: $ENERGIA2, RMSD is: $RMSD2 "
 	else
@@ -1336,27 +1234,14 @@ CHECK_ENERGY(){
 		RMSD2=$(sed -n '/Last RMS-Density change/p' $JOBNAME.log | awk '{print $5}' | tr -d '\r')
 		echo "Orca cycle number $I, final energy is: $ENERGIA2, RMSD is: $RMSD2 "
 	fi
-	#	DE=$(($ENERGIA - $ENERGIA2))
-	###	DE=$(echo "$ENERGIA2 - $ENERGIA" | bc)
 		DE=$(awk "BEGIN {print $ENERGIA2 - $ENERGIA}")
-	#	DE=$(echo "$ENERGIA - $ENERGIA2" | bc)
-	#	DRMSD=$(($RMSD - $RMSD2))
 		echo -e " $J\t$(awk '{a[NR]=$0}/^Rigid-atom fit results/{b=NR}END {print a[b-4]}' stdout | awk '{print $1}' )\t$INITIALCHI\t$(awk '{a[NR]=$0}/^Rigid-atom fit results/{b=NR}END {print a[b-4]}' stdout | awk '{print  $2"\t"$3"\t"$4"\t"}') $MAXSHIFT\t$MAXSHIFTATOM $MAXSHIFTPARAM $(awk '{a[NR]=$0}/^Rigid-atom fit results/{b=NR}END {print a[b-4]}' stdout | awk '{print  "    "$8" \t"$9 }' )  $ENERGIA2   $RMSD2   \t$DE"   >> $JOBNAME.lst  
-#		echo -e " $J\t$(awk '{a[NR]=$0}/^Rigid-atom fit results/{b=NR}END {print a[b-4]}' stdout | awk '{print $1}' )\t$INITIALCHI\t$(awk '{a[NR]=$0}/^Rigid-atom fit results/{b=NR}END {print a[b-4]}' stdout | awk '{print  $2"\t"$3"\t"$4"\t"}') $MAXSHIFT\t$MAXSHIFTATOM $MAXSHIFTPARAM $(awk '{a[NR]=$0}/^Rigid-atom fit results/{b=NR}END {print a[b-4]}' stdout | awk '{print  "\t""    "$8" \t"$9 }' )  $ENERGIA2   $RMSD2   \t$DE"   >> $JOBNAME.lst  
-#		echo " $J  $(awk '{a[NR]=$0}/^Rigid-atom fit results/{b=NR}END {print a[b-4]}' stdout)    $ENERGIA2   $RMSD2   $DE"  >> $JOBNAME.lst
 		ENERGIA=$ENERGIA2
 		RMSD=$RMSD2
 		echo "Delta E (cycle  $I - $[ I - 1 ]): $DE "
-###		echo "Delta E (cycle  $I - $[ I - 1 ]): $DE (convergency will reach when Delta E is smaller than 0.0001)"
-	#	J=$[ $J + 1 ]
-	#	echo "Running Tonto, cycle number $J"
-	#	$TONTO
-	#	echo "Tonto cycle number $I ended"
-	#	cp stdout stdout.$J
 }
 
 CHECKCONV(){
-#FINALPARAMESD=$(awk '{a[NR]=$0}/^Rigid-atom fit results/{b=NR}END {print a[b-4]}' stdout | awk '{print $5}') This is from the last line
 FINALPARAMESD=$(awk '{a[NR]=$0}/^Begin rigid-atom fit/{b=NR}END {print a[b+10]}' stdout | awk '{print $5}')
 }
 
@@ -1472,6 +1357,8 @@ GET_RESIDUALS(){
 	echo "" >> stdin
 	echo "   make_scf_density_matrix" >> stdin
 	echo "   make_structure_factors" >> stdin
+	echo "" >> stdin
+	echo "   put_minmax_residual_density" >> stdin
 	echo "" >> stdin
 	echo "   plot_grid= {                           " >> stdin
 	echo "" >> stdin
@@ -1598,12 +1485,6 @@ run_script(){
 	echo "Dispersion correction	: $DISP" >> $JOBNAME.lst
 	if [ $DISP = "yes" ]; then
 		echo "			  $(cat DISP_inst.txt)" >> $JOBNAME.lst
-	# commented but I think it was working
-	#for loop in { 1..$NUMATOMTYPE }
-	#		do
-	#		echo "Dispersion coefficients	:  ${ATOMTYPE[loop]} ${FP[loop]} ${FPP[loo]}" >> $JOBNAME.lst
-	#	done	
-	
 	fi
 	
 	#writing in the lst file FOR GAUSSIAN or ORCA only
@@ -1616,9 +1497,6 @@ run_script(){
 		echo "###############################################################################################" >> $JOBNAME.lst
 	#####################################################################################################
 	###################### Begin extracting XYZ with tonto and input to gaussian ########################
-	#sed '/^# Cartesian axis system ADPs$/,$d' $CIF > cut.cif
-	###commented but was working before, now with the new cifs the put_tonto command is not working because it doesnt have the vcv matrix to generate the geom table... should add a ensure that it has the vcv matrix to calculate the geom blocks... I will use the cif entered by the user then...
-	###sed -e '/# Tonto-specific key and data/,/# Standard CIF keys and data/d' $CIF > cut.cif
 		echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!" > stdin
 		echo "!!!                                                                                         !!!" >> stdin
 		echo "!!!                        This stdin was written with lamaGOET                             !!!" >> stdin
@@ -1648,7 +1526,6 @@ run_script(){
 			   	echo "       OH_bond_length= $OHBOND angstrom" >> stdin
 		   	fi
 		fi
-		###echo "       file_name= cut.cif" >> stdin
 		echo "    }" >> stdin
 		echo "" >> stdin
 		echo "   process_CIF" >> stdin
@@ -1674,7 +1551,6 @@ run_script(){
 			echo "   put_grown_cif" >> stdin
 		fi
 		#echo "###############################################################################################" >> $JOBNAME.lst
-		###echo "   put_cif" >> stdin
 		echo "" >> stdin
 		echo "}" >> stdin 
 		echo "Reading cif with Tonto"
@@ -1718,10 +1594,6 @@ run_script(){
 			echo "" >> tonto.cell
 			echo "      REVERT" >> tonto.cell
 		fi
-	###rm cut.cif
-	#cp $JOBNAME'_cartesian.cif2' $JOBNAME.$J'_cartesian.cif2'
-	#######commented now that the put_cif is not working then that file doesn not exist...
-	#######cp $JOBNAME'_cartesian.cif2' $JOBNAME.$J.cartesian.cif2
 		if [ "$SCFCALCPROG" = "Gaussian" ]; then 
 			echo "###############################################################################################" >> $JOBNAME.lst
 			echo "                                     Starting Gaussian                                         " >> $JOBNAME.lst
@@ -1732,7 +1604,6 @@ run_script(){
 			echo "%int=./$JOBNAME.int" | tee -a $JOBNAME.com  $JOBNAME.lst
 			echo "%mem=$MEM" | tee -a $JOBNAME.com  $JOBNAME.lst
 			echo "%nprocshared=$NUMPROC" | tee -a $JOBNAME.com $JOBNAME.lst
-			#this is the first SCF so no charges in!
 			if [ "$METHOD" = "rks" ]; then
 				echo "# blyp/$BASISSET nosymm output=wfn 6D 10F Fchk $INT" | tee -a $JOBNAME.com $JOBNAME.lst    
 			else
@@ -1746,23 +1617,12 @@ run_script(){
 			echo "$JOBNAME" | tee -a $JOBNAME.com $JOBNAME.lst
 			echo "" | tee -a  $JOBNAME.com $JOBNAME.lst
 			echo "$CHARGE $MULTIPLICITY" | tee -a  $JOBNAME.com $JOBNAME.lst
-			### commented but working on new tonto, will use dylan's old write_xyz_file keyword because that one keeps the atom labels, florian's new one does not.
-			###awk '{a[NR]=$0}/^_atom_site_Cartn_U_iso_or_equiv_esu/{b=NR}/^# ==============/{c=NR}END{for(d=b+1;d<=c-4;++d)print a[d]}' $JOBNAME.$J.cartesian.cif2 | awk -v OFS='\t' 			'{print $1, $2, $3, $4}' | awk '{gsub("[(][^)]*[)]","")}1 {print }'| awk 'NR%2==1 {print }' | tee -a $JOBNAME.com $JOBNAME.lst
 			awk 'NR>2' $JOBNAME.xyz | tee -a  $JOBNAME.com $JOBNAME.lst
-			### old working
-			###awk '{a[NR]=$0}/^_atom_site_Cartn_disorder_group/{b=NR}/^# ==========================/{c=NR}END{for(d=b+1;d<=c-4;++d)print a[d]}' $JOBNAME.cartn-fragment.cif | awk -v 			OFS='\t' '{print $1, $2, $3, $4}' | awk '{gsub("[(][^)]*[)]","")}1 {print }' | tee -a $JOBNAME.com $JOBNAME.lst
-			#awk '{a[NR]=$0}/^Atom\ coordinates/{b=NR}/^Atomic\ displacement\ parameters\ \(ADPs\)/{c=NR}END{for(d=b+11;d<=c-4;++d)print a[d]}' stdout | awk 'NR%2==1 {print $2, $4, 	$5, $6}' > test.txt 
-			#awk '{gsub("[(][^)]*[)]","")}1 {print }' test.txt >> $JOBNAME.com
-			#rm test.txt
 			echo "" | tee -a $JOBNAME.com  $JOBNAME.lst
 			if [ "$GAUSGEN" = "true" ]; then
 		        	cat basis_gen.txt | tee -a $JOBNAME.com  $JOBNAME.lst
 				echo "" | tee -a $JOBNAME.com  $JOBNAME.lst
 			fi
-		 	#if [ "$SCCHARGES" = "true" ]; then 
-		        #	awk '{a[NR]=$0}{b=12}/^------------------------------------------------------------------------/{c=NR}END{for(d=b;d<=c-1;++d)print a[d]}' gaussian-point-charges | awk '{printf "%s\t %s\t %s\t %s\t \n", $2, $3, $4, $1 }' | tee -a $JOBNAME.com  $JOBNAME.lst
-			#	echo "" | tee -a $JOBNAME.com  $JOBNAME.lst
-			#fi
 			echo "./$JOBNAME.wfn" | tee -a $JOBNAME.com  $JOBNAME.lst
 			echo "" | tee -a $JOBNAME.com  $JOBNAME.lst
 			###################### End extracting XYZ with tonto and input to gaussian ########################
@@ -1779,17 +1639,13 @@ run_script(){
 			fi
 			ENERGIA=$(sed 's/^ //' $JOBNAME.log | sed 'N;s/\n//' | sed 'N;s/\n//' | sed 'N;s/\n//' | sed 'N;s/\n//' | sed -n '/HF=/{N;p;}' | sed 's/^.*HF=//' | sed 'N;s/\n//' | sed '2d' | sed 's/RMSD=//g' | awk -F '\' '{ print $1}' | tr -d '\r')
 			RMSD=$(sed 's/^ //' $JOBNAME.log | sed 'N;s/\n//' | sed 'N;s/\n//' | sed 'N;s/\n//'| sed -n '/RMSD=/{N;p;}' | sed 's/^.*RMSD=//' | sed 'N;s/\n//' | sed '2d' | sed 's/RMSD=//g' | awk -F '\' '{ print $1}'| tr -d '\r')
-#exchanged this line by the one above, better way of cuting it because the bottom one would crash with relativistics.
-#			RMSD=$(sed 's/^ //' $JOBNAME.log | sed 'N;s/\n//' | sed 'N;s/\n//' | sed -n '/HF=/{N;p;}' | sed 's/^.*HF=//' | sed 'N;s/\n//' | sed '2d' | sed 's/RMSD=//g' | awk -F '\' '{ print $2}' | tr -d '\r')
 			echo "Starting geometry: Energy= $ENERGIA, RMSD= $RMSD" >> $JOBNAME.lst
 			echo "" >> $JOBNAME.lst
 			echo "###############################################################################################" >> $JOBNAME.lst
 			echo "Generation fcheck file for Gaussian cycle number $I"
-#			formchk $JOBNAME.chk $JOBNAME.fchk
 			echo "Gaussian cycle number $I, final energy is: $ENERGIA, RMSD is: $RMSD "
 	     		mkdir $I.$SCFCALCPROG.cycle.$JOBNAME
 			cp $JOBNAME.com  $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.com
-#			cp $JOBNAME.fchk $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.fchk
 			cp Test.FChk $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.fchk
 			cp $JOBNAME.log  $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.log
 		###################### End first gaussian single point calculation and storing energy and RMSD ########################
@@ -1851,13 +1707,7 @@ run_script(){
 		fi
 		###################### First fit done start refeed gaussian ########################
 		######################  Iterative begins ########################
-		
-		#echo "6.421e-09" | awk -F"E" 'BEGIN{OFMT="%10.10f"} {print $1 * (10 ^ $2)}' | bc  #aqui aparece um numero em notacao cientifica e a condicao nao pode ser testada, o comando acima transforma ele em float mas nao ta funcionando
-	
-		#awk -v a="$DE" -v b="0.00001" 'BEGIN{print (a > b)}'
 		while (( $(echo "$MAXSHIFT > $CONVTOL" | bc -l) || $( echo "$J <= 1" | bc -l )  )); do
-###		while [ "$(awk -F'\t' 'function abs(x){return ((x < 0.0) ? -x : x)} BEGIN{print (abs('$DE') > 0.0001)}')" = 1 ]; do
-		#while [ "$(echo "${DE=$(printf "%f", "$DE")} >= 0.000001" | bc -l)" -eq 1 ]; do  
 			SCF_TO_TONTO
 			if [ "$SCFCALCPROG" = "Gaussian" ]; then  
 				TONTO_TO_GAUSSIAN
@@ -1873,11 +1723,9 @@ run_script(){
 		echo "###############################################################################################" >> $JOBNAME.lst
 		echo "" >> $JOBNAME.lst
 		echo "Energy= $ENERGIA2, RMSD= $RMSD2" >> $JOBNAME.lst
-		###commented but working, will change because the residual data is not being printed in the .lst file
-		###echo " $(awk '{a[NR]=$0}/^Rigid-atom fit results/{b=NR}/^Analysis of the Hirshfeld atom fit/{c=NR}END{for (d=b-2;d<c-1;++d) print a[d]}' stdout)"  >> $JOBNAME.lst
+		GET_RESIDUALS
 		echo " $(awk '{a[NR]=$0}/^Rigid-atom fit results/{b=NR}/^Wall-clock time taken for job /{c=NR}END{for (d=b-2;d<c-1;++d) print a[d]}' stdout)"  >> $JOBNAME.lst
 #		get the residual density running tonto once, only needed if not using tonto for the scf			
-		GET_RESIDUALS
 		DURATION=$SECONDS
 		echo "Job ended, elapsed time:" | tee -a $JOBNAME.lst
 		echo "$(($DURATION / 86400 )) days,  $((($DURATION / 3600) % 24 )) hours, $((($DURATION / 60) % 60 ))minutes and $(($DURATION % 60 )) seconds elapsed." | tee -a $JOBNAME.lst
@@ -1890,6 +1738,7 @@ run_script(){
 		echo "                                     Final Geometry                                         " >> $JOBNAME.lst
 		echo "###############################################################################################" >> $JOBNAME.lst
 		echo "" >> $JOBNAME.lst
+		GET_RESIDUALS
 		echo " $(awk '{a[NR]=$0}/^Rigid-atom fit results/{b=NR}/^Wall-clock time taken for job /{c=NR}END{for (d=b-2;d<c-1;++d) print a[d]}' stdout)"  >> $JOBNAME.lst
 		DURATION=$SECONDS
 		echo "Job ended, elapsed time:" | tee -a $JOBNAME.lst
@@ -1898,11 +1747,9 @@ run_script(){
 	else
 		if [ "$USEGAMESS" = "false" ]; then    
 			ELMODB
-#		        CHECK_ELMO
 			SCF_TO_TONTO
 			ELMODB
 			while (( $(echo "$MAXSHIFT > $CONVTOL" | bc -l) || $( echo "$J <= 1" | bc -l )  )); do
-#			while [[ "$(diff $JOBNAME.elmodb.out $[ I - 1 ].$SCFCALCPROG.cycle.$JOBNAME/$[ I - 1 ].$JOBNAME.elmodb.out | wc -l )" -gt $PERCENT1 ]]; do
 				SCF_TO_TONTO
 				ELMODB
 			done
@@ -1912,9 +1759,9 @@ run_script(){
 			echo "                                     Final Geometry                                         " >> $JOBNAME.lst
 				echo "###############################################################################################" >> $JOBNAME.lst
 			echo "" >> $JOBNAME.lst
+			GET_RESIDUALS
 			echo " $(awk '{a[NR]=$0}/^Rigid-atom fit results/{b=NR}/^Wall-clock time taken for job /{c=NR}END{for (d=b-2;d<c-1;++d) print a[d]}' stdout)"  >> $JOBNAME.lst
 #			get the residual density running tonto once, only needed if not using tonto for the scf			
-			GET_RESIDUALS
 			DURATION=$SECONDS
 			echo "Job ended, elapsed time:" | tee -a $JOBNAME.lst
 			echo "$(($DURATION / 86400 )) days,  $((($DURATION / 3600) % 24 )) hours, $((($DURATION / 60) % 60 ))minutes and $(($DURATION % 60 )) seconds elapsed." | tee -a $JOBNAME.lst
@@ -1924,7 +1771,6 @@ run_script(){
 			SCF_TO_TONTO
 			GAMESS_ELMODB_OLD_PDB
 			while (( $(echo "$MAXSHIFT > $CONVTOL" | bc -l) || $( echo "$J <= 1" | bc -l )  )); do
-#			while [[ "$(diff $JOBNAME.elmodb.out $[ I - 1 ].$SCFCALCPROG.cycle.$JOBNAME/$[ I - 1 ].$JOBNAME.elmodb.out | wc -l )" -gt $PERCENT1 ]]; do
 				SCF_TO_TONTO
 				GAMESS_ELMODB_OLD_PDB
 			done
@@ -1934,55 +1780,14 @@ run_script(){
 			echo "                                     Final Geometry                                         " >> $JOBNAME.lst
 				echo "###############################################################################################" >> $JOBNAME.lst
 			echo "" >> $JOBNAME.lst
+			GET_RESIDUALS
 			echo " $(awk '{a[NR]=$0}/^Rigid-atom fit results/{b=NR}/^Wall-clock time taken for job /{c=NR}END{for (d=b-2;d<c-1;++d) print a[d]}' stdout)"  >> $JOBNAME.lst
 #			get the residual density running tonto once, only needed if not using tonto for the scf			
-			GET_RESIDUALS
 			DURATION=$SECONDS
 			echo "Job ended, elapsed time:" | tee -a $JOBNAME.lst
 			echo "$(($DURATION / 86400 )) days,  $((($DURATION / 3600) % 24 )) hours, $((($DURATION / 60) % 60 ))minutes and $(($DURATION % 60 )) seconds elapsed." | tee -a $JOBNAME.lst
 			exit
 		fi
-	#	echo "title" > $JOBNAME.gamess.inp
-	#	echo "prova $JOBNAME - $BASISSET - closed shell SCF" >> $JOBNAME.gamess.inp
-	#	echo "charge $CHARGE " >> $JOBNAME.gamess.inp
-	#	if [ "$MULTIPLICITY" != "1" ]; then
-	#		echo "multiplicity $MULTIPLICITY" >> $JOBNAME.gamess.inp
-	#	fi
-	#	echo "adapt off" >> $JOBNAME.gamess.inp
-	#	echo "nosym" >> $JOBNAME.gamess.inp
-	#	echo "geometry angstrom" >> $JOBNAME.gamess.inp
-	#	awk '$1 ~ /ATOM/ {printf "%f\t %f\t %f\t %s\t %s\n", $6, $7, $8, "carga", $3} ' $CIF >> $JOBNAME.gamess.inp
-	#	echo "end" >> $JOBNAME.gamess.inp
-	#	echo "basis $BASISSET" >> $JOBNAME.gamess.inp
-	#	echo "runtype scf" >> $JOBNAME.gamess.inp
-	#	echo "scftype rhf" >> $JOBNAME.gamess.inp
-	#	echo "enter " >> $JOBNAME.gamess.inp
-	#	I=$[ $I + 1 ]
-	#	echo "Calculating overlap integrals with gamessus, cycle number $I" 
-	#	gamess_int < $JOBNAME.gamess.inp > $JOBNAME.gamess.out
-	#	echo "Gamess cycle number $I ended"
-	#	mkdir $I.$SCFCALCPROG.cycle.$JOBNAME
-	#	cp $JOBNAME.gamess.inp  $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.gamess.inp
-	#	cp $JOBNAME.gamess.out  $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.gamess.out
-	#	cp sao  $I.$SCFCALCPROG.cycle.$JOBNAME/$I.sao
-	#	rm ed* gamess_input*
-	#	if ! grep -q 'OVERLAP INTEGRALS WRITTEN ON FILE sao' "$JOBNAME.log"; then
-	#		echo "ERROR: Calculation of overlap integrals with gamessus finished with error, please check the $I.th gamess.out file for more details" | tee -a $JOBNAME.lst
-	#		unset MAIN_DIALOG
-	#		exit 0
-	#	else 
-	#		cp $SCFCALC_BIN .
-	#		echo " $INPUT_METHOD      basis_set='$BASISSET' ncpus=1 divcon=.false. rotvirt=.false. full_occ=.true. full_virt=.false. max_atom=2000000 $END" > $JOBNAME.elmodb.inp
-	#		echo " $INPUT_STRUCTURE   pdb_file='$CIF' nssbond=0 ntail=0 nspec=0 max_atail=50 max_frtail=50 maxsh=40 $END  " >> $JOBNAME.elmodb.inp
-	#		./$SCFCALC_BIN < $JOBNAME.elmodb.inp > $JOBNAME.elmodb.out
-	#		if ! grep -q 'Number of electrons =' "$JOBNAME.log"; then
-	#			echo "ERROR: elmodb finished with error, please check the $I.th elmodb.out file for more details" | tee -a $JOBNAME.lst
-	#			unset MAIN_DIALOG
-	#			exit 0
-	#		else
-	#			sed -i 's/Alpha Orbital Energies/Alpha MO coefficients/g' OUTPUT.fchk
-	#	fi
-
 	fi
 }
 
@@ -2121,6 +1926,8 @@ export MAIN_DIALOG='
 	        <label>elmodb</label>
 	        <default>false</default>
 	        <action>if true echo 'SCFCALCPROG="elmodb"'</action>
+	        <action>if true enable:NTAIL</action>
+	        <action>if false disable:NTAIL</action>
 	        <action>if true enable:MEM</action>
 	        <action>if true enable:NUMPROC</action>
 	        <action>if true enable:SCFCALC_BIN</action>
@@ -2145,8 +1952,6 @@ export MAIN_DIALOG='
 	        <action>if false enable:GAUSGEN</action>
 	        <action>if true disable:GAUSSREL</action>
 	        <action>if false enable:GAUSSREL</action>
-	        <action>if true enable:NTAIL</action>
-	        <action>if false disable:NTAIL</action>
 	        <action>if true enable:MANUALRESIDUE</action>
 	        <action>if false disable:MANUALRESIDUE</action>
 	      </radiobutton>
@@ -2166,7 +1971,7 @@ export MAIN_DIALOG='
 	    <text label="Tonto executable" has-tooltip="true" tooltip-markup="This can be a full path" ></text>
 	    <entry fs-action="file" fs-folder="./"
 	           fs-title="Select the gamess_int file">
-	     <default>tonto</default>
+             <input>if [ ! -z $TONTO ]; then echo "$TONTO"; else (echo "tonto"); fi</input>
 	     <variable>TONTO</variable>
 	    </entry>
 	    <button>
@@ -2181,7 +1986,7 @@ export MAIN_DIALOG='
 	    <text label="Gaussian, Orca or elmodb executable" has-tooltip="true" tooltip-markup="This can be a full path" ></text>
 	    <entry fs-action="file" fs-folder="./"
 	           fs-title="Select the gamess_int file">
-	     <default>g09</default>
+             <input>if [ ! -z $SCFCALC_BIN ]; then echo "$SCFCALC_BIN"; else (echo "g09"); fi</input>
 	     <variable>SCFCALC_BIN</variable>
 	    </entry>
 	    <button>
@@ -2197,7 +2002,7 @@ export MAIN_DIALOG='
 	    <entry sensitive="false" fs-action="file" fs-folder="./"
 	           fs-filters="gamess_int"
 	           fs-title="Select the gamess_int file">
-	     <default>gamess_int</default>
+             <input>if [ ! -z $GAMESS ]; then echo "$GAMESS"; else (echo "gamess_int"); fi</input>
 	     <variable>GAMESS</variable>
 	    </entry>
 	    <button>
@@ -2212,7 +2017,7 @@ export MAIN_DIALOG='
 	    <text label="ELMO libraries folder" has-tooltip="true" tooltip-markup="This can be a full path" ></text>
 	    <entry sensitive="false" fs-action="folder" fs-folder="./"
 	           fs-title="Select the ELMO library folder">
-	     <default>/usr/local/bin/ELMO_LIB</default>
+             <input>if [ ! -z $ELMOLIB ]; then echo "$ELMOLIB"; else (echo "/usr/local/bin/LIBRARIES"); fi</input>
 	     <variable>ELMOLIB</variable>
 	    </entry>
 	    <button>
@@ -2228,8 +2033,8 @@ export MAIN_DIALOG='
 	    <text label="basis sets directory" ></text>
 	    <entry sensitive="false" fs-action="folder" fs-folder="/usr/local/bin/"
 	           fs-title="Select the basis_sets directory">
+             <input>if [ ! -z $BASISSETDIR ]; then echo "$BASISSETDIR"; else (echo "/usr/local/bin/BASIS-SETS"); fi</input>
 	     <variable>BASISSETDIR</variable>
-	     <default>/usr/local/bin/basis_sets</default>
 	    </entry>
 	    <button>
 	     <input file stock="gtk-open"></input>
@@ -2242,7 +2047,7 @@ export MAIN_DIALOG='
 	   <hbox>
 	    <text use-markup="true" wrap="false"><label>Job name(one word)</label></text>
 	    <entry>
-	     <default>my_job</default>
+             <input>if [ ! -z $JOBNAME ]; then echo "$JOBNAME"; else (echo "my_job"); fi</input>
 	     <variable>JOBNAME</variable>
 	    </entry>
 	   </hbox>
@@ -2254,6 +2059,7 @@ export MAIN_DIALOG='
 	    <entry fs-action="file" fs-folder="./"
 	           fs-filters="*.cif|*.pdb"
 	           fs-title="Select a cif or pdb file">
+             <input>if [ ! -z $CIF ]; then echo "$CIF"; fi</input>
 	     <variable>CIF</variable>
 	    </entry>
 	    <button>
@@ -2275,6 +2081,7 @@ export MAIN_DIALOG='
 	    <entry fs-action="file" fs-folder="./"
 	           fs-filters="*.hkl"
 	           fs-title="Select an hkl file">
+             <input>if [ ! -z $HKL ]; then echo "$HKL"; fi</input>
 	     <variable>HKL</variable>
 	    </entry>
 	    <button>
@@ -2308,13 +2115,13 @@ export MAIN_DIALOG='
 	   <hbox>
 	    <text use-markup="true" wrap="TRUE" space-expand="false"><label>Wavelenght (in Angstrom)</label></text>
 	    <entry>
-	     <default>0.71073</default>
+             <input>if [ ! -z $WAVE ]; then echo "$WAVE"; else (echo "0.71073"); fi</input>
 	     <variable>WAVE</variable>
 	    </entry>
 	
 	    <text use-markup="true" wrap="TRUE" space-expand="FALSE"><label>F/sigma cutoff</label></text>
 	    <entry>
-	     <default>3</default>
+             <input>if [ ! -z $FCUT ]; then echo "$FCUT"; else (echo "3"); fi</input>
 	     <variable>FCUT</variable>
 	    </entry>
 
@@ -2325,13 +2132,13 @@ export MAIN_DIALOG='
 	   <hbox> 
 	    <text xalign="0" use-markup="true" wrap="false"><label>Charge</label></text>
 	    <spinbutton  range-min="-10"  range-max="10" space-fill="True"  space-expand="True">
-		<default>0</default>
+             <input>if [ ! -z $CHARGE ]; then echo "$CHARGE"; else (echo "0"); fi</input>
 		<variable>CHARGE</variable>
 	    </spinbutton>
 	
 	    <text xalign="1" use-markup="true" wrap="false"><label>Multiplicity</label></text>
 	    <spinbutton  range-min="0"  range-max="10"  space-fill="True"  space-expand="True" >
-		<default>1</default>
+             <input>if [ ! -z $MULTIPLICITY ]; then echo "$MULTIPLICITY"; else (echo "1"); fi</input>
 		<variable>MULTIPLICITY</variable>
 	    </spinbutton>
 	   </hbox>
@@ -2415,7 +2222,7 @@ export MAIN_DIALOG='
 	
 	    <text><label>Enter manually for Gaussian, Orca or elmodb!</label> </text>
 	    <entry tooltip-text="Use the correct Gaussian or Orca or Tonto format" sensitive="true">
-	     <default>STO-3G</default>
+             <input>if [ ! -z $BASISSET ]; then echo "$BASISSET"; else (echo "STO-3G"); fi</input>
 	     <variable>BASISSET</variable>
 	    </entry>
 	
@@ -2436,7 +2243,7 @@ export MAIN_DIALOG='
 	
 	    <text use-markup="true" wrap="false" ><label>SC Cluster charges radius</label></text>
 	    <entry has-tooltip="true" tooltip-markup="in Angstrom" sensitive="false">
-	     <default>8</default>
+             <input>if [ ! -z $SCCRADIUS ]; then echo "$SCCRADIUS"; else (echo "8"); fi</input>
 	     <variable>SCCRADIUS</variable>
 	    </entry>
 	
@@ -2493,6 +2300,7 @@ export MAIN_DIALOG='
 	    </checkbox>
 	    <text use-markup="true" wrap="false" ><label>atom labels:</label></text>
 	    <entry sensitive="false">
+             <input>if [ ! -z $ATOMLIST ]; then echo "$ATOMLIST"; fi</input>
 	     <variable>ATOMLIST</variable>
 	    </entry>
            </hbox>
@@ -2540,18 +2348,19 @@ export MAIN_DIALOG='
 	
 	    <text use-markup="true" wrap="false"  ><label>Atom labels</label></text>
 	    <entry has-tooltip="true" tooltip-markup="as in the cif" sensitive="false">
+             <input>if [ ! -z $ANHARMATOMS ]; then echo "$ANHARMATOMS"; fi</input>
 	     <variable>ANHARMATOMS</variable>
 	    </entry>
 	
 	    <checkbox sensitive="false">
 	     <label>3rd Order</label>
-	     <default>false</default>
+	      <default>false</default>
 	      <variable>THIRDORD</variable>
 	    </checkbox>
 
 	    <checkbox sensitive="false">
 	     <label>4rd Order</label>
-	     <default>false</default>
+	      <default>false</default>
 	      <variable>FOURTHORD</variable>
 	    </checkbox>
 	   </hbox>
@@ -2581,13 +2390,13 @@ export MAIN_DIALOG='
 	   <hbox>
 	    <text xalign="0" use-markup="true" wrap="false"><label>B-H:</label></text>
 	    <entry sensitive="false">
-	     <default>1.190</default>
+             <input>if [ ! -z $BHBOND ]; then echo "$BHBOND"; else (echo "1.190"); fi</input>
 	     <variable>BHBOND</variable>
 	      <visible>disabled</visible>
 	    </entry>
 	    <text xalign="0" use-markup="true" wrap="false"><label>C-H:</label></text>
 	    <entry sensitive="false">
-	     <default>1.083</default>
+             <input>if [ ! -z $CHBOND ]; then echo "$CHBOND"; else (echo "1.083"); fi</input>
 	     <variable>CHBOND</variable>
 	    </entry>
 	   </hbox>
@@ -2595,12 +2404,12 @@ export MAIN_DIALOG='
 	   <hbox>
 	    <text xalign="0" use-markup="true" wrap="false"><label>N-H:</label></text>
 	    <entry sensitive="false">
-	     <default>1.009</default>
+             <input>if [ ! -z $NHBOND ]; then echo "$NHBOND"; else (echo "1.009"); fi</input>
 	     <variable>NHBOND</variable>
 	    </entry>
 	    <text xalign="0" use-markup="true" wrap="false"><label>O-H:</label></text>
 	    <entry sensitive="false">
-	     <default>0.983</default>
+             <input>if [ ! -z $OHBOND ]; then echo "$OHBOND"; else (echo "0.983"); fi</input>
 	     <variable>OHBOND</variable>
 	    </entry>
 	
@@ -2622,7 +2431,7 @@ export MAIN_DIALOG='
 	   <hbox> 
 	    <text xalign="0" use-markup="true" wrap="false"justify="1"><label>Number of processors available for the Gaussian or Orca job</label></text>
 	    <spinbutton  range-min="1"  range-max="100" space-fill="True"  space-expand="True">
-		<default>1</default>
+             <input>if [ ! -z $NUMPROC ]; then echo "$NUMPROC"; else (echo "1"); fi</input>
 		<variable>NUMPROC</variable>
 	    </spinbutton>
 	   </hbox>
@@ -2632,6 +2441,7 @@ export MAIN_DIALOG='
 	   <hbox>
 	    <text xalign="0" use-markup="true" has-tooltip="true" tooltip-markup="(including the unit mb or gb. For elmodb only in mb without unit!)" wrap="false"><label>Memory available for the Gaussian, Orca or elmodb job</label></text>
 	    <entry>
+             <input>if [ ! -z $MEM ]; then echo "$MEM"; else (echo "1gb"); fi</input>
 	     <default>1gb</default>
 	     <variable>MEM</variable>
 	    </entry>
@@ -2657,7 +2467,7 @@ export MAIN_DIALOG='
 	    <text text-xalign="0" use-markup="true" wrap="false" space-expand="FALSE" space-fill="false"><label>Conv. tol. for shift on esd</label></text>
 	   <hbox space-expand="true" space-fill="true">
 	    <entry space-expand="true">
-	     <default>0.010000</default>
+             <input>if [ ! -z $CONVTOL ]; then echo "$CONVTOL"; else (echo "0.010000"); fi</input>
 	     <variable>CONVTOL</variable>
 	    </entry>
 	
@@ -2718,7 +2528,7 @@ export MAIN_DIALOG='
    	  <hbox> 
 	    <text xalign="0" use-markup="true" wrap="false"justify="1"><label>How many lambda values would you like to use?</label></text>
 	    <spinbutton  range-min="1"  range-max="100" space-fill="True"  space-expand="True">
-		<default>1</default>
+             <input>if [ ! -z $LAMBDA ]; then echo "$LAMBDA"; else (echo "1"); fi</input>
 		<variable>LAMBDA</variable>
 	    </spinbutton>
 	   </hbox>
@@ -2731,7 +2541,7 @@ export MAIN_DIALOG='
    	  <hbox> 
 	    <text xalign="0" use-markup="true" wrap="false"justify="1"><label>How many lambda values would you like to use?</label></text>
 	    <spinbutton  range-min="1"  range-max="100" space-fill="True"  space-expand="True">
-		<default>1</default>
+                <input>if [ ! -z $LAMBDA ]; then echo "$LAMBDA"; else (echo "1"); fi</input>
 		<variable>LAMBDA</variable>
 	    </spinbutton>
 	   </hbox>
@@ -2744,19 +2554,66 @@ export MAIN_DIALOG='
    	  <hbox> 
            <text xalign="0" use-markup="true" wrap="false" justify="1"><label>Enter number of tailor made residues:</label></text>
            <spinbutton  range-min="0"  range-max="100" space-fill="True"  space-expand="True" sensitive="false">
-	    <default>0</default>
+             <input>if [ ! -z $NTAIL ]; then echo "$NTAIL"; else (echo "0"); fi</input>
 	    <variable>NTAIL</variable>
+	      <action condition="command_is_true( [ $NTAIL -gt 0 ] && echo true )">enable:ATAIL</action>
+	      <action condition="command_is_false( [ $NTAIL -eq 0 ] && echo false )">disable:ATAIL</action>
+	      <action condition="command_is_true( [ $FRTAIL -gt 0 ] && echo true )">enable:FRTAIL</action>
+	      <action condition="command_is_false( [ $FRTAIL -eq 0 ] && echo false )">disable:FRTAIL</action>
 	   </spinbutton>
 	   </hbox>
 
+   	  <hbox> 
+           <text xalign="0" use-markup="true" wrap="false" justify="1"><label>Enter number of tailor made residues:</label></text>
+           <spinbutton  range-min="0"  range-max="1000" space-fill="True"  space-expand="True" sensitive="false">
+             <input>if [ ! -z $ATAIL ]; then echo "$ATAIL"; else (echo "100"); fi</input>
+	    <variable>ATAIL</variable>
+	   </spinbutton>
+	   </hbox>
+
+   	  <hbox> 
+           <text xalign="0" use-markup="true" wrap="false" justify="1"><label>Enter number of tailor made residues:</label></text>
+           <spinbutton  range-min="0"  range-max="1000" space-fill="True"  space-expand="True" sensitive="false">
+             <input>if [ ! -z $FRTAIL ]; then echo "$FRTAIL"; else (echo "200"); fi</input>
+	    <variable>FRTAIL</variable>
+	   </spinbutton>
+	   </hbox>
 
 	   <hbox>
 	    <text text-xalign="0" use-markup="true" wrap="false" space-expand="FALSE" space-fill="false"><label>Enter the residue information manually:</label></text>
  	    <edit space-expand="true" space-fill="true" sensitive="false">
-             <default>
-" 
+             <input file> TAILORED</input>
+             <variable>MANUALRESIDUE</variable>
+      	     <width>350</width><height>350</height>
+             <action  condition="file_is_false(ntail.txt)">touch ntail.txt</action>
+    	    </edit>
+	   </hbox>
+ 
+	  </frame>
+	 </vbox>
+
+	 </notebook>
+         </vbox>
+
+	</window>
+'
+
+#no need for basis set in tonto!!!
+
+#checking if job_options file exists for tests
+if [ -f job_options.txt  ]; then
+	sed -i '/EXIT/d' job_options.txt
+	source job_options.txt 
+	sed -n -i '/=/p' job_options.txt
+if [ ! -z "$MANUALRESIDUE" ]; then 
+	if [ ! -f TAILORED ]; then
+		echo "$MANUALRESIDUE" > TAILORED
+	fi
+else 
+	echo " 
+
 ALE   0   17  .t.        !Input for the first tailor-made residue 
-		
+	
 CA        1    1   .f.     N   CA  C     
 N         1    1   .f.     CA  N   H1     
 C         1    1   .f.     CA  C   O     
@@ -2774,63 +2631,9 @@ CA_CB     1    2   .f.     CA  CB  C
 CB_HB1    1    2   .f.     CB  HB1 CA   
 CB_HB2    1    2   .f.     CB  HB2 CA   
 CB_HB3    1    2   .f.     CB  HB3 CA 
- "
-             </default>
-	     <variable>MANUALRESIDUE</variable>
-      	     <width>350</width><height>350</height>
-             <action  condition="file_is_false(ntail.txt)">touch ntail.txt</action>
-    	    </edit>
-	   </hbox>
- 
-	  </frame>
-	 </vbox>
-
-	 </notebook>
-         </vbox>
-
-	</window>
-'
-
-#export dispersion_coef='
-#<window window_position="1" title="Tonto Gaussian Orca interface">
-
-# <vbox>
-
-# <hbox homogeneous="True">
-
-#    <hbox homogeneous="True">
-#     <frame>
-#      <text use-markup="true" wrap="false"><label>"<span color='"'blue'"'>Enter the dispersion coefficients</span>"</label></text>
-#     </frame>  
-#    </hbox>
-#  </hbox>
- 
-#   <hseparator></hseparator>
-
-#   <hbox>
-#    <text use-markup="true" wrap="false"><label>Atom type</label></text>
-#    <combobox>
-#      <variable>ATOMTYPE</variable>
-#<item>H</item><item>He</item><item>Li</item><item>Be</item><item>B</item><item>C</item><item>N</item> <item>O </item><item>F</item> <item>Ne</item><item>Na</item><item>Mg</item><item>Al</item><item>Si</item><item>P</item><item>S</item><item>Cl</item><item>Ar</item><item>K</item><item>Ca</item><item>Sc</item><item>Ti</item><item>V</item><item>Cr</item><item>Mn</item><item>Fe</item><item>Co</item><item>Ni</item><item>Cu</item><item>Zn</item><item>Ga</item><item>Ge</item><item>As</item><item>Se</item><item>Br</item><item>Kr</item><item>Rb</item><item>Sr</item><item>Y</item><item>Zr</item><item>Nb</item><item>Mo</item><item>Tc</item><item>Ru</item><item>Rh</item><item>Pd</item><item>Ag</item><item>Cd</item><item>In</item><item>Sn</item><item>Sb</item><item>Te</item><item>I</item><item>Xe</item><item>Cs</item><item>Ba</item><item>La</item><item>Ce</item><item>Pr</item><item>Nd</item><item>Pm</item><item>Sm</item><item>Eu</item><item>Gd</item><item>Tb</item><item>Dy</item><item>Ho</item><item>Er</item><item>Tm</item><item>Yb</item><item>Lu</item><item>Hf</item><item>Ta</item><item>W</item><item>Re</item><item>Os</item><item>Ir</item><item>Pt</item><item>Au</item><item>Hg</item><item>Tl</item><item>Pb</item><item>Bi</item><item>Po</item><item>At</item><item>Rn</item><item>Fr</item><item>Ra</item><item>Ac</item><item>Th</item><item>Pa</item><item>U</item><item>Np</item><item>Pu</item><item>Am</item><item>Cm</item><item>Bk</item><item>Cf</item><item>Es</item><item>Fm</item><item>Md</item><item>No</item><item>Lr</item><item>Rf</item><item>Db</item><item>Sg</item><item>Bh</item><item>Hs</item><item>Mt</item><item>Ds</item><item>Rg</item><item>Cn</item><item>Ut</item><item>Fl</item><item>Up</item><item>Lv</item><item>Us</item><item>Uo</item>
-#    </combobox>
-#    <text use-markup="true" wrap="false"><label>f</label></text>
-#    <entry>
-#     <default>0</default>
-#     <variable>FP</variable>
-#    </entry>	
-#    <text use-markup="true" wrap="false"><label>f</label></text>
-#    <entry>
-#     <default>0</default>
-#     <variable>FPP</variable>
-#    </entry>	
-#   </hbox>
-#'
-
-#no need for basis set in tonto!!!
-
-#checking if job_options file exists for tests
-if [ -f job_options.txt  ]; then
-	source job_options.txt
+ " > TAILORED
+fi
+	export $(cut -d= -f1 job_options.txt)
 	if [[ "$TESTS" != "true" ]]; then
 		gtkdialog --program=MAIN_DIALOG > job_options.txt
 	else
@@ -2847,9 +2650,10 @@ source job_options.txt
 echo "" > $JOBNAME.lst
 if [[ -z "$SCFCALCPROG" ]]; then
 	SCFCALCPROG="Gaussian"
+echo "SCFCALCPROG=\"$SCFCALCPROG\"" >> job_options.txt
 fi
 
-echo "SCFCALCPROG=\"$SCFCALCPROG\"" >> job_options.txt
+
 
 if [ "$GAUSGEN" = "true" ]; then
     BASISSET="gen"
@@ -2883,12 +2687,8 @@ if [[ "$SCFCALCPROG" == "elmodb" && "$EXIT" == "OK" ]]; then
 			CELLALPHA=$(awk '$1 ~ /CRYST1/ {print $5}'  $PDB)
 			CELLBETA=$(awk '$1 ~ /CRYST1/ {print $6}'  $PDB)
 			CELLGAMMA=$(awk '$1 ~ /CRYST1/ {print $7}'  $PDB)
-			SPACEGROUP=$(awk '$1 ~ /CRYST1/ {print $0}' 1ejg.pdb | awk ' {print substr($0,index($0,$8),--NF)}')
+			SPACEGROUP=$(awk '$1 ~ /CRYST1/ {print $0}' $PDB | awk ' {print substr($0,index($0,$8),--NF)}')
 #####this one works with mac and linux
-#awk '$1 ~ /CRYST1/ {print $0}' 1ejg.pdb | awk ' {print substr($0,index($0,$8),--NF)}'
-# this one works on linux but not on mac!
-#awk '$1 ~ /CRYST1/ {print $0}' 1ejg.pdb | awk '{print substr($0,index($0,$8))}' | awk 'NF{NF-=1};1'
-# falta verificar se é vazio la em baixo
 	  		echo "      spacegroup= { hermann_mauguin_symbol= '$SPACEGROUP' }" > tonto.cell
 			echo "" >> tonto.cell
 			echo "      unit_cell= {" >> tonto.cell
@@ -2921,8 +2721,9 @@ if [[ "$SCFCALCPROG" == "elmodb" && "$EXIT" == "OK" ]]; then
 			echo "      REVERT" >> tonto.cell
 		fi
 		# are there more lines in the pdb then the ATOM lines?
-		if [[ ! -z $(awk '$1 !~ /ATOM/ {print $0}'  $PDB) ]]; then
+		if [[ ! -z $(awk '$1 !~ /ATOM/ && ! /HETATM/ && ! /END/ {print $0}'  $PDB) ]]  ; then
 			awk '$1 ~ /ATOM/ {print $0}'  $PDB > $JOBNAME.cut.pdb
+			awk '$1 ~ /HETATM/ {print $0}'  $PDB > $JOBNAME.cut.pdb
 			echo "END" >> $JOBNAME.cut.pdb
 			if [[ ! -z $(diff -ZB $PDB $JOBNAME.cut.pdb) ]]; then
 				PDB=$JOBNAME.cut.pdb	
@@ -2931,11 +2732,8 @@ if [[ "$SCFCALCPROG" == "elmodb" && "$EXIT" == "OK" ]]; then
 	fi
 fi
 
-#	gtkdialog --program=dispersion_coef > DISP_instructions.txt
-
 if [ "$EXIT" = "OK" ]; then
         tail -f $JOBNAME.lst | zenity --title "Job output file - this file will auto-update, scroll down to see later results." --no-wrap --text-info --width 1024 --height 800 &
-#	zenity --title="Tonto job status" --text-info --no-wrap --filename=$JOBNAME.lst &
 	run_script
 else
 	unset MAIN_DIALOG
