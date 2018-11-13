@@ -773,6 +773,8 @@ export MAIN_DIALOG='
 	        <action>if false enable:NTAIL</action>
 	        <action>if true disable:MANUALRESIDUE</action>
 	        <action>if false enable:MANUALRESIDUE</action>
+	        <action>if true disable:NSSBOND</action>
+	        <action>if false enable:NSSBOND</action>
 	      </radiobutton>
 	      <radiobutton space-fill="True"  space-expand="True">
 	        <label>Orca</label>
@@ -805,6 +807,8 @@ export MAIN_DIALOG='
 	        <action>if false enable:NTAIL</action>
 	        <action>if true disable:MANUALRESIDUE</action>
 	        <action>if false enable:MANUALRESIDUE</action>
+	        <action>if true disable:NSSBOND</action>
+	        <action>if false enable:NSSBOND</action>
 	      </radiobutton>
 	      <radiobutton space-fill="True"  space-expand="True">
 	        <label>Tonto</label>
@@ -839,11 +843,15 @@ export MAIN_DIALOG='
 	        <action>if false enable:NTAIL</action>
 	        <action>if true disable:MANUALRESIDUE</action>
 	        <action>if false enable:MANUALRESIDUE</action>
+	        <action>if true disable:NSSBOND</action>
+	        <action>if false enable:NSSBOND</action>
 	      </radiobutton>
 	      <radiobutton space-fill="True"  space-expand="True">
 	        <label>elmodb</label>
 	        <default>false</default>
 	        <action>if true echo 'SCFCALCPROG="elmodb"'</action>
+	        <action>if true enable:NTAIL</action>
+	        <action>if false disable:NTAIL</action>
 	        <action>if true enable:MEM</action>
 	        <action>if true enable:NUMPROC</action>
 	        <action>if true enable:SCFCALC_BIN</action>
@@ -868,10 +876,10 @@ export MAIN_DIALOG='
 	        <action>if false enable:GAUSGEN</action>
 	        <action>if true disable:GAUSSREL</action>
 	        <action>if false enable:GAUSSREL</action>
-	        <action>if true enable:NTAIL</action>
-	        <action>if false disable:NTAIL</action>
 	        <action>if true enable:MANUALRESIDUE</action>
 	        <action>if false disable:MANUALRESIDUE</action>
+	        <action>if true enable:NSSBOND</action>
+	        <action>if false disable:NSSBOND</action>
 	      </radiobutton>
 
 	   </hbox>
@@ -1474,6 +1482,32 @@ export MAIN_DIALOG='
 
 	 <vbox visible="true">
 	  <frame>
+
+   	  <hbox> 
+           <text xalign="0" use-markup="true" wrap="false" justify="1"><label>Number of dissulfide bonds:</label></text>
+           <spinbutton  range-min="0"  range-max="1000" space-fill="True"  space-expand="True" sensitive="false">
+             <input>if [ ! -z $NSSBOND ]; then echo "$NSSBOND"; else (echo "0"); fi</input>
+	    <variable>NSSBOND</variable>
+	    <action condition="command_is_true( [ $NSSBOND -gt 0 ] && echo true )">enable:SSBONDATOMS</action>
+	    <action condition="command_is_false( [ $NSSBOND -eq 0 ] && echo false )">disable:SSBONDATOMS</action>
+	   </spinbutton>
+	   </hbox>
+
+	   <hbox>
+	    <text text-xalign="0" use-markup="true" wrap="false" space-expand="FALSE" space-fill="false"><label>Enter the residue information manually:</label></text>
+ 	    <edit space-expand="true" space-fill="true" sensitive="false">
+	    <action condition="command_is_true( [ $NSSBOND -gt 0 ] && echo true )">enable:SSBONDATOMS</action>
+	    <action condition="command_is_false( [ $NSSBOND -eq 0 ] && echo false )">disable:SSBONDATOMS</action>
+             <default>"
+   3  40
+   4  32
+  16  26"</default>
+             <variable>SSBONDATOMS</variable>
+      	     <width>350</width><height>150</height>
+             <action  condition="file_is_false(ntail.txt)">touch ntail.txt</action>
+    	    </edit>
+	   </hbox>
+
    	  <hbox> 
            <text xalign="0" use-markup="true" wrap="false" justify="1"><label>Enter number of tailor made residues:</label></text>
            <spinbutton  range-min="0"  range-max="100" space-fill="True"  space-expand="True" sensitive="false">
@@ -1625,9 +1659,50 @@ if [[ "$DISP" = "yes" && "$EXIT" = "OK" ]]; then
 fi
 
 if [[ "$SCFCALCPROG" == "elmodb" && "$EXIT" == "OK" ]]; then
-	cp $CIF .
+	if [[ ! -f "$( echo $CIF | awk -F "/" '{print $NF}' )" ]]; then
+		cp $CIF .
+	fi
 	PDB=$( echo $CIF | awk -F "/" '{print $NF}' ) 
 	echo "PDB=\"$PDB\"" >> job_options.txt
+	if [[ ! -z "$MANUALRESIDUE" ]]; then 
+		if [[ ! -f TAILORED ]]; then
+			echo "$MANUALRESIDUE" > TAILORED
+		fi
+	else 
+		echo " 
+ALE   0   17  .t.        !Input for the first tailor-made residue 
+	
+CA        1    1   .f.     N   CA  C     
+N         1    1   .f.     CA  N   H1     
+C         1    1   .f.     CA  C   O     
+O         3    1   .f.     C   O   OXT     
+OXT       3    1   .f.     C   OXT O
+CB        1    1   .f.     CA  CB  HB1   
+CA_HA     1    2   .f.     CA  HA  C    
+CA_N      1    2   .f.     CA  N   HA     
+N_H1      1    2   .f.     N   H1  CA
+N_H2      1    2   .f.     N   H2  CA
+N_H3      1    2   .f.     N   H3  CA  
+CA_C      1    2   .f.     CA  C   O     
+C_O_OXT   4    3   .f.     C   O   OXT      
+CA_CB     1    2   .f.     CA  CB  C    
+CB_HB1    1    2   .f.     CB  HB1 CA   
+CB_HB2    1    2   .f.     CB  HB2 CA   
+CB_HB3    1    2   .f.     CB  HB3 CA 
+ " > TAILORED
+	fi
+
+	if [[ ! -z "$SSBONDATOMS" ]]; then 
+		if [[ ! -f DISSBONDS ]]; then
+			echo "$SSBONDATOMS" > DISSBONDS
+		fi
+	else 
+		echo " 
+   3  40
+   4  32
+  16  26
+ " > DISSBONDS
+	fi
 	if [[ ! -f "tonto.cell" ]]; then
 		#extracting information from pdb file into new jobname.pdb file (only for elmodb)
 		# is tehre a cell in the pdb?

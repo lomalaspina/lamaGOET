@@ -662,7 +662,7 @@ GAMESS_ELMODB_OLD_PDB(){
 		exit 0
 	else 
 		echo "Calculation of overlap integrals with gamess done, writing elmodb input files"
-		if [[ ! -f "$SCFCALC_BIN" ]]; then
+		if [[ ! -f "$( echo $SCFCALC_BIN | awk -F "/" '{print $NF}' )" ]]; then
 			cp $SCFCALC_BIN .
 		fi
 	
@@ -670,15 +670,21 @@ GAMESS_ELMODB_OLD_PDB(){
 			BASISSETDIR=$( echo "$(dirname $BASISSETDIR)/" )
 			ELMOLIB=$( echo "$(dirname $ELMOLIB)/" )
 			echo " "'$INPUT_METHOD'"      job_title='$JOBNAME' basis_set='$BASISSET' iprint_level=1 ncpus=$NUMPROC alloc_mem=$MEM bset_path='$BASISSETDIR' lib_path='$ELMOLIB' nci=.true. comp_sao=.false. "'$END'" " > $JOBNAME.elmodb.inp
-			echo " "'$INPUT_STRUCTURE'"   pdb_file='$PDB' ntail=$NTAIL "'$END'"  " >> $JOBNAME.elmodb.inp
+			echo " "'$INPUT_STRUCTURE'"   pdb_file='$PDB' ntail=$NTAIL nssbond=$NSSBOND "'$END'"  " >> $JOBNAME.elmodb.inp
 			if [[ "$NTAIL" != "0" ]]; then
 				echo "$MANUALRESIDUE" >> $JOBNAME.elmodb.inp
 			fi
+			if [[ "$NSSBOND" != "0" ]]; then
+				echo "$SSBONDATOMS" >> $JOBNAME.elmodb.inp
+			fi			
 		else 
 			echo " "'$INPUT_METHOD'"      job_title='$JOBNAME' basis_set='$BASISSET' xyz=.true. iprint_level=1 ncpus=$NUMPROC alloc_mem=$MEM bset_path='$BASISSETDIR' lib_path='$ELMOLIB' nci=.true. comp_sao=.false. "'$END'" " > $JOBNAME.elmodb.inp
-			echo " "'$INPUT_STRUCTURE'"   pdb_file='$PDB' xyz_file='$JOBNAME.xyz' ntail=$NTAIL "'$END'"  " >> $JOBNAME.elmodb.inp
+			echo " "'$INPUT_STRUCTURE'"   pdb_file='$PDB' xyz_file='$JOBNAME.xyz' ntail=$NTAIL nssbond=$NSSBOND "'$END'"  " >> $JOBNAME.elmodb.inp
 			if [[ "$NTAIL" != "0" ]]; then
 				echo "$MANUALRESIDUE" >> $JOBNAME.elmodb.inp
+			fi
+			if [[ "$NSSBOND" != "0" ]]; then
+				echo "$SSBONDATOMS" >> $JOBNAME.elmodb.inp
 			fi
 		fi
 		echo "Running elmodb"
@@ -707,20 +713,26 @@ ELMODB(){
 	if [ "$I" = "1" ]; then
 		BASISSETDIR=$( echo "$(dirname $BASISSETDIR)/" )
 		ELMOLIB=$( echo "$(dirname $ELMOLIB)/" )
-			echo " "'$INPUT_METHOD'"      job_title='$JOBNAME' basis_set='$BASISSET' iprint_level=1 ncpus=$NUMPROC alloc_mem=$MEM bset_path='$BASISSETDIR' lib_path='$ELMOLIB' nci=.true. "'$END'" " > $JOBNAME.elmodb.inp
+		echo " "'$INPUT_METHOD'"      job_title='$JOBNAME' basis_set='$BASISSET' iprint_level=1 ncpus=$NUMPROC alloc_mem=$MEM bset_path='$BASISSETDIR' lib_path='$ELMOLIB' nci=.true. "'$END'" " > $JOBNAME.elmodb.inp
 		if [[ "$NTAIL" != "0" ]]; then
-			echo " "'$INPUT_STRUCTURE'"   pdb_file='$PDB' ntail=$NTAIL max_atail=$ATAIL max_frtail=$FRTAIL "'$END'"  " >> $JOBNAME.elmodb.inp
+			echo " "'$INPUT_STRUCTURE'"   pdb_file='$PDB' ntail=$NTAIL max_atail=$ATAIL max_frtail=$FRTAIL nssbond=$NSSBOND "'$END'"  " >> $JOBNAME.elmodb.inp
 			echo "$MANUALRESIDUE" >> $JOBNAME.elmodb.inp
 		else
-			echo " "'$INPUT_STRUCTURE'"   pdb_file='$PDB' ntail=$NTAIL "'$END'"  " >> $JOBNAME.elmodb.inp
+			echo " "'$INPUT_STRUCTURE'"   pdb_file='$PDB' ntail=$NTAIL nssbond=$NSSBOND "'$END'"  " >> $JOBNAME.elmodb.inp
+		fi
+		if [[ "$NSSBOND" != "0" ]]; then
+			echo "$SSBONDATOMS" >> $JOBNAME.elmodb.inp
 		fi
 	else 
 		echo " "'$INPUT_METHOD'"      job_title='$JOBNAME' basis_set='$BASISSET' xyz=.true. iprint_level=1 ncpus=$NUMPROC alloc_mem=$MEM bset_path='$BASISSETDIR' lib_path='$ELMOLIB' nci=.true. "'$END'" " > $JOBNAME.elmodb.inp
 		if [[ "$NTAIL" != "0" ]]; then
-			echo " "'$INPUT_STRUCTURE'"   pdb_file='$PDB' xyz_file='$JOBNAME.xyz' ntail=$NTAIL max_atail=$ATAIL max_frtail=$FRTAIL "'$END'"  " >> $JOBNAME.elmodb.inp
+			echo " "'$INPUT_STRUCTURE'"   pdb_file='$PDB' xyz_file='$JOBNAME.xyz' ntail=$NTAIL max_atail=$ATAIL max_frtail=$FRTAIL nssbond=$NSSBOND "'$END'"  " >> $JOBNAME.elmodb.inp
 			echo "$MANUALRESIDUE" >> $JOBNAME.elmodb.inp
 		else
-			echo " "'$INPUT_STRUCTURE'"   pdb_file='$PDB' xyz_file='$JOBNAME.xyz' "'$END'"  " >> $JOBNAME.elmodb.inp
+			echo " "'$INPUT_STRUCTURE'"   pdb_file='$PDB' xyz_file='$JOBNAME.xyz' nssbond=$NSSBOND "'$END'"  " >> $JOBNAME.elmodb.inp
+		fi
+		if [[ "$NSSBOND" != "0" ]]; then
+			echo "$SSBONDATOMS" >> $JOBNAME.elmodb.inp
 		fi
 	fi
 	./$( echo $SCFCALC_BIN | awk -F "/" '{print $NF}' ) < $JOBNAME.elmodb.inp > $JOBNAME.elmodb.out
@@ -1708,6 +1720,11 @@ run_script(){
 		###################### First fit done start refeed gaussian ########################
 		######################  Iterative begins ########################
 		while (( $(echo "$MAXSHIFT > $CONVTOL" | bc -l) || $( echo "$J <= 1" | bc -l )  )); do
+			if [[ $J -gt 50 ]];then
+				CHECK_ENERGY
+				echo "ERROR: Refinement ended. Too many fit cycles. Check if result is reasonable and/or change your convergency criteira."
+				break
+			fi
 			SCF_TO_TONTO
 			if [ "$SCFCALCPROG" = "Gaussian" ]; then  
 				TONTO_TO_GAUSSIAN
@@ -1750,6 +1767,11 @@ run_script(){
 			SCF_TO_TONTO
 			ELMODB
 			while (( $(echo "$MAXSHIFT > $CONVTOL" | bc -l) || $( echo "$J <= 1" | bc -l )  )); do
+			if [[ $J -gt 50 ]];then
+				CHECK_ENERGY
+				echo "ERROR: Refinement ended. Too many fit cycles. Check if result is reasonable and/or change your convergency criteira."
+				break
+			fi
 				SCF_TO_TONTO
 				ELMODB
 			done
@@ -1771,6 +1793,11 @@ run_script(){
 			SCF_TO_TONTO
 			GAMESS_ELMODB_OLD_PDB
 			while (( $(echo "$MAXSHIFT > $CONVTOL" | bc -l) || $( echo "$J <= 1" | bc -l )  )); do
+			if [[ $J -gt 50 ]];then
+				CHECK_ENERGY
+				echo "ERROR: Refinement ended. Too many fit cycles. Check if result is reasonable and/or change your convergency criteira."
+				break
+			fi
 				SCF_TO_TONTO
 				GAMESS_ELMODB_OLD_PDB
 			done
@@ -1855,6 +1882,8 @@ export MAIN_DIALOG='
 	        <action>if false enable:NTAIL</action>
 	        <action>if true disable:MANUALRESIDUE</action>
 	        <action>if false enable:MANUALRESIDUE</action>
+	        <action>if true disable:NSSBOND</action>
+	        <action>if false enable:NSSBOND</action>
 	      </radiobutton>
 	      <radiobutton space-fill="True"  space-expand="True">
 	        <label>Orca</label>
@@ -1887,6 +1916,8 @@ export MAIN_DIALOG='
 	        <action>if false enable:NTAIL</action>
 	        <action>if true disable:MANUALRESIDUE</action>
 	        <action>if false enable:MANUALRESIDUE</action>
+	        <action>if true disable:NSSBOND</action>
+	        <action>if false enable:NSSBOND</action>
 	      </radiobutton>
 	      <radiobutton space-fill="True"  space-expand="True">
 	        <label>Tonto</label>
@@ -1921,6 +1952,8 @@ export MAIN_DIALOG='
 	        <action>if false enable:NTAIL</action>
 	        <action>if true disable:MANUALRESIDUE</action>
 	        <action>if false enable:MANUALRESIDUE</action>
+	        <action>if true disable:NSSBOND</action>
+	        <action>if false enable:NSSBOND</action>
 	      </radiobutton>
 	      <radiobutton space-fill="True"  space-expand="True">
 	        <label>elmodb</label>
@@ -1954,6 +1987,8 @@ export MAIN_DIALOG='
 	        <action>if false enable:GAUSSREL</action>
 	        <action>if true enable:MANUALRESIDUE</action>
 	        <action>if false disable:MANUALRESIDUE</action>
+	        <action>if true enable:NSSBOND</action>
+	        <action>if false disable:NSSBOND</action>
 	      </radiobutton>
 
 	   </hbox>
@@ -2442,7 +2477,6 @@ export MAIN_DIALOG='
 	    <text xalign="0" use-markup="true" has-tooltip="true" tooltip-markup="(including the unit mb or gb. For elmodb only in mb without unit!)" wrap="false"><label>Memory available for the Gaussian, Orca or elmodb job</label></text>
 	    <entry>
              <input>if [ ! -z $MEM ]; then echo "$MEM"; else (echo "1gb"); fi</input>
-	     <default>1gb</default>
 	     <variable>MEM</variable>
 	    </entry>
 	   </hbox>
@@ -2551,6 +2585,29 @@ export MAIN_DIALOG='
 
 	 <vbox visible="true">
 	  <frame>
+
+   	  <hbox> 
+           <text xalign="0" use-markup="true" wrap="false" justify="1"><label>Number of dissulfide bonds:</label></text>
+           <spinbutton  range-min="0"  range-max="1000" space-fill="True"  space-expand="True" sensitive="false">
+             <input>if [ ! -z $NSSBOND ]; then echo "$NSSBOND"; else (echo "0"); fi</input>
+	    <variable>NSSBOND</variable>
+	    <action condition="command_is_true( [ $NSSBOND -gt 0 ] && echo true )">enable:SSBONDATOMS</action>
+	    <action condition="command_is_false( [ $NSSBOND -eq 0 ] && echo false )">disable:SSBONDATOMS</action>
+	   </spinbutton>
+	   </hbox>
+
+	   <hbox>
+	    <text text-xalign="0" use-markup="true" wrap="false" space-expand="FALSE" space-fill="false"><label>Enter the residue information manually:</label></text>
+ 	    <edit space-expand="true" space-fill="true" sensitive="false">
+	    <action condition="command_is_true( [ $NSSBOND -gt 0 ] && echo true )">enable:SSBONDATOMS</action>
+	    <action condition="command_is_false( [ $NSSBOND -eq 0 ] && echo false )">disable:SSBONDATOMS</action>
+             <input file>DISSBONDS</input>
+             <variable>SSBONDATOMS</variable>
+      	     <width>350</width><height>150</height>
+             <action  condition="file_is_false(ntail.txt)">touch ntail.txt</action>
+    	    </edit>
+	   </hbox>
+
    	  <hbox> 
            <text xalign="0" use-markup="true" wrap="false" justify="1"><label>Enter number of tailor made residues:</label></text>
            <spinbutton  range-min="0"  range-max="100" space-fill="True"  space-expand="True" sensitive="false">
@@ -2605,13 +2662,12 @@ if [ -f job_options.txt  ]; then
 	sed -i '/EXIT/d' job_options.txt
 	source job_options.txt 
 	sed -n -i '/=/p' job_options.txt
-if [ ! -z "$MANUALRESIDUE" ]; then 
-	if [ ! -f TAILORED ]; then
-		echo "$MANUALRESIDUE" > TAILORED
-	fi
-else 
-	echo " 
-
+	if [[ ! -z "$MANUALRESIDUE" ]]; then 
+		if [[ ! -f TAILORED ]]; then
+			echo "$MANUALRESIDUE" > TAILORED
+		fi
+	else 
+		echo " 
 ALE   0   17  .t.        !Input for the first tailor-made residue 
 	
 CA        1    1   .f.     N   CA  C     
@@ -2632,7 +2688,19 @@ CB_HB1    1    2   .f.     CB  HB1 CA
 CB_HB2    1    2   .f.     CB  HB2 CA   
 CB_HB3    1    2   .f.     CB  HB3 CA 
  " > TAILORED
-fi
+	fi
+
+	if [[ ! -z "$SSBONDATOMS" ]]; then 
+		if [[ ! -f DISSBONDS ]]; then
+			echo "$SSBONDATOMS" > DISSBONDS
+		fi
+	else 
+		echo " 
+   3  40
+   4  32
+  16  26
+ " > DISSBONDS
+	fi
 	export $(cut -d= -f1 job_options.txt)
 	if [[ "$TESTS" != "true" ]]; then
 		gtkdialog --program=MAIN_DIALOG > job_options.txt
@@ -2642,6 +2710,36 @@ fi
 		fi
 	fi
 else
+	if [[ ! -f TAILORED ]]; then
+		echo " 
+ALE   0   17  .t.        !Input for the first tailor-made residue 
+	
+CA        1    1   .f.     N   CA  C     
+N         1    1   .f.     CA  N   H1     
+C         1    1   .f.     CA  C   O     
+O         3    1   .f.     C   O   OXT     
+OXT       3    1   .f.     C   OXT O
+CB        1    1   .f.     CA  CB  HB1   
+CA_HA     1    2   .f.     CA  HA  C    
+CA_N      1    2   .f.     CA  N   HA     
+N_H1      1    2   .f.     N   H1  CA
+N_H2      1    2   .f.     N   H2  CA
+N_H3      1    2   .f.     N   H3  CA  
+CA_C      1    2   .f.     CA  C   O     
+C_O_OXT   4    3   .f.     C   O   OXT      
+CA_CB     1    2   .f.     CA  CB  C    
+CB_HB1    1    2   .f.     CB  HB1 CA   
+CB_HB2    1    2   .f.     CB  HB2 CA   
+CB_HB3    1    2   .f.     CB  HB3 CA 
+ " > TAILORED
+	fi
+	if [[ ! -f DISSBONDS ]]; then
+		echo " 
+   3  40
+   4  32
+  16  26
+ " > DISSBONDS
+	fi
 	gtkdialog --program=MAIN_DIALOG > job_options.txt
 fi
 
@@ -2650,7 +2748,7 @@ source job_options.txt
 echo "" > $JOBNAME.lst
 if [[ -z "$SCFCALCPROG" ]]; then
 	SCFCALCPROG="Gaussian"
-echo "SCFCALCPROG=\"$SCFCALCPROG\"" >> job_options.txt
+	echo "SCFCALCPROG=\"$SCFCALCPROG\"" >> job_options.txt
 fi
 
 
@@ -2674,7 +2772,9 @@ if [[ "$DISP" = "yes" && "$EXIT" = "OK" ]]; then
 fi
 
 if [[ "$SCFCALCPROG" == "elmodb" && "$EXIT" == "OK" ]]; then
-	cp $CIF .
+	if [[ ! -f "$( echo $CIF | awk -F "/" '{print $NF}' )" ]]; then
+		cp $CIF .
+	fi
 	PDB=$( echo $CIF | awk -F "/" '{print $NF}' ) 
 	echo "PDB=\"$PDB\"" >> job_options.txt
 	if [[ ! -f "tonto.cell" ]]; then
@@ -2733,7 +2833,7 @@ if [[ "$SCFCALCPROG" == "elmodb" && "$EXIT" == "OK" ]]; then
 fi
 
 if [ "$EXIT" = "OK" ]; then
-        tail -f $JOBNAME.lst | zenity --title "Job output file - this file will auto-update, scroll down to see later results." --no-wrap --text-info --width 1024 --height 800 &
+        tail -f $JOBNAME.lst | zenity --title "Job output file - this file will auto-update, scroll down to see later results." --no-wrap --text-info --width 1024 --height 800 --font='DejaVu Sans Mono' &
 	run_script
 else
 	unset MAIN_DIALOG

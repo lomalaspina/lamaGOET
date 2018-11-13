@@ -675,7 +675,7 @@ GAMESS_ELMODB_OLD_PDB(){
 #			ln -s $ELMOLIB LIBRARIES
 #		fi
 #    		if [[ ! -f "elmodb.exe" ]]; then
-		if [[ ! -f "$SCFCALC_BIN" ]]; then
+		if [[ ! -f "$( echo $SCFCALC_BIN | awk -F "/" '{print $NF}' )" ]]; then
 			cp $SCFCALC_BIN .
 		fi
 	
@@ -684,15 +684,21 @@ GAMESS_ELMODB_OLD_PDB(){
 			BASISSETDIR=$( echo "$(dirname $BASISSETDIR)/" )
 			ELMOLIB=$( echo "$(dirname $ELMOLIB)/" )
 			echo " "'$INPUT_METHOD'"      job_title='$JOBNAME' basis_set='$BASISSET' iprint_level=1 ncpus=$NUMPROC alloc_mem=$MEM bset_path='$BASISSETDIR' lib_path='$ELMOLIB' nci=.true. comp_sao=.false. "'$END'" " > $JOBNAME.elmodb.inp
-			echo " "'$INPUT_STRUCTURE'"   pdb_file='$PDB' ntail=$NTAIL "'$END'"  " >> $JOBNAME.elmodb.inp
+			echo " "'$INPUT_STRUCTURE'"   pdb_file='$PDB' ntail=$NTAIL nssbond=$NSSBOND "'$END'"  " >> $JOBNAME.elmodb.inp
 			if [[ "$NTAIL" != "0" ]]; then
 				echo "$MANUALRESIDUE" >> $JOBNAME.elmodb.inp
 			fi
+			if [[ "$NSSBOND" != "0" ]]; then
+				echo "$SSBONDATOMS" >> $JOBNAME.elmodb.inp
+			fi			
 		else 
 			echo " "'$INPUT_METHOD'"      job_title='$JOBNAME' basis_set='$BASISSET' xyz=.true. iprint_level=1 ncpus=$NUMPROC alloc_mem=$MEM bset_path='$BASISSETDIR' lib_path='$ELMOLIB' nci=.true. comp_sao=.false. "'$END'" " > $JOBNAME.elmodb.inp
-			echo " "'$INPUT_STRUCTURE'"   pdb_file='$PDB' xyz_file='$JOBNAME.xyz' ntail=$NTAIL "'$END'"  " >> $JOBNAME.elmodb.inp
+			echo " "'$INPUT_STRUCTURE'"   pdb_file='$PDB' xyz_file='$JOBNAME.xyz' ntail=$NTAIL nssbond=$NSSBOND "'$END'"  " >> $JOBNAME.elmodb.inp
 			if [[ "$NTAIL" != "0" ]]; then
 				echo "$MANUALRESIDUE" >> $JOBNAME.elmodb.inp
+			fi
+			if [[ "$NSSBOND" != "0" ]]; then
+				echo "$SSBONDATOMS" >> $JOBNAME.elmodb.inp
 			fi
 		fi
 		echo "Running elmodb"
@@ -748,11 +754,11 @@ GAMESS_ELMODB_OLD_PDB(){
 
 ELMODB(){
 	I=$[ $I + 1 ]
+	if [[ ! -f "$( echo $SCFCALC_BIN | awk -F "/" '{print $NF}' )" ]]; then
 	#if [[ ! -e "LIBRARIES" ]]; then
 	#	ln -s $ELMOLIB LIBRARIES
 	#fi
 #	if [[ ! -f "elmodb.exe" ]]; then
-	if [[ ! -f "$SCFCALC_BIN" ]]; then
 		cp $SCFCALC_BIN .
 	fi
 	if [ "$I" = "1" ]; then
@@ -760,15 +766,25 @@ ELMODB(){
 		BASISSETDIR=$( echo "$(dirname $BASISSETDIR)/" )
 		ELMOLIB=$( echo "$(dirname $ELMOLIB)/" )
 		echo " "'$INPUT_METHOD'"      job_title='$JOBNAME' basis_set='$BASISSET' iprint_level=1 ncpus=$NUMPROC alloc_mem=$MEM bset_path='$BASISSETDIR' lib_path='$ELMOLIB' nci=.true. "'$END'" " > $JOBNAME.elmodb.inp
-		echo " "'$INPUT_STRUCTURE'"   pdb_file='$PDB' ntail=$NTAIL "'$END'"  " >> $JOBNAME.elmodb.inp
 		if [[ "$NTAIL" != "0" ]]; then
+			echo " "'$INPUT_STRUCTURE'"   pdb_file='$PDB' ntail=$NTAIL max_atail=$ATAIL max_frtail=$FRTAIL nssbond=$NSSBOND "'$END'"  " >> $JOBNAME.elmodb.inp
 			echo "$MANUALRESIDUE" >> $JOBNAME.elmodb.inp
+		else
+			echo " "'$INPUT_STRUCTURE'"   pdb_file='$PDB' ntail=$NTAIL nssbond=$NSSBOND "'$END'"  " >> $JOBNAME.elmodb.inp
+		fi
+		if [[ "$NSSBOND" != "0" ]]; then
+			echo "$SSBONDATOMS" >> $JOBNAME.elmodb.inp
 		fi
 	else 
 		echo " "'$INPUT_METHOD'"      job_title='$JOBNAME' basis_set='$BASISSET' xyz=.true. iprint_level=1 ncpus=$NUMPROC alloc_mem=$MEM bset_path='$BASISSETDIR' lib_path='$ELMOLIB' nci=.true. "'$END'" " > $JOBNAME.elmodb.inp
-		echo " "'$INPUT_STRUCTURE'"   pdb_file='$PDB' xyz_file='$JOBNAME.xyz' ntail=$NTAIL "'$END'"  " >> $JOBNAME.elmodb.inp
 		if [[ "$NTAIL" != "0" ]]; then
+			echo " "'$INPUT_STRUCTURE'"   pdb_file='$PDB' xyz_file='$JOBNAME.xyz' ntail=$NTAIL max_atail=$ATAIL max_frtail=$FRTAIL nssbond=$NSSBOND "'$END'"  " >> $JOBNAME.elmodb.inp
 			echo "$MANUALRESIDUE" >> $JOBNAME.elmodb.inp
+		else
+			echo " "'$INPUT_STRUCTURE'"   pdb_file='$PDB' xyz_file='$JOBNAME.xyz' nssbond=$NSSBOND "'$END'"  " >> $JOBNAME.elmodb.inp
+		fi
+		if [[ "$NSSBOND" != "0" ]]; then
+			echo "$SSBONDATOMS" >> $JOBNAME.elmodb.inp
 		fi
 	fi
 	./$( echo $SCFCALC_BIN | awk -F "/" '{print $NF}' ) < $JOBNAME.elmodb.inp > $JOBNAME.elmodb.out
@@ -1473,6 +1489,8 @@ GET_RESIDUALS(){
 	echo "   make_scf_density_matrix" >> stdin
 	echo "   make_structure_factors" >> stdin
 	echo "" >> stdin
+	echo "   put_minmax_residual_density" >> stdin
+	echo "" >> stdin
 	echo "   plot_grid= {                           " >> stdin
 	echo "" >> stdin
 	echo "      kind= residual_density_map" >> stdin
@@ -2073,6 +2091,11 @@ run_script(){
 		while (( $(echo "$MAXSHIFT > $CONVTOL" | bc -l) || $( echo "$J <= 1" | bc -l )  )); do
 ###		while [ "$(awk -F'\t' 'function abs(x){return ((x < 0.0) ? -x : x)} BEGIN{print (abs('$DE') > 0.0001)}')" = 1 ]; do
 		#while [ "$(echo "${DE=$(printf "%f", "$DE")} >= 0.000001" | bc -l)" -eq 1 ]; do  
+			if [[ $J -gt 50 ]];then
+				CHECK_ENERGY
+				echo "ERROR: Refinement ended. Too many fit cycles. Check if result is reasonable and/or change your convergency criteira."
+				break
+			fi
 			SCF_TO_TONTO
 			if [ "$SCFCALCPROG" = "Gaussian" ]; then  
 				TONTO_TO_GAUSSIAN
@@ -2088,11 +2111,11 @@ run_script(){
 		echo "###############################################################################################" >> $JOBNAME.lst
 		echo "" >> $JOBNAME.lst
 		echo "Energy= $ENERGIA2, RMSD= $RMSD2" >> $JOBNAME.lst
+		GET_RESIDUALS
 		###commented but working, will change because the residual data is not being printed in the .lst file
 		###echo " $(awk '{a[NR]=$0}/^Rigid-atom fit results/{b=NR}/^Analysis of the Hirshfeld atom fit/{c=NR}END{for (d=b-2;d<c-1;++d) print a[d]}' stdout)"  >> $JOBNAME.lst
 		echo " $(awk '{a[NR]=$0}/^Rigid-atom fit results/{b=NR}/^Wall-clock time taken for job /{c=NR}END{for (d=b-2;d<c-1;++d) print a[d]}' stdout)"  >> $JOBNAME.lst
 #		get the residual density running tonto once, only needed if not using tonto for the scf			
-		GET_RESIDUALS
 		DURATION=$SECONDS
 		echo "Job ended, elapsed time:" | tee -a $JOBNAME.lst
 		echo "$(($DURATION / 86400 )) days,  $((($DURATION / 3600) % 24 )) hours, $((($DURATION / 60) % 60 ))minutes and $(($DURATION % 60 )) seconds elapsed." | tee -a $JOBNAME.lst
@@ -2105,6 +2128,7 @@ run_script(){
 		echo "                                     Final Geometry                                         " >> $JOBNAME.lst
 		echo "###############################################################################################" >> $JOBNAME.lst
 		echo "" >> $JOBNAME.lst
+		GET_RESIDUALS
 		echo " $(awk '{a[NR]=$0}/^Rigid-atom fit results/{b=NR}/^Wall-clock time taken for job /{c=NR}END{for (d=b-2;d<c-1;++d) print a[d]}' stdout)"  >> $JOBNAME.lst
 		DURATION=$SECONDS
 		echo "Job ended, elapsed time:" | tee -a $JOBNAME.lst
@@ -2118,6 +2142,11 @@ run_script(){
 			ELMODB
 			while (( $(echo "$MAXSHIFT > $CONVTOL" | bc -l) || $( echo "$J <= 1" | bc -l )  )); do
 #			while [[ "$(diff $JOBNAME.elmodb.out $[ I - 1 ].$SCFCALCPROG.cycle.$JOBNAME/$[ I - 1 ].$JOBNAME.elmodb.out | wc -l )" -gt $PERCENT1 ]]; do
+			if [[ $J -gt 50 ]];then
+				CHECK_ENERGY
+				echo "ERROR: Refinement ended. Too many fit cycles. Check if result is reasonable and/or change your convergency criteira."
+				break
+			fi
 				SCF_TO_TONTO
 				ELMODB
 			done
@@ -2127,9 +2156,9 @@ run_script(){
 			echo "                                     Final Geometry                                         " >> $JOBNAME.lst
 				echo "###############################################################################################" >> $JOBNAME.lst
 			echo "" >> $JOBNAME.lst
+			GET_RESIDUALS
 			echo " $(awk '{a[NR]=$0}/^Rigid-atom fit results/{b=NR}/^Wall-clock time taken for job /{c=NR}END{for (d=b-2;d<c-1;++d) print a[d]}' stdout)"  >> $JOBNAME.lst
 #			get the residual density running tonto once, only needed if not using tonto for the scf			
-			GET_RESIDUALS
 			DURATION=$SECONDS
 			echo "Job ended, elapsed time:" | tee -a $JOBNAME.lst
 			echo "$(($DURATION / 86400 )) days,  $((($DURATION / 3600) % 24 )) hours, $((($DURATION / 60) % 60 ))minutes and $(($DURATION % 60 )) seconds elapsed." | tee -a $JOBNAME.lst
@@ -2140,6 +2169,11 @@ run_script(){
 			GAMESS_ELMODB_OLD_PDB
 			while (( $(echo "$MAXSHIFT > $CONVTOL" | bc -l) || $( echo "$J <= 1" | bc -l )  )); do
 #			while [[ "$(diff $JOBNAME.elmodb.out $[ I - 1 ].$SCFCALCPROG.cycle.$JOBNAME/$[ I - 1 ].$JOBNAME.elmodb.out | wc -l )" -gt $PERCENT1 ]]; do
+			if [[ $J -gt 50 ]];then
+				CHECK_ENERGY
+				echo "ERROR: Refinement ended. Too many fit cycles. Check if result is reasonable and/or change your convergency criteira."
+				break
+			fi
 				SCF_TO_TONTO
 				GAMESS_ELMODB_OLD_PDB
 			done
@@ -2149,9 +2183,9 @@ run_script(){
 			echo "                                     Final Geometry                                         " >> $JOBNAME.lst
 				echo "###############################################################################################" >> $JOBNAME.lst
 			echo "" >> $JOBNAME.lst
+			GET_RESIDUALS
 			echo " $(awk '{a[NR]=$0}/^Rigid-atom fit results/{b=NR}/^Wall-clock time taken for job /{c=NR}END{for (d=b-2;d<c-1;++d) print a[d]}' stdout)"  >> $JOBNAME.lst
 #			get the residual density running tonto once, only needed if not using tonto for the scf			
-			GET_RESIDUALS
 			DURATION=$SECONDS
 			echo "Job ended, elapsed time:" | tee -a $JOBNAME.lst
 			echo "$(($DURATION / 86400 )) days,  $((($DURATION / 3600) % 24 )) hours, $((($DURATION / 60) % 60 ))minutes and $(($DURATION % 60 )) seconds elapsed." | tee -a $JOBNAME.lst
@@ -2265,6 +2299,8 @@ export MAIN_DIALOG='
 	        <action>if false enable:NTAIL</action>
 	        <action>if true disable:MANUALRESIDUE</action>
 	        <action>if false enable:MANUALRESIDUE</action>
+	        <action>if true disable:NSSBOND</action>
+	        <action>if false enable:NSSBOND</action>
 	      </radiobutton>
 	      <radiobutton space-fill="True"  space-expand="True">
 	        <label>Orca</label>
@@ -2297,6 +2333,8 @@ export MAIN_DIALOG='
 	        <action>if false enable:NTAIL</action>
 	        <action>if true disable:MANUALRESIDUE</action>
 	        <action>if false enable:MANUALRESIDUE</action>
+	        <action>if true disable:NSSBOND</action>
+	        <action>if false enable:NSSBOND</action>
 	      </radiobutton>
 	      <radiobutton space-fill="True"  space-expand="True">
 	        <label>Tonto</label>
@@ -2331,11 +2369,15 @@ export MAIN_DIALOG='
 	        <action>if false enable:NTAIL</action>
 	        <action>if true disable:MANUALRESIDUE</action>
 	        <action>if false enable:MANUALRESIDUE</action>
+	        <action>if true disable:NSSBOND</action>
+	        <action>if false enable:NSSBOND</action>
 	      </radiobutton>
 	      <radiobutton space-fill="True"  space-expand="True">
 	        <label>elmodb</label>
 	        <default>false</default>
 	        <action>if true echo 'SCFCALCPROG="elmodb"'</action>
+	        <action>if true enable:NTAIL</action>
+	        <action>if false disable:NTAIL</action>
 	        <action>if true enable:MEM</action>
 	        <action>if true enable:NUMPROC</action>
 	        <action>if true enable:SCFCALC_BIN</action>
@@ -2360,10 +2402,10 @@ export MAIN_DIALOG='
 	        <action>if false enable:GAUSGEN</action>
 	        <action>if true disable:GAUSSREL</action>
 	        <action>if false enable:GAUSSREL</action>
-	        <action>if true enable:NTAIL</action>
-	        <action>if false disable:NTAIL</action>
 	        <action>if true enable:MANUALRESIDUE</action>
 	        <action>if false disable:MANUALRESIDUE</action>
+	        <action>if true enable:NSSBOND</action>
+	        <action>if false disable:NSSBOND</action>
 	      </radiobutton>
 
 	   </hbox>
@@ -2956,14 +2998,56 @@ export MAIN_DIALOG='
 
 	 <vbox visible="true">
 	  <frame>
+
+   	  <hbox> 
+           <text xalign="0" use-markup="true" wrap="false" justify="1"><label>Number of dissulfide bonds:</label></text>
+           <spinbutton  range-min="0"  range-max="1000" space-fill="True"  space-expand="True" sensitive="false">
+             <input>if [ ! -z $NSSBOND ]; then echo "$NSSBOND"; else (echo "0"); fi</input>
+	    <variable>NSSBOND</variable>
+	    <action condition="command_is_true( [ $NSSBOND -gt 0 ] && echo true )">enable:SSBONDATOMS</action>
+	    <action condition="command_is_false( [ $NSSBOND -eq 0 ] && echo false )">disable:SSBONDATOMS</action>
+	   </spinbutton>
+	   </hbox>
+
+	   <hbox>
+	    <text text-xalign="0" use-markup="true" wrap="false" space-expand="FALSE" space-fill="false"><label>Enter the residue information manually:</label></text>
+ 	    <edit space-expand="true" space-fill="true" sensitive="false">
+	    <action condition="command_is_true( [ $NSSBOND -gt 0 ] && echo true )">enable:SSBONDATOMS</action>
+	    <action condition="command_is_false( [ $NSSBOND -eq 0 ] && echo false )">disable:SSBONDATOMS</action>
+             <input file>DISSBONDS</input>
+             <variable>SSBONDATOMS</variable>
+      	     <width>350</width><height>150</height>
+             <action  condition="file_is_false(ntail.txt)">touch ntail.txt</action>
+    	    </edit>
+	   </hbox>
+
    	  <hbox> 
            <text xalign="0" use-markup="true" wrap="false" justify="1"><label>Enter number of tailor made residues:</label></text>
            <spinbutton  range-min="0"  range-max="100" space-fill="True"  space-expand="True" sensitive="false">
 	    <default>0</default>
 	    <variable>NTAIL</variable>
+	      <action condition="command_is_true( [ $NTAIL -gt 0 ] && echo true )">enable:ATAIL</action>
+	      <action condition="command_is_false( [ $NTAIL -eq 0 ] && echo false )">disable:ATAIL</action>
+	      <action condition="command_is_true( [ $FRTAIL -gt 0 ] && echo true )">enable:FRTAIL</action>
+	      <action condition="command_is_false( [ $FRTAIL -eq 0 ] && echo false )">disable:FRTAIL</action>
 	   </spinbutton>
 	   </hbox>
 
+   	  <hbox> 
+           <text xalign="0" use-markup="true" wrap="false" justify="1"><label>Enter number of tailor made residues:</label></text>
+           <spinbutton  range-min="0"  range-max="1000" space-fill="True"  space-expand="True" sensitive="false">
+             <input>if [ ! -z $ATAIL ]; then echo "$ATAIL"; else (echo "100"); fi</input>
+	    <variable>ATAIL</variable>
+	   </spinbutton>
+	   </hbox>
+
+   	  <hbox> 
+           <text xalign="0" use-markup="true" wrap="false" justify="1"><label>Enter number of tailor made residues:</label></text>
+           <spinbutton  range-min="0"  range-max="1000" space-fill="True"  space-expand="True" sensitive="false">
+             <input>if [ ! -z $FRTAIL ]; then echo "$FRTAIL"; else (echo "200"); fi</input>
+	    <variable>FRTAIL</variable>
+	   </spinbutton>
+	   </hbox>
 
 	   <hbox>
 	    <text text-xalign="0" use-markup="true" wrap="false" space-expand="FALSE" space-fill="false"><label>Enter the residue information manually:</label></text>
@@ -3193,9 +3277,8 @@ source job_options.txt
 echo "" > $JOBNAME.lst
 if [[ -z "$SCFCALCPROG" ]]; then
 	SCFCALCPROG="Gaussian"
+	echo "SCFCALCPROG=\"$SCFCALCPROG\"" >> job_options.txt
 fi
-
-echo "SCFCALCPROG=\"$SCFCALCPROG\"" >> job_options.txt
 
 if [ "$GAUSGEN" = "true" ]; then
     BASISSET="gen"
