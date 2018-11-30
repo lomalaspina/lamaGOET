@@ -620,7 +620,8 @@ else
 	echo "#PBS -l nodes=1:RUN_lamaGOET:ppn=$NUMPROC" >> lamaGOET.pbs
 fi
 echo '#PBS -j eo' >> lamaGOET.pbs
-echo "#PBS -l pmem=$MEM" >> lamaGOET.pbs
+echo '#PBS -q batch' >> lamaGOET.pbs
+echo "#PBS -l pmem=$MEMPBS" >> lamaGOET.pbs
 echo '#PBS -l walltime=999:00:00' >> lamaGOET.pbs
 echo '#PBS -m bea' >> lamaGOET.pbs
 echo '################ PLEASE PUT YOUR EMAIL AND JOBNAME HERE' >> lamaGOET.pbs
@@ -775,6 +776,8 @@ export MAIN_DIALOG='
 	        <action>if false enable:MANUALRESIDUE</action>
 	        <action>if true disable:NSSBOND</action>
 	        <action>if false enable:NSSBOND</action>
+	        <action>if true disable:INITADP</action>
+	        <action>if false enable:INITADP</action>
 	      </radiobutton>
 	      <radiobutton space-fill="True"  space-expand="True">
 	        <label>Orca</label>
@@ -809,6 +812,8 @@ export MAIN_DIALOG='
 	        <action>if false enable:MANUALRESIDUE</action>
 	        <action>if true disable:NSSBOND</action>
 	        <action>if false enable:NSSBOND</action>
+	        <action>if true disable:INITADP</action>
+	        <action>if false enable:INITADP</action>
 	      </radiobutton>
 	      <radiobutton space-fill="True"  space-expand="True">
 	        <label>Tonto</label>
@@ -820,8 +825,8 @@ export MAIN_DIALOG='
 	        <action>if false disable:USEBECKE</action>
 	        <action>if true enable:USEBECKE</action>
 	        <action>if false disable:USEBECKE</action>
-	        <action>if true disable:BASISSET</action>
-	        <action>if false enable:BASISSET</action>
+	        <action>if true disable:BASISSETG</action>
+	        <action>if false enable:BASISSETG</action>
 	        <action>if true disable:GAMESS</action>
 	        <action>if true disable:MEM</action>
 	        <action>if true disable:NUMPROC</action>
@@ -845,6 +850,8 @@ export MAIN_DIALOG='
 	        <action>if false enable:MANUALRESIDUE</action>
 	        <action>if true disable:NSSBOND</action>
 	        <action>if false enable:NSSBOND</action>
+	        <action>if true disable:INITADP</action>
+	        <action>if false enable:INITADP</action>
 	      </radiobutton>
 	      <radiobutton space-fill="True"  space-expand="True">
 	        <label>elmodb</label>
@@ -880,6 +887,8 @@ export MAIN_DIALOG='
 	        <action>if false disable:MANUALRESIDUE</action>
 	        <action>if true enable:NSSBOND</action>
 	        <action>if false disable:NSSBOND</action>
+	        <action>if true enable:INITADP</action>
+	        <action>if false disable:INITADP</action>
 	      </radiobutton>
 
 	   </hbox>
@@ -943,7 +952,7 @@ export MAIN_DIALOG='
 	    <text label="ELMO libraries folder" has-tooltip="true" tooltip-markup="This can be a full path" ></text>
 	    <entry sensitive="false" fs-action="folder" fs-folder="./"
 	           fs-title="Select the ELMO library folder">
-	     <default>/usr/local/bin/ELMO_LIB</default>
+	     <default>/home/lorraine/LIBRARIES</default>
 	     <variable>ELMOLIB</variable>
 	    </entry>
 	    <button>
@@ -999,6 +1008,31 @@ export MAIN_DIALOG='
 	
 	   </hbox>
 	
+	   <hseparator></hseparator>
+
+	   <hbox>
+
+	    <checkbox active="false" has-tooltip="true" tooltip-markup="Make sure you will enter the correct charge and multiplicity" space-fill="True"  space-expand="True" sensitive="false">
+	     <label>Load initial ADPs from cif</label>
+	      <variable>INITADP</variable>
+	        <action>if true enable:INITADPFILE</action>
+	        <action>if false disable:INITADPFILE</action>
+	    </checkbox>
+
+	    <text label="cif file" has-tooltip="true" tooltip-markup="This should have the same geometry as the pdb file!!!" space-expand="false"></text>
+	    <entry fs-action="file" fs-folder="./"
+	           fs-filters="*.cif"
+	           fs-title="Select a cif file" sensitive="false">
+	     <variable>INITADPFILE</variable>
+	    </entry>
+	    <button>
+	     <input file stock="gtk-open"></input>
+	     <action type="fileselect">INITADPFILE</action>
+	    </button>
+	
+	
+	   </hbox>
+
 	   <hseparator></hseparator>
 	
 	   <hbox>
@@ -1129,8 +1163,8 @@ export MAIN_DIALOG='
 	    <checkbox active="false" space-fill="True"  space-expand="True">
 	     <label>Input external basis set manualy </label>
 	      <variable>GAUSGEN</variable>
-	      <action>if true disable:BASISSET</action>
-	      <action>if false enable:BASISSET</action>
+	      <action>if true disable:BASISSETG</action>
+	      <action>if false enable:BASISSETG</action>
 	    </checkbox>
 
 	    <checkbox active="false" space-fill="True"  space-expand="True">
@@ -1147,7 +1181,7 @@ export MAIN_DIALOG='
 	    <text><label>Enter manually for Gaussian, Orca or elmodb!</label> </text>
 	    <entry tooltip-text="Use the correct Gaussian or Orca or Tonto format" sensitive="true">
 	     <default>STO-3G</default>
-	     <variable>BASISSET</variable>
+	     <variable>BASISSETG</variable>
 	    </entry>
 	
 	   </hbox>
@@ -1229,7 +1263,23 @@ export MAIN_DIALOG='
            </hbox>
 	
 	   <hseparator></hseparator>
+
+           <hbox>
+	    <checkbox active="false" space-fill="True"  space-expand="True">
+	        <label>Refine these atoms isotropically:</label>
+	        <default>true</default>
+	        <variable>REFUISO</variable>
+	        <action>if true enable:ATOMUISOLIST</action>
+	        <action>if false disable:ATOMUISOLIST</action>
+	    </checkbox>
+	    <text use-markup="true" wrap="false" ><label>atom labels:</label></text>
+	    <entry sensitive="false">
+	     <variable>ATOMUISOLIST</variable>
+	    </entry>
+           </hbox>
 	
+	   <hseparator></hseparator>
+
 	   <hbox>
 	
 	    <checkbox active="true" space-fill="True"  space-expand="True">
@@ -1370,6 +1420,16 @@ export MAIN_DIALOG='
 	
 	   <hseparator></hseparator>
 
+	   <hbox>
+	    <text xalign="0" use-markup="true" has-tooltip="true" tooltip-markup="(including the unit mb or gb.)" wrap="false"><label>Memory available for the PBS script</label></text>
+	    <entry>
+	     <default>1gb</default>
+	     <variable>MEMPBS</variable>
+	    </entry>
+	   </hbox>
+	
+	   <hseparator></hseparator>
+
 
 	   <hbox>
 	    <text xalign="0" use-markup="true" wrap="false"><label>Your email:</label></text>
@@ -1400,6 +1460,19 @@ export MAIN_DIALOG='
 	    <entry space-expand="true">
 	     <default>0.010000</default>
 	     <variable>CONVTOL</variable>
+	    </entry>
+	
+	   </hbox>
+	   </hbox>
+
+	   <hseparator></hseparator>
+
+	   <hbox space-expand="false" space-fill="false">
+
+	    <text text-xalign="0" use-markup="true" wrap="false" space-expand="FALSE" space-fill="false"><label>Max. number of iteration (for each L.S. cicle):</label></text>
+	   <hbox space-expand="true" space-fill="true">
+	    <entry space-expand="true">
+	     <variable>MAXLSCICLE</variable>
 	    </entry>
 	
 	   </hbox>
@@ -1619,9 +1692,11 @@ gtkdialog --program=MAIN_DIALOG > job_options.txt
 source job_options.txt
 
 CIF="$(echo $CIF | awk -F "/" '{print $NF}')"
+INITADPFILE="$(echo $INITADPFILE | awk -F "/" '{print $NF}')"
 HKL="$(echo $HKL | awk -F "/" '{print $NF}')"
 #$TONTO="$(echo $TONTO | awk -F "/" '{print $NF}')"
 
+sed -i '/INITADPFILE=/c\INITADPFILE=\".\/'$INITADPFILE'"' job_options.txt
 sed -i '/CIF=/c\CIF=\".\/'$CIF'"' job_options.txt
 sed -i '/HKL=/c\HKL=\".\/'$HKL'"' job_options.txt
 
@@ -1636,14 +1711,13 @@ source job_options.txt
 echo "" > $JOBNAME.lst
 if [[ -z "$SCFCALCPROG" ]]; then
 	SCFCALCPROG="Gaussian"
+	echo "SCFCALCPROG=\"$SCFCALCPROG\"" >> job_options.txt
 fi
 
-echo "SCFCALCPROG=\"$SCFCALCPROG\"" >> job_options.txt
-
 if [ "$GAUSGEN" = "true" ]; then
-    BASISSET="gen"
+    BASISSETG="gen"
     zenity --entry --title="New basis set" --text="Enter or paste the basis set in the gaussian format as: \n !!NO EMPTY LINE!! \n C 0 \n S 5 \n exponent1 coefficient1 \n exponent2 coefficient2 \n exponent3 coefficient3 \n exponent4 coefficient4 \n exponent5 coefficient5 \n **** \n !!NO EMPTY LINE!! \n (Repeat this for all shells and all elements) " > basis_gen.txt
-    sed -i '/BASISSET=/c\BASISSET=\".\/'$BASISSET'"' job_options.txt
+    sed -i '/BASISSETG=/c\BASISSETG=\".\/'$BASISSETG'"' job_options.txt
 fi
 
 if [ "$GAUSSREL" = "true" ]; then
@@ -1703,6 +1777,7 @@ CB_HB3    1    2   .f.     CB  HB3 CA
   16  26
  " > DISSBONDS
 	fi
+#	if [[ ! -f "tonto.cell" && "$INITADP" == "false" ]]; then #could use like this but maybe the cell is not in the cif, so just to make sure will keep it
 	if [[ ! -f "tonto.cell" ]]; then
 		#extracting information from pdb file into new jobname.pdb file (only for elmodb)
 		# is tehre a cell in the pdb?

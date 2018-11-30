@@ -876,6 +876,17 @@ SCF_TO_TONTO(){
 		echo "   name= $JOBNAME" >> stdin
 		echo "" >> stdin
 	fi
+	if [[ $J -eq 0 && "$SCFCALCPROG" == "elmodb" && "$INITADP" == "true" ]]; then
+		echo "   ! Process the CIF" >> stdin
+		echo "   CIF= {" >> stdin
+		echo "       file_name= $INITADPFILE" >> stdin
+		echo "    }" >> stdin
+		echo "" >> stdin
+		echo "   process_CIF" >> stdin
+		echo "" >> stdin
+		echo "   name= $JOBNAME" >> stdin
+		echo "" >> stdin
+	fi
 	if [ "$SCFCALCPROG" = "Tonto" ]; then 
 		echo "   basis_directory= $BASISSETDIR" >> stdin
 		echo "   basis_name= $BASISSETT" >> stdin
@@ -905,7 +916,7 @@ SCF_TO_TONTO(){
 	if [[ $J == 0 && "$IAMTONTO" == "true" ]]; then 
 		echo ""
 		echo "   crystal= {    " >> stdin
-		if [ "$SCFCALCPROG" = "elmodb" ]; then
+		if [[ "$SCFCALCPROG" = "elmodb" && "$INITADP" == "false" ]]; then
 			echo "      REDIRECT tonto.cell" >> stdin
 		fi
 		echo "      xray_data= {   " >> stdin
@@ -945,7 +956,7 @@ SCF_TO_TONTO(){
 	fi
 	echo "" >> stdin
 	echo "   crystal= {    " >> stdin
-	if [[ "$SCFCALCPROG" == "elmodb" && $J == 0 ]]; then
+	if [[ "$SCFCALCPROG" == "elmodb" && $J == 0 && "$INITADP" == "false" ]]; then
 		echo "      REDIRECT tonto.cell" >> stdin
 	fi
 	echo "      xray_data= {   " >> stdin
@@ -1002,6 +1013,12 @@ SCF_TO_TONTO(){
 	fi
 	if [ "$REFNOTHING" = "true" ]; then
 		echo "	 refine_nothing_for_atoms= { $ATOMLIST }" >> stdin 
+	fi
+	if [ "$REFUISO" = "true" ]; then
+		echo "	 refine_u_iso_for_atoms= { $ATOMUISOLIST }" >> stdin 
+	fi
+	if [ "$MAXLSCICLE" ]; then
+		echo "	 max_iterations= $MAXLSCICLE" >> stdin 
 	fi
 	echo "      }  " >> stdin
 	echo "   }  " >> stdin
@@ -1884,6 +1901,8 @@ export MAIN_DIALOG='
 	        <action>if false enable:MANUALRESIDUE</action>
 	        <action>if true disable:NSSBOND</action>
 	        <action>if false enable:NSSBOND</action>
+	        <action>if true disable:INITADP</action>
+	        <action>if false enable:INITADP</action>
 	      </radiobutton>
 	      <radiobutton space-fill="True"  space-expand="True">
 	        <label>Orca</label>
@@ -1918,6 +1937,8 @@ export MAIN_DIALOG='
 	        <action>if false enable:MANUALRESIDUE</action>
 	        <action>if true disable:NSSBOND</action>
 	        <action>if false enable:NSSBOND</action>
+	        <action>if true disable:INITADP</action>
+	        <action>if false enable:INITADP</action>
 	      </radiobutton>
 	      <radiobutton space-fill="True"  space-expand="True">
 	        <label>Tonto</label>
@@ -1954,6 +1975,8 @@ export MAIN_DIALOG='
 	        <action>if false enable:MANUALRESIDUE</action>
 	        <action>if true disable:NSSBOND</action>
 	        <action>if false enable:NSSBOND</action>
+	        <action>if true disable:INITADP</action>
+	        <action>if false enable:INITADP</action>
 	      </radiobutton>
 	      <radiobutton space-fill="True"  space-expand="True">
 	        <label>elmodb</label>
@@ -1989,6 +2012,8 @@ export MAIN_DIALOG='
 	        <action>if false disable:MANUALRESIDUE</action>
 	        <action>if true enable:NSSBOND</action>
 	        <action>if false disable:NSSBOND</action>
+	        <action>if true enable:INITADP</action>
+	        <action>if false disable:INITADP</action>
 	      </radiobutton>
 
 	   </hbox>
@@ -2109,6 +2134,31 @@ export MAIN_DIALOG='
 	
 	   </hbox>
 	
+	   <hseparator></hseparator>
+
+	   <hbox>
+
+	    <checkbox active="false" has-tooltip="true" tooltip-markup="Make sure you will enter the correct charge and multiplicity" space-fill="True"  space-expand="True" sensitive="false">
+	     <label>Load initial ADPs from cif</label>
+	      <variable>INITADP</variable>
+	        <action>if true enable:INITADPFILE</action>
+	        <action>if false disable:INITADPFILE</action>
+	    </checkbox>
+
+	    <text label="cif file" has-tooltip="true" tooltip-markup="This should have the same geometry as the pdb file!!!" space-expand="false"></text>
+	    <entry fs-action="file" fs-folder="./"
+	           fs-filters="*.cif"
+	           fs-title="Select a cif file" sensitive="false">
+	     <variable>INITADPFILE</variable>
+	    </entry>
+	    <button>
+	     <input file stock="gtk-open"></input>
+	     <action type="fileselect">INITADPFILE</action>
+	    </button>
+	
+	
+	   </hbox>
+
 	   <hseparator></hseparator>
 	
 	   <hbox>
@@ -2341,7 +2391,23 @@ export MAIN_DIALOG='
            </hbox>
 	
 	   <hseparator></hseparator>
+
+           <hbox>
+	    <checkbox active="false" space-fill="True"  space-expand="True">
+	        <label>Refine these atoms isotropically:</label>
+	        <default>true</default>
+	        <variable>REFUISO</variable>
+	        <action>if true enable:ATOMUISOLIST</action>
+	        <action>if false disable:ATOMUISOLIST</action>
+	    </checkbox>
+	    <text use-markup="true" wrap="false" ><label>atom labels:</label></text>
+	    <entry sensitive="false">
+	     <variable>ATOMUISOLIST</variable>
+	    </entry>
+           </hbox>
 	
+	   <hseparator></hseparator>
+
 	   <hbox>
 	
 	    <checkbox active="true" space-fill="True"  space-expand="True">
@@ -2389,13 +2455,13 @@ export MAIN_DIALOG='
 	
 	    <checkbox sensitive="false">
 	     <label>3rd Order</label>
-	      <default>false</default>
+	     <default>false</default>
 	      <variable>THIRDORD</variable>
 	    </checkbox>
 
 	    <checkbox sensitive="false">
 	     <label>4rd Order</label>
-	      <default>false</default>
+	     <default>false</default>
 	      <variable>FOURTHORD</variable>
 	    </checkbox>
 	   </hbox>
@@ -2503,6 +2569,19 @@ export MAIN_DIALOG='
 	    <entry space-expand="true">
              <input>if [ ! -z $CONVTOL ]; then echo "$CONVTOL"; else (echo "0.010000"); fi</input>
 	     <variable>CONVTOL</variable>
+	    </entry>
+	
+	   </hbox>
+	   </hbox>
+
+	   <hseparator></hseparator>
+
+	   <hbox space-expand="false" space-fill="false">
+
+	    <text text-xalign="0" use-markup="true" wrap="false" space-expand="FALSE" space-fill="false"><label>Max. number of iteration (for each L.S. cicle):</label></text>
+	   <hbox space-expand="true" space-fill="true">
+	    <entry space-expand="true">
+	     <variable>MAXLSCICLE</variable>
 	    </entry>
 	
 	   </hbox>

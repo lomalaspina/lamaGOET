@@ -330,6 +330,17 @@ SCF_TO_TONTO(){
 	#else
 	#echo "       file_name= $CIF" >> stdin
 	fi
+	if [[ $J -eq 0 && "$SCFCALCPROG" == "elmodb" && "$INITADP" == "true" ]]; then
+		echo "   ! Process the CIF" >> stdin
+		echo "   CIF= {" >> stdin
+		echo "       file_name= $INITADPFILE" >> stdin
+		echo "    }" >> stdin
+		echo "" >> stdin
+		echo "   process_CIF" >> stdin
+		echo "" >> stdin
+		echo "   name= $JOBNAME" >> stdin
+		echo "" >> stdin
+	fi
 	if [ "$SCFCALCPROG" = "Tonto" ]; then 
 		echo "   basis_directory= $BASISSETDIR" >> stdin
 		echo "   basis_name= $BASISSETT" >> stdin
@@ -364,7 +375,7 @@ SCF_TO_TONTO(){
 	if [[ $J == 0 && "$IAMTONTO" == "true" ]]; then 
 		echo ""
 		echo "   crystal= {    " >> stdin
-		if [ "$SCFCALCPROG" = "elmodb" ]; then
+		if [[ "$SCFCALCPROG" = "elmodb" && "$INITADP" == "false" ]]; then
 			echo "      REDIRECT tonto.cell" >> stdin
 		fi
 	#	if [ "$COMPLETESTRUCT" = "true" ]; then
@@ -410,7 +421,7 @@ SCF_TO_TONTO(){
 	fi
 	echo "" >> stdin
 	echo "   crystal= {    " >> stdin
-	if [[ "$SCFCALCPROG" == "elmodb" && $J == 0 ]]; then
+	if [[ "$SCFCALCPROG" == "elmodb" && $J == 0 && "$INITADP" == "false" ]]; then
 		echo "      REDIRECT tonto.cell" >> stdin
 	fi
 #	if [[ "$SCFCALCPROG" != "elmodb" && "$SCFCALCPROG" != "Tonto" ]]; then
@@ -477,6 +488,12 @@ SCF_TO_TONTO(){
 	fi
 	if [ "$REFNOTHING" = "true" ]; then
 		echo "	 refine_nothing_for_atoms= { $ATOMLIST }" >> stdin 
+	fi
+	if [ "$REFUISO" = "true" ]; then
+		echo "	 refine_u_iso_for_atoms= { $ATOMUISOLIST }" >> stdin 
+	fi
+	if [ "$MAXLSCICLE" ]; then
+		echo "	 max_iterations= $MAXLSCICLE" >> stdin 
 	fi
 	echo "      }  " >> stdin
 	echo "   }  " >> stdin
