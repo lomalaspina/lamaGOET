@@ -1,3 +1,5 @@
+language: bash
+
 before_install:
   - sudo apt-get update -q
   - sudo apt-get install gtk+-2.0 -y
@@ -12,4 +14,8 @@ install:
   - make
   - sudo make install
 
-language: bash
+deploy:
+  provider: script
+  script: bash RUN_tests.sh
+  on:
+    branch: master
