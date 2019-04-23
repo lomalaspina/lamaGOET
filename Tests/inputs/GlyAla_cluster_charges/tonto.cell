@@ -1,0 +1,10 @@
+      spacegroup= { hall_symbol= '  p 2ac 2ab      ' }
+
+      unit_cell= {
+
+         angles=       90.000   90.000   90.000   Degree
+         dimensions=   7.5290   9.5160   9.6880   Angstrom
+
+      }
+
+      REVERT

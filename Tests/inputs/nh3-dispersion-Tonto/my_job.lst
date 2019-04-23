@@ -1,0 +1,1211 @@
+###############################################################################################
+                                           lamaGOT                                             
+###############################################################################################
+Job started on:
+Fr 20. Apr 16:47:27 CEST 2018
+User Inputs: 
+Tonto executable	: tonto_new18
+This is Tonto version18.04.19 61a3969
+SCF program		: Tonto
+Job name		: my_job
+Input cif		: /home/lorraine/second_drive/transfer/test_iterative/github/lamaGOT/tests/nh3_dispersion/Tonto/nh30r_third.cif
+Input hkl		: /home/lorraine/second_drive/transfer/test_iterative/github/lamaGOT/tests/nh3_dispersion/Tonto/nh30r_tonto.hkl
+Wavelenght		: 0.71073 Angstrom
+F_sigma_cutoff		: 3
+Tol. for shift on esd	: 0.010000
+Charge			: 0
+Multiplicity		: 1
+Level of theory 	: rhf/STO-3G
+Basis set directory	: /usr/local/bin/basis_sets
+Becke grid (not default): false
+Use SC cluster charges 	: false
+Refine position and ADPs: true
+Refine positions only	: false
+Refine ADPs only	: false
+Refine H ADPs 		: true
+Refine Hydrogens isot.	: no
+Dispersion correction	: yes
+			  C 0.0031 0.0016 N 0.0061 0.0033 H 0.0 0.0
+====================
+Begin rigid-atom fit
+====================
+
+__________________________________________________________________________________________________________________________________________________________________
+
+Cycle   Fit      initial        final            R              R_w              Max.           Max.      No. of     No. of     Energy         RMSD         Delta 
+       Iter       chi2          chi2                                             Shift          Shift     params     eig's    at final      at final       Energy 
+                                                                                 /esd           param                near 0     Geom.          Geom.                
+
+__________________________________________________________________________________________________________________________________________________________________
+
+ 1						 	  	     	 
+__________________________________________________________________________________________________________________________________________________________________
+
+###############################################################################################
+                                     Final Geometry                                         
+###############################################################################################
+
+ 
+
+
+_______________________________________________________________
+
+ T   O   N   T   O
+
+ A free object-based system for computational chemistry
+
+ Version: 18.04.19 v. 61a3969
+ Platform: Linux-4.4.0-98-generic
+ Build-date: 2018-04-19 16:02
+
+ For conditions of use, on-line documentation, and contributor
+ and developer information see :-
+
+ https://github.com/dylan-jayatilaka/tonto
+
+ Dylan Jayatilaka
+ Daniel Grimwood
+ Peter Spackman
+_______________________________________________________________
+
+
+Timer started at 20/04/2018 16:47:27.
+
+
+keyword found --> name=
+
+keyword found --> cif=
+
+keyword found --> {
+
+keyword found --> file_name=
+
+keyword found --> }
+
+keyword found --> process_cif
+
+keyword found --> name=
+
+keyword found --> basis_directory=
+
+keyword found --> basis_name=
+
+keyword found --> dispersion_coefficients=
+
+keyword found --> cluster=
+
+keyword found --> {
+
+keyword found --> defragment=
+
+keyword found --> make_info
+
+keyword found --> }
+
+keyword found --> create_cluster
+
+Resetting molecule to cluster fragment
+
+Saving old molecule; making new cluster
+
+
+keyword found --> name=
+
+keyword found --> charge=
+
+keyword found --> multiplicity=
+
+keyword found --> crystal=
+ 
+Warning from MOLECULE.MAIN:read_crystal ... crystal data already defined!
+
+keyword found --> {
+
+keyword found --> xray_data=
+ 
+Warning from CRYSTAL:read_xray_data ... xray diffraction data already defined!
+
+keyword found --> {
+
+keyword found --> thermal_smearing_model=
+
+keyword found --> partition_model=
+
+keyword found --> optimise_extinction=
+
+keyword found --> correct_dispersion=
+
+keyword found --> optimise_scale_factor=
+
+keyword found --> wavelength=
+
+keyword found --> redirect
+
+keyword found --> reflection_data=
+
+keyword found --> {
+
+keyword found --> keys=
+
+keyword found --> data=
+
+keyword found --> }
+
+keyword found --> revert
+
+keyword found --> f_sigma_cutoff=
+
+keyword found --> tol_for_shift_on_esd=
+
+keyword found --> refine_h_u_iso=
+
+keyword found --> }
+
+keyword found --> }
+
+keyword found --> put
+
+
+====================
+Molecule information
+====================
+
+Name ...................... my_job
+
+Chemical Formula .......... H3 N
+Molecular weight .......... 17.030610
+
+Charge .................... 0
+Multiplicity .............. 1
+
+No. of atoms .............. 4
+No. of electrons .......... 10
+No. of alpha electrons .... 5
+No. of beta  electrons .... 5
+
+Gaussian basis name ....... STO-3G
+Spherical harmonics? ...... F
+
+
+================
+Atom coordinates
+================
+
+No. of atoms .... 4
+
+__________________________________________
+
+  #  ID    Z     - x -     - y -     - z -
+         /au                  /A
+__________________________________________
+
+  1  H1  1.0  0.655093  1.779360  1.309858
+  2   N  7.0  1.078944  1.078944  1.078944
+  3  H2  1.0  1.309858  0.655093  1.779360
+  4  H3  1.0  1.779360  1.309858  0.655093
+__________________________________________
+
+=====================================
+Atomic displacement parameters (ADPs)
+=====================================
+
+. The ADPs are referred to cartesian axes.
+. The length units are in Angstrom.
+. An ADP is deemed bad if the max-on-min axis ratio
+  - is greater than 4 (i.e. flat)
+  - or is non-positive-definite (i.e. NPD)
+
+No. of NPD  ADPs .... 0
+No. of Flat ADPs .... 0
+
+___________________________________________________________________________________________
+
+  #  ID      U_xx      U_yy      U_zz       U_xy       U_xz       U_yz  NPD  Flat      Axis
+                                 /A^2                                     ?     ?     ratio
+___________________________________________________________________________________________
+
+  1  H1  0.053700  0.053700  0.053700   0.000000   0.000000   0.000000    F     F  1.000000
+  2   N  0.036860  0.036860  0.036860  -0.000720  -0.000720  -0.000720    F     F  1.060982
+  3  H2  0.053700  0.053700  0.053700   0.000000   0.000000   0.000000    F     F  1.000000
+  4  H3  0.053700  0.053700  0.053700   0.000000   0.000000   0.000000    F     F  1.000000
+___________________________________________________________________________________________
+
+
+======================================
+Anomalous dispersion f' and f'' values
+======================================
+
+No. of elements .... 2
+
+WARNING: it is up to you to ensure these dispersion
+coefficients below correspond to the wavelength used.
+
+___________________________
+
+  #  ID        f'       f''
+___________________________
+
+  1   H  0.000000  0.000000
+  2   N  0.006100  0.003300
+___________________________
+
+
+============
+Bond lengths
+============
+
+. The bond-detection criteria is the same as used
+  by the Cambridge Structural Database (CSD).
+
+No. of bonds .... 3
+
+____________________________
+
+  A--B     A--B      R(A--B)
+                          /A
+____________________________
+
+  N--H     N--H1    0.850619
+           N--H2    0.850619
+           N--H3    0.850619
+____________________________
+
+
+===========
+Bond Angles
+===========
+
+. Atom B of Angle(A--B--C) is the middle atom.
+
+
+No. of bond angles .... 3
+
+_____________________________________
+
+  A--B--C    A--B--C   Angle(A--B--C)
+                              /degree
+_____________________________________
+
+  H--N--H   H1--N--H2      108.786042
+            H1--N--H3      108.786042
+            H2--N--H3      108.786042
+_____________________________________
+
+
+===================
+Gaussian basis sets
+===================
+
+Basis name ................ STO-3G
+
+No. of basis sets ......... 2
+No. of shells ............. 6
+No. of shell pairs ........ 21
+No. of basis functions .... 8
+No. of primitives ......... 24
+
+
+Basis set H:STO-3G
+
+No. of shells ............. 1
+No. of basis functions .... 1
+No. of primitives ......... 3
+________________________________
+
+ -L-   Fn  Exponent  Contraction
+        #       /au          /au
+________________________________
+
+  s     1  3.425251     0.154329
+           0.623914     0.535328
+           0.168855     0.444635
+________________________________
+
+
+Basis set N:STO-3G
+
+No. of shells ............. 3
+No. of basis functions .... 5
+No. of primitives ......... 15
+_________________________________
+
+ -L-   Fn   Exponent  Contraction
+        #        /au          /au
+_________________________________
+
+  s     1  99.106169     0.154329
+           18.052312     0.535328
+            4.885660     0.444635
+  s     2   3.780456    -0.099967
+            0.878497     0.399513
+            0.285714     0.700115
+  p     3   3.780456     0.155916
+            0.878497     0.607684
+            0.285714     0.391957
+_________________________________
+
+
+
+=====================
+Unit cell information
+=====================
+
+. Lengths are in Angstrom
+. Angles  are in degrees
+
+a cell parameter ............     5.1305(8)
+b cell parameter ............     5.1305(8)
+c cell parameter ............     5.1305(8)
+Cell volume .................     135.05(4)
+
+alpha angle .................  90.000000(0)
+beta  angle .................  90.000000(0)
+gamma angle .................  90.000000(0)
+
+a* cell parameter (A^-1) .... 0.194913
+b* cell parameter (A^-1) .... 0.194913
+c* cell parameter (A^-1) .... 0.194913
+
+alpha* angle (degree) ....... 90.000000
+beta*  angle (degree) ....... 90.000000
+gamma* angle (degree) ....... 90.000000
+
+Direct cell matrix
+
+            1         2         3
+
+  1  5.130500  0.000000  0.000000
+  2  0.000000  5.130500  0.000000
+  3  0.000000  0.000000  5.130500
+
+Reciprocal cell matrix
+
+             1          2          3
+
+  1   0.194913   0.000000   0.000000
+  2   0.000000   0.194913   0.000000
+  3   0.000000   0.000000   0.194913
+
+
+======================
+Spacegroup information
+======================
+
+International Table no. .... 198
+IT symbol .................. 198
+Hermann-Mauguin symbol ..... P 21 3
+Hall symbol ................ P 2ac 2ab 3
+Schoenflies symbol ......... t^4
+Lattice symbol ............. P
+Lattice type ............... Cubic
+
+Spacegroup order ........... 12
+Centro-symmetric? .......... F
+Axis orders ................   2   2   3   1
+Axis direction symbols .....   z   x   *   _
+Axis direction indices .....   3   1   6   0
+Translation subscripts ..... ac_ ab_ ___
+No of T generators ......... 1
+No of R generators ......... 3
+No of Generators ........... 4
+Origin shift in 12-ths .....   0   0   0
+
+
+===================
+Symmetry operations
+===================
+
+__________________________
+
+   #        Symop
+__________________________
+
+   1      +x, +y, +z
+   2  -x+1/2, -y, +z+1/2
+   3  +x+1/2, -y+1/2, -z
+   4      +z, +x, +y
+   5  -x, +y+1/2, -z+1/2
+   6  +z+1/2, -x+1/2, -y
+   7  -z, +x+1/2, -y+1/2
+   8  -z+1/2, -x, +y+1/2
+   9      +y, +z, +x
+  10  +y+1/2, -z+1/2, -x
+  11  -y, +z+1/2, -x+1/2
+  12  -y+1/2, -z, +x+1/2
+__________________________
+
+
+===============================
+Spacegroup multiplication table
+===============================
+
+. The element in the table is product(i,j) where:
+
+     product(i,j) = symop(i) x symop(j)
+
+  where i and j are row and column indices, respectively
+  and the product is modulo an integer shift vector.
+
+____________________________________________________
+
+   #   1   2   3   4   5   6   7   8   9  10  11  12
+____________________________________________________
+
+   1   1   2   3   4   5   6   7   8   9  10  11  12
+   2   2   1   5   8   3   7   6   4  12  11  10   9
+   3   3   5   1   6   2   4   8   7  10   9  12  11
+   4   4   6   7   9   8  11  12  10   1   5   2   3
+   5   5   3   2   7   1   8   4   6  11  12   9  10
+   6   6   4   8  10   7  12  11   9   3   2   5   1
+   7   7   8   4  11   6   9  10  12   5   1   3   2
+   8   8   7   6  12   4  10   9  11   2   3   1   5
+   9   9  11  12   1  10   2   3   5   4   8   6   7
+  10  10  12  11   3   9   5   1   2   6   7   4   8
+  11  11   9  10   5  12   3   2   1   7   6   8   4
+  12  12  10   9   2  11   1   5   3   8   4   7   6
+____________________________________________________
+
+
+==============================
+Spacegroup symop inverse table
+==============================
+_____________
+
+   #  Inverse
+        symop
+_____________
+
+   1        1
+   2        2
+   3        3
+   4        9
+   5        5
+   6       12
+   7       10
+   8       11
+   9        4
+  10        7
+  11        8
+  12        6
+_____________
+
+
+====================================
+Inversion-translation-related symops
+====================================
+
+. The information in this table is used to speed up
+  structure factor calculations since the Fourier transform
+  of densities related by such related symops are related by
+  complex conjugation and/or a multiplicative phase factor
+
+______________________________________
+
+   # Related to   Related to   Unique
+      Inversion   Translation  symop?
+     of symop #   of symop #
+______________________________________
+
+   1      0            1        yes
+   2      0            2        yes
+   3      0            3        yes
+   4      0            4        yes
+   5      0            5        yes
+   6      0            6        yes
+   7      0            7        yes
+   8      0            8        yes
+   9      0            9        yes
+  10      0           10        yes
+  11      0           11        yes
+  12      0           12        yes
+______________________________________
+
+========================
+Cartesian Seitz matrices
+========================
+
+matrix .... 1
+
+      1.000   0.000   0.000
+      0.000   1.000   0.000
+      0.000   0.000   1.000
+
+matrix .... 2
+
+     -1.000   0.000   0.000
+      0.000  -1.000   0.000
+      0.000   0.000   1.000
+
+matrix .... 3
+
+      1.000   0.000   0.000
+      0.000  -1.000   0.000
+      0.000   0.000  -1.000
+
+matrix .... 4
+
+      0.000   0.000   1.000
+      1.000   0.000   0.000
+      0.000   1.000   0.000
+
+matrix .... 5
+
+     -1.000   0.000   0.000
+      0.000   1.000   0.000
+      0.000   0.000  -1.000
+
+matrix .... 6
+
+      0.000   0.000   1.000
+     -1.000   0.000   0.000
+      0.000  -1.000   0.000
+
+matrix .... 7
+
+      0.000   0.000  -1.000
+      1.000   0.000   0.000
+      0.000  -1.000   0.000
+
+matrix .... 8
+
+      0.000   0.000  -1.000
+     -1.000   0.000   0.000
+      0.000   1.000   0.000
+
+matrix .... 9
+
+      0.000   1.000   0.000
+      0.000   0.000   1.000
+      1.000   0.000   0.000
+
+matrix .... 10
+
+      0.000   1.000   0.000
+      0.000   0.000  -1.000
+     -1.000   0.000   0.000
+
+matrix .... 11
+
+      0.000  -1.000   0.000
+      0.000   0.000   1.000
+     -1.000   0.000   0.000
+
+matrix .... 12
+
+      0.000  -1.000   0.000
+      0.000   0.000  -1.000
+      1.000   0.000   0.000
+
+
+===============
+Asymmetric unit
+===============
+
+Asymmetric unit source .......... from-cif
+No. of asymmetric unit atoms .... 2
+
+_______________________________________________________
+
+  #  ID         x         y         z  Site  Stabilizer
+                                       symm      symops
+                      /frac            fact
+_______________________________________________________
+
+  1   H  0.127686  0.346820  0.255308     1    1
+  2   N  0.210300  0.210300  0.210300     3    1  4  9
+_______________________________________________________
+
+
+================
+Crystal fragment
+================
+
+. Ab initio calculations are performed on the fragment
+  to obtain structure factors, charges, etc.
+
+. The fragment need not be an asymmetric unit.
+
+. Repeated atoms are assigned a 'repetition factor' which
+  is used to scale the structure factor contribution from
+  that atom. You can manually reset this.
+
+. Only the unique atoms in the fragment have their
+  positions and ADPs refined.
+
+. The Z factor for the crystal is defined with respect to
+  the no. of electrons in the fragment
+
+
+No. of fragment atoms ........... 4
+No. of unique fragment atoms .... 2
+Z factor ........................ 4.000000
+
+Fragment partition model ........ mulliken
+Thermal smearing model .......... hirshfeld
+
+
+QM fragment geometry:
+
+_______________________________________________________________________________________________
+
+  #  ID  Rep  Site  Uniq   Uniq               Coord            From  Using         Shift
+         fac  symm  atom   atom     - x -     - y -     - z -  asym  symop  - x -  - y -  - z -
+         tor  fact           ID               /frac            atom                /frac
+_______________________________________________________________________________________________
+
+  1  H1    3     1     1      1  0.127686  0.346820  0.255308     1      1    0.0    0.0    0.0
+  2   N    3     3     2      2  0.210300  0.210300  0.210300     2      1    0.0    0.0    0.0
+  3  H2    3     1     0      1  0.255308  0.127686  0.346820     1      4    0.0    0.0    0.0
+  4  H3    3     1     0      1  0.346820  0.255308  0.127686     1      9    0.0    0.0    0.0
+_______________________________________________________________________________________________
+
+=========================
+Crystal stabilizer symops
+=========================
+
+. The stablizer is the subgroup of symops which
+  map the fragment_geometry into itself.
+
+n_stabilizer_symops .... 3
+
+______________
+
+  #  Stablizer
+        symops
+______________
+
+  1          1
+  2          4
+  3          9
+______________
+
+
+==================
+Unit cell geometry
+==================
+
+No. of unit cell atoms .... 16
+
+_______________________________________________________________________________
+
+   #  ID               Coord            From  Using  Asym  Made by a  Made by a
+             - x -     - y -     - z -  asym  symop  atom  shift frm  symop frm
+                       /frac            atom      #     ?  frag atom  frag atom
+_______________________________________________________________________________
+
+   1   H  0.127686  0.346820  0.255308     1      1     T          1          1
+   2   H  0.372314  0.653180  0.755308     1      2     F          0          1
+   3   H  0.627686  0.153180  0.744692     1      3     F          0          1
+   4   H  0.255308  0.127686  0.346820     1      4     F          3          1
+   5   H  0.872314  0.846820  0.244692     1      5     F          0          1
+   6   H  0.755308  0.372314  0.653180     1      6     F          0          1
+   7   H  0.744692  0.627686  0.153180     1      7     F          0          1
+   8   H  0.244692  0.872314  0.846820     1      8     F          0          1
+   9   H  0.346820  0.255308  0.127686     1      9     F          4          1
+  10   H  0.846820  0.244692  0.872314     1     10     F          0          1
+  11   H  0.653180  0.755308  0.372314     1     11     F          0          1
+  12   H  0.153180  0.744692  0.627686     1     12     F          0          1
+  13   N  0.210300  0.210300  0.210300     2      1     T          2          2
+  14   N  0.289700  0.789700  0.710300     2      2     F          0          2
+  15   N  0.710300  0.289700  0.789700     2      3     F          0          2
+  16   N  0.789700  0.710300  0.289700     2      5     F          0          2
+_______________________________________________________________________________
+
+keyword found --> scfdata=
+
+keyword found --> {
+
+keyword found --> initial_density=
+
+keyword found --> kind=
+
+keyword found --> use_sc_cluster_charges=
+
+keyword found --> convergence=
+
+keyword found --> diis=
+
+keyword found --> {
+
+keyword found --> convergence_tolerance=
+
+keyword found --> }
+
+keyword found --> }
+
+Making gaussian ANO data ...
+
+Making gaussian ANO interpolators ...
+
+keyword found --> scf
+
+====================================
+Basis set linear dependence analysis
+====================================
+
+. Linear dependence is detected by small overlap matrix eigenvalues
+
+. Overlap matrix eigenfunctions with eigenvalues less than the
+  linear_dependence_tolerance are projected out of the AO basis
+  leading to, in this case, some exact-zero MO eigenvalues.
+
+Min. overlap matrix eigenvalue .... 0.172843E+00
+Linear dependence tolerance ....... 0.100000E-04
+Linear dependence shift ........... 0.100000E+13
+No. of small eigenvalues .......... 0
+No. of negative eigenvalues ....... 0
+
+_________________________
+
+  #  log10 |eig|  # < max
+      max. value
+_________________________
+
+  1     0.000000        4
+  2     1.000000        4
+_________________________
+
+
+===============
+SCF calculation
+===============
+
+SCF kind .......................... rhf
+
+Initial guess options:
+
+Kind of initial density ........... promolecule
+Kind of initial MO's .............. --using density--
+
+SCF termination options:
+
+Delta E convergence tolerance ..... 0.100000E-02
+Gradient/DIIS convergence ......... 0.200000E-03
+Minimum # of iterations ........... 1
+Maximum # of iterations ........... 100
+
+Linear dependence options:
+
+Linear dependence tolerance ....... 0.100000E-04
+Linear dependence shift ........... 0.100000E+13
+Min. overlap matrix eigenvalue .... 0.172843E+00
+No. of small S eigenvalues ........ 0
+No. of neg.  S eigenvalues ........ 0
+
+Convergence acceleration options:
+
+Using level shift ................. T
+Level shift ....................... 0.300000
+Level shift  quits at ............. 3
+Using density damping ............. T
+Damping factor .................... 0.500000
+Damping quits at .................. 3
+Using DIIS ........................ T
+
+DIIS options:
+
+Convergence on max(abs(error)) .... 0.200000E-03
+Extrapolate  from iteration ....... 3
+Save vectors from iteration ....... 1
+No. of vectors to keep ............ 8
+Replace the vector which is ....... worst
+
+======================
+Initial guess energies
+======================
+
+Total energy (E_e+V_NN)   E .......  -55.312470
+Total electronic energy   E_e .....  -69.524500
+Nuclear repulsion energy  V_NN ....   14.212030
+Electron repulsion energy V_ee ....   33.557564
+Nuclear attraction energy V_eN .... -159.132893
+Total potential energy    V ....... -111.363299
+Kinetic energy            T .......   56.050829
+Virial ratio             -V/T .....    1.986827
+
+==============
+SCF iterations
+==============
+__________________________________________
+
+  Iter      Energy       Delta        DIIS
+              E/au           E    Gradient
+__________________________________________
+
+     0  -55.312470  -55.312470    0.116397   *Damping on
+                                             *Levelshift on
+     1  -55.323392   -0.010923    0.020302
+     2  -55.323892   -0.000500    0.006915   *Difference has converged
+                                             *DIIS starts saving now
+     3  -55.323967   -0.000075    0.002882   *Damping was off
+                                             *Levelshift was off
+                                             *DIIS extrapolates now
+__________________________________________
+
+* * * SCF has converged * * *
+__________________________________________
+
+===========
+SCF results
+===========
+
+Total energy (E_e+V_NN)   E .......  -55.323985
+Total electronic energy   E_e .....  -69.536015
+Nuclear repulsion energy  V_NN ....   14.212030
+Electron repulsion energy V_ee ....   33.124369
+Nuclear attraction energy V_eN .... -158.391487
+Total potential energy    V ....... -111.055088
+Kinetic energy            T .......   55.731102
+Virial ratio             -V/T .....    1.992695
+
+keyword found --> scfdata=
+
+keyword found --> {
+
+keyword found --> initial_mos=
+
+keyword found --> kind=
+
+keyword found --> use_sc_cluster_charges=
+
+keyword found --> convergence=
+
+keyword found --> diis=
+
+keyword found --> {
+
+keyword found --> convergence_tolerance=
+
+keyword found --> }
+
+keyword found --> }
+
+keyword found --> refine_hirshfeld_atoms
+
+Making F_pred ...
+
+Pruning reflections with F_pred/F_calc for refinement ...
+
+Starting refinement ...
+
+==============================================
+Crystal structure refinement (non-rigid atoms)
+==============================================
+
+Repeated SCF/rigid hirshfeld atom fits are performed
+which eventually removes the rigid atom constraint.
+
+Agreement statistics are shown at the start and end
+of each 'micro' rigid fit cycle.
+
+Convergence criteria for each fit-cycle are the same
+as for convergence of the overall refinement
+
+
+Refine hydrogen ADP's .......... T
+Refine hydrogen U_iso .......... F
+Refine only ADP's .............. F
+Refine only positions .......... F
+
+Refine scale factor ............ T
+Refine multiple scales ......... F
+Refine extinction parameter .... F
+Use dispersion correction ...... T
+
+Max allowed parameter shift .... 0.010000
+Max iterations ................. 100
+Min iterations ................. 2
+
+Conv. tol. for shift on esd .... 0.010000
+Nearly zero tolerance .......... 0.001000
+
+Initial asymmetric unit parameter values:
+
+__________________________________________
+
+  #  ID    Z     - x -     - y -     - z -
+         /au                  /A
+__________________________________________
+
+  1  H1  1.0  0.655093  1.779360  1.309858
+  2  N1  7.0  1.078944  1.078944  1.078944
+__________________________________________
+___________________________________________________________________________________________
+
+  #  ID      U_xx      U_yy      U_zz       U_xy       U_xz       U_yz  NPD  Flat      Axis
+                                 /A^2                                     ?     ?     ratio
+___________________________________________________________________________________________
+
+  1   H  0.053700  0.053700  0.053700   0.000000   0.000000   0.000000    F     F  1.000000
+  2   N  0.036860  0.036860  0.036860  -0.000720  -0.000720  -0.000720    F     F  1.060982
+___________________________________________________________________________________________
+
+================
+Begin refinement
+================
+
+______________________________________________________________________________________________
+
+  Ref.  No of         chi2         chi2         R       R_w        Max.   Max.  No. of  No. of
+  Iter    Fit      initial        final                           Shift  Shift  params   eig's
+        iters                                                      /esd  param          near 0
+______________________________________________________________________________________________
+
+     1     12   246.931545    22.727514  0.024169  0.021625   15.996552  N Uyz      13       6
+     2      8    31.582834    25.253779  0.026906  0.022795    3.034868   N px      13       6
+     3      4    25.235834    25.212050  0.026968  0.022776    0.137588   N py      13       6
+     4      2    25.203554    25.203372  0.026966  0.022772    0.016215  N Uyz      13       6
+     5      2    25.203997    25.203980  0.026970  0.022772    0.003971   N px      13       6
+______________________________________________________________________________________________
+
+============================
+Structure refinement results
+============================
+
+Structure refinement converged.
+
+Model statistics based on structure factors:
+
+R_sigma(F) ........................ 0.005987
+R_sigma(F2) ....................... 0.000032
+R(F) .............................. 0.026970
+R(F2) ............................. 0.078012
+Rw(F) ............................. 0.022772
+Rw(F2) ............................ 0.046232
+# of reflections,    N_r .......... 98
+# of fit parameters, N_p .......... 13
+chi^2(N_p) ........................ 25.203980
+Goodness of fit (N_p) ............. 5.020357
+Effective (mean) sigma^2 .......... 0.043399
+Scale factor ...................... 6.366786
+
+
+Final asymmetric unit parameter values:
+
+_____________________________________________
+
+  #  ID    Z      - x -      - y -      - z -
+         /au                    /A
+_____________________________________________
+
+  1  H1  1.0  0.644(15)  1.888(14)  1.40(2)
+  2   N  7.0  1.0874(6)  1.0874(6)  1.0874(6)
+_____________________________________________
+_________________________________________________________________________________________________
+
+  #  ID       U_xx       U_yy       U_zz        U_xy        U_xz        U_yz  NPD  Flat      Axis
+                                    /A^2                                        ?     ?     ratio
+_________________________________________________________________________________________________
+
+  1  H1  0.054(8)   0.070(10)  0.085(11)   0.018(5)    0.012(6)   -0.018(9)     F     F  2.859966
+  2   N  0.0356(5)  0.0356(5)  0.0356(5)  -0.0036(2)  -0.0036(2)  -0.0036(2)    F     F  1.378887
+_________________________________________________________________________________________________
+
+
+============
+Bond lengths
+============
+
+. The bond-detection criteria is the same as used
+  by the Cambridge Structural Database (CSD).
+
+No. of bonds .... 3
+
+____________________________
+
+  A--B     A--B      R(A--B)
+                          /A
+____________________________
+
+  N--H     N--H1    0.967(14)
+           N--H2    0.967(14)
+           N--H3    0.967(14)
+_____________________________
+
+
+===========
+Bond Angles
+===========
+
+Atom B of Angle(A--B--C) is the middle atom.
+
+
+No. of bond angles .... 3
+
+_____________________________________
+
+  A--B--C    A--B--C   Angle(A--B--C)
+                              /degree
+_____________________________________
+
+  H--N--H   H1--N--H2       105.0(11)
+            H1--N--H3       105.0(11)
+            H2--N--H3       105.0(11)
+_____________________________________
+
+========================
+Fit statistics vs. angle
+========================
+
+An analysis of the fit versus sin(theta)/lambda.
+
+___________________________________________________________________________________________________________________________
+
+   #  sin(th)/lambda  # of        GOF     F_exp               R(F)              Rw(F)              R(F2)             Rw(F2)
+      max value/A^-1  refl              /F_pred
+___________________________________________________________________________________________________________________________
+
+   1        0.195158     2  12.906113  0.952818           0.049519           0.047659           0.101469           0.094613
+   2        0.221517     0   0.000000  0.000000                NaN                NaN                NaN                NaN
+   3        0.247876     2   2.376361  0.994069           0.005966           0.006211           0.011967           0.012598
+   4        0.274235     0   0.000000  0.000000                NaN                NaN                NaN                NaN
+   5        0.300594     2   8.216597  0.983443           0.016836           0.016837           0.033955           0.033958
+   6        0.326953     2   7.135460  1.020749           0.020328           0.019949           0.040247           0.038608
+   7        0.353312     2   1.531572  1.003811           0.003796           0.004035           0.007580           0.008063
+   8        0.379671     4  18.261243  0.975630           0.019403           0.030012           0.028354           0.048155
+   9        0.406030     2   5.920353  1.012179           0.012033           0.012250           0.023925           0.024381
+  10        0.432389     4   4.298166  0.995244           0.006137           0.007353           0.009524           0.011202
+  11        0.458748     6  14.688379  1.014865           0.014412           0.019470           0.025463           0.040727
+  12        0.485106     2   5.571230  0.986446           0.013739           0.015349           0.027644           0.032518
+  13        0.511465     8  13.540403  1.006802           0.021476           0.019687           0.043651           0.035166
+  14        0.537824     8  10.212939  1.011261           0.012745           0.012995           0.026662           0.024780
+  15        0.564183     4   5.203271  1.006950           0.016010           0.018002           0.031009           0.035432
+  16        0.590542     8   7.967988  0.983460           0.016472           0.022154           0.023794           0.022428
+  17        0.616901     6   8.432780  0.976489           0.025393           0.029658           0.050731           0.052089
+  18        0.643260    12  15.079042  0.989283           0.029354           0.035530           0.048998           0.057029
+  19        0.669619    10  12.841531  0.981256           0.040859           0.039313           0.047731           0.034333
+  20        0.695978    14  19.338096  1.033275           0.072039           0.066900           0.125970           0.114842
+___________________________________________________________________________________________________________________________
+
+============================
+Fit statistics vs. intensity
+============================
+
+An analysis of the fit versus F_exp is shown in the table below.
+
+___________________________________________________________________________________
+
+   #       F_exp  # of        GOF     F_exp      R(F)     Rw(F)     R(F2)    Rw(F2)
+       max value  refl              /F_pred
+___________________________________________________________________________________
+
+   1    8.062995    46   5.409710  1.000071  0.047354  0.043925  0.082998  0.061777
+   2   14.567144    30   4.680307  1.000722  0.012961  0.014444  0.027043  0.029011
+   3   21.071293    10  22.621625  0.997821  0.018759  0.023271  0.035979  0.041239
+   4   27.575442     4   2.264155  1.000911  0.003761  0.004020  0.007154  0.005798
+   5   34.079590     2   8.216597  0.983443  0.016836  0.016837  0.033955  0.033958
+   6   40.583739     4   7.297979  1.012280  0.012262  0.013993  0.024704  0.026663
+   7   47.087888     0   0.000000  0.000000  0.000000  0.000000  0.000000  0.000000
+   8   53.592037     0   0.000000  0.000000  0.000000  0.000000  0.000000  0.000000
+   9   60.096186     0   0.000000  0.000000  0.000000  0.000000  0.000000  0.000000
+  10   66.600335     0   0.000000  0.000000  0.000000  0.000000  0.000000  0.000000
+  11   73.104484     0   0.000000  0.000000  0.000000  0.000000  0.000000  0.000000
+  12   79.608633     0   0.000000  0.000000  0.000000  0.000000  0.000000  0.000000
+  13   86.112782     0   0.000000  0.000000  0.000000  0.000000  0.000000  0.000000
+  14   92.616931     0   0.000000  0.000000  0.000000  0.000000  0.000000  0.000000
+  15   99.121080     0   0.000000  0.000000  0.000000  0.000000  0.000000  0.000000
+  16  105.625229     0   0.000000  0.000000  0.000000  0.000000  0.000000  0.000000
+  17  112.129378     0   0.000000  0.000000  0.000000  0.000000  0.000000  0.000000
+  18  118.633527     0   0.000000  0.000000  0.000000  0.000000  0.000000  0.000000
+  19  125.137676     0   0.000000  0.000000  0.000000  0.000000  0.000000  0.000000
+  20  131.641825     2  12.906113  0.952818  0.049519  0.047659  0.101469  0.094613
+___________________________________________________________________________________
+
+=================
+Worst reflections
+=================
+
+. Below are the 10 worst-fitted reflections
+. The criteria is F_z = (F_calc-F_pred)/sigma, in sigma units
+. The full list of reflections is in the produced CIF file
+
+
+Number of reflections .... 10
+
+Structure factors:
+
+Model statistics based on structure factors:
+
+R_sigma(F) ........................ 0.004542
+R_sigma(F2) ....................... 0.000019
+R(F) .............................. 0.044444
+R(F2) ............................. 0.091033
+Rw(F) ............................. 0.035703
+Rw(F2) ............................ 0.072774
+chi^2(N_p=1)(F) ................... 97.845686
+Goodness of fit(N_p=1)(F) ......... 9.891698
+________________________________________________________________________________________________________
+
+   #   h   k   l       stl         d     F_calc      F_calc      F_pred       F_exp   F_sigma        F_z
+                     /A^-1        /A         Re          Im
+________________________________________________________________________________________________________
+
+   1   1   2   3  0.364648  1.371184   1.965703    1.410343   15.403223   14.731938  0.050657  13.251434
+   2  -1  -2  -3  0.364648  1.371184   1.968780   -1.405331   15.400581   14.595547  0.064202  12.539115
+   3   1   1   1  0.168799  2.962096   0.589897  -21.598841  137.566477  131.641825  0.570432  10.386257
+   4  -3  -5  -4  0.689121  0.725562  -0.395398    0.655300    4.872804    4.236744  0.064215   9.905194
+   5   3   4   4  0.624025  0.801249  -0.780132    0.693646    6.646357    6.195966  0.051050   8.822563
+   6  -1  -4  -2  0.446601  1.119567  -1.594782   -0.800827   11.361911   11.575837  0.033307  -6.422879
+   7   4   4   4  0.675198  0.740524   0.238718    0.874530    5.771658    6.372598  0.090878  -6.612591
+   8  -1  -4  -3  0.496932  1.006174  -2.046608    0.353679   13.223453   13.529967  0.044790  -6.843396
+   9   1   4   2  0.446601  1.119567  -1.597314    0.796488   11.363967   11.605171  0.034087  -7.076212
+  10   2   3   3  0.457111  1.093826  -0.884404   -2.142230   14.755730   15.109931  0.039098  -9.059352
+________________________________________________________________________________________________________
+
+==================================
+Analysis of the Hirshfeld atom fit
+==================================
+
+An analysis of the fit is deposited in 'stdout.fit_analysis'.
+
+This large file includes:
+. a normal QQ plot i.e. Hamilton plot
+. a normal QQ plot with each datum labelled by (hkl)
+. a scatter plot of (Fexp-Fcalc)/sigma vs. sin (theta/lambda)
+. a scatter plot of (Fexp-Fcalc)/sigma vs. intensity
+
+If you used an extinction correction, you also get:
+. a scatter plot of (Fcalc-Fcalc(no ext))/sigma vs. sin (theta/lambda)
+. a scatter plot of (Fcalc-Fcalc(no ext))/sigma vs. Fcalc
+
+All of the above plots are available for the reserved (free) data
+if you made use of that option. Phew.
+
+Use Excel or gnuplot to view these data. Do it.
+
+=====================
+Residual density data
+=====================
+
+. Grid has voxels less than 0.1 A per side
+. Length units are in Angstrom
+
+No. of X grid points ........ 55
+No. of Y grid points ........ 55
+No. of Z grid points ........ 55
+Total no. of points ......... 166375
+X point separation .......... 0.095009
+Y point separation .......... 0.095009
+Z point separation .......... 0.095009
+
+Unit cell residual density:
+
+Maximum ..................... 0.065592
+- nearest atom .............. N
+- distance to it ............ 3.348694
+Minimum ..................... -0.044396
+- nearest atom .............. H3
+- distance to it ............ 2.266989
+RMS ......................... 0.022364
+
+Residuals on atoms:
+
+Maximum ..................... 0.032407
+- for atom .................. H3
+Minimum ..................... 0.020105
+- for atom .................. N
+RMS ......................... 0.004947
+
+keyword found --> }
+Job ended, elapsed time:
+0 days,  0 hours, 0minutes and 3 seconds elapsed.

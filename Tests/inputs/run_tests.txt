@@ -1,0 +1,10 @@
+GlyAla
+GlyAla_cluster_charges
+nh3_cluster_charges-Gaussian
+nh3_cluster_charges-Tonto
+nh3_dispersion-Gaussian
+nh3-dispersion-Tonto
+nh3-Gaussian
+nh3-Tonto
+yellow-Gaussian
+yellow-Tonto

@@ -1,0 +1,197 @@
+#\#CIF_2.0
+
+# ========================
+# Tonto generated CIF file
+# ========================
+
+# NOTE: This is an incomplete CIF file
+# Manually edit it to pass checkCIF
+
+data_my_job
+
+_audit_creation_date                2018-4-20
+_audit_creation_method              'Tonto 18.04.19 github v. 61a3969'
+
+# ============
+# QCr software
+# ============
+
+_QCr_software                       'Tonto'
+_QCr_software_version               '18.04.19 v. 61a3969'
+_QCr_software_platform              'Linux-4.4.0-98-generic'
+_QCr_software_build_date            '2018-04-19 16:02'
+_QCr_software_website               'https://github.com/dylan-jayatilaka/tonto'
+
+# ========
+# Symmetry
+# ========
+
+_symmetry_cell_setting              Cubic
+_symmetry_space_group_name_H-M      'p 21 3'
+_symmetry_space_group_name_Hall     'p 2ac 2ab 3'
+_symmetry_Int_Tables_number         '198'
+
+loop_
+    _symmetry_equiv_pos_as_xyz
+'+x, +y, +z'
+'-x+1/2, -y, +z+1/2'
+'+x+1/2, -y+1/2, -z'
+'+z, +x, +y'
+'-x, +y+1/2, -z+1/2'
+'+z+1/2, -x+1/2, -y'
+'-z, +x+1/2, -y+1/2'
+'-z+1/2, -x, +y+1/2'
+'+y, +z, +x'
+'+y+1/2, -z+1/2, -x'
+'-y, +z+1/2, -x+1/2'
+'-y+1/2, -z, +x+1/2'
+
+# =========
+# Unit cell
+# =========
+
+_cell_measurement_temperature  ?
+_cell_measurement_reflns_used  ?
+_cell_measurement_theta_min    ?
+_cell_measurement_theta_max    ?
+
+_cell_length_a                     5.1305(8)
+_cell_length_b                     5.1305(8)
+_cell_length_c                     5.1305(8)
+_cell_angle_alpha               90.000000(0)
+_cell_angle_beta                90.000000(0)
+_cell_angle_gamma               90.000000(0)
+_cell_volume                       135.05(4)
+
+_cell_formula_units_Z               4.000000
+
+_exptl_crystal_F_squared_000         1600.0000
+
+
+# ======================
+# XD fco reflection data
+# ======================
+
+# . checkCIF also accepts this as fcf format
+
+_shelx_refln_list_code              6
+
+_reflns_d_resolution_high           2.9621
+_reflns_d_resolution_low            0.7184
+_reflns_limit_h_max                 4
+_reflns_limit_h_min                 -4
+_reflns_limit_k_max                 7
+_reflns_limit_k_min                 -7
+_reflns_limit_l_max                 6
+_reflns_limit_l_min                 -6
+
+# NOTE: F_squared_meas is scaled to F_squared_calc
+#       and so it is on an absolute scale
+_reflns_tonto_F_scale_factor        6.3668
+
+loop_
+    _refln_index_h
+    _refln_index_k
+    _refln_index_l
+    _refln_F_squared_calc
+    _refln_F_squared_meas
+    _refln_F_squared_sigma
+    _refln_observed_status
+  -4  -4  -4        0.82        0.95      0.03 o
+  -3  -5  -4        0.59        0.44      0.01 o
+  -3  -5  -3        0.72        0.79      0.02 o
+  -3  -4  -5        0.96        0.86      0.02 o
+  -3  -4  -4        1.09        0.97      0.02 o
+  -3  -4  -3        1.85        1.86      0.02 o
+  -3  -3  -3        3.63        3.40      0.04 o
+  -2  -6  -3        1.23        1.11      0.02 o
+  -2  -6  -2        0.17        0.21      0.01 o
+  -2  -5  -4        1.71        1.71      0.02 o
+  -2  -5  -3        0.95        0.87      0.02 o
+  -2  -5  -2        1.41        1.49      0.02 o
+  -2  -4  -5        0.54        0.45      0.01 o
+  -2  -4  -4        1.09        1.11      0.02 o
+  -2  -4  -3        3.44        3.55      0.03 o
+  -2  -4  -2        3.45        3.33      0.02 o
+  -2  -3  -6        0.97        0.93      0.02 o
+  -2  -3  -5        2.25        2.17      0.02 o
+  -2  -3  -4        3.10        3.07      0.02 o
+  -2  -3  -3        5.37        5.58      0.04 o
+  -2  -3  -2        4.82        4.92      0.03 o
+  -2  -2  -2       31.12       31.45      0.23 o
+  -1  -7  -1        0.04        0.06      0.01 o
+  -1  -6  -3        1.40        1.42      0.02 o
+  -1  -6  -2        0.26        0.26      0.01 o
+  -1  -6  -1        0.34        0.33      0.01 o
+  -1  -5  -5        0.10        0.12      0.01 o
+  -1  -5  -4        1.26        1.18      0.02 o
+  -1  -5  -3        0.48        0.42      0.01 o
+  -1  -5  -2        6.29        6.51      0.06 o
+  -1  -5  -1        0.93        0.97      0.01 o
+  -1  -4  -5        2.43        2.46      0.03 o
+  -1  -4  -4        1.94        1.91      0.03 o
+  -1  -4  -3        4.31        4.52      0.03 o
+  -1  -4  -2        3.18        3.31      0.02 o
+  -1  -4  -1        1.39        1.36      0.01 o
+  -1  -3  -6        0.16        0.13      0.01 o
+  -1  -3  -5        0.48        0.48      0.01 o
+  -1  -3  -4        1.69        1.72      0.01 o
+  -1  -3  -3        6.88        6.91      0.05 o
+  -1  -3  -2       15.25       15.19      0.07 o
+  -1  -3  -1       33.17       34.41      0.25 o
+  -1  -2  -6        3.21        3.14      0.03 o
+  -1  -2  -5        2.00        2.03      0.02 o
+  -1  -2  -4       11.62       11.52      0.12 o
+  -1  -2  -3        5.85        5.26      0.05 o
+  -1  -2  -2       25.03       24.20      0.14 o
+  -1  -2  -1        7.57        7.50      0.06 o
+  -1  -1  -1      466.84      420.18      5.93 o
+   1   1   1      466.86      427.51      3.70 o
+   1   2   1        7.57        7.46      0.05 o
+   1   2   2       25.04       24.22      0.14 o
+   1   2   3        5.85        5.35      0.04 o
+   1   2   4       11.62       11.84      0.11 o
+   1   2   5        2.00        2.07      0.02 o
+   1   2   6        3.21        3.13      0.04 o
+   1   3   1       33.18       34.73      0.31 o
+   1   3   2       15.26       15.27      0.12 o
+   1   3   3        6.89        6.95      0.03 o
+   1   3   4        1.69        1.73      0.01 o
+   1   3   5        0.48        0.47      0.01 o
+   1   3   6        0.16        0.14      0.01 o
+   1   4   1        1.39        1.35      0.01 o
+   1   4   2        3.19        3.32      0.02 o
+   1   4   3        4.31        4.45      0.03 o
+   1   4   4        1.94        1.90      0.02 o
+   1   4   5        2.43        2.44      0.04 o
+   1   5   1        0.93        0.98      0.01 o
+   1   5   2        6.29        6.52      0.04 o
+   1   5   3        0.48        0.42      0.01 o
+   1   5   4        1.26        1.15      0.02 o
+   1   5   5        0.10        0.12      0.01 o
+   1   6   1        0.34        0.34      0.01 o
+   1   6   2        0.26        0.24      0.01 o
+   1   6   3        1.40        1.41      0.03 o
+   1   7   1        0.04        0.06      0.01 o
+   2   2   2       31.15       31.30      0.23 o
+   2   3   2        4.82        4.96      0.03 o
+   2   3   3        5.37        5.63      0.03 o
+   2   3   4        3.10        3.12      0.02 o
+   2   3   5        2.25        2.16      0.04 o
+   2   3   6        0.97        0.95      0.02 o
+   2   4   2        3.45        3.39      0.03 o
+   2   4   3        3.44        3.54      0.03 o
+   2   4   4        1.09        1.11      0.02 o
+   2   4   5        0.54        0.43      0.01 o
+   2   5   2        1.41        1.46      0.02 o
+   2   5   3        0.95        0.86      0.01 o
+   2   5   4        1.71        1.70      0.02 o
+   2   6   2        0.17        0.21      0.01 o
+   2   6   3        1.23        1.10      0.02 o
+   3   3   3        3.63        3.45      0.05 o
+   3   4   3        1.85        1.85      0.02 o
+   3   4   4        1.09        0.95      0.02 o
+   3   4   5        0.96        0.88      0.02 o
+   3   5   3        0.72        0.82      0.02 o
+   3   5   4        0.59        0.48      0.01 o
+   4   4   4        0.82        1.00      0.03 o
