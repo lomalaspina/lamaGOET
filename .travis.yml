@@ -1,2 +1,15 @@
+before_install:
+  - sudo apt-get update -q
+  - sudo apt-get install gtk+-2.0 -y
+  - sudo apt-get install gawk -y
+  - sudo apt-get install zenity -y
+
+install:
+  - wget https://gtkdialog.googlecode.com/files/gtkdialog-0.8.3.tar.gz
+  - tar -xvf gtkdialog-0.8.3.tar.gz
+  - cd gtkdialog-0.8.3/
+  - ./configure
+  - make
+  - sudo make install
+
 language: bash
-os: osx
