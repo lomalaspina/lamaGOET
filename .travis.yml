@@ -1,10 +1,2 @@
-before_install:
-  - sudo apt-get install -y gtk+-2.0 gtkdialog gawk zenity
-  - cd gtkdialog-0.8.3
-  - ./configure
-  - make
-  - sudo make install
-  - cd ..
-
 language: bash
 os: osx
