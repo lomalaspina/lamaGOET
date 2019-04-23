@@ -6,13 +6,13 @@ before_install:
   - sudo apt-get install gawk -y
   - sudo apt-get install zenity -y
 
-install:
-  - wget https://storage.googleapis.com/google-code-archive-downloads/v2/code.google.com/gtkdialog/gtkdialog-0.8.3.tar.gz
-  - tar -xvf gtkdialog-0.8.3.tar.gz
-  - cd gtkdialog-0.8.3/
-  - ./configure
-  - make
-  - sudo make install
+#install:
+#  - wget https://storage.googleapis.com/google-code-archive-downloads/v2/code.google.com/gtkdialog/gtkdialog-0.8.3.tar.gz
+#  - tar -xvf gtkdialog-0.8.3.tar.gz
+#  - cd gtkdialog-0.8.3/
+#  - ./configure
+#  - make
+#  - sudo make install
 
 deploy:
   provider: script
