@@ -3,7 +3,8 @@ Encoding=UTF-8
 
 SPACEGROUP(){
 	
-	SPACEGROUPARRAY=("1        = p 1          =  p 1            "
+	SPACEGROUPARRAY=(
+        "1        = p 1          =  p 1            "
 	"2        = p -1         =  -p 1           "
 	"3:b      = p 1 2 1      =  p 2y           "
 	"3:b      = p 2          =  p 2y           "
@@ -613,7 +614,7 @@ GAMESS_ELMODB_OLD_PDB(){
 	I=$[ $I + 1 ]
 	PDB=$( echo $CIF | awk -F "/" '{print $NF}' )
 	echo "title" > $JOBNAME.gamess.inp
-	echo "prova $JOBNAME - $BASISSET - closed shell SCF" >> $JOBNAME.gamess.inp
+	echo "prova $JOBNAME - $BASISSETG - closed shell SCF" >> $JOBNAME.gamess.inp
 	echo "charge $CHARGE " >> $JOBNAME.gamess.inp
 	if [ "$MULTIPLICITY" != "1" ]; then
 		echo "multiplicity $MULTIPLICITY" >> $JOBNAME.gamess.inp
@@ -638,10 +639,10 @@ GAMESS_ELMODB_OLD_PDB(){
 	rm atoms_names
 	echo "end" >> $JOBNAME.gamess.inp
 	case "6-31g(d,p)" in
-	 $BASISSET ) echo "basis 6-31G**" >> $JOBNAME.gamess.inp;;
+	 $BASISSETG ) echo "basis 6-31G**" >> $JOBNAME.gamess.inp;;
 	 *) 	case "6-311g(d,p)" in
-		 $BASISSET ) echo "basis 6-311G**" >> $JOBNAME.gamess.inp;;
-		 *)	echo "basis $BASISSET" >> $JOBNAME.gamess.inp;;
+		 $BASISSETG ) echo "basis 6-311G**" >> $JOBNAME.gamess.inp;;
+		 *)	echo "basis $BASISSETG" >> $JOBNAME.gamess.inp;;
 		esac;;
 	esac
 	echo "runtype scf" >> $JOBNAME.gamess.inp
@@ -669,7 +670,7 @@ GAMESS_ELMODB_OLD_PDB(){
 		if [ "$I" = "1" ]; then
 			BASISSETDIR=$( echo "$(dirname $BASISSETDIR)/" )
 			ELMOLIB=$( echo "$(dirname $ELMOLIB)/" )
-			echo " "'$INPUT_METHOD'"      job_title='$JOBNAME' basis_set='$BASISSET' iprint_level=1 ncpus=$NUMPROC alloc_mem=$MEM bset_path='$BASISSETDIR' lib_path='$ELMOLIB' nci=.true. comp_sao=.false. "'$END'" " > $JOBNAME.elmodb.inp
+			echo " "'$INPUT_METHOD'"      job_title='$JOBNAME' basis_set='$BASISSETG' iprint_level=1 ncpus=$NUMPROC alloc_mem=$MEM bset_path='$BASISSETDIR' lib_path='$ELMOLIB' nci=.true. comp_sao=.false. "'$END'" " > $JOBNAME.elmodb.inp
 			echo " "'$INPUT_STRUCTURE'"   pdb_file='$PDB' ntail=$NTAIL nssbond=$NSSBOND "'$END'"  " >> $JOBNAME.elmodb.inp
 			if [[ "$NTAIL" != "0" ]]; then
 				echo "$MANUALRESIDUE" >> $JOBNAME.elmodb.inp
@@ -678,7 +679,7 @@ GAMESS_ELMODB_OLD_PDB(){
 				echo "$SSBONDATOMS" >> $JOBNAME.elmodb.inp
 			fi			
 		else 
-			echo " "'$INPUT_METHOD'"      job_title='$JOBNAME' basis_set='$BASISSET' xyz=.true. iprint_level=1 ncpus=$NUMPROC alloc_mem=$MEM bset_path='$BASISSETDIR' lib_path='$ELMOLIB' nci=.true. comp_sao=.false. "'$END'" " > $JOBNAME.elmodb.inp
+			echo " "'$INPUT_METHOD'"      job_title='$JOBNAME' basis_set='$BASISSETG' xyz=.true. iprint_level=1 ncpus=$NUMPROC alloc_mem=$MEM bset_path='$BASISSETDIR' lib_path='$ELMOLIB' nci=.true. comp_sao=.false. "'$END'" " > $JOBNAME.elmodb.inp
 			echo " "'$INPUT_STRUCTURE'"   pdb_file='$PDB' xyz_file='$JOBNAME.xyz' ntail=$NTAIL nssbond=$NSSBOND "'$END'"  " >> $JOBNAME.elmodb.inp
 			if [[ "$NTAIL" != "0" ]]; then
 				echo "$MANUALRESIDUE" >> $JOBNAME.elmodb.inp
@@ -713,18 +714,20 @@ ELMODB(){
 	if [ "$I" = "1" ]; then
 		BASISSETDIR=$( echo "$(dirname $BASISSETDIR)/" )
 		ELMOLIB=$( echo "$(dirname $ELMOLIB)/" )
-		echo " "'$INPUT_METHOD'"      job_title='$JOBNAME' basis_set='$BASISSET' iprint_level=1 ncpus=$NUMPROC alloc_mem=$MEM bset_path='$BASISSETDIR' lib_path='$ELMOLIB' nci=.true. "'$END'" " > $JOBNAME.elmodb.inp
-		if [[ "$NTAIL" != "0" ]]; then
-			echo " "'$INPUT_STRUCTURE'"   pdb_file='$PDB' ntail=$NTAIL max_atail=$ATAIL max_frtail=$FRTAIL nssbond=$NSSBOND "'$END'"  " >> $JOBNAME.elmodb.inp
-			echo "$MANUALRESIDUE" >> $JOBNAME.elmodb.inp
+		echo " "'$INPUT_METHOD'"      job_title='$JOBNAME' basis_set='$BASISSETG' iprint_level=1 ncpus=$NUMPROC alloc_mem=$MEM bset_path='$BASISSETDIR' lib_path='$ELMOLIB' nci=.true. "'$END'" " > $JOBNAME.elmodb.inp
+		if [[ "$INITADP" == "true" ]];then
+			echo " "'$INPUT_STRUCTURE'"   pdb_file='$PDB' cif_file='$INITADPFILE' ntail=$NTAIL max_atail=$ATAIL max_frtail=$FRTAIL nssbond=$NSSBOND "'$END'"  " >> $JOBNAME.elmodb.inp
 		else
-			echo " "'$INPUT_STRUCTURE'"   pdb_file='$PDB' ntail=$NTAIL nssbond=$NSSBOND "'$END'"  " >> $JOBNAME.elmodb.inp
+			echo " "'$INPUT_STRUCTURE'"   pdb_file='$PDB' ntail=$NTAIL max_atail=$ATAIL max_frtail=$FRTAIL nssbond=$NSSBOND "'$END'"  " >> $JOBNAME.elmodb.inp
+		fi
+		if [[ "$NTAIL" != "0" ]]; then
+			echo "$MANUALRESIDUE" >> $JOBNAME.elmodb.inp
 		fi
 		if [[ "$NSSBOND" != "0" ]]; then
 			echo "$SSBONDATOMS" >> $JOBNAME.elmodb.inp
 		fi
 	else 
-		echo " "'$INPUT_METHOD'"      job_title='$JOBNAME' basis_set='$BASISSET' xyz=.true. iprint_level=1 ncpus=$NUMPROC alloc_mem=$MEM bset_path='$BASISSETDIR' lib_path='$ELMOLIB' nci=.true. "'$END'" " > $JOBNAME.elmodb.inp
+		echo " "'$INPUT_METHOD'"      job_title='$JOBNAME' basis_set='$BASISSETG' xyz=.true. iprint_level=1 ncpus=$NUMPROC alloc_mem=$MEM bset_path='$BASISSETDIR' lib_path='$ELMOLIB' nci=.true. "'$END'" " > $JOBNAME.elmodb.inp
 		if [[ "$NTAIL" != "0" ]]; then
 			echo " "'$INPUT_STRUCTURE'"   pdb_file='$PDB' xyz_file='$JOBNAME.xyz' ntail=$NTAIL max_atail=$ATAIL max_frtail=$FRTAIL nssbond=$NSSBOND "'$END'"  " >> $JOBNAME.elmodb.inp
 			echo "$MANUALRESIDUE" >> $JOBNAME.elmodb.inp
@@ -760,12 +763,12 @@ TONTO_TO_ORCA(){
 	I=$[ $I + 1 ]
 	echo "Extrating XYZ for Orca cycle number $I"
 	if [ "$METHOD" = "rks" ]; then
-		echo "! blyp $BASISSET" > $JOBNAME.inp
+		echo "! blyp $BASISSETG" > $JOBNAME.inp
 	else
 		if [ "$METHOD" = "uks" ]; then
-			echo "! ublyp $BASISSET" > $JOBNAME.inp
+			echo "! ublyp $BASISSETG" > $JOBNAME.inp
 		else
-			echo "! $METHOD $BASISSET" > $JOBNAME.inp
+			echo "! $METHOD $BASISSETG" > $JOBNAME.inp
 		fi
 	fi
 	echo "" >> $JOBNAME.inp
@@ -1173,6 +1176,7 @@ SCF_TO_TONTO(){
 		cp $JOBNAME.xyz $J.fit_cycle.$JOBNAME/$J.$JOBNAME.xyz
 		cp stdin $J.fit_cycle.$JOBNAME/$J.stdin
 		cp stdout $J.fit_cycle.$JOBNAME/$J.stdout
+		sed -i '/# NOTE: Cartesian 9Nx9N covariance matrix in BOHR units/,/# ===========/d' $JOBNAME.cartesian.cif2
 		cp $JOBNAME'.cartesian.cif2' $J.fit_cycle.$JOBNAME/$J.$JOBNAME.cartesian.cif2
 		cp $JOBNAME'.archive.cif' $J.fit_cycle.$JOBNAME/$J.$JOBNAME.archive.cif
 		cp $JOBNAME'.archive.fco' $J.fit_cycle.$JOBNAME/$J.$JOBNAME.archive.fco
@@ -1195,27 +1199,27 @@ TONTO_TO_GAUSSIAN(){
 	echo "%nprocshared=$NUMPROC" >> $JOBNAME.com
 	if [ "$METHOD" = "rks" ]; then
 		if [ "$SCCHARGES" = "true" ]; then 
-	   		echo "# blyp/$BASISSET Charge nosymm output=wfn 6D 10F Fchk $INT" >> $JOBNAME.com
+	   		echo "# blyp/$BASISSETG Charge nosymm output=wfn 6D 10F Fchk $INT" >> $JOBNAME.com
 		else
-			echo "# blyp/$BASISSET nosymm output=wfn 6D 10F Fchk $INT" >> $JOBNAME.com
+			echo "# blyp/$BASISSETG nosymm output=wfn 6D 10F Fchk $INT" >> $JOBNAME.com
 	        fi
 	elif [ "$METHOD" = "uks" ]; then
 		if [ "$SCCHARGES" = "true" ]; then 
-	   		echo "# ublyp/$BASISSET Charge nosymm output=wfn 6D 10F Fchk $INT" >> $JOBNAME.com
+	   		echo "# ublyp/$BASISSETG Charge nosymm output=wfn 6D 10F Fchk $INT" >> $JOBNAME.com
 		else
-			echo "# ublyp/$BASISSET nosymm output=wfn 6D 10F Fchk $INT" >> $JOBNAME.com
+			echo "# ublyp/$BASISSETG nosymm output=wfn 6D 10F Fchk $INT" >> $JOBNAME.com
 	        fi
 	elif [ "$METHOD" = "rhf" ]; then
 		if [ "$SCCHARGES" = "true" ]; then 
-	   		echo "# HF/$BASISSET Charge nosymm output=wfn 6D 10F Fchk $INT" >> $JOBNAME.com
+	   		echo "# HF/$BASISSETG Charge nosymm output=wfn 6D 10F Fchk $INT" >> $JOBNAME.com
 		else
-			echo "# HF/$BASISSET nosymm output=wfn 6D 10F Fchk $INT" >> $JOBNAME.com
+			echo "# HF/$BASISSETG nosymm output=wfn 6D 10F Fchk $INT" >> $JOBNAME.com
 	        fi
 	else
 		if [ "$SCCHARGES" = "true" ]; then 
-	   		echo "# $METHOD/$BASISSET Charge nosymm output=wfn 6D 10F Fchk $INT" >> $JOBNAME.com
+	   		echo "# $METHOD/$BASISSETG Charge nosymm output=wfn 6D 10F Fchk $INT" >> $JOBNAME.com
 		else
-			echo "# $METHOD/$BASISSET nosymm output=wfn 6D 10F Fchk $INT" >> $JOBNAME.com
+			echo "# $METHOD/$BASISSETG nosymm output=wfn 6D 10F Fchk $INT" >> $JOBNAME.com
 	        fi
 	fi
 	echo "" >> $JOBNAME.com
@@ -1258,7 +1262,7 @@ CHECK_ENERGY(){
 		ENERGIA2=$(sed 's/^ //' $JOBNAME.log | sed 'N;s/\n//' | sed 'N;s/\n//' | sed 'N;s/\n//' | sed 'N;s/\n//' | sed -n '/HF=/{N;p;}' | sed 's/^.*HF=//' | sed 'N;s/\n//' | sed '2d' | sed 's/RMSD=//g' | awk -F '\' '{ print $1}' | tr -d '\r')
 		RMSD2=$(sed 's/^ //' $JOBNAME.log | sed 'N;s/\n//' | sed 'N;s/\n//' | sed 'N;s/\n//'| sed -n '/RMSD=/{N;p;}' | sed 's/^.*RMSD=//' | sed 'N;s/\n//' | sed '2d' | sed 's/RMSD=//g' | awk -F '\' '{ print $1}'| tr -d '\r')
 		echo "Gaussian cycle number $I, final energy is: $ENERGIA2, RMSD is: $RMSD2 "
-	else
+	elif [ "$SCFCALCPROG" = "Orca" ]; then
 		ENERGIA2=$(sed -n '/Total Energy       :/p' $JOBNAME.log | awk '{print $4}' | tr -d '\r')
 		RMSD2=$(sed -n '/Last RMS-Density change/p' $JOBNAME.log | awk '{print $5}' | tr -d '\r')
 		echo "Orca cycle number $I, final energy is: $ENERGIA2, RMSD is: $RMSD2 "
@@ -1486,7 +1490,7 @@ run_script(){
 		echo "Level of theory 	: $METHOD/$BASISSETT" >> $JOBNAME.lst
 		echo "Basis set directory	: $BASISSETDIR" >> $JOBNAME.lst
 	else
-		echo "Level of theory 	: $METHOD/$BASISSET" >> $JOBNAME.lst
+		echo "Level of theory 	: $METHOD/$BASISSETG" >> $JOBNAME.lst
 	fi
 	if [ "$SCFCALCPROG" = "Tonto" ]; then 
 		echo "Becke grid (not default): $USEBECKE" >> $JOBNAME.lst
@@ -1601,6 +1605,7 @@ run_script(){
 		cp $JOBNAME.xyz $J.fit_cycle.$JOBNAME/$JOBNAME.starting_geom.xyz
 		cp stdin $J.fit_cycle.$JOBNAME/$J.stdin
 		cp stdout $J.fit_cycle.$JOBNAME/$J.stdout
+		sed -i '/# NOTE: Cartesian 9Nx9N covariance matrix in BOHR units/,/# ===========/d' $JOBNAME.cartesian.cif2
 		cp $JOBNAME'.cartesian.cif2' $J.fit_cycle.$JOBNAME/$J.$JOBNAME.cartesian.cif2
 		awk '{a[NR]=$0}/^Atom coordinates/{b=NR}/^Unit cell information/{c=NR}END{for(d=b-1;d<=c-2;++d)print a[d]}' stdout >> $JOBNAME.lst
 		echo "Done reading cif with Tonto"
@@ -1634,12 +1639,12 @@ run_script(){
 			echo "%mem=$MEM" | tee -a $JOBNAME.com  $JOBNAME.lst
 			echo "%nprocshared=$NUMPROC" | tee -a $JOBNAME.com $JOBNAME.lst
 			if [ "$METHOD" = "rks" ]; then
-				echo "# blyp/$BASISSET nosymm output=wfn 6D 10F Fchk $INT" | tee -a $JOBNAME.com $JOBNAME.lst    
+				echo "# blyp/$BASISSETG nosymm output=wfn 6D 10F Fchk $INT" | tee -a $JOBNAME.com $JOBNAME.lst    
 			else
 				if [ "$METHOD" = "uks" ]; then
-					echo "# ublyp/$BASISSET nosymm output=wfn 6D 10F Fchk $INT" | tee -a $JOBNAME.com $JOBNAME.lst
+					echo "# ublyp/$BASISSETG nosymm output=wfn 6D 10F Fchk $INT" | tee -a $JOBNAME.com $JOBNAME.lst
 				else
-					echo "# $METHOD/$BASISSET nosymm output=wfn 6D 10F Fchk $INT" | tee -a $JOBNAME.com $JOBNAME.lst
+					echo "# $METHOD/$BASISSETG nosymm output=wfn 6D 10F Fchk $INT" | tee -a $JOBNAME.com $JOBNAME.lst
 			        fi
 			fi			
 			echo ""  | tee -a $JOBNAME.com $JOBNAME.lst
@@ -1687,14 +1692,14 @@ run_script(){
 			echo "                                     Starting Orca                                             " >> $JOBNAME.lst
 			echo "###############################################################################################" >> $JOBNAME.lst
 			if [ "$METHOD" = "rks" ]; then
-				echo "! blyp $BASISSET" > $JOBNAME.inp
-				echo "! blyp $BASISSET" >> $JOBNAME.lst
+				echo "! blyp $BASISSETG" > $JOBNAME.inp
+				echo "! blyp $BASISSETG" >> $JOBNAME.lst
 			elif [ "$METHOD" = "uks" ]; then
-				echo "! ublyp $BASISSET" > $JOBNAME.inp
-				echo "! ublyp $BASISSET" >> $JOBNAME.lst
+				echo "! ublyp $BASISSETG" > $JOBNAME.inp
+				echo "! ublyp $BASISSETG" >> $JOBNAME.lst
 			else
-				echo "! $METHOD $BASISSET" > $JOBNAME.inp
-				echo "! $METHOD $BASISSET" >> $JOBNAME.lst
+				echo "! $METHOD $BASISSETG" > $JOBNAME.inp
+				echo "! $METHOD $BASISSETG" >> $JOBNAME.lst
 			fi
 			echo "" | tee -a $JOBNAME.inp $JOBNAME.lst
 			echo "%output" | tee -a $JOBNAME.inp $JOBNAME.lst
@@ -1757,8 +1762,12 @@ run_script(){
 		echo "###############################################################################################" >> $JOBNAME.lst
 		echo "" >> $JOBNAME.lst
 		echo "Energy= $ENERGIA2, RMSD= $RMSD2" >> $JOBNAME.lst
-		GET_RESIDUALS
 		echo " $(awk '{a[NR]=$0}/^Rigid-atom fit results/{b=NR}/^Wall-clock time taken for job /{c=NR}END{for (d=b-2;d<c-1;++d) print a[d]}' stdout)"  >> $JOBNAME.lst
+		GET_RESIDUALS
+		echo " $(awk '{a[NR]=$0}/^Reflections pruned/{b=NR}/^Atom coordinates/{c=NR}END{for (d=b-2;d<c-1;++d) print a[d]}' stdout)"  >> $JOBNAME.lst
+		echo " $(awk '{a[NR]=$0}/^Residual density data/{b=NR}/^Wall-clock time taken for job/{c=NR}END{for (d=b-2;d<c-1;++d) print a[d]}' stdout)" >> $JOBNAME.lst
+#changed this because now its after residuals
+#		echo " $(awk '{a[NR]=$0}/^Rigid-atom fit results/{b=NR}/^Wall-clock time taken for job /{c=NR}END{for (d=b-2;d<c-1;++d) print a[d]}' stdout)"  >> $JOBNAME.lst
 #		get the residual density running tonto once, only needed if not using tonto for the scf			
 		DURATION=$SECONDS
 		echo "Job ended, elapsed time:" | tee -a $JOBNAME.lst
@@ -1772,8 +1781,11 @@ run_script(){
 		echo "                                     Final Geometry                                         " >> $JOBNAME.lst
 		echo "###############################################################################################" >> $JOBNAME.lst
 		echo "" >> $JOBNAME.lst
-		GET_RESIDUALS
-		echo " $(awk '{a[NR]=$0}/^Rigid-atom fit results/{b=NR}/^Wall-clock time taken for job /{c=NR}END{for (d=b-2;d<c-1;++d) print a[d]}' stdout)"  >> $JOBNAME.lst
+		echo " $(awk '{a[NR]=$0}/^Structure refinement results/{b=NR}/^Wall-clock time taken for job /{c=NR}END{for (d=b-2;d<c-1;++d) print a[d]}' stdout)"  >> $JOBNAME.lst
+# no need since its tonto residuals are calculated anyway.
+#		GET_RESIDUALS
+#		echo " $(awk '{a[NR]=$0}/^Reflections pruned/{b=NR}/^Atom coordinates/{c=NR}END{for (d=b-2;d<c-1;++d) print a[d]}' stdout)"  >> $JOBNAME.lst
+#		echo " $(awk '{a[NR]=$0}/^Residual density data/{b=NR}/^Wall-clock time taken for job/{c=NR}END{for (d=b-2;d<c-1;++d) print a[d]}' stdout)" >> $JOBNAME.lst
 		DURATION=$SECONDS
 		echo "Job ended, elapsed time:" | tee -a $JOBNAME.lst
 		echo "$(($DURATION / 86400 )) days,  $((($DURATION / 3600) % 24 )) hours, $((($DURATION / 60) % 60 ))minutes and $(($DURATION % 60 )) seconds elapsed." | tee -a $JOBNAME.lst
@@ -1785,7 +1797,6 @@ run_script(){
 			ELMODB
 			while (( $(echo "$MAXSHIFT > $CONVTOL" | bc -l) || $( echo "$J <= 1" | bc -l )  )); do
 			if [[ $J -gt 50 ]];then
-				CHECK_ENERGY
 				echo "ERROR: Refinement ended. Too many fit cycles. Check if result is reasonable and/or change your convergency criteira."
 				break
 			fi
@@ -1798,8 +1809,10 @@ run_script(){
 			echo "                                     Final Geometry                                         " >> $JOBNAME.lst
 				echo "###############################################################################################" >> $JOBNAME.lst
 			echo "" >> $JOBNAME.lst
-			GET_RESIDUALS
 			echo " $(awk '{a[NR]=$0}/^Rigid-atom fit results/{b=NR}/^Wall-clock time taken for job /{c=NR}END{for (d=b-2;d<c-1;++d) print a[d]}' stdout)"  >> $JOBNAME.lst
+			GET_RESIDUALS
+			echo " $(awk '{a[NR]=$0}/^Reflections pruned/{b=NR}/^Atom coordinates/{c=NR}END{for (d=b-2;d<c-1;++d) print a[d]}' stdout)"  >> $JOBNAME.lst
+			echo " $(awk '{a[NR]=$0}/^Residual density data/{b=NR}/^Wall-clock time taken for job/{c=NR}END{for (d=b-2;d<c-1;++d) print a[d]}' stdout)" >> $JOBNAME.lst
 #			get the residual density running tonto once, only needed if not using tonto for the scf			
 			DURATION=$SECONDS
 			echo "Job ended, elapsed time:" | tee -a $JOBNAME.lst
@@ -1811,7 +1824,6 @@ run_script(){
 			GAMESS_ELMODB_OLD_PDB
 			while (( $(echo "$MAXSHIFT > $CONVTOL" | bc -l) || $( echo "$J <= 1" | bc -l )  )); do
 			if [[ $J -gt 50 ]];then
-				CHECK_ENERGY
 				echo "ERROR: Refinement ended. Too many fit cycles. Check if result is reasonable and/or change your convergency criteira."
 				break
 			fi
@@ -1824,8 +1836,10 @@ run_script(){
 			echo "                                     Final Geometry                                         " >> $JOBNAME.lst
 				echo "###############################################################################################" >> $JOBNAME.lst
 			echo "" >> $JOBNAME.lst
-			GET_RESIDUALS
 			echo " $(awk '{a[NR]=$0}/^Rigid-atom fit results/{b=NR}/^Wall-clock time taken for job /{c=NR}END{for (d=b-2;d<c-1;++d) print a[d]}' stdout)"  >> $JOBNAME.lst
+			GET_RESIDUALS
+			echo " $(awk '{a[NR]=$0}/^Reflections pruned/{b=NR}/^Atom coordinates/{c=NR}END{for (d=b-2;d<c-1;++d) print a[d]}' stdout)"  >> $JOBNAME.lst
+			echo " $(awk '{a[NR]=$0}/^Residual density data/{b=NR}/^Wall-clock time taken for job/{c=NR}END{for (d=b-2;d<c-1;++d) print a[d]}' stdout)" >> $JOBNAME.lst
 #			get the residual density running tonto once, only needed if not using tonto for the scf			
 			DURATION=$SECONDS
 			echo "Job ended, elapsed time:" | tee -a $JOBNAME.lst
@@ -1950,8 +1964,8 @@ export MAIN_DIALOG='
 	        <action>if false disable:USEBECKE</action>
 	        <action>if true enable:USEBECKE</action>
 	        <action>if false disable:USEBECKE</action>
-	        <action>if true disable:BASISSET</action>
-	        <action>if false enable:BASISSET</action>
+	        <action>if true disable:BASISSETG</action>
+	        <action>if false enable:BASISSETG</action>
 	        <action>if true disable:GAMESS</action>
 	        <action>if true disable:MEM</action>
 	        <action>if true disable:NUMPROC</action>
@@ -2014,6 +2028,42 @@ export MAIN_DIALOG='
 	        <action>if false disable:NSSBOND</action>
 	        <action>if true enable:INITADP</action>
 	        <action>if false disable:INITADP</action>
+	      </radiobutton>
+	      <radiobutton space-fill="True"  space-expand="True">
+	        <label>SCF opt with Gaussian</label>
+	        <default>true</default>
+	        <action>if true echo 'SCFCALCPROG="optgaussian"'</action>  
+	        <action>if true enable:MEM</action>
+	        <action>if true enable:NUMPROC</action>
+	        <action>if true disable:BASISSETDIR</action>
+	        <action>if true enable:SCFCALC_BIN</action>
+	        <action>if false disable:MEM</action>
+	        <action>if false disable:NUMPROC</action>
+	        <action>if false disable:SCFCALC_BIN</action>
+	        <action>if false enable:BASISSETDIR</action>
+	        <action>if true disable:BASISSETT</action>
+	        <action>if false enable:BASISSETT</action>
+	        <action>if true disable:GAMESS</action>
+	        <action>if true disable:ELMOLIB</action>
+	        <action>if false enable:ELMOLIB</action>
+	        <action>if true enable:XHALONG</action>
+	        <action>if false disable:XHALONG</action>
+	        <action>if true enable:COMPLETECIF</action>
+	        <action>if false disable:COMPLETECIF</action>
+	        <action>if true disable:USEGAMESS</action>
+	        <action>if false enable:USEGAMESS</action>
+	        <action>if true enable:GAUSGEN</action>
+	        <action>if false disable:GAUSGEN</action>
+	        <action>if true enable:GAUSSREL</action>
+	        <action>if false disable:GAUSSREL</action>
+	        <action>if true disable:NTAIL</action>
+	        <action>if false enable:NTAIL</action>
+	        <action>if true disable:MANUALRESIDUE</action>
+	        <action>if false enable:MANUALRESIDUE</action>
+	        <action>if true disable:NSSBOND</action>
+	        <action>if false enable:NSSBOND</action>
+	        <action>if true disable:INITADP</action>
+	        <action>if false enable:INITADP</action>
 	      </radiobutton>
 
 	   </hbox>
@@ -2288,8 +2338,8 @@ export MAIN_DIALOG='
 	    <checkbox active="false" space-fill="True"  space-expand="True">
 	     <label>Input external basis set manualy </label>
 	      <variable>GAUSGEN</variable>
-	      <action>if true disable:BASISSET</action>
-	      <action>if false enable:BASISSET</action>
+	      <action>if true disable:BASISSETG</action>
+	      <action>if false enable:BASISSETG</action>
 	    </checkbox>
 
 	    <checkbox active="false" space-fill="True"  space-expand="True">
@@ -2306,7 +2356,7 @@ export MAIN_DIALOG='
 	    <text><label>Enter manually for Gaussian, Orca or elmodb!</label> </text>
 	    <entry tooltip-text="Use the correct Gaussian or Orca or Tonto format" sensitive="true">
 	     <default>STO-3G</default>
-	     <variable>BASISSET</variable>
+	     <variable>BASISSETG</variable>
 	    </entry>
 	
 	   </hbox>
@@ -2780,9 +2830,9 @@ if [[ -z "$SCFCALCPROG" ]]; then
 fi
 
 if [ "$GAUSGEN" = "true" ]; then
-    BASISSET="gen"
+    BASISSETG="gen"
     zenity --entry --title="New basis set" --text="Enter or paste the basis set in the gaussian format as: \n !!NO EMPTY LINE!! \n C 0 \n S 5 \n exponent1 coefficient1 \n exponent2 coefficient2 \n exponent3 coefficient3 \n exponent4 coefficient4 \n exponent5 coefficient5 \n **** \n !!NO EMPTY LINE!! \n (Repeat this for all shells and all elements) " > basis_gen.txt
-    sed -i '/BASISSET=/c\BASISSET=\".\/'$BASISSET'"' job_options.txt
+    sed -i '/BASISSETG=/c\BASISSETG=\"'$BASISSETG'"' job_options.txt
 fi
 
 if [ "$GAUSSREL" = "true" ]; then

@@ -3,7 +3,8 @@ Encoding=UTF-8
 
 SPACEGROUP(){
 	
-	SPACEGROUPARRAY=("1        = p 1          =  p 1            "
+	SPACEGROUPARRAY=(
+        "1        = p 1          =  p 1            "
 	"2        = p -1         =  -p 1           "
 	"3:b      = p 1 2 1      =  p 2y           "
 	"3:b      = p 2          =  p 2y           "
@@ -765,12 +766,14 @@ ELMODB(){
 #		PDB=$( echo $CIF | awk -F "/" '{print $NF}' )
 		BASISSETDIR=$( echo "$(dirname $BASISSETDIR)/" )
 		ELMOLIB=$( echo "$(dirname $ELMOLIB)/" )
-		echo " "'$INPUT_METHOD'"      job_title='$JOBNAME' basis_set='$BASISSET' iprint_level=1 ncpus=$NUMPROC alloc_mem=$MEM bset_path='$BASISSETDIR' lib_path='$ELMOLIB' nci=.true. "'$END'" " > $JOBNAME.elmodb.inp
-		if [[ "$NTAIL" != "0" ]]; then
-			echo " "'$INPUT_STRUCTURE'"   pdb_file='$PDB' ntail=$NTAIL max_atail=$ATAIL max_frtail=$FRTAIL nssbond=$NSSBOND "'$END'"  " >> $JOBNAME.elmodb.inp
-			echo "$MANUALRESIDUE" >> $JOBNAME.elmodb.inp
+		echo " "'$INPUT_METHOD'"      job_title='$JOBNAME' basis_set='$BASISSETG' iprint_level=1 ncpus=$NUMPROC alloc_mem=$MEM bset_path='$BASISSETDIR' lib_path='$ELMOLIB' nci=.true. "'$END'" " > $JOBNAME.elmodb.inp
+		if [[ "$INITADP" == "true" ]];then
+			echo " "'$INPUT_STRUCTURE'"   pdb_file='$PDB' cif_file='$INITADPFILE' ntail=$NTAIL max_atail=$ATAIL max_frtail=$FRTAIL nssbond=$NSSBOND "'$END'"  " >> $JOBNAME.elmodb.inp
 		else
-			echo " "'$INPUT_STRUCTURE'"   pdb_file='$PDB' ntail=$NTAIL nssbond=$NSSBOND "'$END'"  " >> $JOBNAME.elmodb.inp
+			echo " "'$INPUT_STRUCTURE'"   pdb_file='$PDB' ntail=$NTAIL max_atail=$ATAIL max_frtail=$FRTAIL nssbond=$NSSBOND "'$END'"  " >> $JOBNAME.elmodb.inp
+		fi
+		if [[ "$NTAIL" != "0" ]]; then
+			echo "$MANUALRESIDUE" >> $JOBNAME.elmodb.inp
 		fi
 		if [[ "$NSSBOND" != "0" ]]; then
 			echo "$SSBONDATOMS" >> $JOBNAME.elmodb.inp
@@ -1269,6 +1272,7 @@ SCF_TO_TONTO(){
 		cp $JOBNAME.xyz $J.fit_cycle.$JOBNAME/$J.$JOBNAME.xyz
 		cp stdin $J.fit_cycle.$JOBNAME/$J.stdin
 		cp stdout $J.fit_cycle.$JOBNAME/$J.stdout
+		sed -i '/# NOTE: Cartesian 9Nx9N covariance matrix in BOHR units/,/# ===========/d' $JOBNAME.cartesian.cif2
 		cp $JOBNAME'.cartesian.cif2' $J.fit_cycle.$JOBNAME/$J.$JOBNAME.cartesian.cif2
 		cp $JOBNAME'.archive.cif' $J.fit_cycle.$JOBNAME/$J.$JOBNAME.archive.cif
 		cp $JOBNAME'.archive.fco' $J.fit_cycle.$JOBNAME/$J.$JOBNAME.archive.fco
@@ -1946,6 +1950,7 @@ run_script(){
 		cp $JOBNAME.xyz $J.fit_cycle.$JOBNAME/$JOBNAME.starting_geom.xyz
 		cp stdin $J.fit_cycle.$JOBNAME/$J.stdin
 		cp stdout $J.fit_cycle.$JOBNAME/$J.stdout
+		sed -i '/# NOTE: Cartesian 9Nx9N covariance matrix in BOHR units/,/# ===========/d' $JOBNAME.cartesian.cif2
 		cp $JOBNAME'.cartesian.cif2' $J.fit_cycle.$JOBNAME/$J.$JOBNAME.cartesian.cif2
 		awk '{a[NR]=$0}/^Atom coordinates/{b=NR}/^Unit cell information/{c=NR}END{for(d=b-1;d<=c-2;++d)print a[d]}' stdout >> $JOBNAME.lst
 		echo "Done reading cif with Tonto"

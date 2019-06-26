@@ -2,7 +2,6 @@
 Encoding=UTF-8
 
 SPACEGROUP(){
-	
 	SPACEGROUPARRAY=(
         "1        = p 1          =  p 1            "
 	"2        = p -1         =  -p 1           "
@@ -670,6 +669,9 @@ echo '}' >> lamaGOET.pbs
 echo '' >> lamaGOET.pbs
 echo 'runprogram()' >> lamaGOET.pbs
 echo '{' >> lamaGOET.pbs
+echo '  export PATH=/opt/openmpi3/bin/:$PATH' >> lamaGOET.pbs
+echo '  export LD_LIBRARY_PATH=/opt/openmpi3/lib:/opt/openmpi3/lib/openmpi:$LD_LIBRARY_PATH' >> lamaGOET.pbs
+echo '  export LD_RUN_PATH=/opt/openmpi3/lib/openmpi:$LD_RUN_PATH' >> lamaGOET.pbs
 echo "	RUN_lamaGOET  ################ <------ This is where you actually run your job!" >> lamaGOET.pbs
 echo '	echo "----------------ENDING PROGRAMRUN-------------------"' >> lamaGOET.pbs
 echo '	fortune' >> lamaGOET.pbs
@@ -715,7 +717,7 @@ export MAIN_DIALOG='
 
 	<window window_position="1" title="lamaGOET">
 
-	 <vbox scrollable="true" space-expand="true" space-fill="true" height="1000" width="800" >
+	 <vbox scrollable="true" space-expand="true" space-fill="true" height="600" width="1000" >
 	
 	  <hbox homogeneous="True" >
 	
@@ -734,7 +736,7 @@ export MAIN_DIALOG='
 	  </hbox>
 
   	 <notebook 
-		tab-labels="Main|Advanced Settings|Total XWR|Tools|Elmodb advanced specific"
+		tab-labels="HAR|Advanced Settings for HAR |XCW|Elmodb advanced specific|Plots"
 		xx-tab-labels="which will be shown on tabs"
 
 		> 	  
@@ -781,6 +783,10 @@ export MAIN_DIALOG='
 	        <action>if false enable:INITADP</action>
 	        <action>if true enable:USEBECKE</action>
 	        <action>if false disable:USEBECKE</action>
+	        <action>if true enable:GAUSSEMPDISP</action>
+	        <action>if false disable:GAUSSEMPDISP</action>
+	        <action>if true enable:EXTRAKEY</action>
+	        <action>if false disable:EXTRAKEY</action>
 	      </radiobutton>
 	      <radiobutton space-fill="True"  space-expand="True">
 	        <label>Orca</label>
@@ -819,6 +825,10 @@ export MAIN_DIALOG='
 	        <action>if false enable:INITADP</action>
 	        <action>if true enable:USEBECKE</action>
 	        <action>if false disable:USEBECKE</action>
+	        <action>if true disable:GAUSSEMPDISP</action>
+	        <action>if false enable:GAUSSEMPDISP</action>
+	        <action>if true enable:EXTRAKEY</action>
+	        <action>if false disable:EXTRAKEY</action>
 	      </radiobutton>
 	      <radiobutton space-fill="True"  space-expand="True">
 	        <label>Tonto</label>
@@ -832,9 +842,9 @@ export MAIN_DIALOG='
 	        <action>if false enable:BASISSETG</action>
 	        <action>if true disable:GAMESS</action>
 	        <action>if true disable:MEM</action>
-	        <action>if true disable:NUMPROC</action>
+	        <action>if true enable:NUMPROC</action>
 	        <action>if false enable:MEM</action>
-	        <action>if false enable:NUMPROC</action>
+	        <action>if false disable:NUMPROC</action>
 	        <action>if true disable:ELMOLIB</action>
 	        <action>if false enable:ELMOLIB</action>
 	        <action>if true enable:XHALONG</action>
@@ -855,6 +865,10 @@ export MAIN_DIALOG='
 	        <action>if false enable:NSSBOND</action>
 	        <action>if true disable:INITADP</action>
 	        <action>if false enable:INITADP</action>
+	        <action>if true disable:GAUSSEMPDISP</action>
+	        <action>if false enable:GAUSSEMPDISP</action>
+	        <action>if true disable:EXTRAKEY</action>
+	        <action>if false enable:EXTRAKEY</action>
 	      </radiobutton>
 	      <radiobutton space-fill="True"  space-expand="True">
 	        <label>elmodb</label>
@@ -892,6 +906,80 @@ export MAIN_DIALOG='
 	        <action>if false disable:NSSBOND</action>
 	        <action>if true enable:INITADP</action>
 	        <action>if false disable:INITADP</action>
+	        <action>if true disable:GAUSSEMPDISP</action>
+	        <action>if false enable:GAUSSEMPDISP</action>
+	        <action>if true disable:EXTRAKEY</action>
+	        <action>if false enable:EXTRAKEY</action>
+	      </radiobutton>
+	      <radiobutton space-fill="True"  space-expand="True">
+	        <label>SC CC opt with Gaussian and Tonto</label>
+	        <default>false</default>
+	        <action>if true echo 'SCFCALCPROG="optgaussian"'</action>  
+	        <action>if true enable:MEM</action>
+	        <action>if true enable:NUMPROC</action>
+	        <action>if true disable:BASISSETDIR</action>
+	        <action>if true enable:SCFCALC_BIN</action>
+	        <action>if false disable:MEM</action>
+	        <action>if false disable:NUMPROC</action>
+	        <action>if false disable:SCFCALC_BIN</action>
+	        <action>if false enable:BASISSETDIR</action>
+	        <action>if true disable:BASISSETT</action>
+	        <action>if false enable:BASISSETT</action>
+	        <action>if true disable:GAMESS</action>
+	        <action>if true disable:ELMOLIB</action>
+	        <action>if false enable:ELMOLIB</action>
+	        <action>if true enable:XHALONG</action>
+	        <action>if false disable:XHALONG</action>
+	        <action>if true enable:COMPLETECIF</action>
+	        <action>if false disable:COMPLETECIF</action>
+	        <action>if true disable:HKL</action>
+       	        <action>if false enable:HKL</action>
+	        <action>if true disable:WAVE</action>
+       	        <action>if false enable:WAVE</action>
+	        <action>if true disable:FCUT</action>
+       	        <action>if false enable:FCUT</action>
+	        <action>if true disable:POSADP</action>
+       	        <action>if false enable:POSADP</action>
+	        <action>if true disable:POSONLY</action>
+       	        <action>if false enable:POSONLY</action>
+	        <action>if true disable:ADPSONLY</action>
+       	        <action>if false enable:ADPSONLY</action>
+	        <action>if true disable:IAMTONTO</action>
+       	        <action>if false enable:IAMTONTO</action>
+	        <action>if true disable:REFNOTHING</action>
+       	        <action>if false enable:REFNOTHING</action>
+	        <action>if true disable:REFUISO</action>
+       	        <action>if false enable:REFUISO</action>
+	        <action>if true disable:REFHPOS</action>
+       	        <action>if false enable:REFHPOS</action>
+	        <action>if true disable:REFHADP</action>
+       	        <action>if false enable:REFHADP</action>
+	        <action>if true disable:REFANHARM</action>
+       	        <action>if false enable:REFANHARM</action>
+	        <action>if true disable:DISP</action>
+       	        <action>if false enable:DISP</action>
+	        <action>if true enable:USEBECKE</action>
+	        <action>if false disable:USEBECKE</action>
+	        <action>if true disable:WRITEHEADER</action>
+       	        <action>if false enable:WRITEHEADER</action>
+	        <action>if true disable:USEGAMESS</action>
+	        <action>if false enable:USEGAMESS</action>
+	        <action>if true enable:GAUSGEN</action>
+	        <action>if false disable:GAUSGEN</action>
+	        <action>if true enable:GAUSSREL</action>
+	        <action>if false disable:GAUSSREL</action>
+	        <action>if true disable:NTAIL</action>
+	        <action>if false enable:NTAIL</action>
+	        <action>if true disable:MANUALRESIDUE</action>
+	        <action>if false enable:MANUALRESIDUE</action>
+	        <action>if true disable:NSSBOND</action>
+	        <action>if false enable:NSSBOND</action>
+	        <action>if true disable:INITADP</action>
+	        <action>if false enable:INITADP</action>
+	        <action>if true enable:GAUSSEMPDISP</action>
+	        <action>if false disable:GAUSSEMPDISP</action>
+	        <action>if true enable:EXTRAKEY</action>
+	        <action>if false disable:EXTRAKEY</action>
 	      </radiobutton>
 
 	   </hbox>
@@ -971,8 +1059,8 @@ export MAIN_DIALOG='
 	    <text label="basis sets directory" ></text>
 	    <entry sensitive="false" fs-action="folder" fs-folder="/usr/local/bin/"
 	           fs-title="Select the basis_sets directory">
-	     <variable>BASISSETDIR</variable>
 	     <default>/basis_sets</default>
+	     <variable>BASISSETDIR</variable>
 	    </entry>
 	    <button>
 	     <input file stock="gtk-open"></input>
@@ -1158,7 +1246,19 @@ export MAIN_DIALOG='
 	    </combobox>
 	
 	   </hbox>
+
+	   <hseparator></hseparator>
 	
+	   <hbox>
+	
+	    <text><label>Enter manually for Gaussian, Orca or elmodb!</label> </text>
+	    <entry tooltip-text="Use the correct Gaussian or Orca or Tonto format" sensitive="true">
+             <default>STO-3G</default>
+	     <variable>BASISSETG</variable>
+	    </entry>
+	
+	   </hbox>
+
 	   <hseparator></hseparator>
 
 	   <hbox>
@@ -1170,6 +1270,17 @@ export MAIN_DIALOG='
 	      <action>if false enable:BASISSETG</action>
 	    </checkbox>
 
+	   </hbox>
+
+	   <hseparator></hseparator>
+
+	   <hbox>
+	
+	    <checkbox active="false" space-fill="True"  space-expand="True">
+	     <label>Use Grimme dispersion (gd3bj) </label>
+	      <variable>GAUSSEMPDISP</variable>
+	    </checkbox>
+
 	    <checkbox active="false" space-fill="True"  space-expand="True">
 	     <label>Use relativistic method </label>
 	      <variable>GAUSSREL</variable>
@@ -1178,13 +1289,13 @@ export MAIN_DIALOG='
 	   </hbox>
 
 	   <hseparator></hseparator>
-	
+
 	   <hbox>
 	
-	    <text><label>Enter manually for Gaussian, Orca or elmodb!</label> </text>
-	    <entry tooltip-text="Use the correct Gaussian or Orca or Tonto format" sensitive="true">
-	     <default>STO-3G</default>
-	     <variable>BASISSETG</variable>
+	    <text><label>Extra Gaussian keywords</label> </text>
+	    <entry tooltip-text="Use the correct Gaussian format" sensitive="true">
+             <input>if [ ! -z $EXTRAKEY ]; then echo "$EXTRAKEY"; else (echo "STO-3G"); fi</input>
+	     <variable>EXTRAKEY</variable>
 	    </entry>
 	
 	   </hbox>
@@ -1251,6 +1362,8 @@ export MAIN_DIALOG='
 	    </checkbox>
 	   </hbox>
            
+	   <hseparator></hseparator>
+
            <hbox>
 	    <checkbox active="false" space-fill="True"  space-expand="True">
 	        <label>Refine nothing for atoms:</label>
@@ -1441,15 +1554,6 @@ export MAIN_DIALOG='
 	    </entry>
 	   </hbox>
 
-	   <hseparator></hseparator>	
-
-	   <hbox>
-	    <button ok>
-	    </button>
-	    <button cancel>
-	    </button>
-	   </hbox>
-
 	  </frame>
          </vbox>
          <vbox>
@@ -1530,29 +1634,165 @@ export MAIN_DIALOG='
 	  </frame>
          </vbox>
 
-	 <vbox visible="false">
+	 <vbox visible="true">
 	  <frame>
-   	  <hbox> 
-	    <text xalign="0" use-markup="true" wrap="false"justify="1"><label>How many lambda values would you like to use?</label></text>
-	    <spinbutton  range-min="1"  range-max="100" space-fill="True"  space-expand="True">
-		<default>1</default>
-		<variable>LAMBDA</variable>
-	    </spinbutton>
-	   </hbox>
- 
-	  </frame>
-	 </vbox>
 
-	 <vbox visible="false">
-	  <frame>
-   	  <hbox> 
-	    <text xalign="0" use-markup="true" wrap="false"justify="1"><label>How many lambda values would you like to use?</label></text>
-	    <spinbutton  range-min="1"  range-max="100" space-fill="True"  space-expand="True">
-		<default>1</default>
-		<variable>LAMBDA</variable>
-	    </spinbutton>
+	   <hbox>
+	    <checkbox active="false" sensitive="true" space-fill="True"  space-expand="True" >
+  	     <label>Perform only XCW (based on input geometry, no HAR) or</label>
+	     <variable>XCWONLY</variable>		
+	     <default>false</default>
+	      <action>if true enable:METHODXCW</action>
+	      <action>if true enable:BASISSETTXCW</action>
+	      <action>if false disable:METHODXCW</action>
+	      <action>if false disable:BASISSETTXCW</action>
+	      <action>if true enable:LAMBDAINITIAL</action>
+	      <action>if true enable:LAMBDASTEP</action>
+	      <action>if true enable:LAMBDAMAX</action>
+	      <action>if false disable:LAMBDAINITIAL</action>
+	      <action>if false disable:LAMBDASTEP</action>
+	      <action>if false disable:LAMBDAMAX</action>
+	      <action>if true enable:BASISSETDIRXCW</action>
+	      <action>if false disable:BASISSETDIRXCW</action>
+	      <action>if true enable:SCCHARGESXCW</action>
+	      <action>if false disable:SCCHARGESXCW</action>
+	    </checkbox>
+
+	    <checkbox  active="false" sensitive="true" space-fill="True"  space-expand="True" >
+  	     <label>Perform XWR (HAR + XCW) job</label>
+	     <variable>XWR</variable>		
+	     <default>false</default>
+	      <action>if true enable:METHODXCW</action>
+	      <action>if true enable:BASISSETTXCW</action>
+	      <action>if false disable:METHODXCW</action>
+	      <action>if false disable:BASISSETTXCW</action>
+	      <action>if true enable:LAMBDAINITIAL</action>
+	      <action>if true enable:LAMBDASTEP</action>
+	      <action>if true enable:LAMBDAMAX</action>
+	      <action>if false disable:LAMBDAINITIAL</action>
+	      <action>if false disable:LAMBDASTEP</action>
+	      <action>if false disable:LAMBDAMAX</action>
+	      <action>if true enable:BASISSETDIRXCW</action>
+	      <action>if false disable:BASISSETDIRXCW</action>
+	      <action>if true enable:SCCHARGESXCW</action>
+	      <action>if false disable:SCCHARGESXCW</action>
+	    </checkbox>
+	   </hbox> 
+
+	   <hbox>
+	    <text label="basis sets directory" ></text>
+	    <entry sensitive="false" fs-action="folder" fs-folder="/usr/local/bin/"
+	           fs-title="Select the basis_sets directory">
+             <default>/usr/local/bin/basis_sets</default>
+	     <variable>BASISSETDIRXCW</variable>
+	    </entry>
+	    <button>
+	     <input file stock="gtk-open"></input>
+	     <action type="fileselect">BASISSETDIRXCW</action>
+	    </button>
 	   </hbox>
- 
+
+	   <hbox>
+	    <text xalign="0" use-markup="true" wrap="false" > <label>Method: </label></text>
+	    <combobox sensitive="false" allow-empty="true" has-tooltip="true" tooltip-markup="'"'rhf'"' - Restricted Hartree-Fock, 
+	'"'rks'"' - Restricted Kohn-Sham, 
+	'"'rohf'"' - Restricted open shell Hartree-Fock, 
+	'"'uhf'"' - Unrestricted Hartree-Fock, 
+	'"'uks'"' - Unrestricted Kohn-Sham" space-fill="True"  space-expand="True" >
+	     <variable>METHODXCW</variable>
+	     <item>rhf</item>
+	     <item>rks</item>
+	     <item>rohf</item>
+	     <item>uhf</item>
+	     <item>uks</item>
+	     <item>b3lyp</item>
+	    </combobox>
+	
+	
+	    <text xalign="1" use-markup="true" wrap="false"><label>Basis set</label></text>
+	    <combobox has-tooltip="true" tooltip-markup="List of Basis sets available on Tonto. Please check if the basis set you want to use contains all the elements of your structure." sensitive="false" space-fill="True"  space-expand="True">
+	     <variable>BASISSETTXCW</variable>
+	     <item>STO-3G</item>
+	     <item>3-21G</item>
+	     <item>6-31G(d)</item>
+	     <item>6-31G(d,p)</item>
+	     <item>6-311++G(2d,2p)</item>
+	     <item>6-311G(d,p)</item>
+	     <item>ahlrichs-polarization</item>
+	     <item>aug-cc-pVDZ</item>
+	     <item>aug-cc-pVQZ</item>
+	     <item>aug-cc-pVTZ</item>
+	     <item>cc-pVDZ</item>
+	     <item>cc-pVQZ</item>
+	     <item>cc-pVTZ</item>
+	     <item>Clementi-Roetti</item>
+	     <item>Coppens</item>
+	     <item>def2-SVP</item>
+	     <item>def2-SV(P)</item>
+	     <item>def2-TZVP</item>
+	     <item>def2-TZVPP</item>
+	     <item>DZP</item>
+	     <item>DZP-DKH</item>
+	     <item>pVDZ-Ahlrichs</item>
+	     <item>Sadlej+</item>
+	     <item>Sadlej-PVTZ</item>
+	     <item>Spackman-DZP+</item>
+	     <item>Thakkar</item>
+	     <item>TZP-DKH</item>
+	     <item>vanLenthe-Baerends</item>
+	     <item>VTZ-Ahlrichs</item>
+	    </combobox>
+	
+	   </hbox>
+
+	   <hbox>
+	
+	    <checkbox sensitive="false">
+	     <label>Use SC cluster charges? </label>
+	      <variable>SCCHARGESXCW</variable>
+	      <action>if true enable:SCCRADIUSXCW</action>
+	      <action>if false disable:SCCRADIUSXCW</action>
+	      <action>if true enable:DEFRAGXCW</action>
+	      <action>if false disable:DEFRAGXCW</action>
+	    </checkbox>
+	
+	    <text use-markup="true" wrap="false" ><label>SC Cluster charges radius</label></text>
+	    <entry has-tooltip="true" tooltip-markup="in Angstrom" sensitive="false">
+             <default>8</default>
+	     <variable>SCCRADIUSXCW</variable>
+	    </entry>
+	
+	    <checkbox sensitive="false">
+	     <label>Complete molecules </label>
+	     <default>false</default>
+	      <variable>DEFRAGXCW</variable>
+	    </checkbox>
+	   </hbox>
+
+   	  <hbox> 
+	    <text xalign="0" use-markup="true" wrap="false"justify="1"><label>Enter initial lambda value:</label></text>
+	    <entry  range-min="1"  range-max="100" space-fill="True"  space-expand="True" sensitive="false">
+             <default>0</default>
+		<variable>LAMBDAINITIAL</variable>
+	    </entry>
+	   </hbox><
+
+   	  <hbox> 
+	    <text xalign="0" use-markup="true" wrap="false"justify="1"><label>Enter lambda step size value:</label></text>
+	    <entry  range-min="1"  range-max="100" space-fill="True"  space-expand="True" sensitive="false">
+             <default>0.1</default>
+		<variable>LAMBDASTEP</variable>
+	    </entry>
+	   </hbox><
+
+   	  <hbox> 
+	    <text xalign="0" use-markup="true" wrap="false"justify="1"><label>Enter lambda max value:</label></text>
+	    <entry  range-min="1"  range-max="100" space-fill="True"  space-expand="True" sensitive="false">
+             <default>1</default>
+		<variable>LAMBDAMAX</variable>
+	    </entry>
+	   </hbox><
+
 	  </frame>
 	 </vbox>
 
@@ -1562,7 +1802,7 @@ export MAIN_DIALOG='
    	  <hbox> 
            <text xalign="0" use-markup="true" wrap="false" justify="1"><label>Number of dissulfide bonds:</label></text>
            <spinbutton  range-min="0"  range-max="1000" space-fill="True"  space-expand="True" sensitive="false">
-             <input>if [ ! -z $NSSBOND ]; then echo "$NSSBOND"; else (echo "0"); fi</input>
+             <default>0</default>
 	    <variable>NSSBOND</variable>
 	    <action condition="command_is_true( [ $NSSBOND -gt 0 ] && echo true )">enable:SSBONDATOMS</action>
 	    <action condition="command_is_false( [ $NSSBOND -eq 0 ] && echo false )">disable:SSBONDATOMS</action>
@@ -1647,49 +1887,249 @@ CB_HB3    1    2   .f.     CB  HB3 CA
 	  </frame>
 	 </vbox>
 
+	 <vbox visible="true">
+	  <frame>
+
+	   <hbox>
+	
+	    <checkbox active="false" sensitive="true" space-fill="True"  space-expand="True" >
+	     <label>Only plot properties from Tonto restricted files</label>
+	     <variable>PLOT_TONTO</variable>		
+	     <default>false</default>
+	     <action>if true enable:DEFDEN</action>
+	     <action>if true enable:DFTXCPOT</action>
+	     <action>if true enable:DENS</action>
+	     <action>if true enable:LAPL</action>
+	     <action>if true enable:NEGLAPL</action>
+	     <action>if true enable:PROMOL</action>
+	     <action>if true enable:RESDENS</action>
+	     <action>if false disable:DEFDEN</action>
+	     <action>if false disable:DFTXCPOT</action>
+	     <action>if false disable:DENS</action>
+	     <action>if false disable:LAPL</action>
+	     <action>if false disable:NEGLAPL</action>
+	     <action>if false disable:PROMOL</action>
+	     <action>if false disable:RESDENS</action>
+	     <action>if true enable:PLOT_ANGS</action>
+	     <action>if false disable:PLOT_ANGS</action>
+	     <action>if true enable:USESEPARATION</action>
+	     <action>if false disable:USESEPARATION</action>
+	     <action>if true enable:USEALLPOINTS</action>
+	     <action>if false disable:USEALLPOINTS</action>
+	     <action>if true enable:USECENTER</action>
+	     <action>if false disable:USECENTER</action>
+	    </checkbox>
+	   </hbox> 
+
+	   <hbox>
+	    <text xalign="0" use-markup="true" wrap="true"justify="1" space-fill="True"  space-expand="True"><label>Please select the property to plot:</label></text>
+	   </hbox> 
+
+	   <hbox>
+	    <checkbox active="false" sensitive="true" space-fill="True"  space-expand="True" sensitive="false" >
+  	     <label>deformation_density</label>
+	     <variable>DEFDEN</variable>		
+	     <default>false</default>
+	    </checkbox>
+	   </hbox> 
+
+
+	   <hbox>
+	    <checkbox active="false" sensitive="true" space-fill="True"  space-expand="True" sensitive="false" >
+  	     <label>dft_xc_potential</label>
+	     <variable>DFTXCPOT</variable>		
+	     <default>false</default>
+	    </checkbox>
+	   </hbox> 
+
+
+	   <hbox>
+	    <checkbox active="false" sensitive="true" space-fill="True"  space-expand="True" sensitive="false" >
+  	     <label>electron_density</label>
+	     <variable>DENS</variable>		
+	     <default>false</default>
+	    </checkbox>
+	   </hbox> 
+
+
+	   <hbox>
+	    <checkbox active="false" sensitive="true" space-fill="True"  space-expand="True" sensitive="false" >
+  	     <label>laplacian</label>
+	     <variable>LAPL</variable>		
+	     <default>false</default>
+	    </checkbox>
+	   </hbox> 
+
+
+	   <hbox>
+	    <checkbox active="false" sensitive="true" space-fill="True"  space-expand="True" sensitive="false" >
+  	     <label>negative_laplacian</label>
+	     <variable>NEGLAPL</variable>		
+	     <default>false</default>
+	    </checkbox>
+	   </hbox> 
+
+
+	   <hbox>
+	    <checkbox active="false" sensitive="true" space-fill="True"  space-expand="True" sensitive="false" >
+  	     <label>promolecule_density</label>
+	     <variable>PROMOL</variable>		
+	     <default>false</default>
+	    </checkbox>
+	   </hbox> 
+
+	   <hbox>
+	    <checkbox active="false" sensitive="true" space-fill="True"  space-expand="True" sensitive="false" >
+  	     <label>residual_density_map</label>
+	     <variable>RESDENS</variable>		
+	     <default>false</default>
+	    </checkbox>
+	   </hbox> 
+
+	   <hseparator></hseparator>
+
+	   <hbox>
+	    <checkbox active="false" sensitive="false" space-fill="True"  space-expand="True">
+  	     <label>Cube file in Angstroms</label>
+	     <variable>PLOT_ANGS</variable>		
+	     <default>false</default>
+	    </checkbox>
+	   </hbox> 
+
+
+	  <hbox space-expand="false" space-fill="false" >
+
+	    <checkbox active="false" sensitive="false" wrap="false" space-expand="FALSE" space-fill="false">
+  	     <label>Use desired point separation (in Angstrom)</label>
+	     <variable>USESEPARATION</variable>		
+	     <default>false</default>
+	     <action>if true enable:SEPARATION</action>
+	     <action>if false disable:SEPARATION</action>
+	     <action>if true disable:USEALLPOINTS</action>
+	     <action>if false enable:USEALLPOINTS</action>
+	    </checkbox>
+
+	   <hbox space-expand="true" space-fill="true" >
+	    <entry space-expand="true" sensitive="false">
+	     <variable>SEPARATION</variable>
+	    </entry>
+	   </hbox>
+	   </hbox>
+
+	  <hbox space-expand="false" space-fill="false" >
+
+	    <checkbox active="false" sensitive="false" wrap="false" space-expand="FALSE" space-fill="false">
+  	     <label>use number of points in X, Y and Z (in Angstrom)</label>
+	     <variable>USEALLPOINTS</variable>		
+	     <default>false</default>
+	     <action>if true enable:PTSX</action>
+	     <action>if false disable:PTSX</action>
+	     <action>if true enable:PTSY</action>
+	     <action>if false disable:PTSY</action>
+	     <action>if true enable:PTSZ</action>
+	     <action>if false disable:PTSZ</action>
+	     <action>if true disable:USESEPARATION</action>
+	     <action>if false enable:USESEPARATION</action>
+	    </checkbox>
+
+	   <hbox space-expand="true" space-fill="true" >
+	    <entry space-expand="true" sensitive="false">
+	     <default>10</default>
+	     <variable>PTSX</variable>
+	    </entry>
+	    <entry space-expand="true" sensitive="false">
+	     <default>10</default>
+	     <variable>PTSY</variable>
+	    </entry>
+	    <entry space-expand="true" sensitive="false">
+	     <default>10</default>
+	     <variable>PTSZ</variable>
+	    </entry>
+	   </hbox>
+	   </hbox>
+
+	  <hbox space-expand="false" space-fill="false" >
+
+	    <checkbox active="false" sensitive="false" wrap="false" space-expand="FALSE" space-fill="false">
+  	     <label>use cube center on atom number</label>
+	     <variable>USECENTER</variable>		
+	     <default>false</default>
+	     <action>if true enable:CENTERATOM</action>
+	     <action>if false disable:CENTERATOM</action>
+	     <action>if true enable:XAXIS</action>
+	     <action>if false disable:XAXIS</action>
+	     <action>if true enable:YAXIS</action>
+	     <action>if false disable:YAXIS</action>
+	     <action>if true enable:WIDTHX</action>
+	     <action>if false disable:WIDTHX</action>
+	     <action>if true enable:WIDTHY</action>
+	     <action>if false disable:WIDTHY</action>
+	     <action>if true enable:WIDTHZ</action>
+	     <action>if false disable:WIDTHZ</action>
+	    </checkbox>
+
+	   <hbox space-expand="true" space-fill="true" >
+	    <entry space-expand="true" sensitive="false">
+	     <default>1</default>
+	     <variable>CENTERATOM</variable>
+	    </entry>
+	   </hbox>
+	   </hbox>
+
+	  <hbox space-expand="false" space-fill="false" >
+	   <text text-xalign="0" use-markup="true" wrap="false" space-expand="FALSE" space-fill="false"><label>X axis defined by atoms number</label></text>
+	   <hbox space-expand="true" space-fill="true" >
+	    <entry space-expand="true" sensitive="false">
+	     <default>1 2</default>
+	     <variable>XAXIS</variable>
+	    </entry>
+	   </hbox>
+	   </hbox>
+
+	  <hbox space-expand="false" space-fill="false" >
+	   <text text-xalign="0" use-markup="true" wrap="false" space-expand="FALSE" space-fill="false"><label>Y axis defined by atoms number</label></text>
+	   <hbox space-expand="true" space-fill="true" >
+	    <entry space-expand="true" sensitive="false">
+	     <default>1 3</default>
+	     <variable>YAXIS</variable>
+	    </entry>
+	   </hbox>
+	   </hbox>
+
+	  <hbox space-expand="false" space-fill="false" >
+	   <text text-xalign="0" use-markup="true" wrap="false" space-expand="FALSE" space-fill="false"><label>width in X, Y and Z (in Angstrom)</label></text>
+	   <hbox space-expand="true" space-fill="true" >
+	    <entry space-expand="true" sensitive="false">
+	     <default>10</default>
+	     <variable>WIDTHX</variable>
+	    </entry>
+	    <entry space-expand="true" sensitive="false">
+	     <default>10</default>
+	     <variable>WIDTHY</variable>
+	    </entry>
+	    <entry space-expand="true" sensitive="false">
+	     <default>10</default>
+	     <variable>WIDTHZ</variable>
+	    </entry>
+	   </hbox>
+	   </hbox>
+
+	  </frame>
+	 </vbox>
+
 	 </notebook>
+
+	   <hbox>
+	    <button ok>
+	    </button>
+	    <button cancel>
+	    </button>
+	   </hbox>
+
          </vbox>
 
 	</window>
 '
-
-#export dispersion_coef='
-#<window window_position="1" title="Tonto Gaussian Orca interface">
-
-# <vbox>
-
-# <hbox homogeneous="True">
-
-#    <hbox homogeneous="True">
-#     <frame>
-#      <text use-markup="true" wrap="false"><label>"<span color='"'blue'"'>Enter the dispersion coefficients</span>"</label></text>
-#     </frame>  
-#    </hbox>
-#  </hbox>
- 
-#   <hseparator></hseparator>
-
-#   <hbox>
-#    <text use-markup="true" wrap="false"><label>Atom type</label></text>
-#    <combobox>
-#      <variable>ATOMTYPE</variable>
-#<item>H</item><item>He</item><item>Li</item><item>Be</item><item>B</item><item>C</item><item>N</item> <item>O </item><item>F</item> <item>Ne</item><item>Na</item><item>Mg</item><item>Al</item><item>Si</item><item>P</item><item>S</item><item>Cl</item><item>Ar</item><item>K</item><item>Ca</item><item>Sc</item><item>Ti</item><item>V</item><item>Cr</item><item>Mn</item><item>Fe</item><item>Co</item><item>Ni</item><item>Cu</item><item>Zn</item><item>Ga</item><item>Ge</item><item>As</item><item>Se</item><item>Br</item><item>Kr</item><item>Rb</item><item>Sr</item><item>Y</item><item>Zr</item><item>Nb</item><item>Mo</item><item>Tc</item><item>Ru</item><item>Rh</item><item>Pd</item><item>Ag</item><item>Cd</item><item>In</item><item>Sn</item><item>Sb</item><item>Te</item><item>I</item><item>Xe</item><item>Cs</item><item>Ba</item><item>La</item><item>Ce</item><item>Pr</item><item>Nd</item><item>Pm</item><item>Sm</item><item>Eu</item><item>Gd</item><item>Tb</item><item>Dy</item><item>Ho</item><item>Er</item><item>Tm</item><item>Yb</item><item>Lu</item><item>Hf</item><item>Ta</item><item>W</item><item>Re</item><item>Os</item><item>Ir</item><item>Pt</item><item>Au</item><item>Hg</item><item>Tl</item><item>Pb</item><item>Bi</item><item>Po</item><item>At</item><item>Rn</item><item>Fr</item><item>Ra</item><item>Ac</item><item>Th</item><item>Pa</item><item>U</item><item>Np</item><item>Pu</item><item>Am</item><item>Cm</item><item>Bk</item><item>Cf</item><item>Es</item><item>Fm</item><item>Md</item><item>No</item><item>Lr</item><item>Rf</item><item>Db</item><item>Sg</item><item>Bh</item><item>Hs</item><item>Mt</item><item>Ds</item><item>Rg</item><item>Cn</item><item>Ut</item><item>Fl</item><item>Up</item><item>Lv</item><item>Us</item><item>Uo</item>
-#    </combobox>
-#    <text use-markup="true" wrap="false"><label>f</label></text>
-#    <entry>
-#     <default>0</default>
-#     <variable>FP</variable>
-#    </entry>	
-#    <text use-markup="true" wrap="false"><label>f</label></text>
-#    <entry>
-#     <default>0</default>
-#     <variable>FPP</variable>
-#    </entry>	
-#   </hbox>
-#'
-
-#no need for basis set in tonto!!!
-
 gtkdialog --program=MAIN_DIALOG > job_options.txt
 
 source job_options.txt
@@ -1780,12 +2220,10 @@ CB_HB3    1    2   .f.     CB  HB3 CA
   16  26
  " > DISSBONDS
 	fi
-#	if [[ ! -f "tonto.cell" && "$INITADP" == "false" ]]; then #could use like this but maybe the cell is not in the cif, so just to make sure will keep it
 	if [[ ! -f "tonto.cell" ]]; then
 		#extracting information from pdb file into new jobname.pdb file (only for elmodb)
 		# is tehre a cell in the pdb?
 		if [[ ! -z $(awk '$1 ~ /CRYST1/ {print $0}'  $PDB) ]]; then
-#		if [[ ! -z $(awk '$1 !~ /CRYST1/ {print $0}'  $PDB) ]]; then
 			CELLA=$(awk '$1 ~ /CRYST1/ {print $2}'  $PDB)
 			CELLB=$(awk '$1 ~ /CRYST1/ {print $3}'  $PDB)
 			CELLC=$(awk '$1 ~ /CRYST1/ {print $4}'  $PDB)
@@ -1793,11 +2231,6 @@ CB_HB3    1    2   .f.     CB  HB3 CA
 			CELLBETA=$(awk '$1 ~ /CRYST1/ {print $6}'  $PDB)
 			CELLGAMMA=$(awk '$1 ~ /CRYST1/ {print $7}'  $PDB)
 			SPACEGROUP=$(awk '$1 ~ /CRYST1/ {print $0}' $PDB | awk ' {print substr($0,index($0,$8),--NF)}')
-#####this one works with mac and linux
-#awk '$1 ~ /CRYST1/ {print $0}' 1ejg.pdb | awk ' {print substr($0,index($0,$8),--NF)}'
-# this one works on linux but not on mac!
-#awk '$1 ~ /CRYST1/ {print $0}' 1ejg.pdb | awk '{print substr($0,index($0,$8))}' | awk 'NF{NF-=1};1'
-# falta verificar se é vazio la em baixo
 	  		echo "      spacegroup= { hermann_mauguin_symbol= '$SPACEGROUP' }" > tonto.cell
 			echo "" >> tonto.cell
 			echo "      unit_cell= {" >> tonto.cell
@@ -1836,16 +2269,13 @@ CB_HB3    1    2   .f.     CB  HB3 CA
 			echo "END" >> $JOBNAME.cut.pdb
 			if [[ ! -z $(diff -ZB $PDB $JOBNAME.cut.pdb) ]]; then
 				PDB=$JOBNAME.cut.pdb	
+				echo "PDB=\"$PDB\"" >> job_options.txt
 			fi
 		fi
 	fi
 fi
 
-#	gtkdialog --program=dispersion_coef > DISP_instructions.txt
-
 if [ "$EXIT" = "OK" ]; then
-#no need for the cluster       tail -f $JOBNAME.lst | zenity --title "Job output file - this file will auto-update, scroll down to see later results." --no-wrap --text-info --width 1024 --height 800 &
-#	zenity --title="Tonto job status" --text-info --no-wrap --filename=$JOBNAME.lst &
 	QUEUE
 else
 	unset MAIN_DIALOG
