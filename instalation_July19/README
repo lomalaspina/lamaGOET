@@ -1,0 +1,6 @@
+To install symply type on the terminal:
+
+sudo ./install.sh
+
+all dependencies will be installed automatically.
+
