@@ -670,8 +670,17 @@ GAMESS_ELMODB_OLD_PDB(){
 		if [ "$I" = "1" ]; then
 			BASISSETDIR=$( echo "$(dirname $BASISSETDIR)/" )
 			ELMOLIB=$( echo "$(dirname $ELMOLIB)/" )
-			echo " "'$INPUT_METHOD'"      job_title='$JOBNAME' basis_set='$BASISSETG' iprint_level=1 ncpus=$NUMPROC alloc_mem=$MEM bset_path='$BASISSETDIR' lib_path='$ELMOLIB' nci=.true. comp_sao=.false. "'$END'" " > $JOBNAME.elmodb.inp
-			echo " "'$INPUT_STRUCTURE'"   pdb_file='$PDB' ntail=$NTAIL nssbond=$NSSBOND "'$END'"  " >> $JOBNAME.elmodb.inp
+#this is correct but until the elmo problem is solved I will keep it commented
+#			if [[ "$INITADP" == "true" ]];then
+#				echo " "'$INPUT_METHOD'"      job_title='$JOBNAME' basis_set='$BASISSETG' cif=.true. iprint_level=1 ncpus=$NUMPROC alloc_mem=$MEM bset_path='$BASISSETDIR' lib_path='$ELMOLIB' nci=.true. "'$END'" " > $JOBNAME.elmodb.inp		
+#			else
+				echo " "'$INPUT_METHOD'"      job_title='$JOBNAME' basis_set='$BASISSETG' iprint_level=1 ncpus=$NUMPROC alloc_mem=$MEM bset_path='$BASISSETDIR' lib_path='$ELMOLIB' nci=.true. "'$END'" " > $JOBNAME.elmodb.inp		
+#			fi
+#			if [[ "$INITADP" == "true" ]];then
+#				echo " "'$INPUT_STRUCTURE'"   pdb_file='$PDB' cif_file='$INITADPFILE' ntail=$NTAIL max_atail=$ATAIL max_frtail=$FRTAIL nssbond=$NSSBOND "'$END'"  " >> $JOBNAME.elmodb.inp
+#			else
+				echo " "'$INPUT_STRUCTURE'"   pdb_file='$PDB' ntail=$NTAIL max_atail=$ATAIL max_frtail=$FRTAIL nssbond=$NSSBOND "'$END'"  " >> $JOBNAME.elmodb.inp
+#			fi
 			if [[ "$NTAIL" != "0" ]]; then
 				echo "$MANUALRESIDUE" >> $JOBNAME.elmodb.inp
 			fi
@@ -679,10 +688,10 @@ GAMESS_ELMODB_OLD_PDB(){
 				echo "$SSBONDATOMS" >> $JOBNAME.elmodb.inp
 			fi			
 		else 
+#there is a problem with the conversion from fractional to cartesian inside the elmodb program, saving example files in the aga folder 4cut and changing back to always use the xyz. The elmo cannot read the cartesian cif
+#			echo " "'$INPUT_METHOD'"      job_title='$JOBNAME' basis_set='$BASISSETG' cif=.true. iprint_level=1 ncpus=$NUMPROC alloc_mem=$MEM bset_path='$BASISSETDIR' lib_path='$ELMOLIB' nci=.true. comp_sao=.false. "'$END'" " > $JOBNAME.elmodb.inp
 			echo " "'$INPUT_METHOD'"      job_title='$JOBNAME' basis_set='$BASISSETG' xyz=.true. iprint_level=1 ncpus=$NUMPROC alloc_mem=$MEM bset_path='$BASISSETDIR' lib_path='$ELMOLIB' nci=.true. comp_sao=.false. "'$END'" " > $JOBNAME.elmodb.inp
-#this is loading low precision			echo " "'$INPUT_METHOD'"      job_title='$JOBNAME' basis_set='$BASISSETG' iprint_level=1 ncpus=$NUMPROC alloc_mem=$MEM bset_path='$BASISSETDIR' lib_path='$ELMOLIB' nci=.true. comp_sao=.false. "'$END'" " > $JOBNAME.elmodb.inp
 			echo " "'$INPUT_STRUCTURE'"   pdb_file='$PDB' xyz_file='$JOBNAME.xyz' ntail=$NTAIL nssbond=$NSSBOND "'$END'"  " >> $JOBNAME.elmodb.inp
-#this is loading low precision			echo " "'$INPUT_STRUCTURE'"   pdb_file='$PDB' cif_file='$JOBNAME.cartesian.cif2' ntail=$NTAIL nssbond=$NSSBOND "'$END'"  " >> $JOBNAME.elmodb.inp
 			if [[ "$NTAIL" != "0" ]]; then
 				echo "$MANUALRESIDUE" >> $JOBNAME.elmodb.inp
 			fi
@@ -716,12 +725,17 @@ ELMODB(){
 	if [ "$I" = "1" ]; then
 		BASISSETDIR=$( echo "$(dirname $BASISSETDIR)/" )
 		ELMOLIB=$( echo "$(dirname $ELMOLIB)/" )
-		echo " "'$INPUT_METHOD'"      job_title='$JOBNAME' basis_set='$BASISSETG' iprint_level=1 ncpus=$NUMPROC alloc_mem=$MEM bset_path='$BASISSETDIR' lib_path='$ELMOLIB' nci=.true. "'$END'" " > $JOBNAME.elmodb.inp
-		if [[ "$INITADP" == "true" ]];then
-			echo " "'$INPUT_STRUCTURE'"   pdb_file='$PDB' cif_file='$INITADPFILE' ntail=$NTAIL max_atail=$ATAIL max_frtail=$FRTAIL nssbond=$NSSBOND "'$END'"  " >> $JOBNAME.elmodb.inp
-		else
+#this is correct but until the elmo problem is solved I will keep it commented
+#		if [[ "$INITADP" == "true" ]];then
+#			echo " "'$INPUT_METHOD'"      job_title='$JOBNAME' basis_set='$BASISSETG' cif=.true. iprint_level=1 ncpus=$NUMPROC alloc_mem=$MEM bset_path='$BASISSETDIR' lib_path='$ELMOLIB' nci=.true. "'$END'" " > $JOBNAME.elmodb.inp		
+#		else
+			echo " "'$INPUT_METHOD'"      job_title='$JOBNAME' basis_set='$BASISSETG' iprint_level=1 ncpus=$NUMPROC alloc_mem=$MEM bset_path='$BASISSETDIR' lib_path='$ELMOLIB' nci=.true. "'$END'" " > $JOBNAME.elmodb.inp		
+#		fi
+#		if [[ "$INITADP" == "true" ]];then
+#			echo " "'$INPUT_STRUCTURE'"   pdb_file='$PDB' cif_file='$INITADPFILE' ntail=$NTAIL max_atail=$ATAIL max_frtail=$FRTAIL nssbond=$NSSBOND "'$END'"  " >> $JOBNAME.elmodb.inp
+#		else
 			echo " "'$INPUT_STRUCTURE'"   pdb_file='$PDB' ntail=$NTAIL max_atail=$ATAIL max_frtail=$FRTAIL nssbond=$NSSBOND "'$END'"  " >> $JOBNAME.elmodb.inp
-		fi
+#		fi
 		if [[ "$NTAIL" != "0" ]]; then
 			echo "$MANUALRESIDUE" >> $JOBNAME.elmodb.inp
 		fi
@@ -729,15 +743,16 @@ ELMODB(){
 			echo "$SSBONDATOMS" >> $JOBNAME.elmodb.inp
 		fi
 	else 
+#there is a problem with the conversion from fractional to cartesian inside the elmodb program, saving example files in the aga folder 4cut and changing back to always use the xyz. The elmo cannot read the cartesian cif
+#		echo " "'$INPUT_METHOD'"      job_title='$JOBNAME' basis_set='$BASISSETG' cif=.true. iprint_level=1 ncpus=$NUMPROC alloc_mem=$MEM bset_path='$BASISSETDIR' lib_path='$ELMOLIB' nci=.true. "'$END'" " > $JOBNAME.elmodb.inp
 		echo " "'$INPUT_METHOD'"      job_title='$JOBNAME' basis_set='$BASISSETG' xyz=.true. iprint_level=1 ncpus=$NUMPROC alloc_mem=$MEM bset_path='$BASISSETDIR' lib_path='$ELMOLIB' nci=.true. "'$END'" " > $JOBNAME.elmodb.inp
-#this is loading low precision		echo " "'$INPUT_METHOD'"      job_title='$JOBNAME' basis_set='$BASISSETG' iprint_level=1 ncpus=$NUMPROC alloc_mem=$MEM bset_path='$BASISSETDIR' lib_path='$ELMOLIB' nci=.true. "'$END'" " > $JOBNAME.elmodb.inp
 		if [[ "$NTAIL" != "0" ]]; then
+#			echo " "'$INPUT_STRUCTURE'"   pdb_file='$PDB' cif_file='$JOBNAME.fractional.cif1' ntail=$NTAIL max_atail=$ATAIL max_frtail=$FRTAIL nssbond=$NSSBOND "'$END'"  " >> $JOBNAME.elmodb.inp
 			echo " "'$INPUT_STRUCTURE'"   pdb_file='$PDB' xyz_file='$JOBNAME.xyz' ntail=$NTAIL max_atail=$ATAIL max_frtail=$FRTAIL nssbond=$NSSBOND "'$END'"  " >> $JOBNAME.elmodb.inp
-#this is loading low precision			echo " "'$INPUT_STRUCTURE'"   pdb_file='$PDB' cif_file='$JOBNAME.cartesian.cif2' ntail=$NTAIL max_atail=$ATAIL max_frtail=$FRTAIL nssbond=$NSSBOND "'$END'"  " >> $JOBNAME.elmodb.inp
 			echo "$MANUALRESIDUE" >> $JOBNAME.elmodb.inp
 		else
+#			echo " "'$INPUT_STRUCTURE'"   pdb_file='$PDB' cif_file='$JOBNAME.fractional.cif1' nssbond=$NSSBOND "'$END'"  " >>
 			echo " "'$INPUT_STRUCTURE'"   pdb_file='$PDB' xyz_file='$JOBNAME.xyz' nssbond=$NSSBOND "'$END'"  " >> $JOBNAME.elmodb.inp
-#this is loading low precision			echo " "'$INPUT_STRUCTURE'"   pdb_file='$PDB' cif_file='$JOBNAME.cartesian.cif2' nssbond=$NSSBOND "'$END'"  " >> $JOBNAME.elmodb.inp
 		fi
 		if [[ "$NSSBOND" != "0" ]]; then
 			echo "$SSBONDATOMS" >> $JOBNAME.elmodb.inp
@@ -1178,6 +1193,7 @@ SCF_TO_TONTO(){
 	fi
 	if [[ $J -gt 0 && "$SCFCALCPROG" == "elmodb" ]]; then
 		PROCESS_CIF
+		DEFINE_JOB_NAME
 	fi
 	if [[ $J -eq 0 && "$SCFCALCPROG" == "elmodb" && "$INITADP" == "true" ]]; then
 		echo "   ! Process the CIF" >> stdin
@@ -1266,7 +1282,7 @@ SCF_TO_TONTO(){
 		echo "" >> $JOBNAME.lst
 	fi
 	if [[ "$SCFCALCPROG" != "Gaussian" && "$SCFCALCPROG" != "Orca" ]]; then 
-		echo -e " $J\t$(awk '{a[NR]=$0}/^Rigid-atom fit results/{b=NR}END {print a[b-4]}' stdout | awk '{print $1}' )\t$INITIALCHI\t$(awk '{a[NR]=$0}/^Rigid-atom fit results/{b=NR}END {print a[b-4]}' stdout | awk '{print  $2"\t"$3"\t"$4"\t"}') $MAXSHIFT\t$MAXSHIFTATOM $MAXSHIFTPARAM $(awk '{a[NR]=$0}/^Rigid-atom fit results/{b=NR}END {print a[b-4]}' stdout | awk '{print  "\t""    "$8" \t"$9 }' ) "  >> $JOBNAME.lst  
+		echo -e " $J\t$(awk '{a[NR]=$0}/^Rigid-atom fit results/{b=NR}END {print a[b-4]}' stdout | awk '{print $1}' )\t$INITIALCHI\t$(awk '{a[NR]=$0}/^Rigid-atom fit results/{b=NR}END {print a[b-4]}' stdout | awk '{print  $2"\t"$3"\t"$4"\t"}') $MAXSHIFT\t$MAXSHIFTATOM $MAXSHIFTPARAM $(awk '{a[NR]=$0}/^Rigid-atom fit results/{b=NR}END {print a[b-4]}' stdout | awk '{print  "\t""    "$9 }' ) "  >> $JOBNAME.lst  
 	fi
 	if [[ "$SCFCALCPROG" != "Tonto" ]]; then 
 		mkdir $J.tonto_cycle.$JOBNAME
@@ -1363,7 +1379,7 @@ CHECK_ENERGY(){
 	fi
 		DE=$(awk "BEGIN {print $ENERGIA2 - $ENERGIA}")
 		DE=$(printf '%.12f' $DE)
-		echo -e " $J\t$(awk '{a[NR]=$0}/^Rigid-atom fit results/{b=NR}END {print a[b-4]}' stdout | awk '{print $1}' )\t$INITIALCHI\t$(awk '{a[NR]=$0}/^Rigid-atom fit results/{b=NR}END {print a[b-4]}' stdout | awk '{print  $2"\t"$3"\t"$4"\t"}') $MAXSHIFT\t$MAXSHIFTATOM $MAXSHIFTPARAM $(awk '{a[NR]=$0}/^Rigid-atom fit results/{b=NR}END {print a[b-4]}' stdout | awk '{print  "    "$8" \t"$9 }' )  $ENERGIA2   $RMSD2   \t$DE"   >> $JOBNAME.lst  
+		echo -e " $J\t$(awk '{a[NR]=$0}/^Rigid-atom fit results/{b=NR}END {print a[b-4]}' stdout | awk '{print $1}' )\t$INITIALCHI\t$(awk '{a[NR]=$0}/^Rigid-atom fit results/{b=NR}END {print a[b-4]}' stdout | awk '{print  $2"\t"$3"\t"$4"\t"}') $MAXSHIFT\t$MAXSHIFTATOM $MAXSHIFTPARAM $(awk '{a[NR]=$0}/^Rigid-atom fit results/{b=NR}END {print a[b-4]}' stdout | awk '{print  "    "$9 }' )  $ENERGIA2   $RMSD2   \t$DE"   >> $JOBNAME.lst  
 		ENERGIA=$ENERGIA2
 		RMSD=$RMSD2
 		echo "Delta E (cycle  $I - $[ I - 1 ]): $DE "
@@ -3622,6 +3638,10 @@ if [[ "$SCFCALCPROG" == "elmodb" && "$EXIT" == "OK" ]]; then
 	fi
 	PDB=$( echo $CIF | awk -F "/" '{print $NF}' ) 
 	echo "PDB=\"$PDB\"" >> job_options.txt
+	if [[ "$INITADP" == "true" ]];then
+		INITADPFILE=$( echo $INITADPFILE | awk -F "/" '{print $NF}' ) 
+		echo "INITADPFILE=\"$INITADPFILE\"" >> job_options.txt
+	fi
 	if [[ ! -f "tonto.cell" ]]; then
 		#extracting information from pdb file into new jobname.pdb file (only for elmodb)
 		# is tehre a cell in the pdb?
@@ -3664,14 +3684,15 @@ if [[ "$SCFCALCPROG" == "elmodb" && "$EXIT" == "OK" ]]; then
 			echo "" >> tonto.cell
 			echo "      REVERT" >> tonto.cell
 		fi
-		# are there more lines in the pdb then the ATOM lines?
-		if [[ ! -z $(awk '$1 !~ /ATOM/ && ! /HETATM/ && ! /END/ {print $0}'  $PDB) ]]  ; then
-			awk '$1 ~ /ATOM/ {print $0}'  $PDB > $JOBNAME.cut.pdb
-			awk '$1 ~ /HETATM/ {print $0}'  $PDB > $JOBNAME.cut.pdb
-			echo "END" >> $JOBNAME.cut.pdb
-			if [[ ! -z $(diff -ZB $PDB $JOBNAME.cut.pdb) ]]; then
-				PDB=$JOBNAME.cut.pdb	
-			fi
+	fi
+	# are there more lines in the pdb then the ATOM lines?
+	if [[ ! -z $(awk '$1 !~ /ATOM/ && ! /HETATM/ && ! /END/ {print $0}'  $PDB) ]]  ; then
+		awk '$1 ~ /ATOM/ {print $0}'  $PDB > $JOBNAME.cut.pdb
+		awk '$1 ~ /HETATM/ {print $0}'  $PDB > $JOBNAME.cut.pdb
+		sed -i 's/HETATM/ATOM/g' $JOBNAME.cut.pdb
+		echo "END" >> $JOBNAME.cut.pdb
+		if [[ ! -z $(diff -ZB $PDB $JOBNAME.cut.pdb) ]]; then
+			PDB=$JOBNAME.cut.pdb	
 		fi
 	fi
 fi
