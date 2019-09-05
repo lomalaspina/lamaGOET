@@ -687,8 +687,13 @@ echo '	echo Writing files to directory $SERVERPERMDIR' >> lamaGOET.pbs
 echo '	cd ${WORKDIR}' >> lamaGOET.pbs
 echo '' >> lamaGOET.pbs
 echo '	$SCP -r -P 2244 $WORKDIR/ $SERVERPERMDIR' >> lamaGOET.pbs
+echo '	if [ $? = 0 ]' >> lamaGOET.pbs
+echo '	then' >> lamaGOET.pbs
+echo '	        rm -r $WORKDIR /home/$USER/$PBS_JOBNAME.*' >> lamaGOET.pbs
+echo '	else' >> lamaGOET.pbs
+echo '	        echo "Error during copying back files, they remain on the run node"' >> lamaGOET.pbs
+echo '	fi' >> lamaGOET.pbs
 echo '	$SCP -P 2244 /home/$USER/$PBS_JOBNAME.* $SERVERPERMDIR' >> lamaGOET.pbs
-echo '	rm -r $WORKDIR /home/$USER/$PBS_JOBNAME.*' >> lamaGOET.pbs
 echo '' >> lamaGOET.pbs
 echo '	echo Final files in data directory:' >> lamaGOET.pbs
 echo '	$SSH $SERVER "cd $PBS_O_WORKDIR/PBS_$PBS_JOBID; ls -l"' >> lamaGOET.pbs

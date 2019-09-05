@@ -1,8 +1,8 @@
 #!/bin/bash
 Encoding=UTF-8
+export LC_NUMERIC="en_US.UTF-8"
 
 SPACEGROUP(){
-	
 	SPACEGROUPARRAY=(
         "1        = p 1          =  p 1            "
 	"2        = p -1         =  -p 1           "
@@ -670,8 +670,17 @@ GAMESS_ELMODB_OLD_PDB(){
 		if [ "$I" = "1" ]; then
 			BASISSETDIR=$( echo "$(dirname $BASISSETDIR)/" )
 			ELMOLIB=$( echo "$(dirname $ELMOLIB)/" )
-			echo " "'$INPUT_METHOD'"      job_title='$JOBNAME' basis_set='$BASISSETG' iprint_level=1 ncpus=$NUMPROC alloc_mem=$MEM bset_path='$BASISSETDIR' lib_path='$ELMOLIB' nci=.true. comp_sao=.false. "'$END'" " > $JOBNAME.elmodb.inp
-			echo " "'$INPUT_STRUCTURE'"   pdb_file='$PDB' ntail=$NTAIL nssbond=$NSSBOND "'$END'"  " >> $JOBNAME.elmodb.inp
+#this is correct but until the elmo problem is solved I will keep it commented
+#			if [[ "$INITADP" == "true" ]];then
+#				echo " "'$INPUT_METHOD'"      job_title='$JOBNAME' basis_set='$BASISSETG' cif=.true. iprint_level=1 ncpus=$NUMPROC alloc_mem=$MEM bset_path='$BASISSETDIR' lib_path='$ELMOLIB' nci=.true. "'$END'" " > $JOBNAME.elmodb.inp		
+#			else
+				echo " "'$INPUT_METHOD'"      job_title='$JOBNAME' basis_set='$BASISSETG' iprint_level=1 ncpus=$NUMPROC alloc_mem=$MEM bset_path='$BASISSETDIR' lib_path='$ELMOLIB' nci=.true. "'$END'" " > $JOBNAME.elmodb.inp		
+#			fi
+#			if [[ "$INITADP" == "true" ]];then
+#				echo " "'$INPUT_STRUCTURE'"   pdb_file='$PDB' cif_file='$INITADPFILE' ntail=$NTAIL max_atail=$ATAIL max_frtail=$FRTAIL nssbond=$NSSBOND "'$END'"  " >> $JOBNAME.elmodb.inp
+#			else
+				echo " "'$INPUT_STRUCTURE'"   pdb_file='$PDB' ntail=$NTAIL max_atail=$ATAIL max_frtail=$FRTAIL nssbond=$NSSBOND "'$END'"  " >> $JOBNAME.elmodb.inp
+#			fi
 			if [[ "$NTAIL" != "0" ]]; then
 				echo "$MANUALRESIDUE" >> $JOBNAME.elmodb.inp
 			fi
@@ -679,6 +688,8 @@ GAMESS_ELMODB_OLD_PDB(){
 				echo "$SSBONDATOMS" >> $JOBNAME.elmodb.inp
 			fi			
 		else 
+#there is a problem with the conversion from fractional to cartesian inside the elmodb program, saving example files in the aga folder 4cut and changing back to always use the xyz. The elmo cannot read the cartesian cif
+#			echo " "'$INPUT_METHOD'"      job_title='$JOBNAME' basis_set='$BASISSETG' cif=.true. iprint_level=1 ncpus=$NUMPROC alloc_mem=$MEM bset_path='$BASISSETDIR' lib_path='$ELMOLIB' nci=.true. comp_sao=.false. "'$END'" " > $JOBNAME.elmodb.inp
 			echo " "'$INPUT_METHOD'"      job_title='$JOBNAME' basis_set='$BASISSETG' xyz=.true. iprint_level=1 ncpus=$NUMPROC alloc_mem=$MEM bset_path='$BASISSETDIR' lib_path='$ELMOLIB' nci=.true. comp_sao=.false. "'$END'" " > $JOBNAME.elmodb.inp
 			echo " "'$INPUT_STRUCTURE'"   pdb_file='$PDB' xyz_file='$JOBNAME.xyz' ntail=$NTAIL nssbond=$NSSBOND "'$END'"  " >> $JOBNAME.elmodb.inp
 			if [[ "$NTAIL" != "0" ]]; then
@@ -714,12 +725,17 @@ ELMODB(){
 	if [ "$I" = "1" ]; then
 		BASISSETDIR=$( echo "$(dirname $BASISSETDIR)/" )
 		ELMOLIB=$( echo "$(dirname $ELMOLIB)/" )
-		echo " "'$INPUT_METHOD'"      job_title='$JOBNAME' basis_set='$BASISSETG' iprint_level=1 ncpus=$NUMPROC alloc_mem=$MEM bset_path='$BASISSETDIR' lib_path='$ELMOLIB' nci=.true. "'$END'" " > $JOBNAME.elmodb.inp
-		if [[ "$INITADP" == "true" ]];then
-			echo " "'$INPUT_STRUCTURE'"   pdb_file='$PDB' cif_file='$INITADPFILE' ntail=$NTAIL max_atail=$ATAIL max_frtail=$FRTAIL nssbond=$NSSBOND "'$END'"  " >> $JOBNAME.elmodb.inp
-		else
+#this is correct but until the elmo problem is solved I will keep it commented
+#		if [[ "$INITADP" == "true" ]];then
+#			echo " "'$INPUT_METHOD'"      job_title='$JOBNAME' basis_set='$BASISSETG' cif=.true. iprint_level=1 ncpus=$NUMPROC alloc_mem=$MEM bset_path='$BASISSETDIR' lib_path='$ELMOLIB' nci=.true. "'$END'" " > $JOBNAME.elmodb.inp		
+#		else
+			echo " "'$INPUT_METHOD'"      job_title='$JOBNAME' basis_set='$BASISSETG' iprint_level=1 ncpus=$NUMPROC alloc_mem=$MEM bset_path='$BASISSETDIR' lib_path='$ELMOLIB' nci=.true. "'$END'" " > $JOBNAME.elmodb.inp		
+#		fi
+#		if [[ "$INITADP" == "true" ]];then
+#			echo " "'$INPUT_STRUCTURE'"   pdb_file='$PDB' cif_file='$INITADPFILE' ntail=$NTAIL max_atail=$ATAIL max_frtail=$FRTAIL nssbond=$NSSBOND "'$END'"  " >> $JOBNAME.elmodb.inp
+#		else
 			echo " "'$INPUT_STRUCTURE'"   pdb_file='$PDB' ntail=$NTAIL max_atail=$ATAIL max_frtail=$FRTAIL nssbond=$NSSBOND "'$END'"  " >> $JOBNAME.elmodb.inp
-		fi
+#		fi
 		if [[ "$NTAIL" != "0" ]]; then
 			echo "$MANUALRESIDUE" >> $JOBNAME.elmodb.inp
 		fi
@@ -727,11 +743,15 @@ ELMODB(){
 			echo "$SSBONDATOMS" >> $JOBNAME.elmodb.inp
 		fi
 	else 
+#there is a problem with the conversion from fractional to cartesian inside the elmodb program, saving example files in the aga folder 4cut and changing back to always use the xyz. The elmo cannot read the cartesian cif
+#		echo " "'$INPUT_METHOD'"      job_title='$JOBNAME' basis_set='$BASISSETG' cif=.true. iprint_level=1 ncpus=$NUMPROC alloc_mem=$MEM bset_path='$BASISSETDIR' lib_path='$ELMOLIB' nci=.true. "'$END'" " > $JOBNAME.elmodb.inp
 		echo " "'$INPUT_METHOD'"      job_title='$JOBNAME' basis_set='$BASISSETG' xyz=.true. iprint_level=1 ncpus=$NUMPROC alloc_mem=$MEM bset_path='$BASISSETDIR' lib_path='$ELMOLIB' nci=.true. "'$END'" " > $JOBNAME.elmodb.inp
 		if [[ "$NTAIL" != "0" ]]; then
+#			echo " "'$INPUT_STRUCTURE'"   pdb_file='$PDB' cif_file='$JOBNAME.fractional.cif1' ntail=$NTAIL max_atail=$ATAIL max_frtail=$FRTAIL nssbond=$NSSBOND "'$END'"  " >> $JOBNAME.elmodb.inp
 			echo " "'$INPUT_STRUCTURE'"   pdb_file='$PDB' xyz_file='$JOBNAME.xyz' ntail=$NTAIL max_atail=$ATAIL max_frtail=$FRTAIL nssbond=$NSSBOND "'$END'"  " >> $JOBNAME.elmodb.inp
 			echo "$MANUALRESIDUE" >> $JOBNAME.elmodb.inp
 		else
+#			echo " "'$INPUT_STRUCTURE'"   pdb_file='$PDB' cif_file='$JOBNAME.fractional.cif1' nssbond=$NSSBOND "'$END'"  " >>
 			echo " "'$INPUT_STRUCTURE'"   pdb_file='$PDB' xyz_file='$JOBNAME.xyz' nssbond=$NSSBOND "'$END'"  " >> $JOBNAME.elmodb.inp
 		fi
 		if [[ "$NSSBOND" != "0" ]]; then
@@ -752,11 +772,6 @@ ELMODB(){
 			cp $JOBNAME.xyz  $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.xyz
 		fi
 	fi
-}
-
-CHECK_ELMO(){
-	LINES=$(wc -l < $JOBNAME.elmodb.out | tr -d '\r')
-	PERCENT1=$[ LINES / 100 ]
 }
 
 TONTO_TO_ORCA(){
@@ -804,8 +819,7 @@ TONTO_TO_ORCA(){
 	cp $JOBNAME.log $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.log
 }
 
-SCF_TO_TONTO(){
-#	echo "Writing Tonto stdin"
+TONTO_HEADER(){
 	echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!" > stdin
 	echo "!!!                                                                                         !!!" >> stdin
 	echo "!!!                        This stdin was written with lamaGOET                             !!!" >> stdin
@@ -818,156 +832,99 @@ SCF_TO_TONTO(){
 	echo "" >> stdin
 	echo "   keyword_echo_on" >> stdin
 	echo "" >> stdin
-	if [ "$SCFCALCPROG" = "elmodb" ]; then
-	        echo "   name= $JOBNAME" >> stdin 
-	        echo "" >> stdin
-		echo "   read_g09_fchk_file $JOBNAME.fchk" >> stdin
+}
+
+READ_ELMO_FCHK(){
+        echo "   name= $JOBNAME" >> stdin 
+        echo "" >> stdin
+	echo "   read_g09_fchk_file $JOBNAME.fchk" >> stdin
+        echo "" >> stdin
+}
+
+READ_GAUSSIAN_FCHK(){
+        echo "   name= $JOBNAME" >> stdin 
+        echo "" >> stdin
+	echo "   read_g09_fchk_file $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.fchk" >> stdin
+        echo "" >> stdin
+}
+
+READ_ORCA_FCHK(){
+        echo "   name= $JOBNAME" >> stdin 
+        echo "" >> stdin
+	echo "   read_molden_file $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.molden.input" >> stdin
+        echo "" >> stdin
+}
+
+DEFINE_JOB_NAME(){
+	echo "   name= $JOBNAME" >> stdin
+        echo "" >> stdin
+}
+
+CHANGE_JOB_NAME(){
+	echo "   name= $JOBNAME.XCW" >> stdin
+        echo "" >> stdin
+}
+
+PROCESS_CIF(){
+	echo "   ! Process the CIF" >> stdin
+	echo "   CIF= {" >> stdin
+	if [ $J = 0 ]; then 
+		if [[ "$COMPLETECIF" == "true" && "$SCFCALCPROG" != "Tonto" ]]; then
+			echo "       file_name= $J.tonto_cycle.$JOBNAME/$J.$JOBNAME.cartesian.cif2" >> stdin
+		else
+			echo "       file_name= $CIF" >> stdin
+		fi
+		if [ "$XHALONG" = "true" ]; then
+	           	if [[ ! -z "$BHBOND" ]]; then
+			   	echo "       BH_bond_length= $BHBOND angstrom" >> stdin
+		   	fi
+	           	if [[ ! -z "$CHBOND" ]]; then
+			   	echo "       CH_bond_length= $CHBOND angstrom" >> stdin
+		   	fi
+	           	if [[ ! -z "$NHBOND" ]]; then
+			   	echo "       NH_bond_length= $NHBOND angstrom" >> stdin
+		   	fi
+        	   	if [[ ! -z "$OHBOND" ]]; then
+			   	echo "       OH_bond_length= $OHBOND angstrom" >> stdin
+		   	fi
+		fi
+	else 
+		echo "       file_name= $J.tonto_cycle.$JOBNAME/$J.$JOBNAME.cartesian.cif2" >> stdin
 	fi
-	if [ "$SCFCALCPROG" = "Gaussian" ]; then
-	        echo "   name= $JOBNAME" >> stdin 
-	        echo "" >> stdin
-		echo "   read_g09_fchk_file $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.fchk" >> stdin
-	elif [ "$SCFCALCPROG" = "Orca" ]; then
-	        echo "   name= $JOBNAME" >> stdin 
-	        echo "" >> stdin
-		echo "   read_molden_file $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.molden.input" >> stdin
-	else
-		echo "   name= $JOBNAME" >> stdin
-	fi
+	echo "    }" >> stdin
 	echo "" >> stdin
-	if [ "$SCFCALCPROG" != "elmodb" ]; then
-		echo "   ! Process the CIF" >> stdin
-		echo "   CIF= {" >> stdin
-		if [ $J = 0 ]; then 
-			if [[ "$COMPLETECIF" == "true" && "$SCFCALCPROG" != "Tonto" ]]; then
-				echo "       file_name= $J.fit_cycle.$JOBNAME/$J.$JOBNAME.cartesian.cif2" >> stdin
-			else
-				echo "       file_name= $CIF" >> stdin
-			fi
-			if [ "$XHALONG" = "true" ]; then
-		           	if [[ ! -z "$BHBOND" ]]; then
-				   	echo "       BH_bond_length= $BHBOND angstrom" >> stdin
-			   	fi
-		           	if [[ ! -z "$CHBOND" ]]; then
-				   	echo "       CH_bond_length= $CHBOND angstrom" >> stdin
-			   	fi
-		           	if [[ ! -z "$NHBOND" ]]; then
-				   	echo "       NH_bond_length= $NHBOND angstrom" >> stdin
-			   	fi
-	        	   	if [[ ! -z "$OHBOND" ]]; then
-				   	echo "       OH_bond_length= $OHBOND angstrom" >> stdin
-			   	fi
-			fi
-		else 
-			echo "       file_name= $J.fit_cycle.$JOBNAME/$J.$JOBNAME.cartesian.cif2" >> stdin
-		fi
-		echo "    }" >> stdin
-		echo "" >> stdin
-		echo "   process_CIF" >> stdin
-		echo "" >> stdin
-		echo "   name= $JOBNAME" >> stdin
-		echo "" >> stdin
-	fi
-	if [[ $J -gt 0 && "$SCFCALCPROG" == "elmodb" ]]; then
-		echo "   ! Process the CIF" >> stdin
-		echo "   CIF= {" >> stdin
-		echo "       file_name= $J.fit_cycle.$JOBNAME/$J.$JOBNAME.cartesian.cif2" >> stdin
-		echo "    }" >> stdin
-		echo "" >> stdin
-		echo "   process_CIF" >> stdin
-		echo "" >> stdin
-		echo "   name= $JOBNAME" >> stdin
-		echo "" >> stdin
-	fi
-	if [[ $J -eq 0 && "$SCFCALCPROG" == "elmodb" && "$INITADP" == "true" ]]; then
-		echo "   ! Process the CIF" >> stdin
-		echo "   CIF= {" >> stdin
-		echo "       file_name= $INITADPFILE" >> stdin
-		echo "    }" >> stdin
-		echo "" >> stdin
-		echo "   process_CIF" >> stdin
-		echo "" >> stdin
-		echo "   name= $JOBNAME" >> stdin
-		echo "" >> stdin
-	fi
-	if [ "$SCFCALCPROG" = "Tonto" ]; then 
-		echo "   basis_directory= $BASISSETDIR" >> stdin
-		echo "   basis_name= $BASISSETT" >> stdin
-		echo "" >> stdin
-	fi
-	if [ "$DISP" = "yes" ]; then 
-		echo "   	 dispersion_coefficients= {" >> stdin
-		echo "   	 $(cat DISP_inst.txt)" >> stdin
-		echo "   	 }" >> stdin
-		echo "" >> stdin
-	fi
-	if [ "$SCFCALCPROG" != "elmodb" ]; then
-		if [[ $J == 0 && "$COMPLETECIF" == "true" && "$SCFCALCPROG" != "Gaussian" && "$SCFCALCPROG" != "Orca" ]]; then
-			echo "   cluster= {" >> stdin
-			echo "      defragment= $COMPLETECIF" >> stdin
-			echo "      make_info" >> stdin
-			echo "   }" >> stdin
-			echo "" >> stdin
-			echo "   create_cluster" >> stdin
-			echo "" >> stdin
-			echo "   name= $JOBNAME" >> stdin		
-			echo "" >> stdin
-		fi
-	fi
+	echo "   process_CIF" >> stdin
+	echo "" >> stdin
+}
+
+TONTO_BASIS_SET(){
+	echo "   basis_directory= $BASISSETDIR" >> stdin
+	echo "   basis_name= $BASISSETT" >> stdin
+	echo "" >> stdin
+}
+
+DISPERSION_COEF(){
+	echo "   	 dispersion_coefficients= {" >> stdin
+	echo "   	 $(cat DISP_inst.txt)" >> stdin
+	echo "   	 }" >> stdin
+	echo "" >> stdin
+}
+
+CHARGE_MULT(){
 	echo "   charge= $CHARGE" >> stdin       
 	echo "   multiplicity= $MULTIPLICITY" >> stdin
-	if [[ $J == 0 && "$IAMTONTO" == "true" ]]; then 
-		echo ""
-		echo "   crystal= {    " >> stdin
-		if [[ "$SCFCALCPROG" = "elmodb" && "$INITADP" == "false" ]]; then
-			echo "      REDIRECT tonto.cell" >> stdin
-		fi
-		echo "      xray_data= {   " >> stdin
-		echo "         optimise_extinction= false" >> stdin
-		echo "         correct_dispersion= $DISP" >> stdin
-		echo "         wavelength= $WAVE Angstrom" >> stdin
-		if [ "$REFANHARM" == "true" ]; then
-			if [[ "$THIRDORD" == "false" && "$FOURTHORD" == "true" ]]; then
-				echo "         refine_4th_order_only= true " >> stdin
-				echo "         refine_4th_order_for_atoms= { $ANHARMATOMS } " >> stdin
-			elif [[ "$THIRDORD" == "true" && "$FOURTHORD" == "true" ]]; then
-				echo "         refine_4th_order_for_atoms= { $ANHARMATOMS } " >> stdin
-			elif [[ "$THIRDORD" == "true" && "$FOURTHORD" == "false" ]]; then
-				echo "         refine_3rd_order_for_atoms= { $ANHARMATOMS } " >> stdin
-			else 
-				echo "ERROR: Please select at least one of the anharmonic terms to refine" | tee -a $JOBNAME.lst
-				unset MAIN_DIALOG
-				exit 0
-			fi
-		fi
-		echo "         REDIRECT $HKL" >> stdin
-		echo "         f_sigma_cutoff= $FCUT" >> stdin
-		echo "         tol_for_shift_on_esd= $CONVTOL" >> stdin
-		echo "         refine_H_U_iso= yes" >> stdin
-		echo "" >> stdin
-		echo "         show_fit_output= true" >> stdin
-		echo "         show_fit_results= true" >> stdin
-		echo "" >> stdin
-		echo "      }  " >> stdin
-		echo "   }  " >> stdin
-		echo "" >> stdin
-		echo "   ! Geometry    " >> stdin
-		echo "   put" >> stdin
-		echo "" >> stdin
-		echo "   IAM_refinement" >> stdin
-		echo "" >> stdin
-	fi
-	echo "" >> stdin
+        echo "" >> stdin
+}
+
+TONTO_IAM_BLOCK(){
+	echo ""
 	echo "   crystal= {    " >> stdin
-	if [[ "$SCFCALCPROG" == "elmodb" && $J == 0 && "$INITADP" == "false" ]]; then
+	if [[ "$SCFCALCPROG" = "elmodb" && "$INITADP" == "false" ]]; then
 		echo "      REDIRECT tonto.cell" >> stdin
 	fi
 	echo "      xray_data= {   " >> stdin
-	echo "         thermal_smearing_model= hirshfeld" >> stdin
-	echo "         partition_model= mulliken" >> stdin
 	echo "         optimise_extinction= false" >> stdin
 	echo "         correct_dispersion= $DISP" >> stdin
-	echo "         optimise_scale_factor= true" >> stdin
 	echo "         wavelength= $WAVE Angstrom" >> stdin
 	if [ "$REFANHARM" == "true" ]; then
 		if [[ "$THIRDORD" == "false" && "$FOURTHORD" == "true" ]]; then
@@ -986,164 +943,320 @@ SCF_TO_TONTO(){
 	echo "         REDIRECT $HKL" >> stdin
 	echo "         f_sigma_cutoff= $FCUT" >> stdin
 	echo "         tol_for_shift_on_esd= $CONVTOL" >> stdin
-	echo "         refine_H_U_iso= $HADP" >> stdin
-	if [[ "$SCFCALCPROG" = "Tonto" && "$IAMTONTO" = "true" ]]; then 
-		echo "" >> stdin
-		echo "         show_fit_output= false" >> stdin
-		echo "         show_fit_results= false" >> stdin
-	fi
+	echo "         refine_H_U_iso= yes" >> stdin
 	echo "" >> stdin
-	if [ "$SCFCALCPROG" != "Tonto" ]; then 
-		echo "	 show_fit_output= TRUE" >> stdin
-		echo "	 show_fit_results= TRUE" >> stdin
-		echo "" >> stdin
-	fi
-	if [ "$POSONLY" = "true" ]; then 
-		echo "	 refine_positions_only= $POSONLY" >> stdin
-	fi
-	if [ "$ADPSONLY" = "true" ]; then 
-		echo "	 refine_ADPs_only= $ADPSONLY" >> stdin
-	fi
-	if [ "$REFHADP" = "false" ]; then
-		if [ "$ADPSONLY" != "true" ]; then 
-			echo "	 refine_H_ADPs= $REFHADP" >> stdin 
-		fi
-	fi
-	if [ "$REFHPOS" = "false" ]; then
-		if [ "$ADPSONLY" != "true" ]; then
-			echo "	 refine_H_positions= $REFHPOS" >> stdin 
-		fi
-	fi
-	if [ "$REFNOTHING" = "true" ]; then
-		echo "	 refine_nothing_for_atoms= { $ATOMLIST }" >> stdin 
-	fi
-	if [ "$REFUISO" = "true" ]; then
-		echo "	 refine_u_iso_for_atoms= { $ATOMUISOLIST }" >> stdin 
-	fi
-	if [ "$MAXLSCICLE" ]; then
-		echo "	 max_iterations= $MAXLSCICLE" >> stdin 
-	fi
+	echo "         show_fit_output= true" >> stdin
+	echo "         show_fit_results= true" >> stdin
+	echo "" >> stdin
 	echo "      }  " >> stdin
 	echo "   }  " >> stdin
 	echo "" >> stdin
-	if [ "$HADP" = "yes" ]; then 
-		echo "	 set_isotropic_h_adps"  >> stdin
-		echo "" >> stdin
-	fi
 	echo "   ! Geometry    " >> stdin
 	echo "   put" >> stdin
 	echo "" >> stdin
-	if [ "$SCFCALCPROG" != "Tonto" ]; then 
-		if [[ "$SCCHARGES" == "true" && "$SCFCALCPROG" != "elmodb" ]]; then 
-			echo "     ! SC cluster charge SCF" >> stdin
-			echo "      scfdata= {" >> stdin
-			echo "      initial_MOs= existing" >> stdin
-			if [[ "$METHOD" != "rks" && "$METHOD" != "rhf" && "$METHOD" != "uhf" && "$METHOD" != "uks" ]]; then
-				echo "      kind= rks " >> stdin
-				echo "      dft_exchange_functional= b3lypgx" >> stdin
-				echo "      dft_correlation_functional= b3lypgc" >> stdin
-			else
-				echo "      kind= $METHOD" >> stdin
-			fi
-			echo "      use_SC_cluster_charges= TRUE" >> stdin
-			echo "      cluster_radius= $SCCRADIUS angstrom" >> stdin
-			echo "      defragment= $DEFRAG" >> stdin
-			echo "      save_cluster_charges= true" >> stdin
-			echo "      convergence= 0.001" >> stdin
-			echo "      diis= { convergence_tolerance= 0.0002 }" >> stdin
-			echo "      output= YES" >> stdin
-			echo "      output_results= YES" >> stdin
-			echo "   }" >> stdin
-			echo "" >> stdin
-			echo "   make_scf_density_matrix" >> stdin
-			echo "   make_fock_matrix" >> stdin
-			echo "" >> stdin
-			echo "   ! SC cluster charge SCF" >> stdin
-			echo "   scfdata= {" >> stdin
-			echo "      initial_density= promolecule" >> stdin
-			echo "      initial_MOs= existing" >> stdin
-			if [[ "$METHOD" != "rks" && "$METHOD" != "rhf" && "$METHOD" != "uhf" && "$METHOD" != "uks" ]]; then
-				echo "      kind= rks " >> stdin
-				echo "      dft_exchange_functional= b3lypgx" >> stdin
-				echo "      dft_correlation_functional= b3lypgc" >> stdin
-			else
-				echo "      kind= $METHOD" >> stdin
-			fi
-			echo "      use_SC_cluster_charges= TRUE" >> stdin
-			echo "      cluster_radius= $SCCRADIUS angstrom" >> stdin
-			echo "      defragment= $DEFRAG" >> stdin
-			echo "      put_cluster" >> stdin
-			echo "      put_cluster_charges" >> stdin
-			echo "" >> stdin
-			echo "   }" >> stdin
-			echo "" >> stdin
-			echo "   ! Make Hirshfeld structure factors" >> stdin
-			echo "   fit_hirshfeld_atoms" >> stdin
-			echo "" >> stdin
-			echo "   write_xyz_file" >> stdin
-		else
-			echo "   ! Make Hirshfeld structure factors" >> stdin
-			echo "   fit_hirshfeld_atoms" >> stdin
-			echo "" >> stdin
-			echo "   write_xyz_file" >> stdin
-		fi
+	echo "   IAM_refinement" >> stdin
+	echo "" >> stdin
+}
+
+CRYSTAL_BLOCK(){
+	echo "" >> stdin
+	echo "   crystal= {    " >> stdin
+	if [[ "$SCFCALCPROG" == "elmodb" && $J == 0 && "$INITADP" == "false" ]]; then
+		echo "      REDIRECT tonto.cell" >> stdin
 	fi
-	if [ "$SCFCALCPROG" = "Tonto" ]; then
-		if [ "$USEBECKE" = "true" ]; then 
-			echo "   !Tight grid" >> stdin
-			echo "   becke_grid = {" >> stdin
-			echo "      set_defaults" >> stdin
-			echo "      accuracy= $ACCURACY" >> stdin
-			echo "      pruning_scheme= $BECKEPRUNINGSCHEME" >> stdin
-			echo "   }" >> stdin
-			echo "" >> stdin
+	if [[ "$SCFCALCPROG" == "optgaussian" ]]; then 
+		echo "      REDIRECT tonto.cell" >> stdin
+	fi
+	if [[ "$SCFCALCPROG" != "optgaussian" ]]; then 
+		echo "      xray_data= {   " >> stdin
+		echo "         thermal_smearing_model= hirshfeld" >> stdin
+		echo "         partition_model= mulliken" >> stdin
+		if [[ "$PLOT_TONTO" == "false" ]]; then
+			echo "         optimise_extinction= false" >> stdin
+			echo "         correct_dispersion= $DISP" >> stdin
+			echo "         optimise_scale_factor= true" >> stdin
 		fi
-		echo "   ! Normal SCF" >> stdin
-		echo "   scfdata= {" >> stdin
-		echo "      initial_density= promolecule " >> stdin
-		echo "      kind= rhf" >> stdin   # this is the promolecule guess, should be always rhf
-		echo "      use_SC_cluster_charges= FALSE" >> stdin
-		echo "      convergence= 0.001" >> stdin
-		echo "      diis= { convergence_tolerance= 0.0002 }" >> stdin
+		echo "         wavelength= $WAVE Angstrom" >> stdin
+		if [[ "$REFANHARM" == "true" && "$PLOT_TONTO" == "false" ]]; then
+			if [[ "$THIRDORD" == "false" && "$FOURTHORD" == "true" ]]; then
+				echo "         refine_4th_order_only= true " >> stdin
+				echo "         refine_4th_order_for_atoms= { $ANHARMATOMS } " >> stdin
+			elif [[ "$THIRDORD" == "true" && "$FOURTHORD" == "true" ]]; then
+				echo "         refine_4th_order_for_atoms= { $ANHARMATOMS } " >> stdin
+			elif [[ "$THIRDORD" == "true" && "$FOURTHORD" == "false" ]]; then
+				echo "         refine_3rd_order_for_atoms= { $ANHARMATOMS } " >> stdin
+			else 
+				echo "ERROR: Please select at least one of the anharmonic terms to refine" | tee -a $JOBNAME.lst
+				unset MAIN_DIALOG
+				exit 0
+			fi
+		fi
+		echo "         REDIRECT $HKL" >> stdin
+		echo "         f_sigma_cutoff= $FCUT" >> stdin
+		if [[ "$PLOT_TONTO" == "false" ]]; then
+			echo "         tol_for_shift_on_esd= $CONVTOL" >> stdin
+			echo "         refine_H_U_iso= $HADP" >> stdin
+			if [[ "$SCFCALCPROG" = "Tonto" && "$IAMTONTO" = "true" ]]; then 
+				echo "" >> stdin
+				echo "         show_fit_output= false" >> stdin
+				echo "         show_fit_results= false" >> stdin
+			fi
+			echo "" >> stdin
+			if [ "$SCFCALCPROG" != "Tonto" ]; then 
+				echo "	 show_fit_output= TRUE" >> stdin
+				echo "	 show_fit_results= TRUE" >> stdin
+				echo "" >> stdin
+			fi
+			if [ "$POSONLY" = "true" ]; then 
+				echo "	 refine_positions_only= $POSONLY" >> stdin
+			fi
+			if [ "$ADPSONLY" = "true" ]; then 
+				echo "	 refine_ADPs_only= $ADPSONLY" >> stdin
+			fi
+			if [ "$REFHADP" = "false" ]; then
+				if [ "$ADPSONLY" != "true" ]; then 
+					echo "	 refine_H_ADPs= $REFHADP" >> stdin 
+				fi
+			fi
+			if [ "$REFHPOS" = "false" ]; then
+				if [ "$ADPSONLY" != "true" ]; then
+					echo "	 refine_H_positions= $REFHPOS" >> stdin 
+				fi
+			fi
+			if [ "$REFNOTHING" = "true" ]; then
+				echo "	 refine_nothing_for_atoms= { $ATOMLIST }" >> stdin 
+			fi
+			if [ "$REFUISO" = "true" ]; then
+				echo "	 refine_u_iso_for_atoms= { $ATOMUISOLIST }" >> stdin 
+			fi
+			if [ "$MAXLSCICLE" ]; then
+				echo "	 max_iterations= $MAXLSCICLE" >> stdin 
+			fi
+		fi
+		echo "      }  " >> stdin
+	fi
+	echo "   }  " >> stdin
+	echo "" >> stdin
+}
+
+SET_H_ISO(){ 
+	echo "	 set_isotropic_h_adps"  >> stdin
+	echo "" >> stdin
+}
+
+PUT_GEOM(){
+	echo "   ! Geometry    " >> stdin
+	echo "   put" >> stdin
+	echo "" >> stdin
+}
+
+BECKE_GRID(){
+		echo "   !Tight grid" >> stdin
+		echo "   becke_grid = {" >> stdin
+		echo "      set_defaults" >> stdin
+		echo "      accuracy= $ACCURACY" >> stdin
+		echo "      pruning_scheme= $BECKEPRUNINGSCHEME" >> stdin
 		echo "   }" >> stdin
 		echo "" >> stdin
-		echo "   scf" >> stdin
+}
+
+SCF_BLOCK_NOT_TONTO(){
+	if [[ "$SCCHARGES" == "true" && "$SCFCALCPROG" != "elmodb" ]]; then 
+		echo "     ! SC cluster charge SCF" >> stdin
+		echo "      scfdata= {" >> stdin
+		echo "      initial_MOs= existing" >> stdin
+		if [[ "$METHOD" != "rks" && "$METHOD" != "rhf" && "$METHOD" != "uhf" && "$METHOD" != "uks" ]]; then
+			echo "      kind= rks " >> stdin
+			echo "      dft_exchange_functional= b3lypgx" >> stdin
+			echo "      dft_correlation_functional= b3lypgc" >> stdin
+		else
+			echo "      kind= $METHOD" >> stdin
+		fi
+		echo "      use_SC_cluster_charges= TRUE" >> stdin
+		echo "      cluster_radius= $SCCRADIUS angstrom" >> stdin
+		echo "      defragment= $DEFRAG" >> stdin
+		echo "      save_cluster_charges= true" >> stdin
+		echo "      convergence= 0.001" >> stdin
+		echo "      diis= { convergence_tolerance= 0.0002 }" >> stdin
+		echo "      output= YES" >> stdin
+		echo "      output_results= YES" >> stdin
+		echo "   }" >> stdin
+		echo "" >> stdin
+		echo "   make_scf_density_matrix" >> stdin
+		echo "   make_hirshfeld_inputs" >> stdin
+		echo "   make_fock_matrix" >> stdin
 		echo "" >> stdin
 		echo "   ! SC cluster charge SCF" >> stdin
 		echo "   scfdata= {" >> stdin
-		echo "      initial_MOs= restricted" >> stdin
-		if [ "$METHOD" = "b3lyp" ]; then
-			echo "      kind= rks" >> stdin
+		echo "      initial_density= promolecule" >> stdin
+		echo "      initial_MOs= existing" >> stdin
+		if [[ "$METHOD" != "rks" && "$METHOD" != "rhf" && "$METHOD" != "uhf" && "$METHOD" != "uks" ]]; then
+			echo "      kind= rks " >> stdin
 			echo "      dft_exchange_functional= b3lypgx" >> stdin
 			echo "      dft_correlation_functional= b3lypgc" >> stdin
-		else 
+		else
 			echo "      kind= $METHOD" >> stdin
 		fi
-		if [ "$SCCHARGES" = "true" ]; then 
-			echo "      use_SC_cluster_charges= TRUE" >> stdin
-			echo "      cluster_radius= $SCCRADIUS angstrom" >> stdin
-			echo "      defragment= $DEFRAG" >> stdin
-		else
-			echo "      use_SC_cluster_charges= FALSE" >> stdin
-		fi
-		echo "      convergence= 0.001" >> stdin
-		echo "      diis= {" >> stdin
-		echo "         convergence_tolerance= 0.0002" >> stdin
-		echo "      }" >> stdin
+		echo "      use_SC_cluster_charges= TRUE" >> stdin
+		echo "      cluster_radius= $SCCRADIUS angstrom" >> stdin
+		echo "      defragment= $DEFRAG" >> stdin
+		echo "      put_cluster" >> stdin
+		echo "      put_cluster_charges" >> stdin
+		echo "" >> stdin
 		echo "   }" >> stdin
 		echo "" >> stdin
+		if [[ "$SCFCALCPROG" != "optgaussian" ]]; then 
+			echo "   ! Make Hirshfeld structure factors" >> stdin
+			echo "   fit_hirshfeld_atoms" >> stdin
+			echo "" >> stdin
+		fi
+		echo "   write_xyz_file" >> stdin
+		if [[ "$SCFCALCPROG" == "optgaussian" ]]; then
+			echo "" >> stdin
+			echo "   put_grown_cif" >> stdin
+		fi
+	else
+		if [[ "$SCFCALCPROG" != "optgaussian" ]]; then 
+			echo "   ! Make Hirshfeld structure factors" >> stdin
+			echo "   fit_hirshfeld_atoms" >> stdin
+			echo "" >> stdin
+		fi
+		echo "   write_xyz_file" >> stdin
+		if [[ "$SCFCALCPROG" == "optgaussian" ]]; then
+			echo "" >> stdin
+			echo "   put_grown_cif" >> stdin
+		fi
+	fi
+}
+
+SCF_BLOCK_PROM_TONTO(){
+	echo "   ! Normal SCF" >> stdin
+	echo "   scfdata= {" >> stdin
+	echo "      initial_density= promolecule " >> stdin
+	echo "      kind= rhf" >> stdin   # this is the promolecule guess, should be always rhf
+	echo "      use_SC_cluster_charges= FALSE" >> stdin
+	echo "      convergence= 0.001" >> stdin
+	echo "      diis= { convergence_tolerance= 0.0002 }" >> stdin
+	echo "   }" >> stdin
+	echo "" >> stdin
+	echo "   scf" >> stdin
+	echo "" >> stdin
+}
+
+SCF_BLOCK_REST_TONTO(){
+	echo "   ! SC cluster charge SCF" >> stdin
+	echo "   scfdata= {" >> stdin
+	echo "      initial_MOs= restricted" >> stdin
+	if [[ "$METHOD" == "b3lyp" ]]; then
+		echo "      kind= rks" >> stdin
+		echo "      dft_exchange_functional= b3lypgx" >> stdin
+		echo "      dft_correlation_functional= b3lypgc" >> stdin
+	else 
+		echo "      kind= $METHOD" >> stdin
+	fi
+	if [[ "$SCCHARGES" == "true" ]]; then 
+		echo "      use_SC_cluster_charges= TRUE" >> stdin
+		echo "      cluster_radius= $SCCRADIUS angstrom" >> stdin
+		echo "      defragment= $DEFRAG" >> stdin
+	else
+		echo "      use_SC_cluster_charges= FALSE" >> stdin
+	fi
+	if [[ "$PLOT_TONTO" == "false" ]]; then
+		echo "      convergence= 0.001" >> stdin
+		echo "      diis= { convergence_tolerance= 0.0002 }" >> stdin
+	fi
+	echo "   }" >> stdin
+	echo "" >> stdin
+	if [[ "$XCWONLY" != "true" && "$PLOT_TONTO" == "false" ]]; then
 		echo "   ! Make Hirshfeld structure factors" >> stdin
 		echo "   refine_hirshfeld_atoms" >> stdin
+		echo "" >> stdin
+	fi
+}
+
+SCF_TO_TONTO(){
+	TONTO_HEADER
+	if [ "$SCFCALCPROG" = "elmodb" ]; then
+		READ_ELMO_FCHK
+	fi
+	if [[ "$SCFCALCPROG" == "Gaussian" ||  "$SCFCALCPROG" == "optgaussian" ]]; then
+		READ_GAUSSIAN_FCHK
+	elif [ "$SCFCALCPROG" = "Orca" ]; then
+		READ_ORCA_FCHK
+	else
+		DEFINE_JOB_NAME
+	fi
+	echo "" >> stdin
+	if [[ "$SCFCALCPROG" != "elmodb" && "$SCFCALCPROG" != "optgaussian" ]]; then
+		PROCESS_CIF
+		DEFINE_JOB_NAME
+	fi
+	if [[ $J -gt 0 && "$SCFCALCPROG" == "elmodb" ]]; then
+		PROCESS_CIF
+		DEFINE_JOB_NAME
+	fi
+	if [[ $J -eq 0 && "$SCFCALCPROG" == "elmodb" && "$INITADP" == "true" ]]; then
+		echo "   ! Process the CIF" >> stdin
+		echo "   CIF= {" >> stdin
+		echo "       file_name= $INITADPFILE" >> stdin
+		echo "    }" >> stdin
+		echo "" >> stdin
+		echo "   process_CIF" >> stdin
+		echo "" >> stdin
+		echo "   name= $JOBNAME" >> stdin
+		echo "" >> stdin
+	fi
+	if [[ "$SCFCALCPROG" == "Tonto" ]]; then 
+		TONTO_BASIS_SET
+		if [[ "$COMPLETECIF" == "true"  ]]; then
+			COMPLETECIFBLOCK
+		fi
+	fi
+	if [[ "$DISP" == "yes" ]]; then 
+		DISPERSION_COEF
+	fi
+		CHARGE_MULT
+	if [[ $J == 0 && "$IAMTONTO" == "true" ]]; then 
+		TONTO_IAM_BLOCK
+	fi
+	CRYSTAL_BLOCK
+	if [[ "$HADP" == "yes" ]]; then 
+		SET_H_ISO
+	fi
+		PUT_GEOM
+	if [[ "$USEBECKE" == "true" ]]; then 
+		BECKE_GRID
+	fi
+	if [[ "$SCFCALCPROG" != "Tonto" ]]; then 
+		SCF_BLOCK_NOT_TONTO
+	fi
+	if [[ "$SCFCALCPROG" == "Tonto" ]]; then
+		SCF_BLOCK_PROM_TONTO
+		SCF_BLOCK_REST_TONTO
 	fi
 	echo "" >> stdin
 	echo "}" >> stdin 
 	J=$[ $J + 1 ]
 	echo "Running Tonto, cycle number $J" 
 	$TONTO
+	if [[ "$SCFCALCPROG" == "Tonto" ]]; then
+		mkdir $J.tonto_cycle.$JOBNAME
+		sed -i '/# NOTE: Cartesian 9Nx9N covariance matrix in BOHR units/,/# ===========/d' $JOBNAME.cartesian.cif2
+		cp $JOBNAME'.cartesian.cif2' $J.tonto_cycle.$JOBNAME/$J.$JOBNAME.cartesian.cif2
+		cp $JOBNAME'.archive.cif' $J.tonto_cycle.$JOBNAME/$J.$JOBNAME.archive.cif
+		cp $JOBNAME'.archive.fco' $J.tonto_cycle.$JOBNAME/$J.$JOBNAME.archive.fco
+		cp $JOBNAME'.archive.fcf' $J.tonto_cycle.$JOBNAME/$J.$JOBNAME.archive.fcf
+		cp stdin $J.tonto_cycle.$JOBNAME/$J.stdin
+		cp stdout $J.tonto_cycle.$JOBNAME/$J.stdout
+		cp $JOBNAME.residual_density_map,cell.cube $J.tonto_cycle.$JOBNAME/$J.residual_density_map,cell.cube
+	fi
 	INITIALCHI=$(awk '{a[NR]=$0}/^Begin rigid-atom fit/{b=NR}END {print a[b+10]}' stdout | awk '{print $2}')
-	MAXSHIFT=$(awk '{a[NR]=$0}/^Begin rigid-atom fit/{b=NR+10}/^Rigid-atom fit results/{c=NR-4}END {for(d=b;d<=c;++d)print a[d]}' stdout | awk -v max=0 '{if($5>max){shift=$5; atom=$6; param=$7; max=$5}}END{print shift}')
-	MAXSHIFTATOM=$(awk '{a[NR]=$0}/^Begin rigid-atom fit/{b=NR+10}/^Rigid-atom fit results/{c=NR-4}END {for(d=b;d<=c;++d)print a[d]}' stdout | awk -v max=0 '{if($5>max){shift=$5; atom=$6; param=$7; max=$5}}END{print atom}')
-	MAXSHIFTPARAM=$(awk '{a[NR]=$0}/^Begin rigid-atom fit/{b=NR+10}/^Rigid-atom fit results/{c=NR-4}END {for(d=b;d<=c;++d)print a[d]}' stdout | awk -v max=0 '{if($5>max){shift=$5; atom=$6; param=$7; max=$5}}END{print param}')
+#	MAXSHIFT=$(awk '{a[NR]=$0}/^Begin rigid-atom fit/{b=NR+10}/^Rigid-atom fit results/{c=NR-4}END {for(d=b;d<=c;++d)print a[d]}' stdout | awk -v max=0 '{if($5>max){shift=$5; atom=$6; param=$7; max=$5}}END{print shift}')
+#	MAXSHIFTATOM=$(awk '{a[NR]=$0}/^Begin rigid-atom fit/{b=NR+10}/^Rigid-atom fit results/{c=NR-4}END {for(d=b;d<=c;++d)print a[d]}' stdout | awk -v max=0 '{if($5>max){shift=$5; atom=$6; param=$7; max=$5}}END{print atom}')
+#	MAXSHIFTPARAM=$(awk '{a[NR]=$0}/^Begin rigid-atom fit/{b=NR+10}/^Rigid-atom fit results/{c=NR-4}END {for(d=b;d<=c;++d)print a[d]}' stdout | awk -v max=0 '{if($5>max){shift=$5; atom=$6; param=$7; max=$5}}END{print param}')
+	MAXSHIFT=$(awk '{a[NR]=$0}/^Begin rigid-atom fit/{b=NR+10}/^Rigid-atom fit results/{c=NR-4}END {for(d=b;d<=c;++d)print a[d]}' stdout | awk '{ gsub("-","",$0); print $0 }' | awk -v max=0 '{if($5>max){shift=$5; atom=$7; param=$8; max=$5}}END{print shift}')
+	MAXSHIFTATOM=$(awk '{a[NR]=$0}/^Begin rigid-atom fit/{b=NR+10}/^Rigid-atom fit results/{c=NR-4}END {for(d=b;d<=c;++d)print a[d]}' stdout | awk '{ gsub("-","",$0); print $0 }' | awk -v max=0 '{if($5>max){shift=$5; atom=$7; param=$8; max=$5}}END{print atom}')
+	MAXSHIFTPARAM=$(awk '{a[NR]=$0}/^Begin rigid-atom fit/{b=NR+10}/^Rigid-atom fit results/{c=NR-4}END {for(d=b;d<=c;++d)print a[d]}' stdout | awk '{ gsub("-","",$0); print $0 }' |awk -v max=0 '{if($5>max){shift=$5; atom=$7; param=$8; max=$5}}END{print param}')
 	if [[ "$SCFCALCPROG" != "Tonto" && "$SCFCALCPROG" != "elmodb" ]]; then
 		sed -i 's/(//g' $JOBNAME.xyz
 		sed -i 's/)//g' $JOBNAME.xyz
@@ -1169,64 +1282,65 @@ SCF_TO_TONTO(){
 		echo "" >> $JOBNAME.lst
 	fi
 	if [[ "$SCFCALCPROG" != "Gaussian" && "$SCFCALCPROG" != "Orca" ]]; then 
-		echo -e " $J\t$(awk '{a[NR]=$0}/^Rigid-atom fit results/{b=NR}END {print a[b-4]}' stdout | awk '{print $1}' )\t$INITIALCHI\t$(awk '{a[NR]=$0}/^Rigid-atom fit results/{b=NR}END {print a[b-4]}' stdout | awk '{print  $2"\t"$3"\t"$4"\t"}') $MAXSHIFT\t$MAXSHIFTATOM $MAXSHIFTPARAM $(awk '{a[NR]=$0}/^Rigid-atom fit results/{b=NR}END {print a[b-4]}' stdout | awk '{print  "\t""    "$8" \t"$9 }' ) "  >> $JOBNAME.lst  
+		echo -e " $J\t$(awk '{a[NR]=$0}/^Rigid-atom fit results/{b=NR}END {print a[b-4]}' stdout | awk '{print $1}' )\t$INITIALCHI\t$(awk '{a[NR]=$0}/^Rigid-atom fit results/{b=NR}END {print a[b-4]}' stdout | awk '{print  $2"\t"$3"\t"$4"\t"}') $MAXSHIFT\t$MAXSHIFTATOM $MAXSHIFTPARAM $(awk '{a[NR]=$0}/^Rigid-atom fit results/{b=NR}END {print a[b-4]}' stdout | awk '{print  "\t""    "$9" \t"$10 }' ) "  >> $JOBNAME.lst  
 	fi
-	if [ "$SCFCALCPROG" != "Tonto" ]; then 
-		mkdir $J.fit_cycle.$JOBNAME
-		cp $JOBNAME.xyz $J.fit_cycle.$JOBNAME/$J.$JOBNAME.xyz
-		cp stdin $J.fit_cycle.$JOBNAME/$J.stdin
-		cp stdout $J.fit_cycle.$JOBNAME/$J.stdout
-		sed -i '/# NOTE: Cartesian 9Nx9N covariance matrix in BOHR units/,/# ===========/d' $JOBNAME.cartesian.cif2
-		cp $JOBNAME'.cartesian.cif2' $J.fit_cycle.$JOBNAME/$J.$JOBNAME.cartesian.cif2
-		cp $JOBNAME'.archive.cif' $J.fit_cycle.$JOBNAME/$J.$JOBNAME.archive.cif
-		cp $JOBNAME'.archive.fco' $J.fit_cycle.$JOBNAME/$J.$JOBNAME.archive.fco
-		cp $JOBNAME'.archive.fcf' $J.fit_cycle.$JOBNAME/$J.$JOBNAME.archive.fcf
+	if [[ "$SCFCALCPROG" != "Tonto" ]]; then 
+		mkdir $J.tonto_cycle.$JOBNAME
+		cp $JOBNAME.xyz $J.tonto_cycle.$JOBNAME/$J.$JOBNAME.xyz
+		cp stdin $J.tonto_cycle.$JOBNAME/$J.stdin
+		cp stdout $J.tonto_cycle.$JOBNAME/$J.stdout
+		if [[ "$SCFCALCPROG" != "optgaussian" ]]; then
+			sed -i '/# NOTE: Cartesian 9Nx9N covariance matrix in BOHR units/,/# ===========/d' $JOBNAME.cartesian.cif2
+			cp $JOBNAME'.cartesian.cif2' $J.tonto_cycle.$JOBNAME/$J.$JOBNAME.cartesian.cif2
+			cp $JOBNAME'.archive.cif' $J.tonto_cycle.$JOBNAME/$J.$JOBNAME.archive.cif
+			cp $JOBNAME'.archive.fco' $J.tonto_cycle.$JOBNAME/$J.$JOBNAME.archive.fco
+			cp $JOBNAME'.archive.fcf' $J.tonto_cycle.$JOBNAME/$J.$JOBNAME.archive.fcf
+		fi
 		if [[ "$SCFCALCPROG" != "elmodb" &&  "$SCCHARGES" == "true" ]]; then
-			cp gaussian-point-charges $J.fit_cycle.$JOBNAME/$J.gaussian-point-charges
+			cp gaussian-point-charges $J.tonto_cycle.$JOBNAME/$J.gaussian-point-charges
 		fi
 	fi
 }
 
-#######################################################################
-
 TONTO_TO_GAUSSIAN(){
 	I=$[ $I + 1 ]
 	echo "Extrating XYZ for Gaussian cycle number $I"
-	echo "%chk=./$JOBNAME.chk" > $JOBNAME.com
 	echo "%rwf=./$JOBNAME.rwf" >> $JOBNAME.com
 	echo "%int=./$JOBNAME.int" >> $JOBNAME.com
+	echo "%NoSave" >> $JOBNAME.com
+	echo "%chk=./$JOBNAME.chk" > $JOBNAME.com
 	echo "%mem=$MEM" >> $JOBNAME.com
 	echo "%nprocshared=$NUMPROC" >> $JOBNAME.com
 	if [ "$METHOD" = "rks" ]; then
 		if [ "$SCCHARGES" = "true" ]; then 
-	   		echo "# blyp/$BASISSETG Charge nosymm output=wfn 6D 10F Fchk $INT" >> $JOBNAME.com
+	   		echo "#$OPT blyp/$BASISSETG Charge nosymm $EXTRAKEY output=wfn 6D 10F Fchk $INT $GAUSSEMPDISPKEY" >> $JOBNAME.com
 		else
-			echo "# blyp/$BASISSETG nosymm output=wfn 6D 10F Fchk $INT" >> $JOBNAME.com
+			echo "#$OPT blyp/$BASISSETG nosymm $EXTRAKEY output=wfn 6D 10F Fchk $INT $GAUSSEMPDISPKEY" >> $JOBNAME.com
 	        fi
 	elif [ "$METHOD" = "uks" ]; then
 		if [ "$SCCHARGES" = "true" ]; then 
-	   		echo "# ublyp/$BASISSETG Charge nosymm output=wfn 6D 10F Fchk $INT" >> $JOBNAME.com
+	   		echo "#$OPT ublyp/$BASISSETG Charge nosymm $EXTRAKEY output=wfn 6D 10F Fchk $INT $GAUSSEMPDISPKEY" >> $JOBNAME.com
 		else
-			echo "# ublyp/$BASISSETG nosymm output=wfn 6D 10F Fchk $INT" >> $JOBNAME.com
+			echo "#$OPT ublyp/$BASISSETG nosymm $EXTRAKEY output=wfn 6D 10F Fchk $INT $GAUSSEMPDISPKEY" >> $JOBNAME.com
 	        fi
 	elif [ "$METHOD" = "rhf" ]; then
 		if [ "$SCCHARGES" = "true" ]; then 
-	   		echo "# HF/$BASISSETG Charge nosymm output=wfn 6D 10F Fchk $INT" >> $JOBNAME.com
+	   		echo "#$OPT rhf/$BASISSETG Charge nosymm $EXTRAKEY output=wfn 6D 10F Fchk $INT $GAUSSEMPDISPKEY" >> $JOBNAME.com
 		else
-			echo "# HF/$BASISSETG nosymm output=wfn 6D 10F Fchk $INT" >> $JOBNAME.com
+			echo "#$OPT rhf/$BASISSETG nosymm $EXTRAKEY output=wfn 6D 10F Fchk $INT $GAUSSEMPDISPKEY" >> $JOBNAME.com
 	        fi
 	else
 		if [ "$SCCHARGES" = "true" ]; then 
-	   		echo "# $METHOD/$BASISSETG Charge nosymm output=wfn 6D 10F Fchk $INT" >> $JOBNAME.com
+	   		echo "#$OPT $METHOD/$BASISSETG Charge nosymm $EXTRAKEY output=wfn 6D 10F Fchk $INT $GAUSSEMPDISPKEY" >> $JOBNAME.com
 		else
-			echo "# $METHOD/$BASISSETG nosymm output=wfn 6D 10F Fchk $INT" >> $JOBNAME.com
+			echo "#$OPT $METHOD/$BASISSETG nosymm $EXTRAKEY output=wfn 6D 10F Fchk $INT $GAUSSEMPDISPKEY" >> $JOBNAME.com
 	        fi
 	fi
 	echo "" >> $JOBNAME.com
 	echo "$JOBNAME" >> $JOBNAME.com
 	echo "" >> $JOBNAME.com
 	echo "$CHARGE $MULTIPLICITY" >> $JOBNAME.com
-	awk 'NR>2' $J.fit_cycle.$JOBNAME/$J.$JOBNAME.xyz >> $JOBNAME.com
+	awk 'NR>2' $J.tonto_cycle.$JOBNAME/$J.$JOBNAME.xyz >> $JOBNAME.com
 	echo "" >> $JOBNAME.com
 	if [ "$SCCHARGES" = "true" ]; then 
         	awk '{a[NR]=$0}{b=12}/^------------------------------------------------------------------------/{c=NR}END{for(d=b;d<=c-1;++d)print a[d]}' gaussian-point-charges | awk '{printf "%s\t %s\t %s\t %s\t \n", $2, $3, $4, $1 }' >> $JOBNAME.com
@@ -1253,12 +1367,8 @@ TONTO_TO_GAUSSIAN(){
 	cp $JOBNAME.log  $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.log
 }
 
-######################  Gaussian done ########################
-
-######################  Begin check energy ########################
-
 CHECK_ENERGY(){
-	if [ "$SCFCALCPROG" = "Gaussian" ]; then 
+	if [[ "$SCFCALCPROG" == "Gaussian" || "$SCFCALCPROG" == "optgaussian" ]]; then 
 		ENERGIA2=$(sed 's/^ //' $JOBNAME.log | sed 'N;s/\n//' | sed 'N;s/\n//' | sed 'N;s/\n//' | sed 'N;s/\n//' | sed -n '/HF=/{N;p;}' | sed 's/^.*HF=//' | sed 'N;s/\n//' | sed '2d' | sed 's/RMSD=//g' | awk -F '\' '{ print $1}' | tr -d '\r')
 		RMSD2=$(sed 's/^ //' $JOBNAME.log | sed 'N;s/\n//' | sed 'N;s/\n//' | sed 'N;s/\n//'| sed -n '/RMSD=/{N;p;}' | sed 's/^.*RMSD=//' | sed 'N;s/\n//' | sed '2d' | sed 's/RMSD=//g' | awk -F '\' '{ print $1}'| tr -d '\r')
 		echo "Gaussian cycle number $I, final energy is: $ENERGIA2, RMSD is: $RMSD2 "
@@ -1268,7 +1378,8 @@ CHECK_ENERGY(){
 		echo "Orca cycle number $I, final energy is: $ENERGIA2, RMSD is: $RMSD2 "
 	fi
 		DE=$(awk "BEGIN {print $ENERGIA2 - $ENERGIA}")
-		echo -e " $J\t$(awk '{a[NR]=$0}/^Rigid-atom fit results/{b=NR}END {print a[b-4]}' stdout | awk '{print $1}' )\t$INITIALCHI\t$(awk '{a[NR]=$0}/^Rigid-atom fit results/{b=NR}END {print a[b-4]}' stdout | awk '{print  $2"\t"$3"\t"$4"\t"}') $MAXSHIFT\t$MAXSHIFTATOM $MAXSHIFTPARAM $(awk '{a[NR]=$0}/^Rigid-atom fit results/{b=NR}END {print a[b-4]}' stdout | awk '{print  "    "$8" \t"$9 }' )  $ENERGIA2   $RMSD2   \t$DE"   >> $JOBNAME.lst  
+		DE=$(printf '%.12f' $DE)
+		echo -e " $J\t$(awk '{a[NR]=$0}/^Rigid-atom fit results/{b=NR}END {print a[b-4]}' stdout | awk '{print $1}' )\t$INITIALCHI\t$(awk '{a[NR]=$0}/^Rigid-atom fit results/{b=NR}END {print a[b-4]}' stdout | awk '{print  $2"\t"$3"\t"$4"\t"}') $MAXSHIFT\t$MAXSHIFTATOM $MAXSHIFTPARAM $(awk '{a[NR]=$0}/^Rigid-atom fit results/{b=NR}END {print a[b-4]}' stdout | awk '{print  "    "$9" \t"$10 }' )  $ENERGIA2   $RMSD2   \t$DE"   >> $JOBNAME.lst  
 		ENERGIA=$ENERGIA2
 		RMSD=$RMSD2
 		echo "Delta E (cycle  $I - $[ I - 1 ]): $DE "
@@ -1278,97 +1389,30 @@ CHECKCONV(){
 FINALPARAMESD=$(awk '{a[NR]=$0}/^Begin rigid-atom fit/{b=NR}END {print a[b+10]}' stdout | awk '{print $5}')
 }
 
-######################  End check energy ########################
-
-# function to get the residual density, only needed for scf program different than tonto, since we remove the residual calculation from inside the fits.
 GET_RESIDUALS(){
-	echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!" > stdin
-	echo "!!!                                                                                         !!!" >> stdin
-	echo "!!!                        This stdin was written with lamaGOET                             !!!" >> stdin
-	echo "!!!                                                                                         !!!" >> stdin
-	echo "!!!   This stdin is only to get the residual density after the HAR using an SCF program     !!!" >> stdin
-	echo "!!!   that is different than Tonto. A cube file containing the residual density will be     !!!" >> stdin
-	echo "!!!                         written where the units are e/A^3.                              !!!" >> stdin
-	echo "!!!                                                                                         !!!" >> stdin
-	echo "!!!                    script written by Lorraine Andrade Malaspina                         !!!" >> stdin
-	echo "!!!                        contact: lorraine.malaspina@gmail.com                            !!!" >> stdin
-	echo "!!!                                                                                         !!!" >> stdin
-	echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!" >> stdin
-	echo "{ " >> stdin
-	echo "" >> stdin
-	echo "   keyword_echo_on" >> stdin
-	echo "" >> stdin
+	TONTO_HEADER
+	DEFINE_JOB_NAME
 	if [ "$SCFCALCPROG" = "elmodb" ]; then
-	        echo "   name= $JOBNAME" >> stdin 
-	        echo "" >> stdin
-		echo "   read_g09_fchk_file $JOBNAME.fchk" >> stdin
+		READ_ELMO_FCHK
 	fi
 	if [ "$SCFCALCPROG" = "Gaussian" ]; then
-	        echo "   name= $JOBNAME" >> stdin 
-	        echo "" >> stdin
-		echo "   read_g09_fchk_file $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.fchk" >> stdin
+		READ_GAUSSIAN_FCHK
 	elif [ "$SCFCALCPROG" = "Orca" ]; then
-	        echo "   name= $JOBNAME" >> stdin 
-	        echo "" >> stdin
-		echo "   read_molden_file $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.molden.input" >> stdin
+		READ_ORCA_FCHK
 	else
-		echo "   name= $JOBNAME" >> stdin
+		DEFINE_JOB_NAME
 	fi
 	echo "" >> stdin
-	if [ "$SCFCALCPROG" != "elmodb" ]; then
-		echo "   ! Process the CIF" >> stdin
-		echo "   CIF= {" >> stdin
-		echo "       file_name= $J.fit_cycle.$JOBNAME/$J.$JOBNAME.cartesian.cif2" >> stdin
-		echo "    }" >> stdin
-		echo "" >> stdin
-		echo "   process_CIF" >> stdin
-		echo "" >> stdin
-		echo "   name= $JOBNAME" >> stdin
-		echo "" >> stdin
-	fi
-	if [ "$SCFCALCPROG" == "elmodb" ]; then
-		echo "   ! Process the CIF" >> stdin
-		echo "   CIF= {" >> stdin
-		echo "       file_name= $J.fit_cycle.$JOBNAME/$J.$JOBNAME.cartesian.cif2" >> stdin
-		echo "    }" >> stdin
-		echo "" >> stdin
-		echo "   process_CIF" >> stdin
-		echo "" >> stdin
-		echo "   name= $JOBNAME" >> stdin
-		echo "" >> stdin
-	fi
+		PROCESS_CIF
+		DEFINE_JOB_NAME
 	if [ "$SCFCALCPROG" = "Tonto" ]; then 
-		echo "   basis_directory= $BASISSETDIR" >> stdin
-		echo "   basis_name= $BASISSETT" >> stdin
-		echo "" >> stdin
+		TONTO_BASIS_SET
 	fi
 	if [ "$DISP" = "yes" ]; then 
-		echo "   	 dispersion_coefficients= {" >> stdin
-		echo "   	 $(cat DISP_inst.txt)" >> stdin
-		echo "   	 }" >> stdin
-		echo "" >> stdin
+		DISPERSION_COEF
 	fi
-	echo "   charge= $CHARGE" >> stdin       
-	echo "   multiplicity= $MULTIPLICITY" >> stdin
-	echo "" >> stdin
-	echo "   crystal= {    " >> stdin
-	echo "      xray_data= {   " >> stdin
-	echo "         thermal_smearing_model= hirshfeld" >> stdin
-	echo "         partition_model= mulliken" >> stdin
-	echo "         optimise_extinction= false" >> stdin
-	echo "         correct_dispersion= $DISP" >> stdin
-	echo "         optimise_scale_factor= true" >> stdin
-	echo "         wavelength= $WAVE Angstrom" >> stdin
-	echo "         REDIRECT $HKL" >> stdin
-	echo "         f_sigma_cutoff= $FCUT" >> stdin
-	echo "         tol_for_shift_on_esd= $CONVTOL" >> stdin
-	echo "" >> stdin
-	echo "      }  " >> stdin
-	echo "   }  " >> stdin
-	echo "" >> stdin
-	echo "   ! Geometry    " >> stdin
-	echo "   put" >> stdin
-	echo "" >> stdin
+		CHARGE_MULT
+		CRYSTAL_BLOCK
 	echo "   scfdata= {" >> stdin
 	echo "      initial_MOs= existing" >> stdin
 	if [[ "$METHOD" != "rks" && "$METHOD" != "rhf" && "$METHOD" != "uhf" && "$METHOD" != "uks" ]]; then
@@ -1407,7 +1451,227 @@ GET_RESIDUALS(){
 	echo "" >> stdin
 	echo "}" >> stdin 
 	echo "Calculating residual density at final geometry" 
+	J=$[ $J + 1 ]
 	$TONTO
+	mkdir $J.tonto_cycle.$JOBNAME
+	cp stdin $J.tonto_cycle.$JOBNAME/$J.stdin
+	cp stdout $J.tonto_cycle.$JOBNAME/$J.stdout
+	cp $JOBNAME'.cartesian.cif2' $J.tonto_cycle.$JOBNAME/$J.$JOBNAME.cartesian.cif2
+	cp $JOBNAME'.archive.cif' $J.tonto_cycle.$JOBNAME/$J.$JOBNAME.archive.cif
+	cp $JOBNAME'.archive.fcf' $J.tonto_cycle.$JOBNAME/$J.$JOBNAME.archive.fcf
+	cp $JOBNAME'.archive.fco' $J.tonto_cycle.$JOBNAME/$J.$JOBNAME.archive.fco
+	cp $JOBNAME'.residual_density_map,cell.cube' $J.tonto_cycle.$JOBNAME/$J.$JOBNAME.residual_density_map,cell.cube
+}
+
+XCW_SCF_BLOCK(){
+	echo "   ! More accuracy" >> stdin
+	echo "   output_style_options= {" >> stdin
+	echo "      real_precision= 8" >> stdin
+	echo "      real_width= 20" >> stdin
+	echo "   }" >> stdin
+	echo "   " >> stdin
+	SCF_BLOCK_PROM_TONTO
+#	if [[ "$XCWONLY" == "false" ]]; then 
+#		echo "   read_archive molecular_orbitals restricted" >> stdin
+#		echo "   read_archive orbital_energies restricted" >> stdin
+#		echo "   read_archive density_matrix restricted" >> stdin
+#		echo "   " >> stdin
+#	fi
+	echo "   scfdata= {" >> stdin
+	echo "   " >> stdin
+	echo "     initial_density=   restricted" >> stdin
+	echo "     kind=            xray_$METHODXCW" >> stdin
+	echo "     direct=          yes" >> stdin
+	echo "     convergence= 0.001" >> stdin
+	echo "     use_SC_cluster_charges= $SCCHARGESXCW" >> stdin
+	if [[ "$SCCHARGESXCW" == "true" ]]; then
+		echo "     cluster_radius= $SCCRADIUSXCW angstrom" >> stdin
+	fi
+	echo "   " >> stdin
+	echo "     diis= {                     ! This is the extrapolation procedure" >> stdin
+	echo "       save_iteration=  2" >> stdin
+	echo "       start_iteration= 4" >> stdin
+	echo "       keep=            8" >> stdin
+	echo "        convergence_tolerance= 0.0002" >> stdin
+	echo "     }" >> stdin
+	echo "   " >> stdin
+	echo "     max_iterations=  200         ! The maximum number of SCF interation" >> stdin
+	echo "   " >> stdin
+	echo "     use_damping=     YES         ! These are used to damp the SCF interation process " >> stdin
+	echo "     damp_factor=     0.50        ! by including 20% of the previous result  " >> stdin
+	echo "     damp_finish=     3 " >> stdin
+	echo "      " >> stdin
+	echo "     use_level_shift= YES " >> stdin
+	echo "     !level_shift=    1.0         ! This is another form of damping " >> stdin
+	echo "     !level_shift_finish= 3 " >> stdin
+	echo "     initial_lambda=  $LAMBDAINITIAL       ! These specify the "lambda value" " >> stdin
+	echo "     lambda_step=     $LAMBDASTEP          ! used to mix the energy with the chi^2 " >> stdin
+	echo "     lambda_max=      $LAMBDAMAX " >> stdin
+	echo "   } " >> stdin
+	echo "" >> stdin
+	echo "   scf " >> stdin
+	echo "    " >> stdin
+	echo "} " >> stdin
+}
+
+XCW(){
+	TONTO_HEADER
+	if [[ "$XWR" == "true" ]]; then 
+		CHANGE_JOB_NAME
+	else
+		DEFINE_JOB_NAME
+	fi
+	CHARGE_MULT
+	PROCESS_CIF
+	if [[ "$XWR" == "true" ]]; then 
+		CHANGE_JOB_NAME
+	else
+		DEFINE_JOB_NAME
+	fi
+	echo "   basis_directory= $BASISSETDIRXCW" >> stdin
+	echo "   basis_name= $BASISSETTXCW" >> stdin
+	echo "" >> stdin
+	CRYSTAL_BLOCK
+	if [[ "$USEBECKE" == "true" ]]; then 
+		BECKE_GRID
+	fi
+	XCW_SCF_BLOCK
+	J=$[ $J + 1 ]
+	echo "Runing Tonto, cycle number $J" 
+	$TONTO
+	echo "Tonto cycle number $J ended"
+	mkdir $J.XCW_cycle.$JOBNAME
+	cp stdin $J.XCW_cycle.$JOBNAME/$J.stdin
+	cp stdout $J.XCW_cycle.$JOBNAME/$J.stdout
+	sed -i '/# NOTE: Cartesian 9Nx9N covariance matrix in BOHR units/,/# ===========/d' $JOBNAME.cartesian.cif2
+	cp $JOBNAME'.cartesian.cif2' $J.XCW_cycle.$JOBNAME/$J.$JOBNAME.cartesian.cif2
+	cp $JOBNAME'.archive.cif' $J.XCW_cycle.$JOBNAME/$J.$JOBNAME.archive.cif
+	cp $JOBNAME'.archive.fcf' $J.XCW_cycle.$JOBNAME/$J.$JOBNAME.archive.fcf
+	cp $JOBNAME'.archive.fco' $J.XCW_cycle.$JOBNAME/$J.$JOBNAME.archive.fco
+	cp $JOBNAME.residual_density_map,cell.cube $J.XCW_cycle.$JOBNAME/$J.residual_density_map,cell.cube
+	if ! grep -q 'Wall-clock time taken' "stdout"; then
+		echo "ERROR: problems in fit cycle, please check the $J.th stdout file for more details" | tee -a $JOBNAME.lst
+		unset MAIN_DIALOG
+		exit 0
+	fi
+#for f in *,restricted; do cp $f "$J.fit_cycle.$JOBNAME/$J.${f%}"; done
+}
+
+BOTTOM_PLOT(){
+	if [ "$USECENTER" = "true" ]; then
+		echo "      centre_atom= $CENTERATOM" >> stdin
+		echo "      x_axis_atoms= $XAXIS" >> stdin
+		echo "      y_axis_atoms= $YAXIS" >> stdin
+		echo "      x_width= $WIDTHX Angstrom" >> stdin
+		echo "      y_width= $WIDTHY Angstrom" >> stdin
+		echo "      z_width= $WIDTHZ Angstrom" >> stdin
+	else 
+		echo "      use_unit_cell_as_bbox" >> stdin
+	fi
+	if [ "$USESEPARATION" = "true" ]; then
+		echo "      desired_separation= $SEPARATION angstrom" >> stdin
+	elif [ "$USEALLPOINTS" = "true" ]; then
+		echo "      n_all_points= $PTSX $PTSY $PTSZ" >> stdin
+	else
+		echo "ERROR: Please enter cube size information" | tee -a $JOBNAME.lst
+		unset MAIN_DIALOG
+		exit 0
+	fi
+	echo "      plot_format= cell.cube" >> stdin
+	if [ "$PLOT_ANGS" = "true" ]; then
+		echo "      plot_units= angstrom^-3" >> stdin
+	fi
+	echo "" >> stdin
+	echo "    }" >> stdin
+	echo "" >> stdin
+	echo "   plot" >> stdin
+	echo "" >> stdin
+}
+
+PLOTS(){
+	TONTO_HEADER
+	PROCESS_CIF
+	DEFINE_JOB_NAME
+	TONTO_BASIS_SET
+	CHARGE_MULT
+	CRYSTAL_BLOCK
+	PUT_GEOM
+	if [[ "$USEBECKE" == "true" ]]; then 
+		BECKE_GRID
+	fi
+	echo "   read_archive molecular_orbitals restricted" >> stdin
+	echo "   read_archive orbital_energies restricted" >> stdin
+	echo "" >> stdin
+	SCF_BLOCK_REST_TONTO
+	echo "   make_scf_density_matrix" >> stdin
+	echo "   make_structure_factors" >> stdin
+	echo "" >> stdin
+	if [ "$DEFDEN" = "true" ]; then
+		echo "   plot_grid= {" >> stdin
+		echo "      kind= deformation_density" >> stdin
+		BOTTOM_PLOT
+	fi
+	if [ "$DFTXCPOT" = "true" ]; then
+		echo "   plot_grid= {" >> stdin
+		echo "      kind= dft_xc_potential" >> stdin
+		BOTTOM_PLOT
+	fi
+	if [ "$DENS" = "true" ]; then
+		echo "   plot_grid= {" >> stdin
+		echo "      kind= electron_density" >> stdin
+		BOTTOM_PLOT
+	fi
+	if [ "$LAPL" = "true" ]; then
+		echo "   plot_grid= {" >> stdin
+		echo "      kind= laplacian" >> stdin
+		BOTTOM_PLOT
+	fi
+	if [ "$NEGLAPL" = "true" ]; then
+		echo "   plot_grid= {" >> stdin
+		echo "      kind= negative_laplacian" >> stdin
+		BOTTOM_PLOT
+	fi
+	if [ "$PROMOL" = "true" ]; then
+		echo "   plot_grid= {" >> stdin
+		echo "      kind= promolecule_density" >> stdin
+		BOTTOM_PLOT
+	fi
+	if [ "$RESDENS" = "true" ]; then
+		echo "   plot_grid= {" >> stdin
+		echo "      kind= residual_density_map" >> stdin
+		BOTTOM_PLOT
+	fi
+	echo "}" >> stdin 
+	$TONTO
+	if ! grep -q 'Wall-clock time taken' "stdout"; then
+		echo "ERROR: problems in fit cycle, please check the $J.th stdout file for more details" | tee -a $JOBNAME.lst
+		unset MAIN_DIALOG
+		exit 0
+	fi
+}
+
+RUN_XWR(){
+	XCW	
+	echo "" >> $JOBNAME.lst
+	echo "###############################################################################################" >> $JOBNAME.lst
+	echo "                                     RESIDUALS AFTER XCW                                       " >> $JOBNAME.lst
+	echo "###############################################################################################" >> $JOBNAME.lst
+	echo "" >> $JOBNAME.lst
+	echo " $(awk '{a[NR]=$0}/^Residual density data/{b=NR}/^Wall-clock time taken for job/{c=NR}END{for (d=b-2;d<c-1;++d) print a[d]}' stdout)" >> $JOBNAME.lst
+}
+
+COMPLETECIFBLOCK(){
+	if [ "$COMPLETECIF" = "true" ]; then
+		echo "   cluster= {" >> stdin
+		echo "      defragment= $COMPLETECIF" >> stdin
+		echo "      make_info" >> stdin
+		echo "   }" >> stdin
+		echo "" >> stdin
+		echo "   create_cluster" >> stdin
+		echo "" >> stdin
+		echo "   name= $JOBNAME" >> stdin		
+		echo "" >> stdin
+	fi
 }
 
 run_script(){
@@ -1416,73 +1680,85 @@ run_script(){
 	J=$"0"   ###counter for tonto fits
 	shopt -s nocasematch	
 
-	#removing  0 0 0 line 
-	if [[ ! -z $(awk '{if (($1) == "0" && ($2) == "0" && ($3) == "0" ) print}' $HKL) ]]; then
-		awk '{if (($1) != "0" && ($2) != "0" && ($3) != "0" ) print}' $HKL > $JOBNAME.tonto_edited.hkl
-	fi
-	#backing up hkl input file and copying the one without the 0 line to the $HKL variable
-	if [ -f "$JOBNAME.tonto_edited.hkl" ]; then
-		cp $HKL $JOBNAME.your_input.hkl
-		cp $JOBNAME.tonto_edited.hkl $HKL
-		rm $JOBNAME.tonto_edited.hkl
-		echo "WARNING: HKL has been formated, your original input is saved with the name $JOBNAME.your_input.hkl!"
-	fi
+	if [ "$SCFCALCPROG" != "optgaussian" ]; then 
+		#removing  0 0 0 line 
+		if [[ ! -z $(awk '{if (($1) == "0" && ($2) == "0" && ($3) == "0" ) print}' $HKL) ]]; then
+			awk '{if (($1) != "0" && ($2) != "0" && ($3) != "0" ) print}' $HKL > $JOBNAME.tonto_edited.hkl
+		fi
+		#backing up hkl input file and copying the one without the 0 line to the $HKL variable
+		if [ -f "$JOBNAME.tonto_edited.hkl" ]; then
+			cp $HKL $JOBNAME.your_input.hkl
+			cp $JOBNAME.tonto_edited.hkl $HKL
+			rm $JOBNAME.tonto_edited.hkl
+			echo "WARNING: HKL has been formated, your original input is saved with the name $JOBNAME.your_input.hkl!"
+		fi
+		
+		#checking if numbers are grown together and separating them. note that this will ignore the header lines if is exists.
+		if [[ ! -z "$(awk ' NF<5 && NF>2 {print $0}' $HKL)" ]]; then
+			gawk 'BEGIN { FS = "" } { for (i = 1; i <= NF; i = i + 1) h=$1$2$3$4; k=$5$6$7$8; l=$9$10$11$12; i_f=$13$14$15$16$17$18$19$20; sig=$21$22$23$24$25$26$27$28; print h, k, l, i_f, sig }' $HKL > $JOBNAME.tonto_edited.hkl
+			cp $HKL $JOBNAME.your_input.hkl
+			cp $JOBNAME.tonto_edited.hkl $HKL
+			rm $JOBNAME.tonto_edited.hkl
+		fi
 	
-	#checking if numbers are grown together and separating them. note that this will ignore the header lines if is exists.
-	if [[ ! -z "$(awk ' NF<5 && NF>2 {print $0}' $HKL)" ]]; then
-		gawk 'BEGIN { FS = "" } { for (i = 1; i <= NF; i = i + 1) h=$1$2$3$4; k=$5$6$7$8; l=$9$10$11$12; i_f=$13$14$15$16$17$18$19$20; sig=$21$22$23$24$25$26$27$28; print h, k, l, i_f, sig }' $HKL > $JOBNAME.tonto_edited.hkl
-		cp $HKL $JOBNAME.your_input.hkl
-		cp $JOBNAME.tonto_edited.hkl $HKL
-		rm $JOBNAME.tonto_edited.hkl
-	fi
-	
-	# writing header on hkl
-	if [ "$WRITEHEADER" = "true" ]; then
-	  	#checking if the header was not there already
-		if [[ ! -z "$(grep "reflection_data= {" $HKL)" ]]; then
-			echo "header was already in the hkl file, nothing to do."
-		else
-			#putting the header in
-			sed -i '1 i\   data= {' $HKL 
-			if [ "$ONF" = "true" ]; then
-				sed -i '1 i\  keys= { h= k= l= f_exp= f_sigma= }' $HKL 
-		     	elif [ "$ONF2" = "true" ]; then
-				sed -i '1 i\  keys= { h= k= l= i_exp= i_sigma= }' $HKL 
+		# writing header on hkl
+		if [ "$WRITEHEADER" = "true" ]; then
+		  	#checking if the header was not there already
+			if [[ ! -z "$(grep "reflection_data= {" $HKL)" ]]; then
+				echo "header was already in the hkl file, nothing to do."
 			else
-				echo "ERROR: Please select the format of the hkl file for header (F or F^2)" | tee -a $JOBNAME.lst
-				unset MAIN_DIALOG
-				exit 0
+				#putting the header in
+				sed -i '1 i\   data= {' $HKL 
+				if [ "$ONF" = "true" ]; then
+					sed -i '1 i\  keys= { h= k= l= f_exp= f_sigma= }' $HKL 
+			     	elif [ "$ONF2" = "true" ]; then
+					sed -i '1 i\  keys= { h= k= l= i_exp= i_sigma= }' $HKL 
+				else
+					echo "ERROR: Please select the format of the hkl file for header (F or F^2)" | tee -a $JOBNAME.lst
+					unset MAIN_DIALOG
+					exit 0
+				fi
+				sed -i '1 i\ reflection_data= {' $HKL 
+				sed -i '$ a\   }' $HKL
+				sed -i '$ a\  }' $HKL 
+				sed -i '$ a\ REVERT' $HKL 
 			fi
-			sed -i '1 i\ reflection_data= {' $HKL 
-			sed -i '$ a\   }' $HKL
-			sed -i '$ a\  }' $HKL 
-			sed -i '$ a\ REVERT' $HKL 
+		fi
+	
+		if [[ -z "$(grep "reflection_data= {" $HKL)" ]]; then
+			echo "You are missing the tonto header in the hkl file."
 		fi
 	fi
-	
-	if [[ -z "$(grep "reflection_data= {" $HKL)" ]]; then
-		echo "You are missing the tonto header in the hkl file."
-	fi
 
-	#writing the lst file
+	if [[ "$PLOT_TONTO" == "true" ]]; then
+		PLOTS
+		exit 0
+		exit
+	fi	
+	if [[ "$XCWONLY" == "true" ]]; then
+		XCW
+		exit 0
+		exit
+	fi
 	echo "###############################################################################################" > $JOBNAME.lst
-	echo "                                           lamaGOT                                             " >> $JOBNAME.lst
+	echo "                                           lamaGOET                                            " >> $JOBNAME.lst
 	echo "###############################################################################################" >> $JOBNAME.lst
 	echo "Job started on:" >> $JOBNAME.lst
 	date >> $JOBNAME.lst
 	echo "User Inputs: " >> $JOBNAME.lst
 	echo "Tonto executable	: $TONTO"  >> $JOBNAME.lst 
 	echo "$($TONTO -v)" >> $JOBNAME.lst 
-	#awk 'NR==7 { print }' stdout >> $JOBNAME.lst      #print the tonto version, but there is no stdout yet
 	echo "SCF program		: $SCFCALCPROG" >> $JOBNAME.lst
 	if [ "$SCFCALCPROG" != "Tonto" ]; then 
 		echo "SCF executable		: $SCFCALC_BIN" >> $JOBNAME.lst
 	fi
 	echo "Job name		: $JOBNAME" >> $JOBNAME.lst
 	echo "Input cif		: $CIF" >> $JOBNAME.lst
-	echo "Input hkl		: $HKL" >> $JOBNAME.lst
-	echo "Wavelenght		: $WAVE" Angstrom >> $JOBNAME.lst
-	echo "F_sigma_cutoff		: $FCUT" >> $JOBNAME.lst
+	if [ "$SCFCALCPROG" != "optgaussian" ]; then 
+		echo "Input hkl		: $HKL" >> $JOBNAME.lst
+		echo "Wavelenght		: $WAVE" Angstrom >> $JOBNAME.lst
+		echo "F_sigma_cutoff		: $FCUT" >> $JOBNAME.lst
+	fi
 	echo "Tol. for shift on esd	: $CONVTOL" >> $JOBNAME.lst
 	echo "Charge			: $CHARGE" >> $JOBNAME.lst
 	echo "Multiplicity		: $MULTIPLICITY" >> $JOBNAME.lst
@@ -1520,7 +1796,6 @@ run_script(){
 		echo "			  $(cat DISP_inst.txt)" >> $JOBNAME.lst
 	fi
 	
-	#writing in the lst file FOR GAUSSIAN or ORCA only
 	if [[ "$SCFCALCPROG" != "Tonto" && "$SCFCALCPROG" != "elmodb" ]]; then 
 		echo "Only for Gaussian/Orca job	" >> $JOBNAME.lst
 		echo "Number of processor 	: $NUMPROC" >> $JOBNAME.lst
@@ -1528,8 +1803,6 @@ run_script(){
 		echo "###############################################################################################" >> $JOBNAME.lst
 		echo "                                     Starting Geometry                                         " >> $JOBNAME.lst
 		echo "###############################################################################################" >> $JOBNAME.lst
-	#####################################################################################################
-	###################### Begin extracting XYZ with tonto and input to gaussian ########################
 		echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!" > stdin
 		echo "!!!                                                                                         !!!" >> stdin
 		echo "!!!                        This stdin was written with lamaGOET                             !!!" >> stdin
@@ -1565,33 +1838,25 @@ run_script(){
 		echo "" >> stdin
 		echo "   name= $JOBNAME" >> stdin
 		echo "" >> stdin
-		if [ "$COMPLETECIF" = "true" ]; then
-			echo "   cluster= {" >> stdin
-			echo "      defragment= $COMPLETECIF" >> stdin
-			echo "      make_info" >> stdin
-			echo "   }" >> stdin
-			echo "" >> stdin
-			echo "   create_cluster" >> stdin
-			echo "" >> stdin
-			echo "   name= $JOBNAME" >> stdin		
-			echo "" >> stdin
-		fi
+		COMPLETECIFBLOCK
 		echo "   put" >> stdin 
 		echo "" >> stdin
 		echo "   write_xyz_file" >> stdin
-		if [ "$COMPLETECIF" = "true" ]; then
+		if [[ "$COMPLETECIF" == "true" || "$SCFCALCPROG" == "optgaussian" ]]; then
 			echo "" >> stdin
 			echo "   put_grown_cif" >> stdin
 		fi
-		#echo "###############################################################################################" >> $JOBNAME.lst
 		echo "" >> stdin
 		echo "}" >> stdin 
 		echo "Reading cif with Tonto"
 		$TONTO
 		INITIALCHI=$(awk '{a[NR]=$0}/^Begin rigid-atom fit/{b=NR}END {print a[b+10]}' stdout | awk '{print $2}')
-		MAXSHIFT=$(awk '{a[NR]=$0}/^Begin rigid-atom fit/{b=NR+10}/^Rigid-atom fit results/{c=NR-4}END {for(d=b;d<=c;++d)print a[d]}' stdout | awk -v max=0 '{if($5>max){shift=$5; atom=$6; param=$7; max=$5}}END{print shift}')
-		MAXSHIFTATOM=$(awk '{a[NR]=$0}/^Begin rigid-atom fit/{b=NR+10}/^Rigid-atom fit results/{c=NR-4}END {for(d=b;d<=c;++d)print a[d]}' stdout | awk -v max=0 '{if($5>max){shift=$5; atom=$6; param=$7; max=$5}}END{print atom}')
-		MAXSHIFTPARAM=$(awk '{a[NR]=$0}/^Begin rigid-atom fit/{b=NR+10}/^Rigid-atom fit results/{c=NR-4}END {for(d=b;d<=c;++d)print a[d]}' stdout | awk -v max=0 '{if($5>max){shift=$5; atom=$6; param=$7; max=$5}}END{print param}')
+#		MAXSHIFT=$(awk '{a[NR]=$0}/^Begin rigid-atom fit/{b=NR+10}/^Rigid-atom fit results/{c=NR-4}END {for(d=b;d<=c;++d)print a[d]}' stdout | awk -v max=0 '{if($5>max){shift=$5; atom=$6; param=$7; max=$5}}END{print shift}')
+#		MAXSHIFTATOM=$(awk '{a[NR]=$0}/^Begin rigid-atom fit/{b=NR+10}/^Rigid-atom fit results/{c=NR-4}END {for(d=b;d<=c;++d)print a[d]}' stdout | awk -v max=0 '{if($5>max){shift=$5; atom=$6; param=$7; max=$5}}END{print atom}')
+#		MAXSHIFTPARAM=$(awk '{a[NR]=$0}/^Begin rigid-atom fit/{b=NR+10}/^Rigid-atom fit results/{c=NR-4}END {for(d=b;d<=c;++d)print a[d]}' stdout | awk -v max=0 '{if($5>max){shift=$5; atom=$6; param=$7; max=$5}}END{print param}')
+		MAXSHIFT=$(awk '{a[NR]=$0}/^Begin rigid-atom fit/{b=NR+10}/^Rigid-atom fit results/{c=NR-4}END {for(d=b;d<=c;++d)print a[d]}' stdout | awk '{ gsub("-","",$0); print $0 }' | awk -v max=0 '{if($5>max){shift=$5; atom=$7; param=$8; max=$5}}END{print shift}')
+		MAXSHIFTATOM=$(awk '{a[NR]=$0}/^Begin rigid-atom fit/{b=NR+10}/^Rigid-atom fit results/{c=NR-4}END {for(d=b;d<=c;++d)print a[d]}' stdout | awk '{ gsub("-","",$0); print $0 }' | awk -v max=0 '{if($5>max){shift=$5; atom=$7; param=$8; max=$5}}END{print atom}')
+		MAXSHIFTPARAM=$(awk '{a[NR]=$0}/^Begin rigid-atom fit/{b=NR+10}/^Rigid-atom fit results/{c=NR-4}END {for(d=b;d<=c;++d)print a[d]}' stdout | awk '{ gsub("-","",$0); print $0 }' |awk -v max=0 '{if($5>max){shift=$5; atom=$7; param=$8; max=$5}}END{print param}')
 		if [[ "$SCFCALCPROG" != "Tonto" && "$SCFCALCPROG" != "elmodb" ]]; then
 			sed -i 's/(//g' $JOBNAME.xyz
 			sed -i 's/)//g' $JOBNAME.xyz
@@ -1601,15 +1866,15 @@ run_script(){
 			unset MAIN_DIALOG
 			exit 0
 		fi
-		mkdir $J.fit_cycle.$JOBNAME
-		cp $JOBNAME.xyz $J.fit_cycle.$JOBNAME/$JOBNAME.starting_geom.xyz
-		cp stdin $J.fit_cycle.$JOBNAME/$J.stdin
-		cp stdout $J.fit_cycle.$JOBNAME/$J.stdout
+		mkdir $J.tonto_cycle.$JOBNAME
+		cp $JOBNAME.xyz $J.tonto_cycle.$JOBNAME/$JOBNAME.starting_geom.xyz
+		cp stdin $J.tonto_cycle.$JOBNAME/$J.stdin
+		cp stdout $J.tonto_cycle.$JOBNAME/$J.stdout
 		sed -i '/# NOTE: Cartesian 9Nx9N covariance matrix in BOHR units/,/# ===========/d' $JOBNAME.cartesian.cif2
-		cp $JOBNAME'.cartesian.cif2' $J.fit_cycle.$JOBNAME/$J.$JOBNAME.cartesian.cif2
+		cp $JOBNAME'.cartesian.cif2' $J.tonto_cycle.$JOBNAME/$J.$JOBNAME.cartesian.cif2
 		awk '{a[NR]=$0}/^Atom coordinates/{b=NR}/^Unit cell information/{c=NR}END{for(d=b-1;d<=c-2;++d)print a[d]}' stdout >> $JOBNAME.lst
 		echo "Done reading cif with Tonto"
-		if [ "$COMPLETECIF" = "true" ]; then
+		if [[ "$SCFCALCPROG" == "elmodb" && ! -z tonto.cell || "$SCFCALCPROG" == "optgaussian" && ! -z tonto.cell  ]]; then
 			CELLA=$(grep "a cell parameter ............" stdout | awk '{print $NF}')
 			CELLB=$(grep "b cell parameter ............" stdout | awk '{print $NF}')
 			CELLC=$(grep "c cell parameter ............" stdout | awk '{print $NF}')
@@ -1628,23 +1893,27 @@ run_script(){
 			echo "" >> tonto.cell
 			echo "      REVERT" >> tonto.cell
 		fi
-		if [ "$SCFCALCPROG" = "Gaussian" ]; then 
+		if [[ "$SCFCALCPROG" == "Gaussian" || "$SCFCALCPROG" == "optgaussian" ]]; then 
 			echo "###############################################################################################" >> $JOBNAME.lst
 			echo "                                     Starting Gaussian                                         " >> $JOBNAME.lst
 			echo "###############################################################################################" >> $JOBNAME.lst
-			echo "%chk=./$JOBNAME.chk" > $JOBNAME.com 
-			echo "%chk=./$JOBNAME.chk" >> $JOBNAME.lst 
+			echo "%rwf=./$JOBNAME.rwf" > $JOBNAME.com 
 			echo "%rwf=./$JOBNAME.rwf" | tee -a $JOBNAME.com  $JOBNAME.lst
 			echo "%int=./$JOBNAME.int" | tee -a $JOBNAME.com  $JOBNAME.lst
+			echo "%NoSave" | tee -a $JOBNAME.com  $JOBNAME.lst
+			echo "%chk=./$JOBNAME.chk" | tee -a $JOBNAME.com  $JOBNAME.lst
 			echo "%mem=$MEM" | tee -a $JOBNAME.com  $JOBNAME.lst
 			echo "%nprocshared=$NUMPROC" | tee -a $JOBNAME.com $JOBNAME.lst
+			if [ "$SCFCALCPROG" = "optgaussian" ]; then
+				OPT=" opt=calcfc"
+			fi
 			if [ "$METHOD" = "rks" ]; then
-				echo "# blyp/$BASISSETG nosymm output=wfn 6D 10F Fchk $INT" | tee -a $JOBNAME.com $JOBNAME.lst    
+				echo "# blyp/$BASISSETG nosymm $EXTRAKEY output=wfn 6D 10F Fchk $INT $GAUSSEMPDISPKEY" | tee -a $JOBNAME.com $JOBNAME.lst    
 			else
 				if [ "$METHOD" = "uks" ]; then
-					echo "# ublyp/$BASISSETG nosymm output=wfn 6D 10F Fchk $INT" | tee -a $JOBNAME.com $JOBNAME.lst
+					echo "# ublyp/$BASISSETG nosymm $EXTRAKEY output=wfn 6D 10F Fchk $INT $GAUSSEMPDISPKEY" | tee -a $JOBNAME.com $JOBNAME.lst
 				else
-					echo "# $METHOD/$BASISSETG nosymm output=wfn 6D 10F Fchk $INT" | tee -a $JOBNAME.com $JOBNAME.lst
+					echo "# $METHOD/$BASISSETG nosymm $EXTRAKEY output=wfn 6D 10F Fchk $INT $GAUSSEMPDISPKEY" | tee -a $JOBNAME.com $JOBNAME.lst
 			        fi
 			fi			
 			echo ""  | tee -a $JOBNAME.com $JOBNAME.lst
@@ -1659,9 +1928,6 @@ run_script(){
 			fi
 			echo "./$JOBNAME.wfn" | tee -a $JOBNAME.com  $JOBNAME.lst
 			echo "" | tee -a $JOBNAME.com  $JOBNAME.lst
-			###################### End extracting XYZ with tonto and input to gaussian ########################
-			###################### Begin first gaussian single point calculation and storing energy and RMSD ########################
-			#put if Gaussian or Orca
 			I=$"1"
 			echo "Running Gaussian, cycle number $I" 
 			$SCFCALC_BIN $JOBNAME.com
@@ -1671,7 +1937,7 @@ run_script(){
 				unset MAIN_DIALOG
 				exit 0
 			fi
-			ENERGIA=$(sed 's/^ //' $JOBNAME.log | sed 'N;s/\n//' | sed 'N;s/\n//' | sed 'N;s/\n//' | sed 'N;s/\n//' | sed -n '/HF=/{N;p;}' | sed 's/^.*HF=//' | sed 'N;s/\n//' | sed '2d' | sed 's/RMSD=//g' | awk -F '\' '{ print $1}' | tr -d '\r')
+			ENERGIA=$(sed 's/^ //' $JOBNAME.log | sed 'N;s/\n//' | sed 'N;s/\n//' | sed 'N;s/\n//' | sed 'N;s/\n//' |  grep "HF=" | sed 's/^.*HF=//' | sed 'N;s/\n//' | sed '2d' | sed 's/RMSD=//g' | awk -F '\' '{ print $1}' | tr -d '\r')
 			RMSD=$(sed 's/^ //' $JOBNAME.log | sed 'N;s/\n//' | sed 'N;s/\n//' | sed 'N;s/\n//'| sed -n '/RMSD=/{N;p;}' | sed 's/^.*RMSD=//' | sed 'N;s/\n//' | sed '2d' | sed 's/RMSD=//g' | awk -F '\' '{ print $1}'| tr -d '\r')
 			echo "Starting geometry: Energy= $ENERGIA, RMSD= $RMSD" >> $JOBNAME.lst
 			echo "" >> $JOBNAME.lst
@@ -1682,8 +1948,6 @@ run_script(){
 			cp $JOBNAME.com  $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.com
 			cp Test.FChk $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.fchk
 			cp $JOBNAME.log  $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.log
-		###################### End first gaussian single point calculation and storing energy and RMSD ########################
-		###################### Begin first tonto fit ########################
 			SCF_TO_TONTO
 			TONTO_TO_GAUSSIAN
 			CHECK_ENERGY
@@ -1739,22 +2003,38 @@ run_script(){
 			TONTO_TO_ORCA
 			CHECK_ENERGY
 		fi
-		###################### First fit done start refeed gaussian ########################
-		######################  Iterative begins ########################
-		while (( $(echo "$MAXSHIFT > $CONVTOL" | bc -l) || $( echo "$J <= 1" | bc -l )  )); do
-			if [[ $J -gt 50 ]];then
+		if [[ "$SCFCALCPROG" == "Gaussian" || "$SCFCALCPROG" == "Orca"  ]];then		
+			while (( $(echo "$MAXSHIFT > $CONVTOL" | bc -l) || $( echo "$J <= 1" | bc -l )  )); do
+				if [[ $J -gt 50 ]];then
+					CHECK_ENERGY
+					echo "ERROR: Refinement ended. Too many fit cycles. Check if result is reasonable and/or change your convergency criteira."
+					break
+				fi
+				SCF_TO_TONTO
+				if [ "$SCFCALCPROG" = "Gaussian" ]; then  
+					TONTO_TO_GAUSSIAN
+				else 
+					TONTO_TO_ORCA
+				fi
 				CHECK_ENERGY
-				echo "ERROR: Refinement ended. Too many fit cycles. Check if result is reasonable and/or change your convergency criteira."
-				break
-			fi
-			SCF_TO_TONTO
-			if [ "$SCFCALCPROG" = "Gaussian" ]; then  
-				TONTO_TO_GAUSSIAN
-			else 
-				TONTO_TO_ORCA
-			fi
-			CHECK_ENERGY
-		done
+			done
+		fi
+		if [ "$SCFCALCPROG" = "optgaussian" ];then
+			while (( $(echo "$DE > $CONVTOL" | bc -l) || $( echo "$J <= 1" | bc -l )  )); do
+				if [[ $J -gt 50 ]];then
+					CHECK_ENERGY
+					echo "ERROR: Refinement ended. Too many fit cycles. Check if result is reasonable and/or change your convergency criteira."
+					break
+				fi
+				SCF_TO_TONTO
+				if [[ "$SCFCALCPROG" == "Gaussian" || "$SCFCALCPROG" == "optgaussian" ]]; then  
+					TONTO_TO_GAUSSIAN
+				else 
+					TONTO_TO_ORCA
+				fi
+				CHECK_ENERGY
+			done
+		fi
 		echo "__________________________________________________________________________________________________________________________________________________________________" >> $JOBNAME.lst
 		echo "" >> $JOBNAME.lst
 		echo "###############################################################################################" >> $JOBNAME.lst
@@ -1763,17 +2043,21 @@ run_script(){
 		echo "" >> $JOBNAME.lst
 		echo "Energy= $ENERGIA2, RMSD= $RMSD2" >> $JOBNAME.lst
 		echo " $(awk '{a[NR]=$0}/^Rigid-atom fit results/{b=NR}/^Wall-clock time taken for job /{c=NR}END{for (d=b-2;d<c-1;++d) print a[d]}' stdout)"  >> $JOBNAME.lst
-		GET_RESIDUALS
+		if [[ "$SCFCALCPROG" != "optgaussian" ]]; then  
+			GET_RESIDUALS
+			echo " $(awk '{a[NR]=$0}/^Residual density data/{b=NR}/^Wall-clock time taken for job/{c=NR}END{for (d=b-2;d<c-1;++d) print a[d]}' stdout)" >> $JOBNAME.lst
+		if [[ "$XWR" == "true" ]]; then
+			RUN_XWR
+		fi
+		elif [[ "$SCFCALCPROG" == "optgaussian" ]]; then  
+			echo "add the frequency calculation here!!!"
+		fi
 		echo " $(awk '{a[NR]=$0}/^Reflections pruned/{b=NR}/^Atom coordinates/{c=NR}END{for (d=b-2;d<c-1;++d) print a[d]}' stdout)"  >> $JOBNAME.lst
-		echo " $(awk '{a[NR]=$0}/^Residual density data/{b=NR}/^Wall-clock time taken for job/{c=NR}END{for (d=b-2;d<c-1;++d) print a[d]}' stdout)" >> $JOBNAME.lst
-#changed this because now its after residuals
-#		echo " $(awk '{a[NR]=$0}/^Rigid-atom fit results/{b=NR}/^Wall-clock time taken for job /{c=NR}END{for (d=b-2;d<c-1;++d) print a[d]}' stdout)"  >> $JOBNAME.lst
-#		get the residual density running tonto once, only needed if not using tonto for the scf			
 		DURATION=$SECONDS
 		echo "Job ended, elapsed time:" | tee -a $JOBNAME.lst
 		echo "$(($DURATION / 86400 )) days,  $((($DURATION / 3600) % 24 )) hours, $((($DURATION / 60) % 60 ))minutes and $(($DURATION % 60 )) seconds elapsed." | tee -a $JOBNAME.lst
 		exit
-	elif [ "$SCFCALCPROG" = "Tonto" ]; then
+	elif [[ "$SCFCALCPROG" == "Tonto" ]]; then
 		SCF_TO_TONTO
 		echo "__________________________________________________________________________________________________________________________________________________________________" >> $JOBNAME.lst
 		echo "" >> $JOBNAME.lst
@@ -1782,10 +2066,9 @@ run_script(){
 		echo "###############################################################################################" >> $JOBNAME.lst
 		echo "" >> $JOBNAME.lst
 		echo " $(awk '{a[NR]=$0}/^Structure refinement results/{b=NR}/^Wall-clock time taken for job /{c=NR}END{for (d=b-2;d<c-1;++d) print a[d]}' stdout)"  >> $JOBNAME.lst
-# no need since its tonto residuals are calculated anyway.
-#		GET_RESIDUALS
-#		echo " $(awk '{a[NR]=$0}/^Reflections pruned/{b=NR}/^Atom coordinates/{c=NR}END{for (d=b-2;d<c-1;++d) print a[d]}' stdout)"  >> $JOBNAME.lst
-#		echo " $(awk '{a[NR]=$0}/^Residual density data/{b=NR}/^Wall-clock time taken for job/{c=NR}END{for (d=b-2;d<c-1;++d) print a[d]}' stdout)" >> $JOBNAME.lst
+		if [[ "$XWR" == "true" ]]; then
+			RUN_XWR
+		fi
 		DURATION=$SECONDS
 		echo "Job ended, elapsed time:" | tee -a $JOBNAME.lst
 		echo "$(($DURATION / 86400 )) days,  $((($DURATION / 3600) % 24 )) hours, $((($DURATION / 60) % 60 ))minutes and $(($DURATION % 60 )) seconds elapsed." | tee -a $JOBNAME.lst
@@ -1813,7 +2096,9 @@ run_script(){
 			GET_RESIDUALS
 			echo " $(awk '{a[NR]=$0}/^Reflections pruned/{b=NR}/^Atom coordinates/{c=NR}END{for (d=b-2;d<c-1;++d) print a[d]}' stdout)"  >> $JOBNAME.lst
 			echo " $(awk '{a[NR]=$0}/^Residual density data/{b=NR}/^Wall-clock time taken for job/{c=NR}END{for (d=b-2;d<c-1;++d) print a[d]}' stdout)" >> $JOBNAME.lst
-#			get the residual density running tonto once, only needed if not using tonto for the scf			
+			if [[ "$XWR" == "true" ]]; then
+				RUN_XWR
+			fi
 			DURATION=$SECONDS
 			echo "Job ended, elapsed time:" | tee -a $JOBNAME.lst
 			echo "$(($DURATION / 86400 )) days,  $((($DURATION / 3600) % 24 )) hours, $((($DURATION / 60) % 60 ))minutes and $(($DURATION % 60 )) seconds elapsed." | tee -a $JOBNAME.lst
@@ -1840,7 +2125,9 @@ run_script(){
 			GET_RESIDUALS
 			echo " $(awk '{a[NR]=$0}/^Reflections pruned/{b=NR}/^Atom coordinates/{c=NR}END{for (d=b-2;d<c-1;++d) print a[d]}' stdout)"  >> $JOBNAME.lst
 			echo " $(awk '{a[NR]=$0}/^Residual density data/{b=NR}/^Wall-clock time taken for job/{c=NR}END{for (d=b-2;d<c-1;++d) print a[d]}' stdout)" >> $JOBNAME.lst
-#			get the residual density running tonto once, only needed if not using tonto for the scf			
+			if [[ "$XWR" == "true" ]]; then
+				RUN_XWR
+			fi
 			DURATION=$SECONDS
 			echo "Job ended, elapsed time:" | tee -a $JOBNAME.lst
 			echo "$(($DURATION / 86400 )) days,  $((($DURATION / 3600) % 24 )) hours, $((($DURATION / 60) % 60 ))minutes and $(($DURATION % 60 )) seconds elapsed." | tee -a $JOBNAME.lst
@@ -1853,7 +2140,7 @@ export MAIN_DIALOG='
 
 	<window window_position="1" title="lamaGOET">
 
-	 <vbox scrollable="true" space-expand="true" space-fill="true" height="600" width="800" >
+	 <vbox scrollable="true" space-expand="true" space-fill="true" height="600" width="1000" >
 	
 	  <hbox homogeneous="True" >
 	
@@ -1872,7 +2159,7 @@ export MAIN_DIALOG='
 	  </hbox>
 
   	 <notebook 
-		tab-labels="Main|Advanced Settings|Total XWR|Tools|Elmodb advanced specific"
+		tab-labels="HAR|Advanced Settings for HAR |XCW|Elmodb advanced specific|Plots"
 		xx-tab-labels="which will be shown on tabs"
 
 		> 	  
@@ -1917,6 +2204,12 @@ export MAIN_DIALOG='
 	        <action>if false enable:NSSBOND</action>
 	        <action>if true disable:INITADP</action>
 	        <action>if false enable:INITADP</action>
+	        <action>if true enable:USEBECKE</action>
+	        <action>if false disable:USEBECKE</action>
+	        <action>if true enable:GAUSSEMPDISP</action>
+	        <action>if false disable:GAUSSEMPDISP</action>
+	        <action>if true enable:EXTRAKEY</action>
+	        <action>if false disable:EXTRAKEY</action>
 	      </radiobutton>
 	      <radiobutton space-fill="True"  space-expand="True">
 	        <label>Orca</label>
@@ -1953,6 +2246,12 @@ export MAIN_DIALOG='
 	        <action>if false enable:NSSBOND</action>
 	        <action>if true disable:INITADP</action>
 	        <action>if false enable:INITADP</action>
+	        <action>if true enable:USEBECKE</action>
+	        <action>if false disable:USEBECKE</action>
+	        <action>if true disable:GAUSSEMPDISP</action>
+	        <action>if false enable:GAUSSEMPDISP</action>
+	        <action>if true enable:EXTRAKEY</action>
+	        <action>if false disable:EXTRAKEY</action>
 	      </radiobutton>
 	      <radiobutton space-fill="True"  space-expand="True">
 	        <label>Tonto</label>
@@ -1960,8 +2259,6 @@ export MAIN_DIALOG='
 	        <action>if true echo 'SCFCALCPROG="Tonto"'</action>
 	        <action>if true enable:BASISSETDIR</action>
 	        <action>if false disable:BASISSETDIR</action>
-	        <action>if true enable:USEBECKE</action>
-	        <action>if false disable:USEBECKE</action>
 	        <action>if true enable:USEBECKE</action>
 	        <action>if false disable:USEBECKE</action>
 	        <action>if true disable:BASISSETG</action>
@@ -1991,6 +2288,10 @@ export MAIN_DIALOG='
 	        <action>if false enable:NSSBOND</action>
 	        <action>if true disable:INITADP</action>
 	        <action>if false enable:INITADP</action>
+	        <action>if true disable:GAUSSEMPDISP</action>
+	        <action>if false enable:GAUSSEMPDISP</action>
+	        <action>if true disable:EXTRAKEY</action>
+	        <action>if false enable:EXTRAKEY</action>
 	      </radiobutton>
 	      <radiobutton space-fill="True"  space-expand="True">
 	        <label>elmodb</label>
@@ -2028,10 +2329,14 @@ export MAIN_DIALOG='
 	        <action>if false disable:NSSBOND</action>
 	        <action>if true enable:INITADP</action>
 	        <action>if false disable:INITADP</action>
+	        <action>if true disable:GAUSSEMPDISP</action>
+	        <action>if false enable:GAUSSEMPDISP</action>
+	        <action>if true disable:EXTRAKEY</action>
+	        <action>if false enable:EXTRAKEY</action>
 	      </radiobutton>
 	      <radiobutton space-fill="True"  space-expand="True">
-	        <label>SCF opt with Gaussian</label>
-	        <default>true</default>
+	        <label>SC CC opt with Gaussian and Tonto</label>
+	        <default>false</default>
 	        <action>if true echo 'SCFCALCPROG="optgaussian"'</action>  
 	        <action>if true enable:MEM</action>
 	        <action>if true enable:NUMPROC</action>
@@ -2050,6 +2355,36 @@ export MAIN_DIALOG='
 	        <action>if false disable:XHALONG</action>
 	        <action>if true enable:COMPLETECIF</action>
 	        <action>if false disable:COMPLETECIF</action>
+	        <action>if true disable:HKL</action>
+       	        <action>if false enable:HKL</action>
+	        <action>if true disable:WAVE</action>
+       	        <action>if false enable:WAVE</action>
+	        <action>if true disable:FCUT</action>
+       	        <action>if false enable:FCUT</action>
+	        <action>if true disable:POSADP</action>
+       	        <action>if false enable:POSADP</action>
+	        <action>if true disable:POSONLY</action>
+       	        <action>if false enable:POSONLY</action>
+	        <action>if true disable:ADPSONLY</action>
+       	        <action>if false enable:ADPSONLY</action>
+	        <action>if true disable:IAMTONTO</action>
+       	        <action>if false enable:IAMTONTO</action>
+	        <action>if true disable:REFNOTHING</action>
+       	        <action>if false enable:REFNOTHING</action>
+	        <action>if true disable:REFUISO</action>
+       	        <action>if false enable:REFUISO</action>
+	        <action>if true disable:REFHPOS</action>
+       	        <action>if false enable:REFHPOS</action>
+	        <action>if true disable:REFHADP</action>
+       	        <action>if false enable:REFHADP</action>
+	        <action>if true disable:REFANHARM</action>
+       	        <action>if false enable:REFANHARM</action>
+	        <action>if true disable:DISP</action>
+       	        <action>if false enable:DISP</action>
+	        <action>if true enable:USEBECKE</action>
+	        <action>if false disable:USEBECKE</action>
+	        <action>if true disable:WRITEHEADER</action>
+       	        <action>if false enable:WRITEHEADER</action>
 	        <action>if true disable:USEGAMESS</action>
 	        <action>if false enable:USEGAMESS</action>
 	        <action>if true enable:GAUSGEN</action>
@@ -2064,6 +2399,10 @@ export MAIN_DIALOG='
 	        <action>if false enable:NSSBOND</action>
 	        <action>if true disable:INITADP</action>
 	        <action>if false enable:INITADP</action>
+	        <action>if true enable:GAUSSEMPDISP</action>
+	        <action>if false disable:GAUSSEMPDISP</action>
+	        <action>if true enable:EXTRAKEY</action>
+	        <action>if false disable:EXTRAKEY</action>
 	      </radiobutton>
 
 	   </hbox>
@@ -2081,7 +2420,7 @@ export MAIN_DIALOG='
 	    <text label="Tonto executable" has-tooltip="true" tooltip-markup="This can be a full path" ></text>
 	    <entry fs-action="file" fs-folder="./"
 	           fs-title="Select the gamess_int file">
-	     <default>tonto</default>
+             <input>if [ ! -z $TONTO ]; then echo "$TONTO"; else (echo "tonto"); fi</input>
 	     <variable>TONTO</variable>
 	    </entry>
 	    <button>
@@ -2096,7 +2435,7 @@ export MAIN_DIALOG='
 	    <text label="Gaussian, Orca or elmodb executable" has-tooltip="true" tooltip-markup="This can be a full path" ></text>
 	    <entry fs-action="file" fs-folder="./"
 	           fs-title="Select the gamess_int file">
-	     <default>g09</default>
+             <input>if [ ! -z $SCFCALC_BIN ]; then echo "$SCFCALC_BIN"; else (echo "g09"); fi</input>
 	     <variable>SCFCALC_BIN</variable>
 	    </entry>
 	    <button>
@@ -2112,7 +2451,7 @@ export MAIN_DIALOG='
 	    <entry sensitive="false" fs-action="file" fs-folder="./"
 	           fs-filters="gamess_int"
 	           fs-title="Select the gamess_int file">
-	     <default>gamess_int</default>
+             <input>if [ ! -z $GAMESS ]; then echo "$GAMESS"; else (echo "gamess_int"); fi</input>
 	     <variable>GAMESS</variable>
 	    </entry>
 	    <button>
@@ -2127,7 +2466,7 @@ export MAIN_DIALOG='
 	    <text label="ELMO libraries folder" has-tooltip="true" tooltip-markup="This can be a full path" ></text>
 	    <entry sensitive="false" fs-action="folder" fs-folder="./"
 	           fs-title="Select the ELMO library folder">
-	     <default>/usr/local/bin/LIBRARIES</default>
+             <input>if [ ! -z $ELMOLIB ]; then echo "$ELMOLIB"; else (echo "/usr/local/bin/LIBRARIES"); fi</input>
 	     <variable>ELMOLIB</variable>
 	    </entry>
 	    <button>
@@ -2143,8 +2482,8 @@ export MAIN_DIALOG='
 	    <text label="basis sets directory" ></text>
 	    <entry sensitive="false" fs-action="folder" fs-folder="/usr/local/bin/"
 	           fs-title="Select the basis_sets directory">
+             <input>if [ ! -z $BASISSETDIR ]; then echo "$BASISSETDIR"; else (echo "/usr/local/bin/basis_sets"); fi</input>
 	     <variable>BASISSETDIR</variable>
-	     <default>/usr/local/bin/BASIS-SETS</default>
 	    </entry>
 	    <button>
 	     <input file stock="gtk-open"></input>
@@ -2157,7 +2496,7 @@ export MAIN_DIALOG='
 	   <hbox>
 	    <text use-markup="true" wrap="false"><label>Job name(one word)</label></text>
 	    <entry>
-	     <default>my_job</default>
+             <input>if [ ! -z $JOBNAME ]; then echo "$JOBNAME"; else (echo "my_job"); fi</input>
 	     <variable>JOBNAME</variable>
 	    </entry>
 	   </hbox>
@@ -2169,6 +2508,7 @@ export MAIN_DIALOG='
 	    <entry fs-action="file" fs-folder="./"
 	           fs-filters="*.cif|*.pdb"
 	           fs-title="Select a cif or pdb file">
+             <input>if [ ! -z $CIF ]; then echo "$CIF"; fi</input>
 	     <variable>CIF</variable>
 	    </entry>
 	    <button>
@@ -2188,7 +2528,7 @@ export MAIN_DIALOG='
 	   <hbox>
 
 	    <checkbox active="false" has-tooltip="true" tooltip-markup="Make sure you will enter the correct charge and multiplicity" space-fill="True"  space-expand="True" sensitive="false">
-	     <label>Load initial ADPs from cif</label>
+	     <label>Load initial ADPs and precise coordinates from cif</label>
 	      <variable>INITADP</variable>
 	        <action>if true enable:INITADPFILE</action>
 	        <action>if false disable:INITADPFILE</action>
@@ -2215,6 +2555,7 @@ export MAIN_DIALOG='
 	    <entry fs-action="file" fs-folder="./"
 	           fs-filters="*.hkl"
 	           fs-title="Select an hkl file">
+             <input>if [ ! -z $HKL ]; then echo "$HKL"; fi</input>
 	     <variable>HKL</variable>
 	    </entry>
 	    <button>
@@ -2248,13 +2589,13 @@ export MAIN_DIALOG='
 	   <hbox>
 	    <text use-markup="true" wrap="TRUE" space-expand="false"><label>Wavelenght (in Angstrom)</label></text>
 	    <entry>
-	     <default>0.71073</default>
+             <input>if [ ! -z $WAVE ]; then echo "$WAVE"; else (echo "0.71073"); fi</input>
 	     <variable>WAVE</variable>
 	    </entry>
 	
 	    <text use-markup="true" wrap="TRUE" space-expand="FALSE"><label>F/sigma cutoff</label></text>
 	    <entry>
-	     <default>3</default>
+             <input>if [ ! -z $FCUT ]; then echo "$FCUT"; else (echo "3"); fi</input>
 	     <variable>FCUT</variable>
 	    </entry>
 
@@ -2265,13 +2606,13 @@ export MAIN_DIALOG='
 	   <hbox> 
 	    <text xalign="0" use-markup="true" wrap="false"><label>Charge</label></text>
 	    <spinbutton  range-min="-10"  range-max="10" space-fill="True"  space-expand="True">
-		<default>0</default>
+             <input>if [ ! -z $CHARGE ]; then echo "$CHARGE"; else (echo "0"); fi</input>
 		<variable>CHARGE</variable>
 	    </spinbutton>
 	
 	    <text xalign="1" use-markup="true" wrap="false"><label>Multiplicity</label></text>
 	    <spinbutton  range-min="0"  range-max="10"  space-fill="True"  space-expand="True" >
-		<default>1</default>
+             <input>if [ ! -z $MULTIPLICITY ]; then echo "$MULTIPLICITY"; else (echo "1"); fi</input>
 		<variable>MULTIPLICITY</variable>
 	    </spinbutton>
 	   </hbox>
@@ -2330,7 +2671,19 @@ export MAIN_DIALOG='
 	    </combobox>
 	
 	   </hbox>
+
+	   <hseparator></hseparator>
 	
+	   <hbox>
+	
+	    <text><label>Enter manually for Gaussian, Orca or elmodb!</label> </text>
+	    <entry tooltip-text="Use the correct Gaussian or Orca or Tonto format" sensitive="true">
+             <input>if [ ! -z $BASISSETG ]; then echo "$BASISSETG"; else (echo "STO-3G"); fi</input>
+	     <variable>BASISSETG</variable>
+	    </entry>
+	
+	   </hbox>
+
 	   <hseparator></hseparator>
 
 	   <hbox>
@@ -2342,6 +2695,17 @@ export MAIN_DIALOG='
 	      <action>if false enable:BASISSETG</action>
 	    </checkbox>
 
+	   </hbox>
+
+	   <hseparator></hseparator>
+
+	   <hbox>
+	
+	    <checkbox active="false" space-fill="True"  space-expand="True">
+	     <label>Use Grimme dispersion (gd3bj) </label>
+	      <variable>GAUSSEMPDISP</variable>
+	    </checkbox>
+
 	    <checkbox active="false" space-fill="True"  space-expand="True">
 	     <label>Use relativistic method </label>
 	      <variable>GAUSSREL</variable>
@@ -2350,13 +2714,13 @@ export MAIN_DIALOG='
 	   </hbox>
 
 	   <hseparator></hseparator>
-	
+
 	   <hbox>
 	
-	    <text><label>Enter manually for Gaussian, Orca or elmodb!</label> </text>
-	    <entry tooltip-text="Use the correct Gaussian or Orca or Tonto format" sensitive="true">
-	     <default>STO-3G</default>
-	     <variable>BASISSETG</variable>
+	    <text><label>Extra Gaussian keywords</label> </text>
+	    <entry tooltip-text="Use the correct Gaussian format" sensitive="true">
+             <input>if [ ! -z $EXTRAKEY ]; then echo "$EXTRAKEY"; else (echo "STO-3G"); fi</input>
+	     <variable>EXTRAKEY</variable>
 	    </entry>
 	
 	   </hbox>
@@ -2376,7 +2740,7 @@ export MAIN_DIALOG='
 	
 	    <text use-markup="true" wrap="false" ><label>SC Cluster charges radius</label></text>
 	    <entry has-tooltip="true" tooltip-markup="in Angstrom" sensitive="false">
-	     <default>8</default>
+             <input>if [ ! -z $SCCRADIUS ]; then echo "$SCCRADIUS"; else (echo "8"); fi</input>
 	     <variable>SCCRADIUS</variable>
 	    </entry>
 	
@@ -2423,6 +2787,8 @@ export MAIN_DIALOG='
 	    </checkbox>
 	   </hbox>
            
+	   <hseparator></hseparator>
+
            <hbox>
 	    <checkbox active="false" space-fill="True"  space-expand="True">
 	        <label>Refine nothing for atoms:</label>
@@ -2433,6 +2799,7 @@ export MAIN_DIALOG='
 	    </checkbox>
 	    <text use-markup="true" wrap="false" ><label>atom labels:</label></text>
 	    <entry sensitive="false">
+             <input>if [ ! -z $ATOMLIST ]; then echo "$ATOMLIST"; fi</input>
 	     <variable>ATOMLIST</variable>
 	    </entry>
            </hbox>
@@ -2496,6 +2863,7 @@ export MAIN_DIALOG='
 	
 	    <text use-markup="true" wrap="false"  ><label>Atom labels</label></text>
 	    <entry has-tooltip="true" tooltip-markup="as in the cif" sensitive="false">
+             <input>if [ ! -z $ANHARMATOMS ]; then echo "$ANHARMATOMS"; fi</input>
 	     <variable>ANHARMATOMS</variable>
 	    </entry>
 	
@@ -2537,13 +2905,13 @@ export MAIN_DIALOG='
 	   <hbox>
 	    <text xalign="0" use-markup="true" wrap="false"><label>B-H:</label></text>
 	    <entry sensitive="false">
-	     <default>1.190</default>
+             <input>if [ ! -z $BHBOND ]; then echo "$BHBOND"; else (echo "1.190"); fi</input>
 	     <variable>BHBOND</variable>
 	      <visible>disabled</visible>
 	    </entry>
 	    <text xalign="0" use-markup="true" wrap="false"><label>C-H:</label></text>
 	    <entry sensitive="false">
-	     <default>1.083</default>
+             <input>if [ ! -z $CHBOND ]; then echo "$CHBOND"; else (echo "1.083"); fi</input>
 	     <variable>CHBOND</variable>
 	    </entry>
 	   </hbox>
@@ -2551,12 +2919,12 @@ export MAIN_DIALOG='
 	   <hbox>
 	    <text xalign="0" use-markup="true" wrap="false"><label>N-H:</label></text>
 	    <entry sensitive="false">
-	     <default>1.009</default>
+             <input>if [ ! -z $NHBOND ]; then echo "$NHBOND"; else (echo "1.009"); fi</input>
 	     <variable>NHBOND</variable>
 	    </entry>
 	    <text xalign="0" use-markup="true" wrap="false"><label>O-H:</label></text>
 	    <entry sensitive="false">
-	     <default>0.983</default>
+             <input>if [ ! -z $OHBOND ]; then echo "$OHBOND"; else (echo "0.983"); fi</input>
 	     <variable>OHBOND</variable>
 	    </entry>
 	
@@ -2578,7 +2946,7 @@ export MAIN_DIALOG='
 	   <hbox> 
 	    <text xalign="0" use-markup="true" wrap="false"justify="1"><label>Number of processors available for the Gaussian or Orca job</label></text>
 	    <spinbutton  range-min="1"  range-max="100" space-fill="True"  space-expand="True">
-		<default>1</default>
+             <input>if [ ! -z $NUMPROC ]; then echo "$NUMPROC"; else (echo "1"); fi</input>
 		<variable>NUMPROC</variable>
 	    </spinbutton>
 	   </hbox>
@@ -2588,19 +2956,12 @@ export MAIN_DIALOG='
 	   <hbox>
 	    <text xalign="0" use-markup="true" has-tooltip="true" tooltip-markup="(including the unit mb or gb. For elmodb only in mb without unit!)" wrap="false"><label>Memory available for the Gaussian, Orca or elmodb job</label></text>
 	    <entry>
-	     <default>1gb</default>
+             <input>if [ ! -z $MEM ]; then echo "$MEM"; else (echo "1gb"); fi</input>
 	     <variable>MEM</variable>
 	    </entry>
 	   </hbox>
 	
-	   <hseparator></hseparator>
 
-	   <hbox>
-	    <button ok>
-	    </button>
-	    <button cancel>
-	    </button>
-	   </hbox>
 
 	  </frame>
          </vbox>
@@ -2613,7 +2974,7 @@ export MAIN_DIALOG='
 	    <text text-xalign="0" use-markup="true" wrap="false" space-expand="FALSE" space-fill="false"><label>Conv. tol. for shift on esd</label></text>
 	   <hbox space-expand="true" space-fill="true">
 	    <entry space-expand="true">
-	     <default>0.010000</default>
+             <input>if [ ! -z $CONVTOL ]; then echo "$CONVTOL"; else (echo "0.010000"); fi</input>
 	     <variable>CONVTOL</variable>
 	    </entry>
 	
@@ -2682,29 +3043,165 @@ export MAIN_DIALOG='
 	  </frame>
          </vbox>
 
-	 <vbox visible="false">
+	 <vbox visible="true">
 	  <frame>
-   	  <hbox> 
-	    <text xalign="0" use-markup="true" wrap="false"justify="1"><label>How many lambda values would you like to use?</label></text>
-	    <spinbutton  range-min="1"  range-max="100" space-fill="True"  space-expand="True">
-		<default>1</default>
-		<variable>LAMBDA</variable>
-	    </spinbutton>
-	   </hbox>
- 
-	  </frame>
-	 </vbox>
 
-	 <vbox visible="false">
-	  <frame>
-   	  <hbox> 
-	    <text xalign="0" use-markup="true" wrap="false"justify="1"><label>How many lambda values would you like to use?</label></text>
-	    <spinbutton  range-min="1"  range-max="100" space-fill="True"  space-expand="True">
-		<default>1</default>
-		<variable>LAMBDA</variable>
-	    </spinbutton>
+	   <hbox>
+	    <checkbox active="false" sensitive="true" space-fill="True"  space-expand="True" >
+  	     <label>Perform only XCW (based on input geometry, no HAR) or</label>
+	     <variable>XCWONLY</variable>		
+	     <default>false</default>
+	      <action>if true enable:METHODXCW</action>
+	      <action>if true enable:BASISSETTXCW</action>
+	      <action>if false disable:METHODXCW</action>
+	      <action>if false disable:BASISSETTXCW</action>
+	      <action>if true enable:LAMBDAINITIAL</action>
+	      <action>if true enable:LAMBDASTEP</action>
+	      <action>if true enable:LAMBDAMAX</action>
+	      <action>if false disable:LAMBDAINITIAL</action>
+	      <action>if false disable:LAMBDASTEP</action>
+	      <action>if false disable:LAMBDAMAX</action>
+	      <action>if true enable:BASISSETDIRXCW</action>
+	      <action>if false disable:BASISSETDIRXCW</action>
+	      <action>if true enable:SCCHARGESXCW</action>
+	      <action>if false disable:SCCHARGESXCW</action>
+	    </checkbox>
+
+	    <checkbox  active="false" sensitive="true" space-fill="True"  space-expand="True" >
+  	     <label>Perform XWR (HAR + XCW) job</label>
+	     <variable>XWR</variable>		
+	     <default>false</default>
+	      <action>if true enable:METHODXCW</action>
+	      <action>if true enable:BASISSETTXCW</action>
+	      <action>if false disable:METHODXCW</action>
+	      <action>if false disable:BASISSETTXCW</action>
+	      <action>if true enable:LAMBDAINITIAL</action>
+	      <action>if true enable:LAMBDASTEP</action>
+	      <action>if true enable:LAMBDAMAX</action>
+	      <action>if false disable:LAMBDAINITIAL</action>
+	      <action>if false disable:LAMBDASTEP</action>
+	      <action>if false disable:LAMBDAMAX</action>
+	      <action>if true enable:BASISSETDIRXCW</action>
+	      <action>if false disable:BASISSETDIRXCW</action>
+	      <action>if true enable:SCCHARGESXCW</action>
+	      <action>if false disable:SCCHARGESXCW</action>
+	    </checkbox>
+	   </hbox> 
+
+	   <hbox>
+	    <text label="basis sets directory" ></text>
+	    <entry sensitive="false" fs-action="folder" fs-folder="/usr/local/bin/"
+	           fs-title="Select the basis_sets directory">
+             <input>if [ ! -z $BASISSETDIRXCW ]; then echo "$BASISSETDIRXCW"; else (echo "/usr/local/bin/basis_sets"); fi</input>
+	     <variable>BASISSETDIRXCW</variable>
+	    </entry>
+	    <button>
+	     <input file stock="gtk-open"></input>
+	     <action type="fileselect">BASISSETDIRXCW</action>
+	    </button>
 	   </hbox>
- 
+
+	   <hbox>
+	    <text xalign="0" use-markup="true" wrap="false" > <label>Method: </label></text>
+	    <combobox sensitive="false" allow-empty="true" has-tooltip="true" tooltip-markup="'"'rhf'"' - Restricted Hartree-Fock, 
+	'"'rks'"' - Restricted Kohn-Sham, 
+	'"'rohf'"' - Restricted open shell Hartree-Fock, 
+	'"'uhf'"' - Unrestricted Hartree-Fock, 
+	'"'uks'"' - Unrestricted Kohn-Sham" space-fill="True"  space-expand="True" >
+	     <variable>METHODXCW</variable>
+	     <item>rhf</item>
+	     <item>rks</item>
+	     <item>rohf</item>
+	     <item>uhf</item>
+	     <item>uks</item>
+	     <item>b3lyp</item>
+	    </combobox>
+	
+	
+	    <text xalign="1" use-markup="true" wrap="false"><label>Basis set</label></text>
+	    <combobox has-tooltip="true" tooltip-markup="List of Basis sets available on Tonto. Please check if the basis set you want to use contains all the elements of your structure." sensitive="false" space-fill="True"  space-expand="True">
+	     <variable>BASISSETTXCW</variable>
+	     <item>STO-3G</item>
+	     <item>3-21G</item>
+	     <item>6-31G(d)</item>
+	     <item>6-31G(d,p)</item>
+	     <item>6-311++G(2d,2p)</item>
+	     <item>6-311G(d,p)</item>
+	     <item>ahlrichs-polarization</item>
+	     <item>aug-cc-pVDZ</item>
+	     <item>aug-cc-pVQZ</item>
+	     <item>aug-cc-pVTZ</item>
+	     <item>cc-pVDZ</item>
+	     <item>cc-pVQZ</item>
+	     <item>cc-pVTZ</item>
+	     <item>Clementi-Roetti</item>
+	     <item>Coppens</item>
+	     <item>def2-SVP</item>
+	     <item>def2-SV(P)</item>
+	     <item>def2-TZVP</item>
+	     <item>def2-TZVPP</item>
+	     <item>DZP</item>
+	     <item>DZP-DKH</item>
+	     <item>pVDZ-Ahlrichs</item>
+	     <item>Sadlej+</item>
+	     <item>Sadlej-PVTZ</item>
+	     <item>Spackman-DZP+</item>
+	     <item>Thakkar</item>
+	     <item>TZP-DKH</item>
+	     <item>vanLenthe-Baerends</item>
+	     <item>VTZ-Ahlrichs</item>
+	    </combobox>
+	
+	   </hbox>
+
+	   <hbox>
+	
+	    <checkbox sensitive="false">
+	     <label>Use SC cluster charges? </label>
+	      <variable>SCCHARGESXCW</variable>
+	      <action>if true enable:SCCRADIUSXCW</action>
+	      <action>if false disable:SCCRADIUSXCW</action>
+	      <action>if true enable:DEFRAGXCW</action>
+	      <action>if false disable:DEFRAGXCW</action>
+	    </checkbox>
+	
+	    <text use-markup="true" wrap="false" ><label>SC Cluster charges radius</label></text>
+	    <entry has-tooltip="true" tooltip-markup="in Angstrom" sensitive="false">
+             <input>if [ ! -z $SCCRADIUSXCW ]; then echo "$SCCRADIUSXCW"; else (echo "8"); fi</input>
+	     <variable>SCCRADIUSXCW</variable>
+	    </entry>
+	
+	    <checkbox sensitive="false">
+	     <label>Complete molecules </label>
+	     <default>false</default>
+	      <variable>DEFRAGXCW</variable>
+	    </checkbox>
+	   </hbox>
+
+   	  <hbox> 
+	    <text xalign="0" use-markup="true" wrap="false"justify="1"><label>Enter initial lambda value:</label></text>
+	    <entry  range-min="1"  range-max="100" space-fill="True"  space-expand="True" sensitive="false">
+             <input>if [ ! -z $LAMBDA ]; then echo "$LAMBDA"; else (echo "0"); fi</input>
+		<variable>LAMBDAINITIAL</variable>
+	    </entry>
+	   </hbox><
+
+   	  <hbox> 
+	    <text xalign="0" use-markup="true" wrap="false"justify="1"><label>Enter lambda step size value:</label></text>
+	    <entry  range-min="1"  range-max="100" space-fill="True"  space-expand="True" sensitive="false">
+             <input>if [ ! -z $LAMBDA ]; then echo "$LAMBDA"; else (echo "0.1"); fi</input>
+		<variable>LAMBDASTEP</variable>
+	    </entry>
+	   </hbox><
+
+   	  <hbox> 
+	    <text xalign="0" use-markup="true" wrap="false"justify="1"><label>Enter lambda max value:</label></text>
+	    <entry  range-min="1"  range-max="100" space-fill="True"  space-expand="True" sensitive="false">
+             <input>if [ ! -z $LAMBDA ]; then echo "$LAMBDA"; else (echo "1"); fi</input>
+		<variable>LAMBDAMAX</variable>
+	    </entry>
+	   </hbox><
+
 	  </frame>
 	 </vbox>
 
@@ -2726,10 +3223,7 @@ export MAIN_DIALOG='
  	    <edit space-expand="true" space-fill="true" sensitive="false">
 	    <action condition="command_is_true( [ $NSSBOND -gt 0 ] && echo true )">enable:SSBONDATOMS</action>
 	    <action condition="command_is_false( [ $NSSBOND -eq 0 ] && echo false )">disable:SSBONDATOMS</action>
-             <default>"
-   3  40
-   4  32
-  16  26"</default>
+             <input file>DISSBONDS</input>
              <variable>SSBONDATOMS</variable>
       	     <width>350</width><height>150</height>
              <action  condition="file_is_false(ntail.txt)">touch ntail.txt</action>
@@ -2739,7 +3233,7 @@ export MAIN_DIALOG='
    	  <hbox> 
            <text xalign="0" use-markup="true" wrap="false" justify="1"><label>Enter number of tailor made residues:</label></text>
            <spinbutton  range-min="0"  range-max="100" space-fill="True"  space-expand="True" sensitive="false">
-	    <default>0</default>
+             <input>if [ ! -z $NTAIL ]; then echo "$NTAIL"; else (echo "0"); fi</input>
 	    <variable>NTAIL</variable>
 	      <action condition="command_is_true( [ $NTAIL -gt 0 ] && echo true )">enable:ATAIL</action>
 	      <action condition="command_is_false( [ $NTAIL -eq 0 ] && echo false )">disable:ATAIL</action>
@@ -2749,17 +3243,17 @@ export MAIN_DIALOG='
 	   </hbox>
 
    	  <hbox> 
-           <text xalign="0" use-markup="true" wrap="false" justify="1"><label>Enter number of tailor made residues:</label></text>
+           <text xalign="0" use-markup="true" wrap="false" justify="1"><label>Enter maximum number of atoms in tailor made residues:</label></text>
            <spinbutton  range-min="0"  range-max="1000" space-fill="True"  space-expand="True" sensitive="false">
-	    <default>100</default>
+             <input>if [ ! -z $ATAIL ]; then echo "$ATAIL"; else (echo "100"); fi</input>
 	    <variable>ATAIL</variable>
 	   </spinbutton>
 	   </hbox>
 
    	  <hbox> 
-           <text xalign="0" use-markup="true" wrap="false" justify="1"><label>Enter number of tailor made residues:</label></text>
+           <text xalign="0" use-markup="true" wrap="false" justify="1"><label>Enter maximum number of fragments in tailor made residues:</label></text>
            <spinbutton  range-min="0"  range-max="1000" space-fill="True"  space-expand="True" sensitive="false">
-	    <default>200</default>
+             <input>if [ ! -z $FRTAIL ]; then echo "$FRTAIL"; else (echo "200"); fi</input>
 	    <variable>FRTAIL</variable>
 	   </spinbutton>
 	   </hbox>
@@ -2767,10 +3261,272 @@ export MAIN_DIALOG='
 	   <hbox>
 	    <text text-xalign="0" use-markup="true" wrap="false" space-expand="FALSE" space-fill="false"><label>Enter the residue information manually:</label></text>
  	    <edit space-expand="true" space-fill="true" sensitive="false">
-             <default>
-" 
+             <input file> TAILORED</input>
+             <variable>MANUALRESIDUE</variable>
+      	     <width>350</width><height>350</height>
+             <action  condition="file_is_false(ntail.txt)">touch ntail.txt</action>
+    	    </edit>
+	   </hbox>
+ 
+	  </frame>
+	 </vbox>
+
+	 <vbox visible="true">
+	  <frame>
+
+	   <hbox>
+	
+	    <checkbox active="false" sensitive="true" space-fill="True"  space-expand="True" >
+	     <label>Only plot properties from Tonto restricted files</label>
+	     <variable>PLOT_TONTO</variable>		
+	     <default>false</default>
+	     <action>if true enable:DEFDEN</action>
+	     <action>if true enable:DFTXCPOT</action>
+	     <action>if true enable:DENS</action>
+	     <action>if true enable:LAPL</action>
+	     <action>if true enable:NEGLAPL</action>
+	     <action>if true enable:PROMOL</action>
+	     <action>if true enable:RESDENS</action>
+	     <action>if false disable:DEFDEN</action>
+	     <action>if false disable:DFTXCPOT</action>
+	     <action>if false disable:DENS</action>
+	     <action>if false disable:LAPL</action>
+	     <action>if false disable:NEGLAPL</action>
+	     <action>if false disable:PROMOL</action>
+	     <action>if false disable:RESDENS</action>
+	     <action>if true enable:PLOT_ANGS</action>
+	     <action>if false disable:PLOT_ANGS</action>
+	     <action>if true enable:USESEPARATION</action>
+	     <action>if false disable:USESEPARATION</action>
+	     <action>if true enable:USEALLPOINTS</action>
+	     <action>if false disable:USEALLPOINTS</action>
+	     <action>if true enable:USECENTER</action>
+	     <action>if false disable:USECENTER</action>
+	    </checkbox>
+	   </hbox> 
+
+	   <hbox>
+	    <text xalign="0" use-markup="true" wrap="true"justify="1" space-fill="True"  space-expand="True"><label>Please select the property to plot:</label></text>
+	   </hbox> 
+
+	   <hbox>
+	    <checkbox active="false" sensitive="true" space-fill="True"  space-expand="True" sensitive="false" >
+  	     <label>deformation_density</label>
+	     <variable>DEFDEN</variable>		
+	     <default>false</default>
+	    </checkbox>
+	   </hbox> 
+
+
+	   <hbox>
+	    <checkbox active="false" sensitive="true" space-fill="True"  space-expand="True" sensitive="false" >
+  	     <label>dft_xc_potential</label>
+	     <variable>DFTXCPOT</variable>		
+	     <default>false</default>
+	    </checkbox>
+	   </hbox> 
+
+
+	   <hbox>
+	    <checkbox active="false" sensitive="true" space-fill="True"  space-expand="True" sensitive="false" >
+  	     <label>electron_density</label>
+	     <variable>DENS</variable>		
+	     <default>false</default>
+	    </checkbox>
+	   </hbox> 
+
+
+	   <hbox>
+	    <checkbox active="false" sensitive="true" space-fill="True"  space-expand="True" sensitive="false" >
+  	     <label>laplacian</label>
+	     <variable>LAPL</variable>		
+	     <default>false</default>
+	    </checkbox>
+	   </hbox> 
+
+
+	   <hbox>
+	    <checkbox active="false" sensitive="true" space-fill="True"  space-expand="True" sensitive="false" >
+  	     <label>negative_laplacian</label>
+	     <variable>NEGLAPL</variable>		
+	     <default>false</default>
+	    </checkbox>
+	   </hbox> 
+
+
+	   <hbox>
+	    <checkbox active="false" sensitive="true" space-fill="True"  space-expand="True" sensitive="false" >
+  	     <label>promolecule_density</label>
+	     <variable>PROMOL</variable>		
+	     <default>false</default>
+	    </checkbox>
+	   </hbox> 
+
+	   <hbox>
+	    <checkbox active="false" sensitive="true" space-fill="True"  space-expand="True" sensitive="false" >
+  	     <label>residual_density_map</label>
+	     <variable>RESDENS</variable>		
+	     <default>false</default>
+	    </checkbox>
+	   </hbox> 
+
+	   <hseparator></hseparator>
+
+	   <hbox>
+	    <checkbox active="false" sensitive="false" space-fill="True"  space-expand="True">
+  	     <label>Cube file in Angstroms</label>
+	     <variable>PLOT_ANGS</variable>		
+	     <default>false</default>
+	    </checkbox>
+	   </hbox> 
+
+
+	  <hbox space-expand="false" space-fill="false" >
+
+	    <checkbox active="false" sensitive="false" wrap="false" space-expand="FALSE" space-fill="false">
+  	     <label>Use desired point separation (in Angstrom)</label>
+	     <variable>USESEPARATION</variable>		
+	     <default>false</default>
+	     <action>if true enable:SEPARATION</action>
+	     <action>if false disable:SEPARATION</action>
+	     <action>if true disable:USEALLPOINTS</action>
+	     <action>if false enable:USEALLPOINTS</action>
+	    </checkbox>
+
+	   <hbox space-expand="true" space-fill="true" >
+	    <entry space-expand="true" sensitive="false">
+	     <variable>SEPARATION</variable>
+	    </entry>
+	   </hbox>
+	   </hbox>
+
+	  <hbox space-expand="false" space-fill="false" >
+
+	    <checkbox active="false" sensitive="false" wrap="false" space-expand="FALSE" space-fill="false">
+  	     <label>use number of points in X, Y and Z (in Angstrom)</label>
+	     <variable>USEALLPOINTS</variable>		
+	     <default>false</default>
+	     <action>if true enable:PTSX</action>
+	     <action>if false disable:PTSX</action>
+	     <action>if true enable:PTSY</action>
+	     <action>if false disable:PTSY</action>
+	     <action>if true enable:PTSZ</action>
+	     <action>if false disable:PTSZ</action>
+	     <action>if true disable:USESEPARATION</action>
+	     <action>if false enable:USESEPARATION</action>
+	    </checkbox>
+
+	   <hbox space-expand="true" space-fill="true" >
+	    <entry space-expand="true" sensitive="false">
+	     <default>10</default>
+	     <variable>PTSX</variable>
+	    </entry>
+	    <entry space-expand="true" sensitive="false">
+	     <default>10</default>
+	     <variable>PTSY</variable>
+	    </entry>
+	    <entry space-expand="true" sensitive="false">
+	     <default>10</default>
+	     <variable>PTSZ</variable>
+	    </entry>
+	   </hbox>
+	   </hbox>
+
+	  <hbox space-expand="false" space-fill="false" >
+
+	    <checkbox active="false" sensitive="false" wrap="false" space-expand="FALSE" space-fill="false">
+  	     <label>use cube center on atom number</label>
+	     <variable>USECENTER</variable>		
+	     <default>false</default>
+	     <action>if true enable:CENTERATOM</action>
+	     <action>if false disable:CENTERATOM</action>
+	     <action>if true enable:XAXIS</action>
+	     <action>if false disable:XAXIS</action>
+	     <action>if true enable:YAXIS</action>
+	     <action>if false disable:YAXIS</action>
+	     <action>if true enable:WIDTHX</action>
+	     <action>if false disable:WIDTHX</action>
+	     <action>if true enable:WIDTHY</action>
+	     <action>if false disable:WIDTHY</action>
+	     <action>if true enable:WIDTHZ</action>
+	     <action>if false disable:WIDTHZ</action>
+	    </checkbox>
+
+	   <hbox space-expand="true" space-fill="true" >
+	    <entry space-expand="true" sensitive="false">
+	     <default>1</default>
+	     <variable>CENTERATOM</variable>
+	    </entry>
+	   </hbox>
+	   </hbox>
+
+	  <hbox space-expand="false" space-fill="false" >
+	   <text text-xalign="0" use-markup="true" wrap="false" space-expand="FALSE" space-fill="false"><label>X axis defined by atoms number</label></text>
+	   <hbox space-expand="true" space-fill="true" >
+	    <entry space-expand="true" sensitive="false">
+	     <default>1 2</default>
+	     <variable>XAXIS</variable>
+	    </entry>
+	   </hbox>
+	   </hbox>
+
+	  <hbox space-expand="false" space-fill="false" >
+	   <text text-xalign="0" use-markup="true" wrap="false" space-expand="FALSE" space-fill="false"><label>Y axis defined by atoms number</label></text>
+	   <hbox space-expand="true" space-fill="true" >
+	    <entry space-expand="true" sensitive="false">
+	     <default>1 3</default>
+	     <variable>YAXIS</variable>
+	    </entry>
+	   </hbox>
+	   </hbox>
+
+	  <hbox space-expand="false" space-fill="false" >
+	   <text text-xalign="0" use-markup="true" wrap="false" space-expand="FALSE" space-fill="false"><label>width in X, Y and Z (in Angstrom)</label></text>
+	   <hbox space-expand="true" space-fill="true" >
+	    <entry space-expand="true" sensitive="false">
+	     <default>10</default>
+	     <variable>WIDTHX</variable>
+	    </entry>
+	    <entry space-expand="true" sensitive="false">
+	     <default>10</default>
+	     <variable>WIDTHY</variable>
+	    </entry>
+	    <entry space-expand="true" sensitive="false">
+	     <default>10</default>
+	     <variable>WIDTHZ</variable>
+	    </entry>
+	   </hbox>
+	   </hbox>
+
+	  </frame>
+	 </vbox>
+
+	 </notebook>
+
+	   <hbox>
+	    <button ok>
+	    </button>
+	    <button cancel>
+	    </button>
+	   </hbox>
+
+         </vbox>
+
+	</window>
+'
+#checking if job_options file exists for tests
+if [[ -f job_options.txt  ]]; then
+	sed -i '/EXIT/d' job_options.txt
+	source job_options.txt 
+	sed -n -i '/=/p' job_options.txt
+	if [[ ! -z "$MANUALRESIDUE" ]]; then 
+		if [[ ! -f TAILORED ]]; then
+			echo "$MANUALRESIDUE" > TAILORED
+		fi
+	else 
+		echo " 
 ALE   0   17  .t.        !Input for the first tailor-made residue 
-		
+	
 CA        1    1   .f.     N   CA  C     
 N         1    1   .f.     CA  N   H1     
 C         1    1   .f.     CA  C   O     
@@ -2788,28 +3544,23 @@ CA_CB     1    2   .f.     CA  CB  C
 CB_HB1    1    2   .f.     CB  HB1 CA   
 CB_HB2    1    2   .f.     CB  HB2 CA   
 CB_HB3    1    2   .f.     CB  HB3 CA 
- "
-             </default>
-	     <variable>MANUALRESIDUE</variable>
-      	     <width>350</width><height>350</height>
-             <action  condition="file_is_false(ntail.txt)">touch ntail.txt</action>
-    	    </edit>
-	   </hbox>
- 
-	  </frame>
-	 </vbox>
+ " > TAILORED
+	fi
 
-	 </notebook>
-         </vbox>
-
-	</window>
-'
-
-#no need for basis set in tonto!!!
-
-#checking if job_options file exists for tests
-if [ -f job_options.txt  ]; then
-	source job_options.txt
+	if [[ ! -z "$SSBONDATOMS" ]]; then 
+		if [[ ! -f DISSBONDS ]]; then
+			echo "$SSBONDATOMS" > DISSBONDS
+		fi
+	else 
+		echo " 
+   3  40
+   4  32
+  16  26
+ " > DISSBONDS
+	fi
+	if [[ ! -z $(cat job_options.txt) ]]; then
+		export $(cut -d= -f1 job_options.txt | awk 'NF==1' | sed '/"/d')
+	fi
 	if [[ "$TESTS" != "true" ]]; then
 		gtkdialog --program=MAIN_DIALOG > job_options.txt
 	else
@@ -2818,6 +3569,36 @@ if [ -f job_options.txt  ]; then
 		fi
 	fi
 else
+	if [[ ! -f TAILORED ]]; then
+		echo " 
+ALE   0   17  .t.        !Input for the first tailor-made residue 
+	
+CA        1    1   .f.     N   CA  C     
+N         1    1   .f.     CA  N   H1     
+C         1    1   .f.     CA  C   O     
+O         3    1   .f.     C   O   OXT     
+OXT       3    1   .f.     C   OXT O
+CB        1    1   .f.     CA  CB  HB1   
+CA_HA     1    2   .f.     CA  HA  C    
+CA_N      1    2   .f.     CA  N   HA     
+N_H1      1    2   .f.     N   H1  CA
+N_H2      1    2   .f.     N   H2  CA
+N_H3      1    2   .f.     N   H3  CA  
+CA_C      1    2   .f.     CA  C   O     
+C_O_OXT   4    3   .f.     C   O   OXT      
+CA_CB     1    2   .f.     CA  CB  C    
+CB_HB1    1    2   .f.     CB  HB1 CA   
+CB_HB2    1    2   .f.     CB  HB2 CA   
+CB_HB3    1    2   .f.     CB  HB3 CA 
+ " > TAILORED
+	fi
+	if [[ ! -f DISSBONDS ]]; then
+		echo " 
+   3  40
+   4  32
+  16  26
+ " > DISSBONDS
+	fi
 	gtkdialog --program=MAIN_DIALOG > job_options.txt
 fi
 
@@ -2833,6 +3614,10 @@ if [ "$GAUSGEN" = "true" ]; then
     BASISSETG="gen"
     zenity --entry --title="New basis set" --text="Enter or paste the basis set in the gaussian format as: \n !!NO EMPTY LINE!! \n C 0 \n S 5 \n exponent1 coefficient1 \n exponent2 coefficient2 \n exponent3 coefficient3 \n exponent4 coefficient4 \n exponent5 coefficient5 \n **** \n !!NO EMPTY LINE!! \n (Repeat this for all shells and all elements) " > basis_gen.txt
     sed -i '/BASISSETG=/c\BASISSETG=\"'$BASISSETG'"' job_options.txt
+fi
+
+if [ "$GAUSSEMPDISP" = "true" ]; then
+	GAUSSEMPDISPKEY="EmpiricalDispersion=gd3bj"
 fi
 
 if [ "$GAUSSREL" = "true" ]; then
@@ -2853,6 +3638,10 @@ if [[ "$SCFCALCPROG" == "elmodb" && "$EXIT" == "OK" ]]; then
 	fi
 	PDB=$( echo $CIF | awk -F "/" '{print $NF}' ) 
 	echo "PDB=\"$PDB\"" >> job_options.txt
+	if [[ "$INITADP" == "true" ]];then
+		INITADPFILE=$( echo $INITADPFILE | awk -F "/" '{print $NF}' ) 
+		echo "INITADPFILE=\"$INITADPFILE\"" >> job_options.txt
+	fi
 	if [[ ! -f "tonto.cell" ]]; then
 		#extracting information from pdb file into new jobname.pdb file (only for elmodb)
 		# is tehre a cell in the pdb?
@@ -2864,7 +3653,6 @@ if [[ "$SCFCALCPROG" == "elmodb" && "$EXIT" == "OK" ]]; then
 			CELLBETA=$(awk '$1 ~ /CRYST1/ {print $6}'  $PDB)
 			CELLGAMMA=$(awk '$1 ~ /CRYST1/ {print $7}'  $PDB)
 			SPACEGROUP=$(awk '$1 ~ /CRYST1/ {print $0}' $PDB | awk ' {print substr($0,index($0,$8),--NF)}')
-#####this one works with mac and linux
 	  		echo "      spacegroup= { hermann_mauguin_symbol= '$SPACEGROUP' }" > tonto.cell
 			echo "" >> tonto.cell
 			echo "      unit_cell= {" >> tonto.cell
@@ -2896,14 +3684,15 @@ if [[ "$SCFCALCPROG" == "elmodb" && "$EXIT" == "OK" ]]; then
 			echo "" >> tonto.cell
 			echo "      REVERT" >> tonto.cell
 		fi
-		# are there more lines in the pdb then the ATOM lines?
-		if [[ ! -z $(awk '$1 !~ /ATOM/ && ! /HETATM/ && ! /END/ {print $0}'  $PDB) ]]  ; then
-			awk '$1 ~ /ATOM/ {print $0}'  $PDB > $JOBNAME.cut.pdb
-			awk '$1 ~ /HETATM/ {print $0}'  $PDB > $JOBNAME.cut.pdb
-			echo "END" >> $JOBNAME.cut.pdb
-			if [[ ! -z $(diff -ZB $PDB $JOBNAME.cut.pdb) ]]; then
-				PDB=$JOBNAME.cut.pdb	
-			fi
+	fi
+	# are there more lines in the pdb then the ATOM lines?
+	if [[ ! -z $(awk '$1 !~ /ATOM/ && ! /HETATM/ && ! /END/ {print $0}'  $PDB) ]]  ; then
+		awk '$1 ~ /ATOM/ {print $0}'  $PDB > $JOBNAME.cut.pdb
+		awk '$1 ~ /HETATM/ {print $0}'  $PDB > $JOBNAME.cut.pdb
+		sed -i 's/HETATM/ATOM/g' $JOBNAME.cut.pdb
+		echo "END" >> $JOBNAME.cut.pdb
+		if [[ ! -z $(diff -ZB $PDB $JOBNAME.cut.pdb) ]]; then
+			PDB=$JOBNAME.cut.pdb	
 		fi
 	fi
 fi
