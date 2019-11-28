@@ -1,7 +1,8 @@
 #!/bin/bash
 
-sudo cp Tonto_logo.png /usr/local/include/
+sudo cp llama.png /usr/local/include/
 sudo apt-get install gtk+-2.0 -y
+sudo apt-get install libgtk2.0-dev -y
 sudo apt-get install gtkdialog -y
 sudo apt-get install gawk -y
 sudo apt-get install zenity -y

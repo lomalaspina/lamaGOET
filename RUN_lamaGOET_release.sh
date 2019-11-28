@@ -169,7 +169,7 @@ ELMODB(){
 
 TONTO_TO_ORCA(){
 	I=$[ $I + 1 ]
-	echo "Extrating XYZ for Orca cycle number $I"
+	echo "Extracting XYZ for Orca cycle number $I"
 	if [ "$METHOD" = "rks" ]; then
 		echo "! blyp $BASISSETG" > $JOBNAME.inp
 	else
@@ -697,7 +697,7 @@ SCF_TO_TONTO(){
 
 TONTO_TO_GAUSSIAN(){
 	I=$[ $I + 1 ]
-	echo "Extrating XYZ for Gaussian cycle number $I"
+	echo "Extracting XYZ for Gaussian cycle number $I"
 	echo "%rwf=./$JOBNAME.rwf" >> $JOBNAME.com
 	echo "%int=./$JOBNAME.int" >> $JOBNAME.com
 	echo "%NoSave" >> $JOBNAME.com
@@ -760,10 +760,78 @@ TONTO_TO_GAUSSIAN(){
 	cp $JOBNAME.log  $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.log
 }
 
+GET_FREQ(){
+	I=$[ $I + 1 ]
+	echo "Extracting XYZ for Gaussian cycle number $I"
+	echo "%rwf=./$JOBNAME.rwf" >> $JOBNAME.com
+	echo "%int=./$JOBNAME.int" >> $JOBNAME.com
+	echo "%NoSave" >> $JOBNAME.com
+	echo "%chk=./$JOBNAME.chk" > $JOBNAME.com
+	echo "%mem=$MEM" >> $JOBNAME.com
+	echo "%nprocshared=$NUMPROC" >> $JOBNAME.com
+	#echo "# rb3lyp/$BASISSETG output=wfn" >> $JOBNAME.com
+	if [ "$METHOD" = "rks" ]; then
+		if [ "$SCCHARGES" = "true" ]; then 
+	   		echo "# $ONLY_ONE blyp/$BASISSETG freq=noraman Charge nosymm output=wfn 6D 10F Fchk $INT $GAUSSEMPDISPKEY" >> $JOBNAME.com
+		else
+			echo "# $ONLY_ONE blyp/$BASISSETG freq=noraman nosymm output=wfn 6D 10F Fchk $INT $GAUSSEMPDISPKEY" >> $JOBNAME.com
+	        fi
+	elif [ "$METHOD" = "uks" ]; then
+		if [ "$SCCHARGES" = "true" ]; then 
+	   		echo "# $ONLY_ONE ublyp/$BASISSETG freq=noraman Charge nosymm output=wfn 6D 10F Fchk $INT $GAUSSEMPDISPKEY" >> $JOBNAME.com
+		else
+			echo "# $ONLY_ONE ublyp/$BASISSETG freq=noraman nosymm output=wfn 6D 10F Fchk $INT $GAUSSEMPDISPKEY" >> $JOBNAME.com
+	        fi
+	elif [ "$METHOD" = "rhf" ]; then
+		if [ "$SCCHARGES" = "true" ]; then 
+	   		echo "# $ONLY_ONE rhf/$BASISSETG freq=noraman Charge nosymm output=wfn 6D 10F Fchk $INT $GAUSSEMPDISPKEY" >> $JOBNAME.com
+		else
+			echo "# $ONLY_ONE rhf/$BASISSETG freq=noraman nosymm output=wfn 6D 10F Fchk $INT $GAUSSEMPDISPKEY" >> $JOBNAME.com
+	        fi
+	else
+		if [ "$SCCHARGES" = "true" ]; then 
+	   		echo "# $ONLY_ONE $METHOD/$BASISSETG freq=noraman Charge nosymm output=wfn 6D 10F Fchk $INT $GAUSSEMPDISPKEY" >> $JOBNAME.com
+		else
+			echo "# $ONLY_ONE $METHOD/$BASISSETG freq=noraman nosymm output=wfn 6D 10F Fchk $INT $GAUSSEMPDISPKEY" >> $JOBNAME.com
+	        fi
+	fi
+	echo "" >> $JOBNAME.com
+	echo "$JOBNAME" >> $JOBNAME.com
+	echo "" >> $JOBNAME.com
+	echo "$CHARGE $MULTIPLICITY" >> $JOBNAME.com
+        echo $J
+	awk 'NR>2' $J.tonto_cycle.$JOBNAME/$J.$JOBNAME.xyz >> $JOBNAME.com
+	echo "" >> $JOBNAME.com
+	if [ "$SCCHARGES" = "true" ]; then 
+        	awk '{a[NR]=$0}{b=12}/^------------------------------------------------------------------------/{c=NR}END{for(d=b;d<=c-1;++d)print a[d]}' gaussian-point-charges | awk '{printf "%s\t %s\t %s\t %s\t \n", $2, $3, $4, $1 }' >> $JOBNAME.com
+		echo "" | tee -a $JOBNAME.com  $JOBNAME.lst
+	fi
+	if [ "$GAUSGEN" = "true" ]; then
+	        cat basis_gen.txt >> $JOBNAME.com
+		echo "" >> $JOBNAME.com
+	fi
+	echo "./$JOBNAME.wfn" >> $JOBNAME.com
+	echo "" >> $JOBNAME.com
+	echo "Running Gaussian, cycle number $I"
+	$SCFCALC_BIN $JOBNAME.com
+	echo "Gaussian cycle number $I ended"
+	if ! grep -q 'Normal termination of Gaussian' "$JOBNAME.log"; then
+		echo "ERROR: Gaussian job finished with error, please check the $I.th log file for more details" | tee -a $JOBNAME.lst
+		unset MAIN_DIALOG
+		exit 0
+	fi
+	echo "Generation fcheck file for Gaussian cycle number $I"
+     	mkdir $I.$SCFCALCPROG.cycle.$JOBNAME
+	cp $JOBNAME.com  $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.com
+	cp Test.FChk $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.fchk
+	cp $JOBNAME.log  $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.log
+}
 CHECK_ENERGY(){
 	if [[ "$SCFCALCPROG" == "Gaussian" || "$SCFCALCPROG" == "optgaussian" ]]; then 
-		ENERGIA2=$(sed 's/^ //' $JOBNAME.log | sed 'N;s/\n//' | sed 'N;s/\n//' | sed 'N;s/\n//' | sed 'N;s/\n//' | sed -n '/HF=/{N;p;}' | sed 's/^.*HF=//' | sed 'N;s/\n//' | sed '2d' | sed 's/RMSD=//g' | awk -F '\' '{ print $1}' | tr -d '\r')
-		RMSD2=$(sed 's/^ //' $JOBNAME.log | sed 'N;s/\n//' | sed 'N;s/\n//' | sed 'N;s/\n//'| sed -n '/RMSD=/{N;p;}' | sed 's/^.*RMSD=//' | sed 'N;s/\n//' | sed '2d' | sed 's/RMSD=//g' | awk -F '\' '{ print $1}'| tr -d '\r')
+                ENERGIA2=$(sed -n '/Population analysis/,/Writing a WFN file/p' $JOBNAME.log |  sed 's/^ //' | sed ':begin;$!N;s/\n//;tbegin' | awk '!f && sub(/.*HF=/,""){f=1} f' | awk -F '\' '{ print $1}' | tr -d '\r')
+                RMSD2=$(sed -n '/Population analysis/,/Writing a WFN file/p' $JOBNAME.log | sed 's/^ //' |  sed ':begin;$!N;s/\n//;tbegin' | awk '!f && sub(/.*RMSD=/,""){f=1} f' | awk -F '\' '{ print $1}' | tr -d '\r')
+#		ENERGIA2=$(sed 's/^ //' $JOBNAME.log | sed 'N;s/\n//' | sed 'N;s/\n//' | sed 'N;s/\n//' | sed 'N;s/\n//' | sed -n '/HF=/{N;p;}' | sed 's/^.*HF=//' | sed 'N;s/\n//' | sed '2d' | sed 's/RMSD=//g' | awk -F '\' '{ print $1}' | tr -d '\r')
+#		RMSD2=$(sed 's/^ //' $JOBNAME.log | sed 'N;s/\n//' | sed 'N;s/\n//' | sed 'N;s/\n//'| sed -n '/RMSD=/{N;p;}' | sed 's/^.*RMSD=//' | sed 'N;s/\n//' | sed '2d' | sed 's/RMSD=//g' | awk -F '\' '{ print $1}'| tr -d '\r')
 		echo "Gaussian cycle number $I, final energy is: $ENERGIA2, RMSD is: $RMSD2 "
 	elif [ "$SCFCALCPROG" = "Orca" ]; then
 		ENERGIA2=$(sed -n '/Total Energy       :/p' $JOBNAME.log | awk '{print $4}' | tr -d '\r')
@@ -1264,14 +1332,19 @@ run_script(){
 			exit 0
 		fi
 		mkdir $J.tonto_cycle.$JOBNAME
-		cp $JOBNAME.xyz $J.tonto_cycle.$JOBNAME/$JOBNAME.starting_geom.xyz
+		if [[ "$SCFCALCPROG" == "optgaussian"  &&  "$SCCHARGES" == "false" ]]; then 
+			cp $JOBNAME.xyz $J.tonto_cycle.$JOBNAME/$J.$JOBNAME.xyz
+                else
+			cp $JOBNAME.xyz $J.tonto_cycle.$JOBNAME/$JOBNAME.starting_geom.xyz
+		fi
 		cp stdin $J.tonto_cycle.$JOBNAME/$J.stdin
 		cp stdout $J.tonto_cycle.$JOBNAME/$J.stdout
 		sed -i '/# NOTE: Cartesian 9Nx9N covariance matrix in BOHR units/,/# ===========/d' $JOBNAME.cartesian.cif2
 		cp $JOBNAME'.cartesian.cif2' $J.tonto_cycle.$JOBNAME/$J.$JOBNAME.cartesian.cif2
 		awk '{a[NR]=$0}/^Atom coordinates/{b=NR}/^Unit cell information/{c=NR}END{for(d=b-1;d<=c-2;++d)print a[d]}' stdout >> $JOBNAME.lst
 		echo "Done reading cif with Tonto"
-		if [[ "$SCFCALCPROG" == "elmodb" && ! -z tonto.cell || "$SCFCALCPROG" == "optgaussian" && ! -z tonto.cell  ]]; then
+#is this ok now?if [[ "$SCFCALCPROG" == "elmodb" && ! -z tonto.cell || "$SCFCALCPROG" == "optgaussian" && ! -z tonto.cell  ]]; then
+		if [[ ( "$SCFCALCPROG" == "elmodb" && ! -f tonto.cell ) || ( "$SCFCALCPROG" == "optgaussian" && ! -f tonto.cell ) ]]; then
 			CELLA=$(grep "a cell parameter ............" stdout | awk '{print $NF}')
 			CELLB=$(grep "b cell parameter ............" stdout | awk '{print $NF}')
 			CELLC=$(grep "c cell parameter ............" stdout | awk '{print $NF}')
@@ -1290,7 +1363,8 @@ run_script(){
 			echo "" >> tonto.cell
 			echo "      REVERT" >> tonto.cell
 		fi
-		if [[ "$SCFCALCPROG" == "Gaussian" || "$SCFCALCPROG" == "optgaussian" ]]; then 
+#is this ok now?if [[ "$SCFCALCPROG" == "Gaussian" || "$SCFCALCPROG" == "optgaussian" ]]; then 
+		if [[ "$SCFCALCPROG" == "Gaussian" ]] || [[ "$SCFCALCPROG" == "optgaussian"  &&  "$SCCHARGES" == "true" ]]; then 
 			echo "###############################################################################################" >> $JOBNAME.lst
 			echo "                                     Starting Gaussian                                         " >> $JOBNAME.lst
 			echo "###############################################################################################" >> $JOBNAME.lst
@@ -1334,8 +1408,10 @@ run_script(){
 				unset MAIN_DIALOG
 				exit 0
 			fi
-			ENERGIA=$(sed 's/^ //' $JOBNAME.log | sed 'N;s/\n//' | sed 'N;s/\n//' | sed 'N;s/\n//' | sed 'N;s/\n//' |  grep "HF=" | sed 's/^.*HF=//' | sed 'N;s/\n//' | sed '2d' | sed 's/RMSD=//g' | awk -F '\' '{ print $1}' | tr -d '\r')
-			RMSD=$(sed 's/^ //' $JOBNAME.log | sed 'N;s/\n//' | sed 'N;s/\n//' | sed 'N;s/\n//'| sed -n '/RMSD=/{N;p;}' | sed 's/^.*RMSD=//' | sed 'N;s/\n//' | sed '2d' | sed 's/RMSD=//g' | awk -F '\' '{ print $1}'| tr -d '\r')
+                        ENERGIA=$(sed -n '/Population analysis/,/Writing a WFN file/p' $JOBNAME.log |  sed 's/^ //' |  sed ':begin;$!N;s/\n//;tbegin' | awk '!f && sub(/.*HF=/,""){f=1} f' | awk -F '\' '{ print $1}' | tr -d '\r')
+                        RMSD=$(sed -n '/Population analysis/,/Writing a WFN file/p' $JOBNAME.log |  sed 's/^ //' |  sed ':begin;$!N;s/\n//;tbegin' | awk '!f && sub(/.*RMSD=/,""){f=1} f' | awk -F '\' '{ print $1}' | tr -d '\r')
+#			ENERGIA=$(sed 's/^ //' $JOBNAME.log | sed 'N;s/\n//' | sed 'N;s/\n//' | sed 'N;s/\n//' | sed 'N;s/\n//' |  grep "HF=" | sed 's/^.*HF=//' | sed 'N;s/\n//' | sed '2d' | sed 's/RMSD=//g' | awk -F '\' '{ print $1}' | tr -d '\r')
+#			RMSD=$(sed 's/^ //' $JOBNAME.log | sed 'N;s/\n//' | sed 'N;s/\n//' | sed 'N;s/\n//'| sed -n '/RMSD=/{N;p;}' | sed 's/^.*RMSD=//' | sed 'N;s/\n//' | sed '2d' | sed 's/RMSD=//g' | awk -F '\' '{ print $1}'| tr -d '\r')
 			echo "Starting geometry: Energy= $ENERGIA, RMSD= $RMSD" >> $JOBNAME.lst
 			echo "" >> $JOBNAME.lst
 			echo "###############################################################################################" >> $JOBNAME.lst
@@ -1416,21 +1492,27 @@ run_script(){
 				CHECK_ENERGY
 			done
 		fi
-		if [ "$SCFCALCPROG" = "optgaussian" ];then
-			while (( $(echo "$DE > $CONVTOL" | bc -l) || $( echo "$J <= 1" | bc -l )  )); do
-				if [[ $J -gt 50 ]];then
+		if [[ "$SCFCALCPROG" == "optgaussian" ]]; then
+			if [[ "$SCCHARGES" == "true" ]];then
+#			while (( ($(awk "BEGIN {print $DE > $CONVTOL}") | bc -l ) || $( echo "$J <= 1" | bc -l )  )); do
+				while (( $(echo "$(echo ${DE#-}) > $CONVTOL" | bc -l) || $( echo "$J <= 1" | bc -l )  )); do
+					if [[ $J -gt 50 ]];then
+						CHECK_ENERGY
+						echo "ERROR: Refinement ended. Too many fit cycles. Check if result is reasonable and/or change your convergency criteira."
+						break
+					fi
+					SCF_TO_TONTO
+					if [[ "$SCFCALCPROG" == "Gaussian" || "$SCFCALCPROG" == "optgaussian" ]]; then  
+						TONTO_TO_GAUSSIAN
+					else 
+						TONTO_TO_ORCA
+					fi
 					CHECK_ENERGY
-					echo "ERROR: Refinement ended. Too many fit cycles. Check if result is reasonable and/or change your convergency criteira."
-					break
-				fi
-				SCF_TO_TONTO
-				if [[ "$SCFCALCPROG" == "Gaussian" || "$SCFCALCPROG" == "optgaussian" ]]; then  
-					TONTO_TO_GAUSSIAN
-				else 
-					TONTO_TO_ORCA
-				fi
-				CHECK_ENERGY
-			done
+				done
+			else
+     				ONLY_ONE="opt=calcfc"
+				GET_FREQ
+			fi
 		fi
 		echo "__________________________________________________________________________________________________________________________________________________________________" >> $JOBNAME.lst
 		echo "" >> $JOBNAME.lst
@@ -1443,11 +1525,12 @@ run_script(){
 		if [[ "$SCFCALCPROG" != "optgaussian" ]]; then  
 			GET_RESIDUALS
 			echo " $(awk '{a[NR]=$0}/^Residual density data/{b=NR}/^Wall-clock time taken for job/{c=NR}END{for (d=b-2;d<c-1;++d) print a[d]}' stdout)" >> $JOBNAME.lst
-		if [[ "$XWR" == "true" ]]; then
-			RUN_XWR
-		fi
-		elif [[ "$SCFCALCPROG" == "optgaussian" ]]; then  
-			echo "add the frequency calculation here!!!"
+		        if [[ "$XWR" == "true" ]]; then
+		        	RUN_XWR
+        		fi
+		elif [[ "$SCFCALCPROG" == "optgaussian" && "$SCCHARGES" == "true" ]]; then  
+			SCF_TO_TONTO
+			GET_FREQ
 		fi
 		echo " $(awk '{a[NR]=$0}/^Reflections pruned/{b=NR}/^Atom coordinates/{c=NR}END{for (d=b-2;d<c-1;++d) print a[d]}' stdout)"  >> $JOBNAME.lst
 		DURATION=$SECONDS
