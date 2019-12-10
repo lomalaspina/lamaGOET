@@ -1376,7 +1376,8 @@ run_script(){
 			echo "%mem=$MEM" | tee -a $JOBNAME.com  $JOBNAME.lst
 			echo "%nprocshared=$NUMPROC" | tee -a $JOBNAME.com $JOBNAME.lst
 			if [ "$SCFCALCPROG" = "optgaussian" ]; then
-				OPT=" opt=calcfc"
+#				OPT=" opt=calcfc"
+				OPT=" opt"
 			fi
 			if [ "$METHOD" = "rks" ]; then
 				echo "# blyp/$BASISSETG nosymm $EXTRAKEY output=wfn 6D 10F Fchk $INT $GAUSSEMPDISPKEY" | tee -a $JOBNAME.com $JOBNAME.lst    
@@ -1510,7 +1511,8 @@ run_script(){
 					CHECK_ENERGY
 				done
 			else
-     				ONLY_ONE="opt=calcfc"
+#     				ONLY_ONE="opt=calcfc"
+				OPT=" opt"
 				GET_FREQ
 			fi
 		fi
