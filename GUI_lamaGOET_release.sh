@@ -720,7 +720,7 @@ qsub lamaGOET.pbs
 
 export MAIN_DIALOG='
 
-	<window window_position="1" title="lamaGOET">
+	<window window_position="1" title="lamaGOET: An interface for quantum crystallography">
 
 	 <vbox scrollable="true" space-expand="true" space-fill="true" height="600" width="1000" >
 	
@@ -728,12 +728,11 @@ export MAIN_DIALOG='
 	
 	    <hbox homogeneous="True">
 	     <frame>
-	      <text use-markup="true" wrap="false"><label>"<span color='"'blue'"'>Welcome to the interface for Hirshfeld Atom fit and Gaussian/Orca/Elmodb</span>"</label></text>
-	      <text use-markup="true" wrap="false"><label>"<span color='"'blue'"'>(You need to have coreutils installed on your machine to use this script)</span>"</label></text>
+	      <text use-markup="true" wrap="false"><label>"<span color='"'blue'"'>Welcome to the interface for quantum crystallography</span>"</label></text>
 	      <pixmap>
 	       <width>40</width>
-	       <height>40</height>
-	       <input file>/usr/local/include/Tonto_logo.png</input>
+	       <height>60</height>
+	       <input file>/usr/local/include/llama.png</input>
 	      </pixmap>
 	     </frame>  
 	    </hbox>
