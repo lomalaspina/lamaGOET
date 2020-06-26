@@ -1044,6 +1044,9 @@ XCW(){
 	echo "   basis_directory= $BASISSETDIRXCW" >> stdin
 	echo "   basis_name= $BASISSETTXCW" >> stdin
 	echo "" >> stdin
+	if [[ "$COMPLETESTRUCT" == "true"  ]]; then
+		COMPLETECIFBLOCK
+	fi
 	CRYSTAL_BLOCK
 	if [[ "$USEBECKE" == "true" ]]; then 
 		BECKE_GRID
