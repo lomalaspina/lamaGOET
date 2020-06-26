@@ -475,10 +475,12 @@ SCF_BLOCK_NOT_TONTO(){
 #		echo "      initial_MOs= existing" >> stdin
 		if [[ "$METHOD" != "rks" && "$METHOD" != "rhf" && "$METHOD" != "uhf" && "$METHOD" != "uks" ]]; then
 			echo "      kind= rks " >> stdin
+			echo "      output= true " >> stdin
 			echo "      dft_exchange_functional= b3lypgx" >> stdin
 			echo "      dft_correlation_functional= b3lypgc" >> stdin
 		else
 			echo "      kind= $METHOD" >> stdin
+                        echo "      output= true " >> stdin
 		fi
 		echo "      use_SC_cluster_charges= TRUE" >> stdin
 		echo "      cluster_radius= $SCCRADIUS angstrom" >> stdin
@@ -501,10 +503,12 @@ SCF_BLOCK_NOT_TONTO(){
 #		echo "      initial_MOs= existing" >> stdin
 		if [[ "$METHOD" != "rks" && "$METHOD" != "rhf" && "$METHOD" != "uhf" && "$METHOD" != "uks" ]]; then
 			echo "      kind= rks " >> stdin
+			echo "      output= true " >> stdin
 			echo "      dft_exchange_functional= b3lypgx" >> stdin
 			echo "      dft_correlation_functional= b3lypgc" >> stdin
 		else
 			echo "      kind= $METHOD" >> stdin
+			echo "      output= true " >> stdin
 		fi
 		echo "      use_SC_cluster_charges= TRUE" >> stdin
 		echo "      cluster_radius= $SCCRADIUS angstrom" >> stdin
@@ -543,6 +547,7 @@ SCF_BLOCK_PROM_TONTO(){
 	echo "   scfdata= {" >> stdin
 	echo "      initial_density= promolecule " >> stdin
 	echo "      kind= rhf" >> stdin   # this is the promolecule guess, should be always rhf
+	echo "      output= true " >> stdin
 	echo "      use_SC_cluster_charges= FALSE" >> stdin
 	echo "      convergence= 0.001" >> stdin
 	echo "      diis= { convergence_tolerance= 0.0002 }" >> stdin
@@ -558,10 +563,12 @@ SCF_BLOCK_REST_TONTO(){
 	echo "      initial_MOs= restricted" >> stdin
 	if [[ "$METHOD" == "b3lyp" ]]; then
 		echo "      kind= rks" >> stdin
+	        echo "      output= true " >> stdin
 		echo "      dft_exchange_functional= b3lypgx" >> stdin
 		echo "      dft_correlation_functional= b3lypgc" >> stdin
 	else 
 		echo "      kind= $METHOD" >> stdin
+	        echo "      output= true " >> stdin
 	fi
 	if [[ "$SCCHARGES" == "true" ]]; then 
 		echo "      use_SC_cluster_charges= TRUE" >> stdin
@@ -986,6 +993,7 @@ XCW_SCF_BLOCK(){
 	echo "   " >> stdin
 	echo "     initial_density=   restricted" >> stdin
 	echo "     kind=            xray_$METHODXCW" >> stdin
+        echo "     output= true " >> stdin
 	echo "     direct=          yes" >> stdin
 	echo "     convergence= 0.001" >> stdin
 	echo "     use_SC_cluster_charges= $SCCHARGESXCW" >> stdin
