@@ -295,8 +295,11 @@ PROCESS_CIF(){
 	elif [ $J = 1 ]; then 
 		if [[ "$SCCHARGES" == "true" && ("$SCFCALCPROG" == "Gaussian" || "$SCFCALCPROG" == "Orca") ]]; then
 #			if [[ "$SCFCALCPROG" == "Gaussian" || "$SCFCALCPROG" == "Orca" ]]; then
-			echo "       file_name= 0.tonto_cycle.$JOBNAME/0.$JOBNAME.cartesian.cif2" >> stdin
-#			echo "       file_name= $CIF" >> stdin
+				if [[ "$COMPLETESTRUCT" == "true" ]]; then
+					echo "       file_name= 0.tonto_cycle.$JOBNAME/0.$JOBNAME.cartesian.cif2" >> stdin
+				else
+					echo "       file_name= $CIF" >> stdin
+				fi
 		else
 			echo "       file_name= $J.tonto_cycle.$JOBNAME/$J.$JOBNAME.cartesian.cif2" >> stdin
 		fi
