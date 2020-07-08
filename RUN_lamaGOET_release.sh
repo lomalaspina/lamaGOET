@@ -151,12 +151,14 @@ ELMODB(){
 			echo "$SSBONDATOMS" >> $JOBNAME.elmodb.inp
 		fi
 	fi
+	echo "Running elmodb"
 	./$( echo $SCFCALC_BIN | awk -F "/" '{print $NF}' ) < $JOBNAME.elmodb.inp > $JOBNAME.elmodb.out
 	if ! grep -q 'CONGRATULATIONS: THE ELMO-TRANSFERs ENDED GRACEFULLY!!!' "$JOBNAME.elmodb.out"; then
 		echo "ERROR: elmodb finished with error, please check the $I.th elmodb.out file for more details" | tee -a $JOBNAME.lst
 		unset MAIN_DIALOG
 		exit 0
 	else
+		echo "elmodb job finish correctly."
 		mkdir $I.$SCFCALCPROG.cycle.$JOBNAME
 		cp $JOBNAME.elmodb.out  $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.elmodb.out
 		cp $JOBNAME.elmodb.inp  $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.elmodb.inp
