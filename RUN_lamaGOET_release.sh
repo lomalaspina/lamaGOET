@@ -357,6 +357,9 @@ TONTO_IAM_BLOCK(){
 	fi
 	echo "         REDIRECT $HKL" >> stdin
 	echo "         f_sigma_cutoff= $FCUT" >> stdin
+	if [[ "$MINCORCOEF" != "" ]]; then
+		echo "         min_correlation= $MINCORCOEF"  >> stdin
+	fi
 	echo "         tol_for_shift_on_esd= $CONVTOL" >> stdin
 	echo "         refine_H_U_iso= yes" >> stdin
 	echo "" >> stdin
@@ -409,6 +412,9 @@ CRYSTAL_BLOCK(){
 		echo "         REDIRECT $HKL" >> stdin
 		echo "         f_sigma_cutoff= $FCUT" >> stdin
 		if [[ "$PLOT_TONTO" == "false" ]]; then
+			if [ "$MINCORCOEF" != "" ]; then
+				echo "         min_correlation= $MINCORCOEF"  >> stdin
+			fi
 			echo "         tol_for_shift_on_esd= $CONVTOL" >> stdin
 			echo "         refine_H_U_iso= $HADP" >> stdin
 			if [[ "$SCFCALCPROG" = "Tonto" && "$IAMTONTO" = "true" ]]; then 
@@ -444,8 +450,8 @@ CRYSTAL_BLOCK(){
 			if [ "$REFUISO" = "true" ]; then
 				echo "	 refine_u_iso_for_atoms= { $ATOMUISOLIST }" >> stdin 
 			fi
-			if [ "$MAXLSCICLE" ]; then
-				echo "	 max_iterations= $MAXLSCICLE" >> stdin 
+			if [[ "$MAXLSCYCLE" != "" ]]; then
+				echo "	 max_iterations= $MAXLSCYCLE" >> stdin 
 			fi
 		fi
 		echo "      }  " >> stdin
@@ -1564,7 +1570,7 @@ run_script(){
 				CHECK_ENERGY
 			fi		
 			while (( $(echo "$MAXSHIFT > $CONVTOL" | bc -l) || $( echo "$J <= 1" | bc -l )  )); do
-				if [[ $J -gt 50 ]]; then
+				if [[ $J -ge $MAXCYCLE ]]; then
 					CHECK_ENERGY
 					echo "ERROR: Refinement ended. Too many fit cycles. Check if result is reasonable and/or change your convergency criteira."
 					break
@@ -1582,7 +1588,7 @@ run_script(){
 			if [[ "$SCCHARGES" == "true" ]];then
 #			while (( ($(awk "BEGIN {print $DE > $CONVTOL}") | bc -l ) || $( echo "$J <= 1" | bc -l )  )); do
 				while (( $(echo "$(echo ${DE#-}) > $CONVTOL" | bc -l) || $( echo "$J <= 1" | bc -l )  )); do
-					if [[ $J -gt 50 ]];then
+					if [[ $J -ge $MAXCYCLE ]];then
 						CHECK_ENERGY
 						echo "ERROR: Refinement ended. Too many fit cycles. Check if result is reasonable and/or change your convergency criteira."
 						break
@@ -1646,7 +1652,7 @@ run_script(){
 			SCF_TO_TONTO
 			ELMODB
 			while (( $(echo "$MAXSHIFT > $CONVTOL" | bc -l) || $( echo "$J <= 1" | bc -l )  )); do
-			if [[ $J -gt 50 ]];then
+			if [[ $J -ge $MAXCYCLE ]];then
 				echo "ERROR: Refinement ended. Too many fit cycles. Check if result is reasonable and/or change your convergency criteira."
 				break
 			fi
@@ -1675,7 +1681,7 @@ run_script(){
 			SCF_TO_TONTO
 			GAMESS_ELMODB_OLD_PDB
 			while (( $(echo "$MAXSHIFT > $CONVTOL" | bc -l) || $( echo "$J <= 1" | bc -l )  )); do
-			if [[ $J -gt 50 ]];then
+			if [[ $J -ge $MAXCYCLE ]];then
 				echo "ERROR: Refinement ended. Too many fit cycles. Check if result is reasonable and/or change your convergency criteira."
 				break
 			fi
