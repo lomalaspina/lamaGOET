@@ -1,7 +1,151 @@
 #!/bin/bash
 export LC_NUMERIC="en_US.UTF-8"
 
-source job_options.txt
+UPDATE_FILES_FOR_POWDER(){
+
+mkdir $HAR_COUNTER.Powder_HAR_cycle
+cp $JOBNAME.m40 $HAR_COUNTER.$JOBNAME.m40
+
+HAR_COUNTER=$[$HAR_COUNTER+1]
+
+awk '
+   !/^[[:space:]]/
+   ' $JOBNAME.m40 | awk '
+   {if (substr($1,1,1) ~ /^[A-Z]/) print $0}
+   ' | awk '
+   {if (NF>5) print $0}
+' > find_lines
+
+awk '
+   !/^[[:space:]]/' $JOBNAME.m40 | awk '
+   {if (substr($1,1,1) ~ /^[A-Z]/) print $0}
+   ' | awk '
+   {if (NF>5) printf "%-9s %2i %2i %2i %s \n", $1, $2, $3, $4, substr($5,1,8)}
+' > new
+
+sed -n '
+   /# Precise fractional system coordinates/,/# Fractional coordinates/p
+' $JOBNAME.archive.cif | awk '
+   /^[[:space:]]/
+   ' > cut_cif
+
+sed -n '
+   /# Precise cartesian axis system ADPs/,/# ADPs/p
+' $JOBNAME.archive.cif | awk '
+   /^[[:space:]]/
+   ' > cut_cif_ADPs
+
+sed -n '
+   /# Precise fractional system coordinates/,/# Fractional coordinates/p
+' $JOBNAME.archive.cif | awk '
+   /^[[:space:]]/
+   ' > cut_cif_errors
+
+gawk '
+   {if (substr($1,1,1) ~ /^[A-Z]/)
+   {
+   strtonum($2)
+   strtonum($3)
+   strtonum($4)
+   printf "%8.6f %8.6f %8.6f %s\n", $2, $3, $4, $6
+   }
+}' cut_cif > new_xyz
+
+#   {if ((substr($1,1,1) ~ /^[0-9]/) || (substr($1,1,1) ~ /^-/) ) 
+
+gawk '
+   {if (substr($1,1,1) ~ /^[A-Z]/)
+   {
+   strtonum($2)
+   strtonum($3)
+   strtonum($4)
+   strtonum($5)
+   strtonum($6)
+   strtonum($7)
+   printf " %8.6f%9.6f%9.6f%9.6f%9.6f%9.6f%s\n", $2, $3, $4, $5, $6, $7,"      0000000000"
+   }
+}' cut_cif_ADPs > new_ADPs
+
+gawk ' 
+   {if (substr($1,1,1) ~ /^[0-9]/)
+   {
+   strtonum($2)
+   strtonum($3)
+   strtonum($4)
+   printf "%8.6f %8.6f %8.6f %s\n", $1, $3, $4, $6
+   }
+}' cut_cif_errors > new_xyz_errors
+
+rm cut_cif cut_cif_errors cut_cif_ADPs
+
+paste <(awk '{print $0}' new) <(awk '{print $0}' new_xyz) > merged
+
+paste <(awk '{print $1, "0.000000"}
+   ' new) <(awk '{print $0}
+   ' new_xyz_errors) > merged_errors
+
+rm new new_xyz new_xyz_errors 
+
+gawk '{
+   strtonum($5)
+   strtonum($6)
+   strtonum($7)
+   strtonum($8)
+   printf "%-10s%-3i%-3i%-3i%-8.6f%9.6f%9.6f%9.6f\n", 
+   $1, $2, $3, $4, $5, $6, $7, $8
+}' merged > almost
+
+gawk '{
+   strtonum($2)
+   strtonum($3)
+   strtonum($4)
+   strtonum($5)
+   printf "%-19s %8.6f %8.6f %8.6f %8.6f\n", 
+   $1, $2, $3, $4, $5
+}' merged_errors > almost_errors
+
+rm merged merged_errors
+
+NUM_LINES=$(wc -l < almost)
+
+sed -n '
+   /s.u. block/,$p
+' $JOBNAME.m40 > cut_m40
+
+for ((I=1;I<=$NUM_LINES;++I))
+#for I in 1$NUM_LINES
+do
+   FIND_STRIG=$(awk -v I="$I" -F, 'FNR==I{print $0}' find_lines )
+   LINE_STRIG=$(awk -v I="$I" -F, 'FNR==I{print $0}' almost )
+   SU_ATOM=$(awk -v I="$I" -F, 'FNR==I{print $1}' find_lines )
+   FIND_ERROR=$(awk -v SU_ATOM="$SU_ATOM" -F FNR==NR, '{if ($1=SU_ATOM)
+   print $0
+   }' cut_m40)
+   REP_ERROR=$(awk -v I="$I" -F, 'FNR==I{print $0}' almost_errors)
+   sed "s:$FIND_STRIG:$LINE_STRIG:g" $1 > temp
+
+   ADPs_LINE_M40=$(grep -n "$FIND_STRIG" $1 | awk -F: ' {print $1}')
+   ADPs_LINE_M40=$[ $ADPs_LINE_M40 + 1]
+   NEW_ADP=$(awk -v I="$I" 'FNR==I{print $0}' new_ADPs )
+#   awk -v J="$ADPs_LINE_M40" 'FNR==J{ sub($0, "$NEW_ADP" ) }' $1
+#   sed '$ADPs_LINE_M40 s:$NEW_ADP:' $1 > $1_out
+   awk -v J="$ADPs_LINE_M40" -v ADP="$NEW_ADP" 'FNR==J {$0=ADP} {
+   print }' temp > temp2
+
+
+#  awk -v FIND_STRIG="$FIND_STRIG" -F, '
+#  {a[NR]=$0}/^FIND_STRIG/{b=NR+1}END{
+#  FNR==b{sub($0, "$(awk -v I="$I" -F, 'FNR==I{print $0}' new_ADPs )" ) } }' $1
+   mv temp2 $JOBNAME.m40
+   fromdos $JOBNAME.m40
+#  sed -i "/\$SU_ATOM/c\\$REP_ERROR" cut_m40 > temp_errors
+#  sed "s:$FIND_ERROR:$REP_ERROR:g" cut_m40 > temp_errors
+
+done
+
+rm find_lines almost almost_errors new_ADPs cut_m40 temp temp_errors
+
+}
 
 GAMESS_ELMODB_OLD_PDB(){
 	I=$[ $I + 1 ]
@@ -1215,6 +1359,7 @@ COMPLETECIFBLOCK(){
 
 run_script(){
 	SECONDS=0
+        HAR_COUNTER=$"0" ###counter for powder HAR
 	I=$"0"   ###counter for gaussian jobs
 	J=$"0"   ###counter for tonto fits
 	shopt -s nocasematch	
@@ -1233,7 +1378,7 @@ run_script(){
 		fi
 		
 		#checking if numbers are grown together and separating them. note that this will ignore the header lines if is exists.
-		if [[ ! -z "$(awk ' NF<5 && NF>2 {print $0}' $HKL)" ]]; then
+		if [[ -z "$(awk ' NF<5 && NF>2 {print $0}' $HKL)" ]]; then
 			gawk 'BEGIN { FS = "" } { for (i = 1; i <= NF; i = i + 1) h=$1$2$3$4; k=$5$6$7$8; l=$9$10$11$12; i_f=$13$14$15$16$17$18$19$20; sig=$21$22$23$24$25$26$27$28; print h, k, l, i_f, sig }' $HKL > $JOBNAME.tonto_edited.hkl
 			cp $HKL $JOBNAME.your_input.hkl
 			cp $JOBNAME.tonto_edited.hkl $HKL
@@ -1577,6 +1722,9 @@ run_script(){
 					break
 				fi
 				SCF_TO_TONTO
+				if [ "$POWDER_HAR" = "true" ]; then
+                                   UPDATE_FILES_FOR_POWDER
+                                fi
 				if [ "$SCFCALCPROG" = "Gaussian" ]; then  
 					TONTO_TO_GAUSSIAN
 				else 
@@ -1633,6 +1781,9 @@ run_script(){
 		exit
 	elif [[ "$SCFCALCPROG" == "Tonto" ]]; then
 		SCF_TO_TONTO
+		if [ "$POWDER_HAR" = "true" ]; then
+                        UPDATE_FILES_FOR_POWDER
+                fi
 		echo "__________________________________________________________________________________________________________________________________________________________________" >> $JOBNAME.lst
 		echo "" >> $JOBNAME.lst
 		echo "###############################################################################################" >> $JOBNAME.lst
