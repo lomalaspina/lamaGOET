@@ -769,8 +769,8 @@ cp $JOBNAME.m85 $ED_COUNTER.atomic_projection_cycle/$ED_COUNTER.$JOBNAME.m85
 cp $JOBNAME.m90 $ED_COUNTER.atomic_projection_cycle/$ED_COUNTER.$JOBNAME.m90
 cp $JOBNAME.m95 $ED_COUNTER.atomic_projection_cycle/$ED_COUNTER.$JOBNAME.m95
 
-python3 hklfromm80.py 
-python3 projectioninputfromhar.py
+echo $HKL_FROM_M80
+echo $HKL_FROM_FCF
 
 ED_COUNTER=$[$ED_COUNTER+1]
 PROFILE_COUNTER=$[$PROFILE_COUNTER+1]
@@ -1979,7 +1979,8 @@ run_script(){
 	SECONDS=0
 	if [ "$POWDER_HAR" = "true" ]; then
                 cp InitialIAM/*.m40 $JOBNAME.m40
-                python3 hklfromm80.py 
+                HKL_FROM_M80="python3 /usr/local/bin/hklfromm80.py" 
+                HKL_FROM_FCF="python3 /usr/local/bin/projectioninputfromhar.py"
                 ED_COUNTER=$"0" ###counter for powder HAR
                 PROFILE_COUNTER=$"0" ###counter for powder HAR
         fi
