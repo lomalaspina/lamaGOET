@@ -616,12 +616,8 @@ UPDATE_FILES_FOR_POWDER(){
 # profile cycle
 
 mkdir $ED_COUNTER.atomic_projection_cycle
-if [ "$ED_COUNTER" = "0" ]; then
-        cp $HKL $ED_COUNTER.atomic_projection_cycle/$ED_COUNTER.$JOBNAME.hkl
-else
-        cp $JOBNAME.hkl $ED_COUNTER.atomic_projection_cycle/$ED_COUNTER.$JOBNAME.hkl
-fi
-cp $JOBNAME.m40 $PROFILE_COUNTER.profile_cycle/$PROFILE_COUNTER.$JOBNAME.m40
+
+mv $JOBNAME.hkl $ED_COUNTER.atomic_projection_cycle/$ED_COUNTER.$JOBNAME.hkl
 
 awk '
    !/^[[:space:]]/
@@ -752,27 +748,28 @@ do
 #  {a[NR]=$0}/^FIND_STRIG/{b=NR+1}END{
 #  FNR==b{sub($0, "$(awk -v I="$I" -F, 'FNR==I{print $0}' new_ADPs )" ) } }' $1
    mv temp2 $JOBNAME.m40
-   fromdos $JOBNAME.m40
+#  fromdos $JOBNAME.m40
 #  sed -i "/\$SU_ATOM/c\\$REP_ERROR" cut_m40 > temp_errors
 #  sed "s:$FIND_ERROR:$REP_ERROR:g" cut_m40 > temp_errors
 
 done
 
-rm find_lines almost almost_errors new_ADPs cut_m40 temp temp_errors
+rm find_lines almost almost_errors new_ADPs cut_m40 temp
 
-cp $JOBNAME.m41 $ED_COUNTER.atomic_projection_cycle/$ED_COUNTER.$JOBNAME.m41
-cp $JOBNAME.m50 $ED_COUNTER.atomic_projection_cycle/$ED_COUNTER.$JOBNAME.m50
+$HKL_FROM_FCF
+
+cp $JOBNAME.m40 $ED_COUNTER.atomic_projection_cycle/$ED_COUNTER.$JOBNAME.m40
+cp InitialIAM/*.m50 $ED_COUNTER.atomic_projection_cycle/$ED_COUNTER.$JOBNAME.m50
 cp $JOBNAME.m70 $ED_COUNTER.atomic_projection_cycle/$ED_COUNTER.$JOBNAME.m70
-cp $JOBNAME.m80 $ED_COUNTER.atomic_projection_cycle/$ED_COUNTER.$JOBNAME.m80
-cp $JOBNAME.m83 $ED_COUNTER.atomic_projection_cycle/$ED_COUNTER.$JOBNAME.m83
-cp $JOBNAME.m85 $ED_COUNTER.atomic_projection_cycle/$ED_COUNTER.$JOBNAME.m85
 cp $JOBNAME.m90 $ED_COUNTER.atomic_projection_cycle/$ED_COUNTER.$JOBNAME.m90
 cp $JOBNAME.m95 $ED_COUNTER.atomic_projection_cycle/$ED_COUNTER.$JOBNAME.m95
-
-echo $HKL_FROM_M80
-echo $HKL_FROM_FCF
+cp $JOBNAME.hkl $ED_COUNTER.atomic_projection_cycle/$ED_COUNTER.$JOBNAME.hkl
 
 ED_COUNTER=$[$ED_COUNTER+1]
+
+#RUN JANA
+
+
 PROFILE_COUNTER=$[$PROFILE_COUNTER+1]
 
 }
@@ -1979,10 +1976,15 @@ run_script(){
 	SECONDS=0
 	if [ "$POWDER_HAR" = "true" ]; then
                 cp InitialIAM/*.m40 $JOBNAME.m40
+                cp InitialIAM/*.m80 $JOBNAME.m80
+                cp InitialProjection/*.m90 $JOBNAME.m90
+                cp InitialProjection/*.m95 $JOBNAME.m95
                 HKL_FROM_M80="python3 /usr/local/bin/hklfromm80.py" 
                 HKL_FROM_FCF="python3 /usr/local/bin/projectioninputfromhar.py"
-                ED_COUNTER=$"0" ###counter for powder HAR
-                PROFILE_COUNTER=$"0" ###counter for powder HAR
+                ED_COUNTER=$"1" ###counter for powder HAR
+                PROFILE_COUNTER=$"1" ###counter for powder HAR
+                $HKL_FROM_M80
+                HKL=$JOBNAME.hkl
         fi
 	I=$"0"   ###counter for gaussian jobs
 	J=$"0"   ###counter for tonto fits
