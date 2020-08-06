@@ -733,9 +733,9 @@ do
    print $0
    }' cut_m40)
    REP_ERROR=$(awk -v I="$I" -F, 'FNR==I{print $0}' almost_errors)
-   sed "s:$FIND_STRIG:$LINE_STRIG:g" $1 > temp
+   sed "s:$FIND_STRIG:$LINE_STRIG:g" $JOBNAME.m40 > temp
 
-   ADPs_LINE_M40=$(grep -n "$FIND_STRIG" $1 | awk -F: ' {print $1}')
+   ADPs_LINE_M40=$(grep -n "$FIND_STRIG" $JOBNAME.m40 | awk -F: ' {print $1}')
    ADPs_LINE_M40=$[ $ADPs_LINE_M40 + 1]
    NEW_ADP=$(awk -v I="$I" 'FNR==I{print $0}' new_ADPs )
 #   awk -v J="$ADPs_LINE_M40" 'FNR==J{ sub($0, "$NEW_ADP" ) }' $1
@@ -2386,8 +2386,10 @@ run_script(){
 		echo "Energy= $ENERGIA2, RMSD= $RMSD2" >> $JOBNAME.lst
 		echo " $(awk '{a[NR]=$0}/^Rigid-atom fit results/{b=NR}/^Wall-clock time taken for job /{c=NR}END{for (d=b-2;d<c-1;++d) print a[d]}' stdout)"  >> $JOBNAME.lst
 		if [[ "$SCFCALCPROG" != "optgaussian" ]]; then  
-			GET_RESIDUALS
-			echo " $(awk '{a[NR]=$0}/^Residual density data/{b=NR}/^Wall-clock time taken for job/{c=NR}END{for (d=b-2;d<c-1;++d) print a[d]}' stdout)" >> $JOBNAME.lst
+		        if [[ "$POWDER_HAR" != "true" ]]; then  
+			        GET_RESIDUALS
+			        echo " $(awk '{a[NR]=$0}/^Residual density data/{b=NR}/^Wall-clock time taken for job/{c=NR}END{for (d=b-2;d<c-1;++d) print a[d]}' stdout)" >> $JOBNAME.lst
+                        fi
 		        if [[ "$XWR" == "true" ]]; then
 		        	RUN_XWR
         		fi
@@ -2439,9 +2441,11 @@ run_script(){
 				echo "###############################################################################################" >> $JOBNAME.lst
 			echo "" >> $JOBNAME.lst
 			echo " $(awk '{a[NR]=$0}/^Rigid-atom fit results/{b=NR}/^Wall-clock time taken for job /{c=NR}END{for (d=b-2;d<c-1;++d) print a[d]}' stdout)"  >> $JOBNAME.lst
-			GET_RESIDUALS
-			echo " $(awk '{a[NR]=$0}/^Reflections pruned/{b=NR}/^Atom coordinates/{c=NR}END{for (d=b-2;d<c-1;++d) print a[d]}' stdout)"  >> $JOBNAME.lst
-			echo " $(awk '{a[NR]=$0}/^Residual density data/{b=NR}/^Wall-clock time taken for job/{c=NR}END{for (d=b-2;d<c-1;++d) print a[d]}' stdout)" >> $JOBNAME.lst
+		        if [[ "$POWDER_HAR" != "true" ]]; then  
+			        GET_RESIDUALS
+			        echo " $(awk '{a[NR]=$0}/^Reflections pruned/{b=NR}/^Atom coordinates/{c=NR}END{for (d=b-2;d<c-1;++d) print a[d]}' stdout)"  >> $JOBNAME.lst
+			        echo " $(awk '{a[NR]=$0}/^Residual density data/{b=NR}/^Wall-clock time taken for job/{c=NR}END{for (d=b-2;d<c-1;++d) print a[d]}' stdout)" >> $JOBNAME.lst
+                        fi
 			if [[ "$XWR" == "true" ]]; then
 				RUN_XWR
 			fi
@@ -2468,9 +2472,11 @@ run_script(){
 				echo "###############################################################################################" >> $JOBNAME.lst
 			echo "" >> $JOBNAME.lst
 			echo " $(awk '{a[NR]=$0}/^Rigid-atom fit results/{b=NR}/^Wall-clock time taken for job /{c=NR}END{for (d=b-2;d<c-1;++d) print a[d]}' stdout)"  >> $JOBNAME.lst
-			GET_RESIDUALS
-			echo " $(awk '{a[NR]=$0}/^Reflections pruned/{b=NR}/^Atom coordinates/{c=NR}END{for (d=b-2;d<c-1;++d) print a[d]}' stdout)"  >> $JOBNAME.lst
-			echo " $(awk '{a[NR]=$0}/^Residual density data/{b=NR}/^Wall-clock time taken for job/{c=NR}END{for (d=b-2;d<c-1;++d) print a[d]}' stdout)" >> $JOBNAME.lst
+		        if [[ "$POWDER_HAR" != "true" ]]; then  
+			        GET_RESIDUALS
+			        echo " $(awk '{a[NR]=$0}/^Reflections pruned/{b=NR}/^Atom coordinates/{c=NR}END{for (d=b-2;d<c-1;++d) print a[d]}' stdout)"  >> $JOBNAME.lst
+			        echo " $(awk '{a[NR]=$0}/^Residual density data/{b=NR}/^Wall-clock time taken for job/{c=NR}END{for (d=b-2;d<c-1;++d) print a[d]}' stdout)" >> $JOBNAME.lst
+                        fi
 			if [[ "$XWR" == "true" ]]; then
 				RUN_XWR
 			fi
