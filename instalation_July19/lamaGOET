@@ -611,11 +611,17 @@ SPACEGROUP(){
 }
 
 UPDATE_FILES_FOR_POWDER(){
+# atomic projection cycle #use this name 
+# electron density cycle
+# profile cycle
 
-mkdir $HAR_COUNTER.Powder_HAR_cycle
-cp $JOBNAME.m40 $HAR_COUNTER.$JOBNAME.m40
-
-HAR_COUNTER=$[$HAR_COUNTER+1]
+mkdir $ED_COUNTER.atomic_projection_cycle
+if [ "$ED_COUNTER" = "0" ]; then
+        cp $HKL $ED_COUNTER.atomic_projection_cycle/$ED_COUNTER.$JOBNAME.hkl
+else
+        cp $JOBNAME.hkl $ED_COUNTER.atomic_projection_cycle/$ED_COUNTER.$JOBNAME.hkl
+fi
+cp $JOBNAME.m40 $PROFILE_COUNTER.profile_cycle/$PROFILE_COUNTER.$JOBNAME.m40
 
 awk '
    !/^[[:space:]]/
@@ -753,6 +759,21 @@ do
 done
 
 rm find_lines almost almost_errors new_ADPs cut_m40 temp temp_errors
+
+cp $JOBNAME.m41 $ED_COUNTER.atomic_projection_cycle/$ED_COUNTER.$JOBNAME.m41
+cp $JOBNAME.m50 $ED_COUNTER.atomic_projection_cycle/$ED_COUNTER.$JOBNAME.m50
+cp $JOBNAME.m70 $ED_COUNTER.atomic_projection_cycle/$ED_COUNTER.$JOBNAME.m70
+cp $JOBNAME.m80 $ED_COUNTER.atomic_projection_cycle/$ED_COUNTER.$JOBNAME.m80
+cp $JOBNAME.m83 $ED_COUNTER.atomic_projection_cycle/$ED_COUNTER.$JOBNAME.m83
+cp $JOBNAME.m85 $ED_COUNTER.atomic_projection_cycle/$ED_COUNTER.$JOBNAME.m85
+cp $JOBNAME.m90 $ED_COUNTER.atomic_projection_cycle/$ED_COUNTER.$JOBNAME.m90
+cp $JOBNAME.m95 $ED_COUNTER.atomic_projection_cycle/$ED_COUNTER.$JOBNAME.m95
+
+python3 hklfromm80.py 
+python3 projectioninputfromhar.py
+
+ED_COUNTER=$[$ED_COUNTER+1]
+PROFILE_COUNTER=$[$PROFILE_COUNTER+1]
 
 }
 
@@ -1956,7 +1977,11 @@ COMPLETECIFBLOCK(){
 
 run_script(){
 	SECONDS=0
-        HAR_COUNTER=$"0" ###counter for powder HAR
+	if [ "$POWDER_HAR" = "true" ]; then
+                cp *.m40 $JOBNAME.m40
+                ED_COUNTER=$"0" ###counter for powder HAR
+                PROFILE_COUNTER=$"0" ###counter for powder HAR
+        fi
 	I=$"0"   ###counter for gaussian jobs
 	J=$"0"   ###counter for tonto fits
 	shopt -s nocasematch	
