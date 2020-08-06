@@ -1978,7 +1978,8 @@ COMPLETECIFBLOCK(){
 run_script(){
 	SECONDS=0
 	if [ "$POWDER_HAR" = "true" ]; then
-                cp *.m40 $JOBNAME.m40
+                cp InitialIAM/*.m40 $JOBNAME.m40
+                python3 hklfromm80.py 
                 ED_COUNTER=$"0" ###counter for powder HAR
                 PROFILE_COUNTER=$"0" ###counter for powder HAR
         fi
