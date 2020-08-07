@@ -1357,7 +1357,7 @@ SCF_TO_TONTO(){
 		cp stdin $J.tonto_cycle.$JOBNAME/$J.stdin
 		cp stdout $J.tonto_cycle.$JOBNAME/$J.stdout
 		cp $JOBNAME.residual_density_map,cell.cube $J.tonto_cycle.$JOBNAME/$J.residual_density_map,cell.cube
-                if [[ "$POWDER_HAR" == "true" ]; then
+                if [[ "$POWDER_HAR" == "true" ]]; then
 		        cp $JOBNAME.hkl $J.tonto_cycle.$JOBNAME/$J.$JOBNAME.hkl
                 fi
 	fi
