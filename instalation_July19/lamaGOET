@@ -2309,10 +2309,12 @@ run_script(){
 		echo "$(($DURATION / 86400 )) days,  $((($DURATION / 3600) % 24 )) hours, $((($DURATION / 60) % 60 ))minutes and $(($DURATION % 60 )) seconds elapsed." | tee -a $JOBNAME.lst
 		exit
 	elif [[ "$SCFCALCPROG" == "Tonto" ]]; then
+		while (( $( echo "$ED_COUNTER < 10" | bc -l )  )); do
 		SCF_TO_TONTO
 		if [ "$POWDER_HAR" = "true" ]; then
                         UPDATE_FILES_FOR_POWDER
                 fi
+                done
 		echo "__________________________________________________________________________________________________________________________________________________________________" >> $JOBNAME.lst
 		echo "" >> $JOBNAME.lst
 		echo "###############################################################################################" >> $JOBNAME.lst
