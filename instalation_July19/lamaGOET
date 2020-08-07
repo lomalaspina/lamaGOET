@@ -638,7 +638,7 @@ echo ".Run->Refine" >> Batch.txt
 echo ".End" >> Batch.txt
 
 #RUN Jana
-wineconsole $JANA2006DIR/Jana2006.exe $JOBNAME @Batch.txt
+./Jana2006.exe $JOBNAME @Batch.txt
 
 #Preparing to RUN JANA for profile
 mkdir $PROFILE_COUNTER.profile_cycle
@@ -658,7 +658,7 @@ cp  $ED_COUNTER.projection_cycle/*.m40 $JOBNAME.m40
 
 $M40_FROM_M40
 
-wineconsole $JANA2006DIR/Jana2006.exe $JOBNAME @Batch.txt
+./Jana2006.exe $JOBNAME @Batch.txt
 
 $HKL_FROM_M80
 
