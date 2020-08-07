@@ -615,25 +615,47 @@ UPDATE_FILES_FOR_POWDER(){
 # electron density cycle
 # profile cycle
 
-mkdir $ED_COUNTER.atomic_projection_cycle
+#Preparing to RUN JANA for Aspherical projection
+mkdir $ED_COUNTER.projection_cycle
 
-mv $JOBNAME.hkl $ED_COUNTER.atomic_projection_cycle/$ED_COUNTER.$JOBNAME.hkl
+mv "$JOBNAME"_Fcalc.hkl $ED_COUNTER.projection_cycle/$ED_COUNTER.$JOBNAME.hkl
 
 $HKL_FROM_FCF
 
-cp $JOBNAME.m40 $ED_COUNTER.atomic_projection_cycle/$ED_COUNTER.$JOBNAME.m40
-cp InitialProjection/*.m50 $ED_COUNTER.atomic_projection_cycle/$ED_COUNTER.$JOBNAME.m50
-cp $JOBNAME.m70 $ED_COUNTER.atomic_projection_cycle/$ED_COUNTER.$JOBNAME.m70
-cp $JOBNAME.m90 $ED_COUNTER.atomic_projection_cycle/$ED_COUNTER.$JOBNAME.m90
-cp $JOBNAME.m95 $ED_COUNTER.atomic_projection_cycle/$ED_COUNTER.$JOBNAME.m95
-cp $JOBNAME.hkl $ED_COUNTER.atomic_projection_cycle/$ED_COUNTER.$JOBNAME.hkl
+cp $JOBNAME.m40 $ED_COUNTER.projection_cycle/$ED_COUNTER.$JOBNAME.m40
+cp InitialProjection/*.m50 $ED_COUNTER.projection_cycle/$ED_COUNTER.$JOBNAME.m50
+cp $JOBNAME.m70 $ED_COUNTER.projection_cycle/$ED_COUNTER.$JOBNAME.m70
+cp $JOBNAME.m90 $ED_COUNTER.projection_cycle/$ED_COUNTER.$JOBNAME.m90
+cp $JOBNAME.m95 $ED_COUNTER.projection_cycle/$ED_COUNTER.$JOBNAME.m95
+
 
 ED_COUNTER=$[$ED_COUNTER+1]
 
-#RUN JANA
+#Writing Batch.txt file that will be used by Jana
+echo ".File->Structure->Open" > Batch.txt
+echo $pwd >> Batch.txt
+echo ".Run->Refine" >> Batch.txt
+echo ".End" >> Batch.txt
 
+#RUN Jana
+wineconsole $JANA2006DIR/Jana2006.exe $JOBNAME @Batch.txt
+
+#Preparing to RUN JANA for profile
+mkdir $PROFILE_COUNTER.profile_cycle
+cp InitialIAM/* $PROFILE_COUNTER.profile_cycle
+
+cp  $ED_COUNTER.projection_cycle/*.m40 $JOBNAME.m40 
+# here the m40 should be edited to have zeros on the parameters so they
+# are not refined.
+$M40_FROM_M40
+
+cp $JOBNAME.m40 $PROFILE_COUNTER.profile_cycle
 
 PROFILE_COUNTER=$[$PROFILE_COUNTER+1]
+
+wineconsole $JANA2006DIR/Jana2006.exe $JOBNAME @Batch.txt
+
+$HKL_FROM_M80
 
 }
 
@@ -1318,6 +1340,9 @@ SCF_TO_TONTO(){
 		cp stdin $J.tonto_cycle.$JOBNAME/$J.stdin
 		cp stdout $J.tonto_cycle.$JOBNAME/$J.stdout
 		cp $JOBNAME.residual_density_map,cell.cube $J.tonto_cycle.$JOBNAME/$J.residual_density_map,cell.cube
+                if [[ "$POWDER_HAR" == "true" ]; then
+		        cp $JOBNAME.hkl $J.tonto_cycle.$JOBNAME/$J.$JOBNAME.hkl
+                fi
 	fi
 	INITIALCHI=$(awk '{a[NR]=$0}/^Begin rigid-atom fit/{b=NR}END {print a[b+10]}' stdout | awk '{print $2}')
 #	MAXSHIFT=$(awk '{a[NR]=$0}/^Begin rigid-atom fit/{b=NR+10}/^Rigid-atom fit results/{c=NR-4}END {for(d=b;d<=c;++d)print a[d]}' stdout | awk -v max=0 '{if($5>max){shift=$5; atom=$6; param=$7; max=$5}}END{print shift}')
@@ -1844,6 +1869,7 @@ run_script(){
                 cp InitialProjection/*.m95 $JOBNAME.m95
                 HKL_FROM_M80="python3 /usr/local/bin/hklfromm80.py" 
                 HKL_FROM_FCF="python3 /usr/local/bin/projectioninputfromhar.py"
+                M40_FROM_M40="python3 /usr/local/bin/profileinput.py"
                 ED_COUNTER=$"1" ###counter for powder HAR
                 PROFILE_COUNTER=$"1" ###counter for powder HAR
                 $HKL_FROM_M80
