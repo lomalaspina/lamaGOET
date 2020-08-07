@@ -618,15 +618,15 @@ UPDATE_FILES_FOR_POWDER(){
 #Preparing to RUN JANA for Aspherical projection
 mkdir $ED_COUNTER.projection_cycle
 
-mv "$JOBNAME"_Fcalc.hkl $ED_COUNTER.projection_cycle/$ED_COUNTER.$JOBNAME.hkl
-
 $HKL_FROM_FCF
 
+mv "$JOBNAME"_Fcalc.hkl $ED_COUNTER.projection_cycle/$ED_COUNTER.$JOBNAME.hkl
+
 cp $JOBNAME.m40 $ED_COUNTER.projection_cycle/$ED_COUNTER.$JOBNAME.m40
+mv $JOBNAME.m70 $ED_COUNTER.projection_cycle/$ED_COUNTER.$JOBNAME.m70
+mv $JOBNAME.m90 $ED_COUNTER.projection_cycle/$ED_COUNTER.$JOBNAME.m90
+mv $JOBNAME.m95 $ED_COUNTER.projection_cycle/$ED_COUNTER.$JOBNAME.m95
 cp InitialProjection/*.m50 $ED_COUNTER.projection_cycle/$ED_COUNTER.$JOBNAME.m50
-cp $JOBNAME.m70 $ED_COUNTER.projection_cycle/$ED_COUNTER.$JOBNAME.m70
-cp $JOBNAME.m90 $ED_COUNTER.projection_cycle/$ED_COUNTER.$JOBNAME.m90
-cp $JOBNAME.m95 $ED_COUNTER.projection_cycle/$ED_COUNTER.$JOBNAME.m95
 
 
 ED_COUNTER=$[$ED_COUNTER+1]
@@ -642,20 +642,37 @@ wineconsole $JANA2006DIR/Jana2006.exe $JOBNAME @Batch.txt
 
 #Preparing to RUN JANA for profile
 mkdir $PROFILE_COUNTER.profile_cycle
-cp InitialIAM/* $PROFILE_COUNTER.profile_cycle
+
+cp InitialIAM/*.m41 $JOBNAME.m41 
+cp InitialIAM/*.m50 $JOBNAME.m50 
+cp InitialIAM/*.m70 $JOBNAME.m70 
+cp InitialIAM/*.m80 $JOBNAME.m80 
+cp InitialIAM/*.m83 $JOBNAME.m83 
+cp InitialIAM/*.m85 $JOBNAME.m85 
+cp InitialIAM/*.m90 $JOBNAME.m90 
+cp InitialIAM/*.m95 $JOBNAME.m95 
 
 cp  $ED_COUNTER.projection_cycle/*.m40 $JOBNAME.m40 
 # here the m40 should be edited to have zeros on the parameters so they
 # are not refined.
+
 $M40_FROM_M40
-
-cp $JOBNAME.m40 $PROFILE_COUNTER.profile_cycle
-
-PROFILE_COUNTER=$[$PROFILE_COUNTER+1]
 
 wineconsole $JANA2006DIR/Jana2006.exe $JOBNAME @Batch.txt
 
 $HKL_FROM_M80
+
+mv $JOBNAME.m40 $PROFILE_COUNTER.profile_cycle
+mv $JOBNAME.m41 $PROFILE_COUNTER.profile_cycle
+mv $JOBNAME.m50 $PROFILE_COUNTER.profile_cycle
+mv $JOBNAME.m70 $PROFILE_COUNTER.profile_cycle
+mv $JOBNAME.m80 $PROFILE_COUNTER.profile_cycle
+mv $JOBNAME.m83 $PROFILE_COUNTER.profile_cycle
+mv $JOBNAME.m85 $PROFILE_COUNTER.profile_cycle
+mv $JOBNAME.m90 $PROFILE_COUNTER.profile_cycle
+mv $JOBNAME.m95 $PROFILE_COUNTER.profile_cycle
+
+PROFILE_COUNTER=$[$PROFILE_COUNTER+1]
 
 }
 
