@@ -622,14 +622,6 @@ $HKL_FROM_FCF
 
 mv "$JOBNAME"_Fcalc.hkl $ED_COUNTER.projection_cycle/$JOBNAME.hkl
 
-cp $JOBNAME.m40 $ED_COUNTER.projection_cycle/$JOBNAME.m40
-mv $JOBNAME.m70 $ED_COUNTER.projection_cycle/$JOBNAME.m70
-mv $JOBNAME.m90 $ED_COUNTER.projection_cycle/$JOBNAME.m90
-mv $JOBNAME.m95 $ED_COUNTER.projection_cycle/$JOBNAME.m95
-cp InitialProjection/*.m50 $ED_COUNTER.projection_cycle/$JOBNAME.m50
-
-
-
 #Writing Batch.txt file that will be used by Jana
 echo ".File->Structure->Open" > Batch.txt
 echo "C:/Users/au444506/Dropbox/powderHAR/$JOBNAME/$JOBNAME" >> Batch.txt
@@ -643,6 +635,12 @@ echo "Starting Jana2006 atomic projection cycle number $ED_COUNTER"
 
 echo "Jana2006 atomic projection cycle number $ED_COUNTERi ended"
 
+cp $JOBNAME.m40 $ED_COUNTER.projection_cycle/$JOBNAME.m40
+mv $JOBNAME.m70 $ED_COUNTER.projection_cycle/$JOBNAME.m70
+mv $JOBNAME.m50 $ED_COUNTER.projection_cycle/$JOBNAME.m50
+mv $JOBNAME.m90 $ED_COUNTER.projection_cycle/$JOBNAME.m90
+mv $JOBNAME.m95 $ED_COUNTER.projection_cycle/$JOBNAME.m95
+cp InitialProjection/*.m50 $ED_COUNTER.projection_cycle/$JOBNAME.m50
 cp Jana2006-Batch.log $ED_COUNTER.projection_cycle/"$JOBNAME"_projection_batch.log
 
 #Preparing to RUN JANA for profile
@@ -1902,6 +1900,7 @@ run_script(){
                 cp InitialIAM/*.m80 $JOBNAME.m80
                 cp InitialProjection/*.m90 $JOBNAME.m90
                 cp InitialProjection/*.m95 $JOBNAME.m95
+                cp InitialProjection/*.m50 $JOBNAME.m50
                 HKL_FROM_M80="python3 /usr/local/bin/hklfromm80.py" 
                 HKL_FROM_FCF="python3 /usr/local/bin/projectioninputfromhar.py"
                 M40_FROM_M40="python3 /usr/local/bin/profileinput.py"
