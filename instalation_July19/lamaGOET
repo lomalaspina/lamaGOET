@@ -3290,7 +3290,7 @@ export MAIN_DIALOG='
 
 	   <hbox space-expand="false" space-fill="false">
 
-	    <text text-xalign="0" use-markup="true" wrap="false" space-expand="FALSE" space-fill="false"><label>Max. number of iteration (for each L.S. cicle):</label></text>
+	    <text text-xalign="0" use-markup="true" wrap="false" space-expand="FALSE" space-fill="false"><label>Max. number of iteration (for each L.S. cycle):</label></text>
 	   <hbox space-expand="true" space-fill="true">
 	    <entry space-expand="true">
              <input>if [ ! -z $MAXLSCYCLE ]; then echo "$MAXLSCYCLE"; else (echo ""); fi</input>
@@ -3305,10 +3305,10 @@ export MAIN_DIALOG='
 	   <hbox space-expand="false" space-fill="false">
 
 	    <text text-xalign="0" use-markup="true" wrap="false"
-            space-expand="FALSE" space-fill="false"><label>Max. number of Powder HAR iteration (for each L.S. cicle):</label></text>
+            space-expand="FALSE" space-fill="false"><label>Max. number of Powder HAR iteration (for each L.S. cycle):</label></text>
 	   <hbox space-expand="true" space-fill="true">
 	    <entry space-expand="true">
-             <input>if [ ! -z $MAXPHARCYCLE ]; then echo "$MAXPHARCYCLE"; else (echo ""); fi</input>
+             <input>if [ ! -z $MAXPHARCYCLE ]; then echo "$MAXPHARCYCLE"; else (echo "10"); fi</input>
 	     <variable>MAXPHARCYCLE</variable>
 	    </entry>
 	
