@@ -639,7 +639,7 @@ echo ".End" >> Batch.txt
 
 echo "Starting Jana2006 atomic projection cycle number $ED_COUNTER"
 #RUN Jana
-./Jana2006.exe $JOBNAME @Batch.txt
+../Jana2006.exe $JOBNAME @Batch.txt
 
 echo "Jana2006 atomic projection cycle number $ED_COUNTERi ended"
 
@@ -665,7 +665,7 @@ $M40_FROM_M40
 
 echo "Starting Jana2006 profile cycle number $PROFILE_COUNTER"
 
-./Jana2006.exe $JOBNAME @Batch.txt
+../Jana2006.exe $JOBNAME @Batch.txt
 
 echo "Jana2006 profile cycle number $PROFILE_COUNTER ended"
 
