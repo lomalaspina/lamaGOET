@@ -632,7 +632,7 @@ cp InitialProjection/*.m50 $ED_COUNTER.projection_cycle/$JOBNAME.m50
 
 #Writing Batch.txt file that will be used by Jana
 echo ".File->Structure->Open" > Batch.txt
-C:/Users/au444506/Dropbox/powderHAR/$JOBNAME/$JOBNAME
+echo "C:/Users/au444506/Dropbox/powderHAR/$JOBNAME/$JOBNAME"
 #pwd >> Batch.txt
 echo ".Run->Refine" >> Batch.txt
 echo ".End" >> Batch.txt
