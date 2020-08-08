@@ -633,7 +633,7 @@ printf "%s\r\n" ".End" >> Batch.txt
 
 echo "Starting Jana2006 atomic projection cycle number $ED_COUNTER"
 #RUN Jana
-../Jana2006.exe $JOBNAME @Batch.txt
+$JANAEXE $JOBNAME @Batch.txt
 
 echo "Jana2006 atomic projection cycle number $ED_COUNTERi ended"
 
@@ -667,7 +667,7 @@ todos $JOBNAME.m40
 
 echo "Starting Jana2006 profile cycle number $PROFILE_COUNTER"
 
-../Jana2006.exe $JOBNAME @Batch.txt
+$JANAEXE $JOBNAME @Batch.txt
 
 echo "Jana2006 profile cycle number $PROFILE_COUNTER ended"
 
@@ -684,6 +684,7 @@ mv $JOBNAME.m83 $PROFILE_COUNTER.profile_cycle/$JOBNAME.m83
 mv $JOBNAME.m85 $PROFILE_COUNTER.profile_cycle/$JOBNAME.m85
 mv $JOBNAME.m90 $PROFILE_COUNTER.profile_cycle/$JOBNAME.m90
 mv $JOBNAME.m95 $PROFILE_COUNTER.profile_cycle/$JOBNAME.m95
+mv $JOBNAME.prf $PROFILE_COUNTER.profile_cycle/$JOBNAME.prf
 
 
 #get files for next Jana projection cycle
@@ -2330,7 +2331,7 @@ run_script(){
 		echo "$(($DURATION / 86400 )) days,  $((($DURATION / 3600) % 24 )) hours, $((($DURATION / 60) % 60 ))minutes and $(($DURATION % 60 )) seconds elapsed." | tee -a $JOBNAME.lst
 		exit
 	elif [[ "$SCFCALCPROG" == "Tonto" ]]; then
-		while (( $( echo "$ED_COUNTER < 10" | bc -l )  )); do
+		while (( $( echo "$ED_COUNTER < $MAXPHARCYCLE" | bc -l )  )); do
 		SCF_TO_TONTO
 		if [ "$POWDER_HAR" = "true" ]; then
                         UPDATE_FILES_FOR_POWDER
@@ -2450,6 +2451,8 @@ export MAIN_DIALOG='
 	    <checkbox active="false" space-fill="True" space-expand="True" sensitive="true">
 	     <label>Powder HAR</label>
 	      <variable>POWDER_HAR</variable>
+	        <action>if true enable:JANAEXE</action>
+	        <action>if false disable:JANAEXE</action>
 	    </checkbox>
            </hbox>
 
@@ -2713,6 +2716,21 @@ export MAIN_DIALOG='
 	    <button>
 	     <input file stock="gtk-open"></input>
 	     <action type="fileselect">TONTO</action>
+	    </button>
+	   </hbox>
+	
+	   <hseparator></hseparator>
+	
+	   <hbox>
+	    <text label="Jana2006 executable" has-tooltip="true" tooltip-markup="This can be a full path" ></text>
+	    <entry fs-action="file" fs-folder="./" sensitive="false" 
+	           fs-title="Select the gamess_int file">
+             <input>if [ ! -z $JANAEXE ]; then echo "$JANAEXE"; else (echo "/mnt/c/Jana2006/Jana2006.exe"); fi</input>
+	     <variable>JANAEXE</variable>
+	    </entry>
+	    <button>
+	     <input file stock="gtk-open"></input>
+	     <action type="fileselect">JANAEXE</action>
 	    </button>
 	   </hbox>
 	
@@ -3277,6 +3295,21 @@ export MAIN_DIALOG='
 	    <entry space-expand="true">
              <input>if [ ! -z $MAXLSCYCLE ]; then echo "$MAXLSCYCLE"; else (echo ""); fi</input>
 	     <variable>MAXLSCYCLE</variable>
+	    </entry>
+	
+	   </hbox>
+	   </hbox>
+
+	   <hseparator></hseparator>
+
+	   <hbox space-expand="false" space-fill="false">
+
+	    <text text-xalign="0" use-markup="true" wrap="false"
+            space-expand="FALSE" space-fill="false"><label>Max. number of Powder HAR iteration (for each L.S. cicle):</label></text>
+	   <hbox space-expand="true" space-fill="true">
+	    <entry space-expand="true">
+             <input>if [ ! -z $MAXPHARCYCLE ]; then echo "$MAXPHARCYCLE"; else (echo ""); fi</input>
+	     <variable>MAXPHARCYCLE</variable>
 	    </entry>
 	
 	   </hbox>
