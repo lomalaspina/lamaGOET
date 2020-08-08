@@ -629,7 +629,6 @@ mv $JOBNAME.m95 $ED_COUNTER.projection_cycle/$JOBNAME.m95
 cp InitialProjection/*.m50 $ED_COUNTER.projection_cycle/$JOBNAME.m50
 
 
-ED_COUNTER=$[$ED_COUNTER+1]
 
 #Writing Batch.txt file that will be used by Jana
 echo ".File->Structure->Open" > Batch.txt
@@ -638,8 +637,13 @@ C:/Users/au444506/Dropbox/powderHAR/$JOBNAME/$JOBNAME
 echo ".Run->Refine" >> Batch.txt
 echo ".End" >> Batch.txt
 
+echo "Starting Jana2006 atomic projection cycle number $ED_COUNTER"
 #RUN Jana
 ./Jana2006.exe $JOBNAME @Batch.txt
+
+echo "Jana2006 atomic projection cycle number $ED_COUNTERi ended"
+
+cp Jana2006-Batch.log $ED_COUNTER.projection_cycle/"$JOBNAME"_projection_batch.log
 
 #Preparing to RUN JANA for profile
 mkdir $PROFILE_COUNTER.profile_cycle
@@ -659,7 +663,13 @@ cp  $ED_COUNTER.projection_cycle/*.m40 $JOBNAME.m40
 
 $M40_FROM_M40
 
+echo "Starting Jana2006 profile cycle number $PROFILE_COUNTER"
+
 ./Jana2006.exe $JOBNAME @Batch.txt
+
+echo "Jana2006 profile cycle number $PROFILE_COUNTER ended"
+
+cp Jana2006-Batch.log $PROFILE_COUNTER.profile_cycle/"$JOBNAME"_profile_batch.log
 
 $HKL_FROM_M80
 
@@ -673,6 +683,13 @@ mv $JOBNAME.m85 $PROFILE_COUNTER.profile_cycle/$JOBNAME.m85
 mv $JOBNAME.m90 $PROFILE_COUNTER.profile_cycle/$JOBNAME.m90
 mv $JOBNAME.m95 $PROFILE_COUNTER.profile_cycle/$JOBNAME.m95
 
+
+#get files for next Jana projection cycle
+cp $ED_COUNTER.projection_cycle/$JOBNAME.m40 $JOBNAME.m40
+cp $ED_COUNTER.projection_cycle/$JOBNAME.m90 $JOBNAME.m90
+cp $ED_COUNTER.projection_cycle/$JOBNAME.m95 $JOBNAME.m95
+
+ED_COUNTER=$[$ED_COUNTER+1]
 PROFILE_COUNTER=$[$PROFILE_COUNTER+1]
 
 }
@@ -2310,7 +2327,7 @@ run_script(){
 		echo "$(($DURATION / 86400 )) days,  $((($DURATION / 3600) % 24 )) hours, $((($DURATION / 60) % 60 ))minutes and $(($DURATION % 60 )) seconds elapsed." | tee -a $JOBNAME.lst
 		exit
 	elif [[ "$SCFCALCPROG" == "Tonto" ]]; then
-		while (( $( echo "$ED_COUNTER < 10" | bc -l )  )); do
+		while (( $( echo "$ED_COUNTER = 1" | bc -l )  )); do
 		SCF_TO_TONTO
 		if [ "$POWDER_HAR" = "true" ]; then
                         UPDATE_FILES_FOR_POWDER
