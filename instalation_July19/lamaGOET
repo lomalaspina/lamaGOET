@@ -620,12 +620,7 @@ mkdir $ED_COUNTER.projection_cycle
 
 $HKL_FROM_FCF
 
-awk '{printf "%s\r\n", $0}' $JOBNAME.m40 > "$JOBNAME"_temp.m40
-mv "$JOBNAME"_temp.m40 $JOBNAME.m40
-awk '{printf "%s\r\n", $0}' $JOBNAME.m90 > "$JOBNAME"_temp.m90
-mv "$JOBNAME"_temp.m90 $JOBNAME.m90
-awk '{printf "%s\r\n", $0}' $JOBNAME.m95 > "$JOBNAME"_temp.m95
-mv "$JOBNAME"_temp.m95 $JOBNAME.m95
+todos *.m*
 
 mv "$JOBNAME"_Fcalc.hkl $ED_COUNTER.projection_cycle/$JOBNAME.hkl
 
@@ -668,8 +663,7 @@ cp  $ED_COUNTER.projection_cycle/*.m40 $JOBNAME.m40
 
 $M40_FROM_M40
 
-awk '{printf "%s\r\n", $0}' $JOBNAME.m40 > "$JOBNAME"_temp.m40
-mv "$JOBNAME"_temp.m40 $JOBNAME.m40
+todos $JOBNAME.m40
 
 echo "Starting Jana2006 profile cycle number $PROFILE_COUNTER"
 
@@ -2336,12 +2330,12 @@ run_script(){
 		echo "$(($DURATION / 86400 )) days,  $((($DURATION / 3600) % 24 )) hours, $((($DURATION / 60) % 60 ))minutes and $(($DURATION % 60 )) seconds elapsed." | tee -a $JOBNAME.lst
 		exit
 	elif [[ "$SCFCALCPROG" == "Tonto" ]]; then
-#		while (( $( echo "$ED_COUNTER < 10" | bc -l )  )); do
+		while (( $( echo "$ED_COUNTER < 10" | bc -l )  )); do
 		SCF_TO_TONTO
 		if [ "$POWDER_HAR" = "true" ]; then
                         UPDATE_FILES_FOR_POWDER
                 fi
-#                done
+                done
 		echo "__________________________________________________________________________________________________________________________________________________________________" >> $JOBNAME.lst
 		echo "" >> $JOBNAME.lst
 		echo "###############################################################################################" >> $JOBNAME.lst
