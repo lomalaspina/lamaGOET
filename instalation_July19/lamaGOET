@@ -620,20 +620,21 @@ mkdir $ED_COUNTER.projection_cycle
 
 $HKL_FROM_FCF
 
-mv "$JOBNAME"_Fcalc.hkl $ED_COUNTER.projection_cycle/$ED_COUNTER.$JOBNAME.hkl
+mv "$JOBNAME"_Fcalc.hkl $ED_COUNTER.projection_cycle/$JOBNAME.hkl
 
-cp $JOBNAME.m40 $ED_COUNTER.projection_cycle/$ED_COUNTER.$JOBNAME.m40
-mv $JOBNAME.m70 $ED_COUNTER.projection_cycle/$ED_COUNTER.$JOBNAME.m70
-mv $JOBNAME.m90 $ED_COUNTER.projection_cycle/$ED_COUNTER.$JOBNAME.m90
-mv $JOBNAME.m95 $ED_COUNTER.projection_cycle/$ED_COUNTER.$JOBNAME.m95
-cp InitialProjection/*.m50 $ED_COUNTER.projection_cycle/$ED_COUNTER.$JOBNAME.m50
+cp $JOBNAME.m40 $ED_COUNTER.projection_cycle/$JOBNAME.m40
+mv $JOBNAME.m70 $ED_COUNTER.projection_cycle/$JOBNAME.m70
+mv $JOBNAME.m90 $ED_COUNTER.projection_cycle/$JOBNAME.m90
+mv $JOBNAME.m95 $ED_COUNTER.projection_cycle/$JOBNAME.m95
+cp InitialProjection/*.m50 $ED_COUNTER.projection_cycle/$JOBNAME.m50
 
 
 ED_COUNTER=$[$ED_COUNTER+1]
 
 #Writing Batch.txt file that will be used by Jana
 echo ".File->Structure->Open" > Batch.txt
-echo $pwd >> Batch.txt
+C:/Users/au444506/Dropbox/powderHAR/$JOBNAME/$JOBNAME
+#pwd >> Batch.txt
 echo ".Run->Refine" >> Batch.txt
 echo ".End" >> Batch.txt
 
@@ -662,15 +663,15 @@ $M40_FROM_M40
 
 $HKL_FROM_M80
 
-mv $JOBNAME.m40 $PROFILE_COUNTER.profile_cycle
-mv $JOBNAME.m41 $PROFILE_COUNTER.profile_cycle
-mv $JOBNAME.m50 $PROFILE_COUNTER.profile_cycle
-mv $JOBNAME.m70 $PROFILE_COUNTER.profile_cycle
-mv $JOBNAME.m80 $PROFILE_COUNTER.profile_cycle
-mv $JOBNAME.m83 $PROFILE_COUNTER.profile_cycle
-mv $JOBNAME.m85 $PROFILE_COUNTER.profile_cycle
-mv $JOBNAME.m90 $PROFILE_COUNTER.profile_cycle
-mv $JOBNAME.m95 $PROFILE_COUNTER.profile_cycle
+mv $JOBNAME.m40 $PROFILE_COUNTER.profile_cycle/$JOBNAME.m40
+mv $JOBNAME.m41 $PROFILE_COUNTER.profile_cycle/$JOBNAME.m41
+mv $JOBNAME.m50 $PROFILE_COUNTER.profile_cycle/$JOBNAME.m50
+mv $JOBNAME.m70 $PROFILE_COUNTER.profile_cycle/$JOBNAME.m70
+mv $JOBNAME.m80 $PROFILE_COUNTER.profile_cycle/$JOBNAME.m80
+mv $JOBNAME.m83 $PROFILE_COUNTER.profile_cycle/$JOBNAME.m83
+mv $JOBNAME.m85 $PROFILE_COUNTER.profile_cycle/$JOBNAME.m85
+mv $JOBNAME.m90 $PROFILE_COUNTER.profile_cycle/$JOBNAME.m90
+mv $JOBNAME.m95 $PROFILE_COUNTER.profile_cycle/$JOBNAME.m95
 
 PROFILE_COUNTER=$[$PROFILE_COUNTER+1]
 
