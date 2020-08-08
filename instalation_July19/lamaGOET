@@ -2453,6 +2453,8 @@ export MAIN_DIALOG='
 	      <variable>POWDER_HAR</variable>
 	        <action>if true enable:JANAEXE</action>
 	        <action>if false disable:JANAEXE</action>
+	        <action>if true enable:MAXPHARCYCLE</action>
+	        <action>if false disable:MAXPHARCYCLE</action>
 	    </checkbox>
            </hbox>
 
@@ -3307,7 +3309,7 @@ export MAIN_DIALOG='
 	    <text text-xalign="0" use-markup="true" wrap="false"
             space-expand="FALSE" space-fill="false"><label>Max. number of Powder HAR iteration (for each L.S. cycle):</label></text>
 	   <hbox space-expand="true" space-fill="true">
-	    <entry space-expand="true">
+	    <entry space-expand="true" sensitive="false">
              <input>if [ ! -z $MAXPHARCYCLE ]; then echo "$MAXPHARCYCLE"; else (echo "10"); fi</input>
 	     <variable>MAXPHARCYCLE</variable>
 	    </entry>
