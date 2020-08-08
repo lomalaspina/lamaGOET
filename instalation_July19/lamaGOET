@@ -624,12 +624,12 @@ todos *.m*
 
 mv "$JOBNAME"_Fcalc.hkl $ED_COUNTER.projection_cycle/$JOBNAME.hkl
 
-#Writing Batch.txt file that will be used by Jana
-printf "%s\r\n" ".File->Structure->Open" > Batch.txt
-printf "%s\r\n" "C:/Users/au444506/Dropbox/powderHAR/$JOBNAME/$JOBNAME" >> Batch.txt
-#pwd >> Batch.txt
-printf "%s\r\n" ".Run->Refine" >> Batch.txt
-printf "%s\r\n" ".End" >> Batch.txt
+##Writing Batch.txt file that will be used by Jana
+#printf "%s\r\n" ".File->Structure->Open" > Batch.txt
+#printf "%s\r\n" "C:/Users/au444506/Dropbox/powderHAR/$JOBNAME/$JOBNAME" >> Batch.txt
+##pwd >> Batch.txt
+#printf "%s\r\n" ".Run->Refine" >> Batch.txt
+#printf "%s\r\n" ".End" >> Batch.txt
 
 echo "Starting Jana2006 atomic projection cycle number $ED_COUNTER"
 #RUN Jana
