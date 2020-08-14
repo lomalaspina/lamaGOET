@@ -622,7 +622,7 @@ $HKL_FROM_FCF
 
 todos *.m*
 
-mv "$JOBNAME"_Fcalc.hkl $ED_COUNTER.projection_cycle/$JOBNAME.hkl
+mv "$JOBNAME"_Icalc.hkl $ED_COUNTER.projection_cycle/$JOBNAME.hkl
 
 ##Writing Batch.txt file that will be used by Jana
 #printf "%s\r\n" ".File->Structure->Open" > Batch.txt
