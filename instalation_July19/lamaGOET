@@ -631,8 +631,8 @@ mv "$JOBNAME"_Icalc.hkl $ED_COUNTER.projection_cycle/$JOBNAME.hkl
 #printf "%s\r\n" ".Run->Refine" >> Batch.txt
 #printf "%s\r\n" ".End" >> Batch.txt
 
-mkdir backup_before_projection_cycle
-cp * backup_before_projection_cycle/
+mkdir $ED_COUNTER.backup_before_projection_cycle
+cp * $ED_COUNTER.backup_before_projection_cycle/
 
 echo "Starting Jana2006 atomic projection cycle number $ED_COUNTER"
 #RUN Jana
@@ -640,8 +640,8 @@ $JANAEXE $JOBNAME @Batch.txt
 
 echo "Jana2006 atomic projection cycle number $ED_COUNTER ended"
 
-mkdir backup_after_projection_cycle
-cp * backup_after_projection_cycle/
+mkdir $ED_COUNTER.backup_after_projection_cycle
+cp * $ED_COUNTER.backup_after_projection_cycle/
 
  cp $JOBNAME.m40 $ED_COUNTER.projection_cycle/$JOBNAME.m40
  mv $JOBNAME.m70 $ED_COUNTER.projection_cycle/$JOBNAME.m70
@@ -674,11 +674,17 @@ cp * backup_after_projection_cycle/
  
  todos $JOBNAME.m40
  
+ mkdir $PROFILE_COUNTER.backup_before_profile_cycle
+ cp * $PROFILE_COUNTER.backup_before_profile_cycle/
+
  echo "Starting Jana2006 profile cycle number $PROFILE_COUNTER"
 
  $JANAEXE $JOBNAME @Batch.txt
 
  echo "Jana2006 profile cycle number $PROFILE_COUNTER ended"
+
+ mkdir $PROFILE_COUNTER.backup_after_profile_cycle
+ cp * $PROFILE_COUNTER.backup_after_profile_cycle/
 
  cp Jana2006-Batch.log $PROFILE_COUNTER.profile_cycle/"$JOBNAME"_profile_batch.log
 
