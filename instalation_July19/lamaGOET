@@ -631,69 +631,75 @@ mv "$JOBNAME"_Icalc.hkl $ED_COUNTER.projection_cycle/$JOBNAME.hkl
 #printf "%s\r\n" ".Run->Refine" >> Batch.txt
 #printf "%s\r\n" ".End" >> Batch.txt
 
+mkdir backup_before_projection_cycle
+cp * backup_before_projection_cycle/
+
 echo "Starting Jana2006 atomic projection cycle number $ED_COUNTER"
 #RUN Jana
 $JANAEXE $JOBNAME @Batch.txt
 
-echo "Jana2006 atomic projection cycle number $ED_COUNTERi ended"
+echo "Jana2006 atomic projection cycle number $ED_COUNTER ended"
 
-cp $JOBNAME.m40 $ED_COUNTER.projection_cycle/$JOBNAME.m40
-mv $JOBNAME.m70 $ED_COUNTER.projection_cycle/$JOBNAME.m70
-mv $JOBNAME.m50 $ED_COUNTER.projection_cycle/$JOBNAME.m50
-mv $JOBNAME.m90 $ED_COUNTER.projection_cycle/$JOBNAME.m90
-mv $JOBNAME.m95 $ED_COUNTER.projection_cycle/$JOBNAME.m95
-cp InitialProjection/*.m50 $ED_COUNTER.projection_cycle/$JOBNAME.m50
-cp Jana2006-Batch.log $ED_COUNTER.projection_cycle/"$JOBNAME"_projection_batch.log
+mkdir backup_after_projection_cycle
+cp * backup_after_projection_cycle/
 
-#Preparing to RUN JANA for profile
-mkdir $PROFILE_COUNTER.profile_cycle
+#cp $JOBNAME.m40 $ED_COUNTER.projection_cycle/$JOBNAME.m40
+#mv $JOBNAME.m70 $ED_COUNTER.projection_cycle/$JOBNAME.m70
+#mv $JOBNAME.m50 $ED_COUNTER.projection_cycle/$JOBNAME.m50
+#mv $JOBNAME.m90 $ED_COUNTER.projection_cycle/$JOBNAME.m90
+#mv $JOBNAME.m95 $ED_COUNTER.projection_cycle/$JOBNAME.m95
+#cp InitialProjection/*.m50 $ED_COUNTER.projection_cycle/$JOBNAME.m50
+#cp Jana2006-Batch.log $ED_COUNTER.projection_cycle/"$JOBNAME"_projection_batch.log
 
-cp InitialIAM/*.m41 $JOBNAME.m41 
-cp InitialIAM/*.m50 $JOBNAME.m50 
-cp InitialIAM/*.m70 $JOBNAME.m70 
-cp InitialIAM/*.m80 $JOBNAME.m80 
-cp InitialIAM/*.m83 $JOBNAME.m83 
-cp InitialIAM/*.m85 $JOBNAME.m85 
-cp InitialIAM/*.m90 $JOBNAME.m90 
-cp InitialIAM/*.m95 $JOBNAME.m95 
+##Preparing to RUN JANA for profile
+#mkdir $PROFILE_COUNTER.profile_cycle
 
-cp  $ED_COUNTER.projection_cycle/*.m40 $JOBNAME.m40 
-# here the m40 should be edited to have zeros on the parameters so they
-# are not refined.
+#cp InitialIAM/*.m41 $JOBNAME.m41 
+#cp InitialIAM/*.m50 $JOBNAME.m50 
+#cp InitialIAM/*.m70 $JOBNAME.m70 
+#cp InitialIAM/*.m80 $JOBNAME.m80 
+#cp InitialIAM/*.m83 $JOBNAME.m83 
+#cp InitialIAM/*.m85 $JOBNAME.m85 
+#cp InitialIAM/*.m90 $JOBNAME.m90 
+#cp InitialIAM/*.m95 $JOBNAME.m95 
+#
+#cp  $ED_COUNTER.projection_cycle/*.m40 $JOBNAME.m40 
+## here the m40 should be edited to have zeros on the parameters so they
+## are not refined.
+#
+#$M40_FROM_M40
+#
+#todos $JOBNAME.m40
+#
+#echo "Starting Jana2006 profile cycle number $PROFILE_COUNTER"
 
-$M40_FROM_M40
+#$JANAEXE $JOBNAME @Batch.txt
 
-todos $JOBNAME.m40
+#echo "Jana2006 profile cycle number $PROFILE_COUNTER ended"
 
-echo "Starting Jana2006 profile cycle number $PROFILE_COUNTER"
+#cp Jana2006-Batch.log $PROFILE_COUNTER.profile_cycle/"$JOBNAME"_profile_batch.log
 
-$JANAEXE $JOBNAME @Batch.txt
+#$HKL_FROM_M80
 
-echo "Jana2006 profile cycle number $PROFILE_COUNTER ended"
+#mv $JOBNAME.m40 $PROFILE_COUNTER.profile_cycle/$JOBNAME.m40
+#mv $JOBNAME.m41 $PROFILE_COUNTER.profile_cycle/$JOBNAME.m41
+#mv $JOBNAME.m50 $PROFILE_COUNTER.profile_cycle/$JOBNAME.m50
+#mv $JOBNAME.m70 $PROFILE_COUNTER.profile_cycle/$JOBNAME.m70
+#mv $JOBNAME.m80 $PROFILE_COUNTER.profile_cycle/$JOBNAME.m80
+#mv $JOBNAME.m83 $PROFILE_COUNTER.profile_cycle/$JOBNAME.m83
+#mv $JOBNAME.m85 $PROFILE_COUNTER.profile_cycle/$JOBNAME.m85
+#mv $JOBNAME.m90 $PROFILE_COUNTER.profile_cycle/$JOBNAME.m90
+#mv $JOBNAME.m95 $PROFILE_COUNTER.profile_cycle/$JOBNAME.m95
+#mv $JOBNAME.prf $PROFILE_COUNTER.profile_cycle/$JOBNAME.prf
+#
 
-cp Jana2006-Batch.log $PROFILE_COUNTER.profile_cycle/"$JOBNAME"_profile_batch.log
-
-$HKL_FROM_M80
-
-mv $JOBNAME.m40 $PROFILE_COUNTER.profile_cycle/$JOBNAME.m40
-mv $JOBNAME.m41 $PROFILE_COUNTER.profile_cycle/$JOBNAME.m41
-mv $JOBNAME.m50 $PROFILE_COUNTER.profile_cycle/$JOBNAME.m50
-mv $JOBNAME.m70 $PROFILE_COUNTER.profile_cycle/$JOBNAME.m70
-mv $JOBNAME.m80 $PROFILE_COUNTER.profile_cycle/$JOBNAME.m80
-mv $JOBNAME.m83 $PROFILE_COUNTER.profile_cycle/$JOBNAME.m83
-mv $JOBNAME.m85 $PROFILE_COUNTER.profile_cycle/$JOBNAME.m85
-mv $JOBNAME.m90 $PROFILE_COUNTER.profile_cycle/$JOBNAME.m90
-mv $JOBNAME.m95 $PROFILE_COUNTER.profile_cycle/$JOBNAME.m95
-mv $JOBNAME.prf $PROFILE_COUNTER.profile_cycle/$JOBNAME.prf
-
-
-#get files for next Jana projection cycle
-cp $ED_COUNTER.projection_cycle/$JOBNAME.m40 $JOBNAME.m40
-cp $ED_COUNTER.projection_cycle/$JOBNAME.m90 $JOBNAME.m90
-cp $ED_COUNTER.projection_cycle/$JOBNAME.m95 $JOBNAME.m95
-
-ED_COUNTER=$[$ED_COUNTER+1]
-PROFILE_COUNTER=$[$PROFILE_COUNTER+1]
+##get files for next Jana projection cycle
+#cp $ED_COUNTER.projection_cycle/$JOBNAME.m40 $JOBNAME.m40
+#cp $ED_COUNTER.projection_cycle/$JOBNAME.m90 $JOBNAME.m90
+#cp $ED_COUNTER.projection_cycle/$JOBNAME.m95 $JOBNAME.m95
+#
+#ED_COUNTER=$[$ED_COUNTER+1]
+#PROFILE_COUNTER=$[$PROFILE_COUNTER+1]
 
 }
 
