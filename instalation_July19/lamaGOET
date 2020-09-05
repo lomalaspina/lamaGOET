@@ -651,7 +651,7 @@ cp * $ED_COUNTER.backup_after_projection_cycle/
  mv $JOBNAME.m83 $ED_COUNTER.projection_cycle/$JOBNAME.m83
  mv $JOBNAME.m85 $ED_COUNTER.projection_cycle/$JOBNAME.m85
  mv $JOBNAME.m95 $ED_COUNTER.projection_cycle/$JOBNAME.m95
- cp InitialProjection/*.m50 $ED_COUNTER.projection_cycle/$JOBNAME.m50
+# cp InitialProjection/*.m50 $ED_COUNTER.projection_cycle/$JOBNAME.m50
  cp Jana2006-Batch.log $ED_COUNTER.projection_cycle/"$JOBNAME"_projection_batch.log
 
  #Preparing to RUN JANA for profile
