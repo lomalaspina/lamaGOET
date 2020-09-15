@@ -690,6 +690,25 @@ cp * $ED_COUNTER.backup_after_projection_cycle/
 
  $HKL_FROM_M80
 
+LINE=$(grep -n "Cell parameters" $JOBNAME.m41 | head -n 1 | cut -d: -f1)
+CELLA=$(awk 'NR=='"$[ $LINE + 1 ]"' {print $1}' $JOBNAME.m41)
+CELLB=$(awk 'NR=='"$[ $LINE + 1 ]"' {print $2}' $JOBNAME.m41)
+CELLC=$(awk 'NR=='"$[ $LINE + 1 ]"' {print $3}' $JOBNAME.m41)
+CELLALPHA=$(awk 'NR=='"$[ $LINE + 1 ]"' {print $4}' $JOBNAME.m41)
+CELLBETA=$(awk 'NR=='"$[ $LINE + 1 ]"' {print $5}' $JOBNAME.m41)
+CELLGAMMA=$(awk 'NR=='"$[ $LINE + 1 ]"' {print $6}' $JOBNAME.m41)
+SPACEGROUP=$(grep "_symmetry_space_group_name_Hall" $JOBNAME.archive.cif |  awk '{$1=""}1')
+echo "      spacegroup= { hall_symbol= $SPACEGROUP }" > tonto.cell
+echo "" >> tonto.cell
+echo "      unit_cell= {" >> tonto.cell
+echo "" >> tonto.cell
+echo "         angles=       $CELLALPHA   $CELLBETA   $CELLGAMMA   Degree" >> tonto.cell
+echo "         dimensions=   $CELLA   $CELLB   $CELLC   Angstrom" >> tonto.cell
+echo "" >> tonto.cell
+echo "      }" >> tonto.cell
+echo "" >> tonto.cell
+echo "      REVERT" >> tonto.cell
+
  mv $JOBNAME.m40 $PROFILE_COUNTER.profile_cycle/$JOBNAME.m40
  mv $JOBNAME.m41 $PROFILE_COUNTER.profile_cycle/$JOBNAME.m41
  mv $JOBNAME.m50 $PROFILE_COUNTER.profile_cycle/$JOBNAME.m50
@@ -1096,6 +1115,9 @@ CRYSTAL_BLOCK(){
 	echo "" >> stdin
 	echo "   crystal= {    " >> stdin
 	if [[ "$SCFCALCPROG" == "elmodb" && $J == 0 && "$INITADP" == "false" ]]; then
+		echo "      REDIRECT tonto.cell" >> stdin
+	fi
+	if [[ "$POWDER_HAR" == "true" && $PROFILE_COUNTER -gt 1  ]]; then
 		echo "      REDIRECT tonto.cell" >> stdin
 	fi
 	if [[ "$SCFCALCPROG" == "optgaussian" ]]; then 
