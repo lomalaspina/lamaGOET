@@ -631,17 +631,11 @@ mv "$JOBNAME"_Icalc.hkl $ED_COUNTER.projection_cycle/$JOBNAME.hkl
 #printf "%s\r\n" ".Run->Refine" >> Batch.txt
 #printf "%s\r\n" ".End" >> Batch.txt
 
-mkdir $ED_COUNTER.backup_before_projection_cycle
-cp * $ED_COUNTER.backup_before_projection_cycle/
-
 echo "Starting Jana2006 atomic projection cycle number $ED_COUNTER"
 #RUN Jana
 $JANAEXE $JOBNAME @Batch.txt
 
 echo "Jana2006 atomic projection cycle number $ED_COUNTER ended"
-
-mkdir $ED_COUNTER.backup_after_projection_cycle
-cp * $ED_COUNTER.backup_after_projection_cycle/
 
  cp $JOBNAME.m40 $ED_COUNTER.projection_cycle/$JOBNAME.m40
  mv $JOBNAME.m70 $ED_COUNTER.projection_cycle/$JOBNAME.m70
@@ -698,16 +692,24 @@ CELLALPHA=$(awk 'NR=='"$[ $LINE + 1 ]"' {print $4}' $JOBNAME.m41)
 CELLBETA=$(awk 'NR=='"$[ $LINE + 1 ]"' {print $5}' $JOBNAME.m41)
 CELLGAMMA=$(awk 'NR=='"$[ $LINE + 1 ]"' {print $6}' $JOBNAME.m41)
 SPACEGROUP=$(grep "_symmetry_space_group_name_Hall" $JOBNAME.archive.cif |  awk '{$1=""}1')
-echo "      spacegroup= { hall_symbol= $SPACEGROUP }" > tonto.cell
-echo "" >> tonto.cell
-echo "      unit_cell= {" >> tonto.cell
-echo "" >> tonto.cell
-echo "         angles=       $CELLALPHA   $CELLBETA   $CELLGAMMA   Degree" >> tonto.cell
-echo "         dimensions=   $CELLA   $CELLB   $CELLC   Angstrom" >> tonto.cell
-echo "" >> tonto.cell
-echo "      }" >> tonto.cell
-echo "" >> tonto.cell
-echo "      REVERT" >> tonto.cell
+LINEINCIF=$(grep -n "_cell_length_a" $JOBNAME.cartesian.cif2 | head -n 1 | cut -d: -f1)
+NEWLINE=$(awk 'NR=='"$LINEINCIF"' {$2 = '"$CELLA"'; print $0}' $JOBNAME.cartesian.cif2)
+sed -i ''"$LINEINCIF"'s/.*/'"$NEWLINE"'/' $J.tonto_cycle.$JOBNAME/$J.$JOBNAME.cartesian.cif2 
+
+NEWLINE=$(awk 'NR=='"$[ $LINEINCIF + 1 ]"' {$2 = '"$CELLB"'; print $0}' $JOBNAME.cartesian.cif2)
+sed -i ''"$[ $LINEINCIF + 1]"'s/.*/'"$NEWLINE"'/' $J.tonto_cycle.$JOBNAME/$J.$JOBNAME.cartesian.cif2 
+
+NEWLINE=$(awk 'NR=='"$[ $LINEINCIF + 2 ]"' {$2 = '"$CELLC"'; print $0}' $JOBNAME.cartesian.cif2)
+sed -i ''"$[ $LINEINCIF + 2]"'s/.*/'"$NEWLINE"'/' $J.tonto_cycle.$JOBNAME/$J.$JOBNAME.cartesian.cif2 
+
+NEWLINE=$(awk 'NR=='"$[ $LINEINCIF + 3 ]"' {$2 = '"$CELLALPHA"'; print $0}' $JOBNAME.cartesian.cif2)
+sed -i ''"$[ $LINEINCIF + 3]"'s/.*/'"$NEWLINE"'/' $J.tonto_cycle.$JOBNAME/$J.$JOBNAME.cartesian.cif2 
+
+NEWLINE=$(awk 'NR=='"$[ $LINEINCIF + 4 ]"' {$2 = '"$CELLBETA"'; print $0}' $JOBNAME.cartesian.cif2)
+sed -i ''"$[ $LINEINCIF + 4]"'s/.*/'"$NEWLINE"'/' $J.tonto_cycle.$JOBNAME/$J.$JOBNAME.cartesian.cif2 
+
+NEWLINE=$(awk 'NR=='"$[ $LINEINCIF + 5 ]"' {$2 = '"$CELLGAMMA"'; print $0}' $JOBNAME.cartesian.cif2)
+sed -i ''"$[ $LINEINCIF + 5]"'s/.*/'"$NEWLINE"'/' $J.tonto_cycle.$JOBNAME/$J.$JOBNAME.cartesian.cif2 
 
  mv $JOBNAME.m40 $PROFILE_COUNTER.profile_cycle/$JOBNAME.m40
  mv $JOBNAME.m41 $PROFILE_COUNTER.profile_cycle/$JOBNAME.m41
