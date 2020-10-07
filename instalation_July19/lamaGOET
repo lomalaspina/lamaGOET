@@ -1335,6 +1335,8 @@ SCF_BLOCK_REST_TONTO(){
 	fi
 	echo "   }" >> stdin
 	echo "" >> stdin
+	echo "   scf" >> stdin
+	echo "" >> stdin
 	if [[ "$XCWONLY" != "true" && "$PLOT_TONTO" == "false" ]]; then
 		echo "   ! Make Hirshfeld structure factors" >> stdin
 		echo "   refine_hirshfeld_atoms" >> stdin
