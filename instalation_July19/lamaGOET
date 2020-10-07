@@ -620,7 +620,8 @@ mkdir $ED_COUNTER.projection_cycle
 
 $HKL_FROM_FCF
 
-todos *.m*
+#todos *.m*
+todos *.???
 
 mv "$JOBNAME"_Icalc.hkl $ED_COUNTER.projection_cycle/$JOBNAME.hkl
 
@@ -668,8 +669,8 @@ echo "Jana2006 atomic projection cycle number $ED_COUNTER ended"
  
  todos $JOBNAME.m40
  
- mkdir $PROFILE_COUNTER.backup_before_profile_cycle
- cp * $PROFILE_COUNTER.backup_before_profile_cycle/
+# mkdir $PROFILE_COUNTER.backup_before_profile_cycle
+# cp * $PROFILE_COUNTER.backup_before_profile_cycle/
 
  echo "Starting Jana2006 profile cycle number $PROFILE_COUNTER"
 
@@ -677,8 +678,8 @@ echo "Jana2006 atomic projection cycle number $ED_COUNTER ended"
 
  echo "Jana2006 profile cycle number $PROFILE_COUNTER ended"
 
- mkdir $PROFILE_COUNTER.backup_after_profile_cycle
- cp * $PROFILE_COUNTER.backup_after_profile_cycle/
+# mkdir $PROFILE_COUNTER.backup_after_profile_cycle
+# cp * $PROFILE_COUNTER.backup_after_profile_cycle/
 
  cp Jana2006-Batch.log $PROFILE_COUNTER.profile_cycle/"$JOBNAME"_profile_batch.log
 
@@ -1002,6 +1003,7 @@ CHANGE_JOB_NAME(){
 PROCESS_CIF(){
 	echo "   ! Process the CIF" >> stdin
 	echo "   CIF= {" >> stdin
+	if [ $POWDER_HAR = "false" ]; then 
 	if [ $J = 0 ]; then 
 		if [[ "$COMPLETECIF" == "true" && "$SCFCALCPROG" != "Tonto" ]]; then
 			echo "       file_name= $J.tonto_cycle.$JOBNAME/$J.$JOBNAME.cartesian.cif2" >> stdin
@@ -1040,6 +1042,43 @@ PROCESS_CIF(){
 	echo "" >> stdin
 	echo "   process_CIF" >> stdin
 	echo "" >> stdin
+	else 
+	if [ $J = 0 ]; then 
+		echo "       file_name= $CIF" >> stdin
+		if [ "$XHALONG" = "true" ]; then
+	           	if [[ ! -z "$BHBOND" ]]; then
+			   	echo "       BH_bond_length= $BHBOND angstrom" >> stdin
+		   	fi
+	           	if [[ ! -z "$CHBOND" ]]; then
+			   	echo "       CH_bond_length= $CHBOND angstrom" >> stdin
+		   	fi
+	           	if [[ ! -z "$NHBOND" ]]; then
+			   	echo "       NH_bond_length= $NHBOND angstrom" >> stdin
+		   	fi
+        	   	if [[ ! -z "$OHBOND" ]]; then
+			   	echo "       OH_bond_length= $OHBOND angstrom" >> stdin
+		   	fi
+		fi
+	elif [ $J = 1 ]; then 
+		if [[ "$SCCHARGES" == "true" && ("$SCFCALCPROG" == "Gaussian" || "$SCFCALCPROG" == "Orca") ]]; then
+#			if [[ "$SCFCALCPROG" == "Gaussian" || "$SCFCALCPROG" == "Orca" ]]; then
+				if [[ "$COMPLETECIF" == "true" ]]; then
+					echo "       file_name= 0.tonto_cycle.$JOBNAME/0.$JOBNAME.archive.cif" >> stdin
+				else
+					echo "       file_name= $CIF" >> stdin
+				fi
+		else
+			echo "       file_name= $J.tonto_cycle.$JOBNAME/$J.$JOBNAME.archive.cif" >> stdin
+		fi
+	else
+		echo "       file_name= $J.tonto_cycle.$JOBNAME/$J.$JOBNAME.archive.cif" >> stdin
+	fi
+	echo "    }" >> stdin
+	echo "" >> stdin
+	echo "   process_CIF" >> stdin
+	echo "" >> stdin
+	COMPLETECIFBLOCK
+        fi
 #	if [ $J = 1 ]; then 
 #		if [[ "$SCCHARGES" == "true" && ("$SCFCALCPROG" == "Gaussian" || "$SCFCALCPROG" == "Orca") ]]; then
 #			if [[ "$COMPLETECIF" == "true" ]]; then
