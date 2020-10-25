@@ -620,8 +620,8 @@ mkdir $ED_COUNTER.projection_cycle
 
 $HKL_FROM_FCF
 
-#todos *.m*
-todos *.???
+todos *.m*
+todos *.m??
 
 mv "$JOBNAME"_Icalc.hkl $ED_COUNTER.projection_cycle/$JOBNAME.hkl
 
@@ -1005,7 +1005,7 @@ PROCESS_CIF(){
 	echo "   CIF= {" >> stdin
 	if [ $POWDER_HAR = "false" ]; then 
 	if [ $J = 0 ]; then 
-		if [[ "$COMPLETECIF" == "true" && "$SCFCALCPROG" != "Tonto" ]]; then
+		if [[ "$COMPLETESTRUCT" == "true" && "$SCFCALCPROG" != "Tonto" ]]; then
 			echo "       file_name= $J.tonto_cycle.$JOBNAME/$J.$JOBNAME.cartesian.cif2" >> stdin
 		else
 			echo "       file_name= $CIF" >> stdin
@@ -1027,7 +1027,7 @@ PROCESS_CIF(){
 	elif [ $J = 1 ]; then 
 		if [[ "$SCCHARGES" == "true" && ("$SCFCALCPROG" == "Gaussian" || "$SCFCALCPROG" == "Orca") ]]; then
 #			if [[ "$SCFCALCPROG" == "Gaussian" || "$SCFCALCPROG" == "Orca" ]]; then
-				if [[ "$COMPLETECIF" == "true" ]]; then
+				if [[ "$COMPLETESTRUCT" == "true" ]]; then
 					echo "       file_name= 0.tonto_cycle.$JOBNAME/0.$JOBNAME.cartesian.cif2" >> stdin
 				else
 					echo "       file_name= $CIF" >> stdin
@@ -1062,7 +1062,7 @@ PROCESS_CIF(){
 	elif [ $J = 1 ]; then 
 		if [[ "$SCCHARGES" == "true" && ("$SCFCALCPROG" == "Gaussian" || "$SCFCALCPROG" == "Orca") ]]; then
 #			if [[ "$SCFCALCPROG" == "Gaussian" || "$SCFCALCPROG" == "Orca" ]]; then
-				if [[ "$COMPLETECIF" == "true" ]]; then
+				if [[ "$COMPLETESTRUCT" == "true" ]]; then
 					echo "       file_name= 0.tonto_cycle.$JOBNAME/0.$JOBNAME.archive.cif" >> stdin
 				else
 					echo "       file_name= $CIF" >> stdin
@@ -1352,7 +1352,7 @@ SCF_BLOCK_REST_TONTO(){
 	echo "   ! SC cluster charge SCF" >> stdin
 	echo "   scfdata= {" >> stdin
 	echo "      initial_MOs= restricted" >> stdin
-	if [[ "$METHOD" == "b3lyp" ]]; then
+	if [[ "$METHOD" == "b3lyp" || "$METHOD" == "rks" ]]; then
 		echo "      kind= rks" >> stdin
 	        echo "      output= true " >> stdin
 		echo "      dft_exchange_functional= b3lypgx" >> stdin
@@ -1417,7 +1417,7 @@ SCF_TO_TONTO(){
 	fi
 	if [[ "$SCFCALCPROG" == "Tonto" ]]; then 
 		TONTO_BASIS_SET
-		if [[ "$COMPLETECIF" == "true"  ]]; then
+		if [[ "$COMPLETESTRUCT" == "true"  ]]; then
 			COMPLETECIFBLOCK
 		fi
 	fi
@@ -1831,7 +1831,7 @@ XCW(){
 	echo "   basis_directory= $BASISSETDIRXCW" >> stdin
 	echo "   basis_name= $BASISSETTXCW" >> stdin
 	echo "" >> stdin
-	if [[ "$COMPLETECIF" == "true"  ]]; then
+	if [[ "$COMPLETESTRUCT" == "true"  ]]; then
 		COMPLETECIFBLOCK
 	fi
 	CRYSTAL_BLOCK
@@ -1965,9 +1965,9 @@ RUN_XWR(){
 }
 
 COMPLETECIFBLOCK(){
-	if [ "$COMPLETECIF" = "true" ]; then
+	if [ "$COMPLETESTRUCT" = "true" ]; then
 		echo "   cluster= {" >> stdin
-		echo "      defragment= $COMPLETECIF" >> stdin
+		echo "      defragment= $COMPLETESTRUCT" >> stdin
 		echo "      make_info" >> stdin
 		echo "   }" >> stdin
 		echo "" >> stdin
@@ -2162,7 +2162,7 @@ run_script(){
 		echo "   put" >> stdin 
 		echo "" >> stdin
 		echo "   write_xyz_file" >> stdin
-		if [[ "$COMPLETECIF" == "true" || "$SCFCALCPROG" == "optgaussian" ]]; then
+		if [[ "$COMPLETESTRUCT" == "true" || "$SCFCALCPROG" == "optgaussian" ]]; then
 			echo "" >> stdin
 			echo "   put_grown_cif" >> stdin
 		fi
@@ -2560,8 +2560,8 @@ export MAIN_DIALOG='
 	        <action>if false enable:ELMOLIB</action>
 	        <action>if true enable:XHALONG</action>
 	        <action>if false disable:XHALONG</action>
-	        <action>if true enable:COMPLETECIF</action>
-	        <action>if false disable:COMPLETECIF</action>
+	        <action>if true enable:COMPLETESTRUCT</action>
+	        <action>if false disable:COMPLETESTRUCT</action>
 	        <action>if true disable:USEGAMESS</action>
 	        <action>if false enable:USEGAMESS</action>
 	        <action>if true enable:GAUSGEN</action>
@@ -2602,8 +2602,8 @@ export MAIN_DIALOG='
 	        <action>if false enable:ELMOLIB</action>
 	        <action>if true enable:XHALONG</action>
 	        <action>if false disable:XHALONG</action>
-	        <action>if true enable:COMPLETECIF</action>
-	        <action>if false disable:COMPLETECIF</action>
+	        <action>if true enable:COMPLETESTRUCT</action>
+	        <action>if false disable:COMPLETESTRUCT</action>
 	        <action>if true disable:USEGAMESS</action>
 	        <action>if false enable:USEGAMESS</action>
 	        <action>if true disable:GAUSGEN</action>
@@ -2644,8 +2644,8 @@ export MAIN_DIALOG='
 	        <action>if false enable:ELMOLIB</action>
 	        <action>if true enable:XHALONG</action>
 	        <action>if false disable:XHALONG</action>
-	        <action>if true enable:COMPLETECIF</action>
-	        <action>if false disable:COMPLETECIF</action>
+	        <action>if true enable:COMPLETESTRUCT</action>
+	        <action>if false disable:COMPLETESTRUCT</action>
 	        <action>if true disable:USEGAMESS</action>
 	        <action>if false enable:USEGAMESS</action>
 	        <action>if true disable:GAUSGEN</action>
@@ -2687,8 +2687,8 @@ export MAIN_DIALOG='
 	        <action>if false disable:ELMOLIB</action>
 	        <action>if true disable:XHALONG</action>
 	        <action>if false enable:XHALONG</action>
-	        <action>if true disable:COMPLETECIF</action>
-	        <action>if false enable:COMPLETECIF</action>
+	        <action>if true disable:COMPLETESTRUCT</action>
+	        <action>if false enable:COMPLETESTRUCT</action>
 	        <action>if true enable:USEGAMESS</action>
 	        <action>if false disable:USEGAMESS</action>
 	        <action>if true disable:GAUSGEN</action>
@@ -2725,8 +2725,8 @@ export MAIN_DIALOG='
 	        <action>if false enable:ELMOLIB</action>
 	        <action>if true enable:XHALONG</action>
 	        <action>if false disable:XHALONG</action>
-	        <action>if true enable:COMPLETECIF</action>
-	        <action>if false disable:COMPLETECIF</action>
+	        <action>if true enable:COMPLETESTRUCT</action>
+	        <action>if false disable:COMPLETESTRUCT</action>
 	        <action>if true disable:HKL</action>
        	        <action>if false enable:HKL</action>
 	        <action>if true disable:WAVE</action>
@@ -2905,7 +2905,7 @@ export MAIN_DIALOG='
 	
 	    <checkbox active="false" has-tooltip="true" tooltip-markup="Make sure you will enter the correct charge and multiplicity" space-fill="True"  space-expand="True" sensitive="true">
 	     <label>Complete molecule(s) in the cif </label>
-	      <variable>COMPLETECIF</variable>
+	      <variable>COMPLETESTRUCT</variable>
 	    </checkbox>
 	
 	   </hbox>
