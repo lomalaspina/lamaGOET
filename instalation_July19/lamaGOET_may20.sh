@@ -799,6 +799,9 @@ TONTO_TO_ORCA(){
 	echo "end"  >> $JOBNAME.inp
 	echo ""  >> $JOBNAME.inp
 	echo "* xyz $CHARGE $MULTIPLICITY"  >> $JOBNAME.inp
+        gawk 'BEGIN { FS = "" } {OFS = "" } {gsub ("D","H(iso=2)"i,$1)} 1' $JOBNAME.xyz > deut.txt
+        cp deut.txt $JOBNAME.xyz
+        rm deut.txt
 	awk 'NR>2' $JOBNAME.xyz  >> $JOBNAME.inp
 	if [ "$SCCHARGES" = "true" ]; then 
                  if [ ! -f gaussian-point-charges ]; then
@@ -1389,6 +1392,9 @@ TONTO_TO_GAUSSIAN(){
 	echo "$JOBNAME" >> $JOBNAME.com
 	echo "" >> $JOBNAME.com
 	echo "$CHARGE $MULTIPLICITY" >> $JOBNAME.com
+        gawk 'BEGIN { FS = "" } {OFS = "" } {gsub ("D","H(iso=2)"i,$1)} 1' $JOBNAME.xyz > deut.txt
+        cp deut.txt $JOBNAME.xyz
+        rm deut.txt
 	awk 'NR>2' $J.tonto_cycle.$JOBNAME/$J.$JOBNAME.xyz >> $JOBNAME.com
 	if [ "$SCCHARGES" = "true" ]; then 
                  if [ ! -f gaussian-point-charges ]; then
@@ -1460,6 +1466,9 @@ GET_FREQ(){
 	echo "$JOBNAME" >> $JOBNAME.com
 	echo "" >> $JOBNAME.com
 	echo "$CHARGE $MULTIPLICITY" >> $JOBNAME.com
+        gawk 'BEGIN { FS = "" } {OFS = "" } {gsub ("D","H(iso=2)"i,$1)} 1' $JOBNAME.xyz > deut.txt
+        cp deut.txt $JOBNAME.xyz
+        rm deut.txt
 	awk 'NR>2' $J.tonto_cycle.$JOBNAME/$J.$JOBNAME.xyz >> $JOBNAME.com
 	if [ "$SCCHARGES" = "true" ]; then 
                  if [ ! -f gaussian-point-charges ]; then
