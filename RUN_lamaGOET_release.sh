@@ -192,7 +192,7 @@ TONTO_TO_ORCA(){
 	echo "end"  >> $JOBNAME.inp
 	echo ""  >> $JOBNAME.inp
 	echo "* xyz $CHARGE $MULTIPLICITY"  >> $JOBNAME.inp
-        gawk 'BEGIN { FS = "" } {OFS = "" } {gsub ("D","H(iso=2)"i,$1)} 1' $JOBNAME.xyz > deut.txt
+        sed 's/D[0-9]/H(iso=2)/g' $JOBNAME.xyz > deut.txt
         cp deut.txt $JOBNAME.xyz
         rm deut.txt
 	awk 'NR>2' $JOBNAME.xyz  >> $JOBNAME.inp
@@ -785,7 +785,7 @@ TONTO_TO_GAUSSIAN(){
 	echo "$JOBNAME" >> $JOBNAME.com
 	echo "" >> $JOBNAME.com
 	echo "$CHARGE $MULTIPLICITY" >> $JOBNAME.com
-        gawk 'BEGIN { FS = "" } {OFS = "" } {gsub ("D","H(iso=2)"i,$1)} 1' $JOBNAME.xyz > deut.txt
+        sed 's/D[0-9]/H(iso=2)/g' $JOBNAME.xyz > deut.txt
         cp deut.txt $JOBNAME.xyz
         rm deut.txt
 	awk 'NR>2' $J.tonto_cycle.$JOBNAME/$J.$JOBNAME.xyz >> $JOBNAME.com
@@ -859,7 +859,7 @@ GET_FREQ(){
 	echo "$JOBNAME" >> $JOBNAME.com
 	echo "" >> $JOBNAME.com
 	echo "$CHARGE $MULTIPLICITY" >> $JOBNAME.com
-        gawk 'BEGIN { FS = "" } {OFS = "" } {gsub ("D","H(iso=2)"i,$1)} 1' $JOBNAME.xyz > deut.txt
+        sed 's/D[0-9]/H(iso=2)/g' $JOBNAME.xyz > deut.txt
         cp deut.txt $JOBNAME.xyz
         rm deut.txt
 	awk 'NR>2' $J.tonto_cycle.$JOBNAME/$J.$JOBNAME.xyz >> $JOBNAME.com
@@ -1484,6 +1484,10 @@ run_script(){
 			echo "$JOBNAME" | tee -a $JOBNAME.com $JOBNAME.lst
 			echo "" | tee -a  $JOBNAME.com $JOBNAME.lst
 			echo "$CHARGE $MULTIPLICITY" | tee -a  $JOBNAME.com $JOBNAME.lst
+                        sed 's/D[0-9]/H(iso=2)/g' $JOBNAME.xyz > deut.txt
+#                       awk 'BEGIN { FS = "" } {OFS = "" } {gsub ("D","H(iso=2)",$1)} 1' $JOBNAME.xyz > deut.txt
+                        cp deut.txt $JOBNAME.xyz
+                        rm deut.txt
 			awk 'NR>2' $JOBNAME.xyz | tee -a  $JOBNAME.com $JOBNAME.lst
 			echo "" | tee -a $JOBNAME.com  $JOBNAME.lst
 			if [ "$GAUSGEN" = "true" ]; then
