@@ -192,9 +192,6 @@ TONTO_TO_ORCA(){
 	echo "end"  >> $JOBNAME.inp
 	echo ""  >> $JOBNAME.inp
 	echo "* xyz $CHARGE $MULTIPLICITY"  >> $JOBNAME.inp
-        sed 's/D[0-9]/H(iso=2)/g' $JOBNAME.xyz > deut.txt
-        cp deut.txt $JOBNAME.xyz
-        rm deut.txt
 	awk 'NR>2' $JOBNAME.xyz  >> $JOBNAME.inp
 	if [ "$SCCHARGES" = "true" ]; then 
                  if [ ! -f gaussian-point-charges ]; then
@@ -703,6 +700,7 @@ SCF_TO_TONTO(){
 		sed -i 's/)//g' $JOBNAME.xyz
 	fi
 	echo "Tonto cycle number $J ended"
+        sed -i 's/D[0-9]/H(iso=2)/g' $JOBNAME.xyz
 	if ! grep -q 'Wall-clock time taken' "stdout"; then
 		echo "ERROR: problems in fit cycle, please check the $J.th stdout file for more details" | tee -a $JOBNAME.lst
 		unset MAIN_DIALOG
@@ -784,9 +782,6 @@ TONTO_TO_GAUSSIAN(){
 	echo "$JOBNAME" >> $JOBNAME.com
 	echo "" >> $JOBNAME.com
 	echo "$CHARGE $MULTIPLICITY" >> $JOBNAME.com
-        sed 's/D[0-9]/H(iso=2)/g' $JOBNAME.xyz > deut.txt
-        cp deut.txt $JOBNAME.xyz
-        rm deut.txt
 	awk 'NR>2' $J.tonto_cycle.$JOBNAME/$J.$JOBNAME.xyz >> $JOBNAME.com
 	if [ "$SCCHARGES" = "true" ]; then 
                  if [ ! -f gaussian-point-charges ]; then
@@ -858,9 +853,6 @@ GET_FREQ(){
 	echo "$JOBNAME" >> $JOBNAME.com
 	echo "" >> $JOBNAME.com
 	echo "$CHARGE $MULTIPLICITY" >> $JOBNAME.com
-        sed 's/D[0-9]/H(iso=2)/g' $JOBNAME.xyz > deut.txt
-        cp deut.txt $JOBNAME.xyz
-        rm deut.txt
 	awk 'NR>2' $J.tonto_cycle.$JOBNAME/$J.$JOBNAME.xyz >> $JOBNAME.com
 	if [ "$SCCHARGES" = "true" ]; then 
                  if [ ! -f gaussian-point-charges ]; then
@@ -1483,10 +1475,7 @@ run_script(){
 			echo "$JOBNAME" | tee -a $JOBNAME.com $JOBNAME.lst
 			echo "" | tee -a  $JOBNAME.com $JOBNAME.lst
 			echo "$CHARGE $MULTIPLICITY" | tee -a  $JOBNAME.com $JOBNAME.lst
-                        sed 's/D[0-9]/H(iso=2)/g' $JOBNAME.xyz > deut.txt
 #                       awk 'BEGIN { FS = "" } {OFS = "" } {gsub ("D","H(iso=2)",$1)} 1' $JOBNAME.xyz > deut.txt
-                        cp deut.txt $JOBNAME.xyz
-                        rm deut.txt
 			awk 'NR>2' $JOBNAME.xyz | tee -a  $JOBNAME.com $JOBNAME.lst
 			echo "" | tee -a $JOBNAME.com  $JOBNAME.lst
 			if [ "$GAUSGEN" = "true" ]; then
