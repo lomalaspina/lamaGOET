@@ -151,12 +151,14 @@ ELMODB(){
 			echo "$SSBONDATOMS" >> $JOBNAME.elmodb.inp
 		fi
 	fi
+	echo "Running elmodb"
 	./$( echo $SCFCALC_BIN | awk -F "/" '{print $NF}' ) < $JOBNAME.elmodb.inp > $JOBNAME.elmodb.out
 	if ! grep -q 'CONGRATULATIONS: THE ELMO-TRANSFERs ENDED GRACEFULLY!!!' "$JOBNAME.elmodb.out"; then
 		echo "ERROR: elmodb finished with error, please check the $I.th elmodb.out file for more details" | tee -a $JOBNAME.lst
 		unset MAIN_DIALOG
 		exit 0
 	else
+		echo "elmodb job finish correctly."
 		mkdir $I.$SCFCALCPROG.cycle.$JOBNAME
 		cp $JOBNAME.elmodb.out  $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.elmodb.out
 		cp $JOBNAME.elmodb.inp  $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.elmodb.inp
@@ -192,7 +194,16 @@ TONTO_TO_ORCA(){
 	echo "* xyz $CHARGE $MULTIPLICITY"  >> $JOBNAME.inp
 	awk 'NR>2' $JOBNAME.xyz  >> $JOBNAME.inp
 	if [ "$SCCHARGES" = "true" ]; then 
-		awk '{a[NR]=$0}{b=12}/^------------------------------------------------------------------------/{c=NR}END{for(d=b;d<=c-1;++d)print a[d]}' gaussian-point-charges | awk '{printf "%s\t %s\t %s\t %s\t \n", "Q\t" $2, $3, $4, $1 }' >> $JOBNAME.inp
+#                if [ ! -f gaussian-point-charges ]; then
+#                	echo "" > gaussian-point-charges
+#                	awk '/Cluster monopole charges and positions/{print p; f=1} {p=$0} /------------------------------------------------------------------------/{c=1} f; c--==0{f=0}' stdout >> gaussian-point-charges
+#                	awk '{a[NR]=$0}{b=11}/^------------------------------------------------------------------------/{c=NR}END{for(d=b;d<=c-1;++d)print a[d]}' gaussian-point-charges | awk '{printf "%s\t %s\t %s\t %s\t \n", $1, $2, $3, $4 }' >> $JOBNAME.inp
+#                        echo "" >> $JOBNAME.inp
+#                else
+                	awk '{a[NR]=$0}{b=12}/^------------------------------------------------------------------------/{c=NR}END{for(d=b;d<=c-1;++d)print a[d]}' gaussian-point-charges | awk '{printf "%s\t %s\t %s\t %s\t \n", $1, $2, $3, $4 }' >> $JOBNAME.inp
+                        echo "" >> $JOBNAME.inp
+#                fi
+#                rm gaussian-point-charges
 	fi
 	echo "*"  >> $JOBNAME.inp
 	echo "Running Orca, cycle number $I" 
@@ -281,7 +292,18 @@ PROCESS_CIF(){
 			   	echo "       OH_bond_length= $OHBOND angstrom" >> stdin
 		   	fi
 		fi
-	else 
+	elif [ $J = 1 ]; then 
+		if [[ "$SCCHARGES" == "true" && ("$SCFCALCPROG" == "Gaussian" || "$SCFCALCPROG" == "Orca") ]]; then
+#			if [[ "$SCFCALCPROG" == "Gaussian" || "$SCFCALCPROG" == "Orca" ]]; then
+				if [[ "$COMPLETESTRUCT" == "true" ]]; then
+					echo "       file_name= 0.tonto_cycle.$JOBNAME/0.$JOBNAME.cartesian.cif2" >> stdin
+				else
+					echo "       file_name= $CIF" >> stdin
+				fi
+		else
+			echo "       file_name= $J.tonto_cycle.$JOBNAME/$J.$JOBNAME.cartesian.cif2" >> stdin
+		fi
+	else
 		echo "       file_name= $J.tonto_cycle.$JOBNAME/$J.$JOBNAME.cartesian.cif2" >> stdin
 	fi
 	echo "    }" >> stdin
@@ -334,7 +356,12 @@ TONTO_IAM_BLOCK(){
 		fi
 	fi
 	echo "         REDIRECT $HKL" >> stdin
-	echo "         f_sigma_cutoff= $FCUT" >> stdin
+	if [[ "$FCUT" != "0" ]]; then
+		echo "         f_sigma_cutoff= $FCUT" >> stdin
+	fi
+	if [[ "$MINCORCOEF" != "" ]]; then
+		echo "         min_correlation= $MINCORCOEF"  >> stdin
+	fi
 	echo "         tol_for_shift_on_esd= $CONVTOL" >> stdin
 	echo "         refine_H_U_iso= yes" >> stdin
 	echo "" >> stdin
@@ -385,8 +412,13 @@ CRYSTAL_BLOCK(){
 			fi
 		fi
 		echo "         REDIRECT $HKL" >> stdin
-		echo "         f_sigma_cutoff= $FCUT" >> stdin
+		if [[ "$FCUT" != "0" ]]; then
+			echo "         f_sigma_cutoff= $FCUT" >> stdin
+		fi
 		if [[ "$PLOT_TONTO" == "false" ]]; then
+			if [ "$MINCORCOEF" != "" ]; then
+				echo "         min_correlation= $MINCORCOEF"  >> stdin
+			fi
 			echo "         tol_for_shift_on_esd= $CONVTOL" >> stdin
 			echo "         refine_H_U_iso= $HADP" >> stdin
 			if [[ "$SCFCALCPROG" = "Tonto" && "$IAMTONTO" = "true" ]]; then 
@@ -422,8 +454,8 @@ CRYSTAL_BLOCK(){
 			if [ "$REFUISO" = "true" ]; then
 				echo "	 refine_u_iso_for_atoms= { $ATOMUISOLIST }" >> stdin 
 			fi
-			if [ "$MAXLSCICLE" ]; then
-				echo "	 max_iterations= $MAXLSCICLE" >> stdin 
+			if [[ "$MAXLSCYCLE" != "" ]]; then
+				echo "	 max_iterations= $MAXLSCYCLE" >> stdin 
 			fi
 		fi
 		echo "      }  " >> stdin
@@ -457,13 +489,16 @@ SCF_BLOCK_NOT_TONTO(){
 	if [[ "$SCCHARGES" == "true" && "$SCFCALCPROG" != "elmodb" ]]; then 
 		echo "     ! SC cluster charge SCF" >> stdin
 		echo "      scfdata= {" >> stdin
-		echo "      initial_MOs= existing" >> stdin
+		echo "      initial_MOs= restricted   " >> stdin # Only for new tonto may 2020
+#		echo "      initial_MOs= existing" >> stdin
 		if [[ "$METHOD" != "rks" && "$METHOD" != "rhf" && "$METHOD" != "uhf" && "$METHOD" != "uks" ]]; then
 			echo "      kind= rks " >> stdin
+			echo "      output= true " >> stdin
 			echo "      dft_exchange_functional= b3lypgx" >> stdin
 			echo "      dft_correlation_functional= b3lypgc" >> stdin
 		else
 			echo "      kind= $METHOD" >> stdin
+                        echo "      output= true " >> stdin
 		fi
 		echo "      use_SC_cluster_charges= TRUE" >> stdin
 		echo "      cluster_radius= $SCCRADIUS angstrom" >> stdin
@@ -482,13 +517,16 @@ SCF_BLOCK_NOT_TONTO(){
 		echo "   ! SC cluster charge SCF" >> stdin
 		echo "   scfdata= {" >> stdin
 		echo "      initial_density= promolecule" >> stdin
-		echo "      initial_MOs= existing" >> stdin
+		echo "      initial_MOs= restricted " >> stdin # Only for new tonto may 2020
+#		echo "      initial_MOs= existing" >> stdin
 		if [[ "$METHOD" != "rks" && "$METHOD" != "rhf" && "$METHOD" != "uhf" && "$METHOD" != "uks" ]]; then
 			echo "      kind= rks " >> stdin
+			echo "      output= true " >> stdin
 			echo "      dft_exchange_functional= b3lypgx" >> stdin
 			echo "      dft_correlation_functional= b3lypgc" >> stdin
 		else
 			echo "      kind= $METHOD" >> stdin
+			echo "      output= true " >> stdin
 		fi
 		echo "      use_SC_cluster_charges= TRUE" >> stdin
 		echo "      cluster_radius= $SCCRADIUS angstrom" >> stdin
@@ -498,7 +536,7 @@ SCF_BLOCK_NOT_TONTO(){
 		echo "" >> stdin
 		echo "   }" >> stdin
 		echo "" >> stdin
-		if [[ "$SCFCALCPROG" != "optgaussian" ]]; then 
+		if [[ "$SCFCALCPROG" != "optgaussian" && "$J" != "0" ]]; then 
 			echo "   ! Make Hirshfeld structure factors" >> stdin
 			echo "   fit_hirshfeld_atoms" >> stdin
 			echo "" >> stdin
@@ -527,6 +565,7 @@ SCF_BLOCK_PROM_TONTO(){
 	echo "   scfdata= {" >> stdin
 	echo "      initial_density= promolecule " >> stdin
 	echo "      kind= rhf" >> stdin   # this is the promolecule guess, should be always rhf
+	echo "      output= true " >> stdin
 	echo "      use_SC_cluster_charges= FALSE" >> stdin
 	echo "      convergence= 0.001" >> stdin
 	echo "      diis= { convergence_tolerance= 0.0002 }" >> stdin
@@ -540,12 +579,14 @@ SCF_BLOCK_REST_TONTO(){
 	echo "   ! SC cluster charge SCF" >> stdin
 	echo "   scfdata= {" >> stdin
 	echo "      initial_MOs= restricted" >> stdin
-	if [[ "$METHOD" == "b3lyp" ]]; then
+	if [[ "$METHOD" == "b3lyp" || "$METHOD" == "rks" ]]; then
 		echo "      kind= rks" >> stdin
+	        echo "      output= true " >> stdin
 		echo "      dft_exchange_functional= b3lypgx" >> stdin
 		echo "      dft_correlation_functional= b3lypgc" >> stdin
 	else 
 		echo "      kind= $METHOD" >> stdin
+	        echo "      output= true " >> stdin
 	fi
 	if [[ "$SCCHARGES" == "true" ]]; then 
 		echo "      use_SC_cluster_charges= TRUE" >> stdin
@@ -559,6 +600,8 @@ SCF_BLOCK_REST_TONTO(){
 		echo "      diis= { convergence_tolerance= 0.0002 }" >> stdin
 	fi
 	echo "   }" >> stdin
+	echo "" >> stdin
+	echo "   scf" >> stdin
 	echo "" >> stdin
 	if [[ "$XCWONLY" != "true" && "$PLOT_TONTO" == "false" ]]; then
 		echo "   ! Make Hirshfeld structure factors" >> stdin
@@ -601,7 +644,7 @@ SCF_TO_TONTO(){
 	fi
 	if [[ "$SCFCALCPROG" == "Tonto" ]]; then 
 		TONTO_BASIS_SET
-		if [[ "$COMPLETECIF" == "true"  ]]; then
+		if [[ "$COMPLETESTRUCT" == "true"  ]]; then
 			COMPLETECIFBLOCK
 		fi
 	fi
@@ -631,7 +674,11 @@ SCF_TO_TONTO(){
 	echo "}" >> stdin 
 	J=$[ $J + 1 ]
 	echo "Running Tonto, cycle number $J" 
-	$TONTO
+        if [[ "$NUMPROC" != "1" ]]; then
+		mpirun -n $NUMPROC $TONTO	
+	else
+		$TONTO
+	fi
 	if [[ "$SCFCALCPROG" == "Tonto" ]]; then
 		mkdir $J.tonto_cycle.$JOBNAME
 		sed -i '/# NOTE: Cartesian 9Nx9N covariance matrix in BOHR units/,/# ===========/d' $JOBNAME.cartesian.cif2
@@ -683,13 +730,16 @@ SCF_TO_TONTO(){
 		cp stdin $J.tonto_cycle.$JOBNAME/$J.stdin
 		cp stdout $J.tonto_cycle.$JOBNAME/$J.stdout
 		if [[ "$SCFCALCPROG" != "optgaussian" ]]; then
-			sed -i '/# NOTE: Cartesian 9Nx9N covariance matrix in BOHR units/,/# ===========/d' $JOBNAME.cartesian.cif2
-			cp $JOBNAME'.cartesian.cif2' $J.tonto_cycle.$JOBNAME/$J.$JOBNAME.cartesian.cif2
-			cp $JOBNAME'.archive.cif' $J.tonto_cycle.$JOBNAME/$J.$JOBNAME.archive.cif
-			cp $JOBNAME'.archive.fco' $J.tonto_cycle.$JOBNAME/$J.$JOBNAME.archive.fco
-			cp $JOBNAME'.archive.fcf' $J.tonto_cycle.$JOBNAME/$J.$JOBNAME.archive.fcf
+	                if [ -f $JOBNAME.cartesian.cif2 ]; then
+				sed -i '/# NOTE: Cartesian 9Nx9N covariance matrix in BOHR units/,/# ===========/d' $JOBNAME.cartesian.cif2
+				cp $JOBNAME'.cartesian.cif2' $J.tonto_cycle.$JOBNAME/$J.$JOBNAME.cartesian.cif2
+				cp $JOBNAME'.archive.cif' $J.tonto_cycle.$JOBNAME/$J.$JOBNAME.archive.cif
+				cp $JOBNAME'.archive.fco' $J.tonto_cycle.$JOBNAME/$J.$JOBNAME.archive.fco
+				cp $JOBNAME'.archive.fcf' $J.tonto_cycle.$JOBNAME/$J.$JOBNAME.archive.fcf
+			fi
 		fi
 		if [[ "$SCFCALCPROG" != "elmodb" &&  "$SCCHARGES" == "true" ]]; then
+			cp cluster_charges $J.tonto_cycle.$JOBNAME/$J.cluster_charges
 			cp gaussian-point-charges $J.tonto_cycle.$JOBNAME/$J.gaussian-point-charges
 		fi
 	fi
@@ -736,8 +786,23 @@ TONTO_TO_GAUSSIAN(){
 	awk 'NR>2' $J.tonto_cycle.$JOBNAME/$J.$JOBNAME.xyz >> $JOBNAME.com
 	echo "" >> $JOBNAME.com
 	if [ "$SCCHARGES" = "true" ]; then 
-        	awk '{a[NR]=$0}{b=12}/^------------------------------------------------------------------------/{c=NR}END{for(d=b;d<=c-1;++d)print a[d]}' gaussian-point-charges | awk '{printf "%s\t %s\t %s\t %s\t \n", $2, $3, $4, $1 }' >> $JOBNAME.com
-		echo "" | tee -a $JOBNAME.com  $JOBNAME.lst
+	if [[ -f gaussian-point-charges ]]; then
+                awk '{a[NR]=$0}{b=12}/^------------------------------------------------------------------------/{c=NR}END{for(d=b;d<=c-1;++d)print a[d]}' gaussian-point-charges | awk '{printf "%s\t %s\t %s\t %s\t \n", $2, $3, $4, $1 }' >> $JOBNAME.com
+                echo "" >> $JOBNAME.com
+         else
+               	awk '{a[NR]=$0}{b=12}/^------------------------------------------------------------------------/{c=NR}END{for(d=b;d<=c-1;++d)print a[d]}' cluster_charges | awk '{printf "%s\t %s\t %s\t %s\t \n", $1, $2, $3, $4 }' >> $JOBNAME.com
+                echo "" >> $JOBNAME.com
+        fi
+#                if [ ! -f gaussian-point-charges ]; then
+#                	echo "" > gaussian-point-charges
+#                	awk '/Cluster monopole charges and positions/{print p; f=1} {p=$0} /------------------------------------------------------------------------/{c=1} f; c--==0{f=0}' stdout >> gaussian-point-charges
+#                	awk '{a[NR]=$0}{b=11}/^------------------------------------------------------------------------/{c=NR}END{for(d=b;d<=c-1;++d)print a[d]}' gaussian-point-charges | awk '{printf "%s\t %s\t %s\t %s\t \n", $1, $2, $3, $4 }' >> $JOBNAME.com
+#                        echo "" >> $JOBNAME.com
+#                else
+#               	awk '{a[NR]=$0}{b=12}/^------------------------------------------------------------------------/{c=NR}END{for(d=b;d<=c-1;++d)print a[d]}' cluster_charges | awk '{printf "%s\t %s\t %s\t %s\t \n", $1, $2, $3, $4 }' >> $JOBNAME.com
+#                       echo "" >> $JOBNAME.com
+#                fi
+#                rm gaussian-point-charges
 	fi
 	if [ "$GAUSGEN" = "true" ]; then
 	        cat basis_gen.txt >> $JOBNAME.com
@@ -762,7 +827,7 @@ TONTO_TO_GAUSSIAN(){
 
 GET_FREQ(){
 	I=$[ $I + 1 ]
-	echo "Extracting XYZ for Gaussian cycle number $I"
+	echo "Extrating XYZ for Gaussian cycle number $I"
 	echo "%rwf=./$JOBNAME.rwf" >> $JOBNAME.com
 	echo "%int=./$JOBNAME.int" >> $JOBNAME.com
 	echo "%NoSave" >> $JOBNAME.com
@@ -803,8 +868,16 @@ GET_FREQ(){
 	awk 'NR>2' $J.tonto_cycle.$JOBNAME/$J.$JOBNAME.xyz >> $JOBNAME.com
 	echo "" >> $JOBNAME.com
 	if [ "$SCCHARGES" = "true" ]; then 
-        	awk '{a[NR]=$0}{b=12}/^------------------------------------------------------------------------/{c=NR}END{for(d=b;d<=c-1;++d)print a[d]}' gaussian-point-charges | awk '{printf "%s\t %s\t %s\t %s\t \n", $2, $3, $4, $1 }' >> $JOBNAME.com
-		echo "" | tee -a $JOBNAME.com  $JOBNAME.lst
+#                if [ ! -f gaussian-point-charges ]; then
+#                	echo "" > gaussian-point-charges
+#                	awk '/Cluster monopole charges and positions/{print p; f=1} {p=$0} /------------------------------------------------------------------------/{c=1} f; c--==0{f=0}' stdout >> gaussian-point-charges
+#                	awk '{a[NR]=$0}{b=11}/^------------------------------------------------------------------------/{c=NR}END{for(d=b;d<=c-1;++d)print a[d]}' gaussian-point-charges | awk '{printf "%s\t %s\t %s\t %s\t \n", $1, $2, $3, $4 }' >> $JOBNAME.com
+#                        echo "" >> $JOBNAME.com
+#                else
+                	awk '{a[NR]=$0}{b=12}/^------------------------------------------------------------------------/{c=NR}END{for(d=b;d<=c-1;++d)print a[d]}' gaussian-point-charges | awk '{printf "%s\t %s\t %s\t %s\t \n", $1, $2, $3, $4 }' >> $JOBNAME.com
+                        echo "" >> $JOBNAME.com
+#                fi
+#                rm gaussian-point-charges
 	fi
 	if [ "$GAUSGEN" = "true" ]; then
 	        cat basis_gen.txt >> $JOBNAME.com
@@ -875,7 +948,8 @@ GET_RESIDUALS(){
 		CHARGE_MULT
 		CRYSTAL_BLOCK
 	echo "   scfdata= {" >> stdin
-	echo "      initial_MOs= existing" >> stdin
+	echo "      initial_MOs= restricted" >> stdin  #Only for new tonto may 2020
+#	echo "      initial_MOs= existing" >> stdin
 	if [[ "$METHOD" != "rks" && "$METHOD" != "rhf" && "$METHOD" != "uhf" && "$METHOD" != "uks" ]]; then
 		echo "      kind= rks " >> stdin
 		echo "      dft_exchange_functional= b3lypgx" >> stdin
@@ -898,22 +972,28 @@ GET_RESIDUALS(){
 	echo "" >> stdin
 	echo "   put_minmax_residual_density" >> stdin
 	echo "" >> stdin
-	echo "   plot_grid= {                           " >> stdin
-	echo "" >> stdin
-	echo "      kind= residual_density_map" >> stdin
-	echo "      use_unit_cell_as_bbox" >> stdin
-	echo "      desired_separation= 0.1 angstrom" >> stdin
-	echo "      plot_format= cell.cube" >> stdin
-	echo "      plot_units= angstrom^-3" >> stdin
-	echo "" >> stdin
-	echo "    }" >> stdin
-	echo "" >> stdin
-	echo "   plot" >> stdin
+#	echo "   plot_grid= {                           " >> stdin
+#	echo "" >> stdin
+#	echo "      kind= residual_density_map" >> stdin
+#	echo "      use_unit_cell_as_bbox" >> stdin
+#	echo "      desired_separation= 0.1 angstrom" >> stdin
+#	echo "      plot_format= cell.cube" >> stdin
+#	echo "      plot_units= angstrom^-3" >> stdin
+#	echo "" >> stdin
+#	echo "    }" >> stdin
+#	echo "" >> stdin
+#	echo "   plot" >> stdin
+        echo "   put_fitting_plots" >> stdin
+#	echo "   normal_mode_analysis" >> stdin
 	echo "" >> stdin
 	echo "}" >> stdin 
 	echo "Calculating residual density at final geometry" 
 	J=$[ $J + 1 ]
-	$TONTO
+        if [[ "$NUMPROC" != "1" ]]; then
+		mpirun -n $NUMPROC $TONTO	
+	else
+		$TONTO
+	fi
 	mkdir $J.tonto_cycle.$JOBNAME
 	cp stdin $J.tonto_cycle.$JOBNAME/$J.stdin
 	cp stdout $J.tonto_cycle.$JOBNAME/$J.stdout
@@ -942,6 +1022,7 @@ XCW_SCF_BLOCK(){
 	echo "   " >> stdin
 	echo "     initial_density=   restricted" >> stdin
 	echo "     kind=            xray_$METHODXCW" >> stdin
+        echo "     output= true " >> stdin
 	echo "     direct=          yes" >> stdin
 	echo "     convergence= 0.001" >> stdin
 	echo "     use_SC_cluster_charges= $SCCHARGESXCW" >> stdin
@@ -992,6 +1073,9 @@ XCW(){
 	echo "   basis_directory= $BASISSETDIRXCW" >> stdin
 	echo "   basis_name= $BASISSETTXCW" >> stdin
 	echo "" >> stdin
+	if [[ "$COMPLETESTRUCT" == "true"  ]]; then
+		COMPLETECIFBLOCK
+	fi
 	CRYSTAL_BLOCK
 	if [[ "$USEBECKE" == "true" ]]; then 
 		BECKE_GRID
@@ -999,7 +1083,11 @@ XCW(){
 	XCW_SCF_BLOCK
 	J=$[ $J + 1 ]
 	echo "Runing Tonto, cycle number $J" 
-	$TONTO
+        if [[ "$NUMPROC" != "1" ]]; then
+		mpirun -n $NUMPROC $TONTO	
+	else
+		$TONTO
+	fi
 	echo "Tonto cycle number $J ended"
 	mkdir $J.XCW_cycle.$JOBNAME
 	cp stdin $J.XCW_cycle.$JOBNAME/$J.stdin
@@ -1052,6 +1140,7 @@ BOTTOM_PLOT(){
 PLOTS(){
 	TONTO_HEADER
 	PROCESS_CIF
+	COMPLETECIFBLOCK
 	DEFINE_JOB_NAME
 	TONTO_BASIS_SET
 	CHARGE_MULT
@@ -1103,7 +1192,11 @@ PLOTS(){
 		BOTTOM_PLOT
 	fi
 	echo "}" >> stdin 
-	$TONTO
+        if [[ "$NUMPROC" != "1" ]]; then
+		mpirun -n $NUMPROC $TONTO	
+	else
+		$TONTO
+	fi
 	if ! grep -q 'Wall-clock time taken' "stdout"; then
 		echo "ERROR: problems in fit cycle, please check the $J.th stdout file for more details" | tee -a $JOBNAME.lst
 		unset MAIN_DIALOG
@@ -1122,9 +1215,9 @@ RUN_XWR(){
 }
 
 COMPLETECIFBLOCK(){
-	if [ "$COMPLETECIF" = "true" ]; then
+	if [ "$COMPLETESTRUCT" = "true" ]; then
 		echo "   cluster= {" >> stdin
-		echo "      defragment= $COMPLETECIF" >> stdin
+		echo "      defragment= $COMPLETESTRUCT" >> stdin
 		echo "      make_info" >> stdin
 		echo "   }" >> stdin
 		echo "" >> stdin
@@ -1201,6 +1294,9 @@ run_script(){
 		exit 0
 		exit
 	fi
+	if [[ ("$SCFCALCPROG" == "Gaussian" || "$SCFCALCPROG" == "ORCA") && "$SCCHARGES" == "true" ]]; then
+		DOUBLE_SCF="true"
+	fi 
 	echo "###############################################################################################" > $JOBNAME.lst
 	echo "                                           lamaGOET                                            " >> $JOBNAME.lst
 	echo "###############################################################################################" >> $JOBNAME.lst
@@ -1339,8 +1435,10 @@ run_script(){
 		fi
 		cp stdin $J.tonto_cycle.$JOBNAME/$J.stdin
 		cp stdout $J.tonto_cycle.$JOBNAME/$J.stdout
-		sed -i '/# NOTE: Cartesian 9Nx9N covariance matrix in BOHR units/,/# ===========/d' $JOBNAME.cartesian.cif2
-		cp $JOBNAME'.cartesian.cif2' $J.tonto_cycle.$JOBNAME/$J.$JOBNAME.cartesian.cif2
+                if [ -f $JOBNAME.cartesian.cif2 ]; then
+			sed -i '/# NOTE: Cartesian 9Nx9N covariance matrix in BOHR units/,/# ===========/d' $JOBNAME.cartesian.cif2
+			cp $JOBNAME'.cartesian.cif2' $J.tonto_cycle.$JOBNAME/$J.$JOBNAME.cartesian.cif2
+		fi
 		awk '{a[NR]=$0}/^Atom coordinates/{b=NR}/^Unit cell information/{c=NR}END{for(d=b-1;d<=c-2;++d)print a[d]}' stdout >> $JOBNAME.lst
 		echo "Done reading cif with Tonto"
 #is this ok now?if [[ "$SCFCALCPROG" == "elmodb" && ! -z tonto.cell || "$SCFCALCPROG" == "optgaussian" && ! -z tonto.cell  ]]; then
@@ -1376,7 +1474,8 @@ run_script(){
 			echo "%mem=$MEM" | tee -a $JOBNAME.com  $JOBNAME.lst
 			echo "%nprocshared=$NUMPROC" | tee -a $JOBNAME.com $JOBNAME.lst
 			if [ "$SCFCALCPROG" = "optgaussian" ]; then
-				OPT=" opt=calcfc"
+#				OPT=" opt=calcfc"
+				OPT=" opt"
 			fi
 			if [ "$METHOD" = "rks" ]; then
 				echo "# blyp/$BASISSETG nosymm $EXTRAKEY output=wfn 6D 10F Fchk $INT $GAUSSEMPDISPKEY" | tee -a $JOBNAME.com $JOBNAME.lst    
@@ -1476,9 +1575,18 @@ run_script(){
 			TONTO_TO_ORCA
 			CHECK_ENERGY
 		fi
-		if [[ "$SCFCALCPROG" == "Gaussian" || "$SCFCALCPROG" == "Orca"  ]];then		
+		if [[ "$SCFCALCPROG" == "Gaussian" || "$SCFCALCPROG" == "Orca"  ]]; then
+			if [[ "$DOUBLE_SCF" == "true" ]]; then 
+				SCF_TO_TONTO
+				if [ "$SCFCALCPROG" = "Gaussian" ]; then  
+					TONTO_TO_GAUSSIAN
+				else 
+					TONTO_TO_ORCA
+				fi
+				CHECK_ENERGY
+			fi		
 			while (( $(echo "$MAXSHIFT > $CONVTOL" | bc -l) || $( echo "$J <= 1" | bc -l )  )); do
-				if [[ $J -gt 50 ]];then
+				if [[ $J -ge $MAXCYCLE ]]; then
 					CHECK_ENERGY
 					echo "ERROR: Refinement ended. Too many fit cycles. Check if result is reasonable and/or change your convergency criteira."
 					break
@@ -1496,7 +1604,7 @@ run_script(){
 			if [[ "$SCCHARGES" == "true" ]];then
 #			while (( ($(awk "BEGIN {print $DE > $CONVTOL}") | bc -l ) || $( echo "$J <= 1" | bc -l )  )); do
 				while (( $(echo "$(echo ${DE#-}) > $CONVTOL" | bc -l) || $( echo "$J <= 1" | bc -l )  )); do
-					if [[ $J -gt 50 ]];then
+					if [[ $J -ge $MAXCYCLE ]];then
 						CHECK_ENERGY
 						echo "ERROR: Refinement ended. Too many fit cycles. Check if result is reasonable and/or change your convergency criteira."
 						break
@@ -1510,7 +1618,8 @@ run_script(){
 					CHECK_ENERGY
 				done
 			else
-     				ONLY_ONE="opt=calcfc"
+#     				ONLY_ONE="opt=calcfc"
+     				ONLY_ONE="opt"
 				GET_FREQ
 			fi
 		fi
@@ -1559,7 +1668,7 @@ run_script(){
 			SCF_TO_TONTO
 			ELMODB
 			while (( $(echo "$MAXSHIFT > $CONVTOL" | bc -l) || $( echo "$J <= 1" | bc -l )  )); do
-			if [[ $J -gt 50 ]];then
+			if [[ $J -ge $MAXCYCLE ]];then
 				echo "ERROR: Refinement ended. Too many fit cycles. Check if result is reasonable and/or change your convergency criteira."
 				break
 			fi
@@ -1588,7 +1697,7 @@ run_script(){
 			SCF_TO_TONTO
 			GAMESS_ELMODB_OLD_PDB
 			while (( $(echo "$MAXSHIFT > $CONVTOL" | bc -l) || $( echo "$J <= 1" | bc -l )  )); do
-			if [[ $J -gt 50 ]];then
+			if [[ $J -ge $MAXCYCLE ]];then
 				echo "ERROR: Refinement ended. Too many fit cycles. Check if result is reasonable and/or change your convergency criteira."
 				break
 			fi
