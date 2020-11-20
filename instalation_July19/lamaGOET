@@ -917,6 +917,13 @@ PROCESS_CIF(){
 	echo "" >> stdin
 	echo "   process_CIF" >> stdin
 	echo "" >> stdin
+#	if [ $J = 1 ]; then 
+#		if [[ "$SCCHARGES" == "true" && ("$SCFCALCPROG" == "Gaussian" || "$SCFCALCPROG" == "Orca") ]]; then
+#			if [[ "$COMPLETECIF" == "true" ]]; then
+#				COMPLETECIFBLOCK	
+#			fi
+#		fi
+#	fi
 }
 
 TONTO_BASIS_SET(){

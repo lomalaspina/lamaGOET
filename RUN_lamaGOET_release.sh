@@ -356,9 +356,13 @@ TONTO_IAM_BLOCK(){
 		fi
 	fi
 	echo "         REDIRECT $HKL" >> stdin
+<<<<<<< HEAD
 	if [[ "$FCUT" != "0" ]]; then
 		echo "         f_sigma_cutoff= $FCUT" >> stdin
 	fi
+=======
+	echo "         f_sigma_cutoff= $FCUT" >> stdin
+>>>>>>> 9be4019c05eedf368b731c804c8bd89cbb47c567
 	if [[ "$MINCORCOEF" != "" ]]; then
 		echo "         min_correlation= $MINCORCOEF"  >> stdin
 	fi
@@ -740,7 +744,11 @@ SCF_TO_TONTO(){
 		fi
 		if [[ "$SCFCALCPROG" != "elmodb" &&  "$SCCHARGES" == "true" ]]; then
 			cp cluster_charges $J.tonto_cycle.$JOBNAME/$J.cluster_charges
+<<<<<<< HEAD
 			cp gaussian-point-charges $J.tonto_cycle.$JOBNAME/$J.gaussian-point-charges
+=======
+#			cp gaussian-point-charges $J.tonto_cycle.$JOBNAME/$J.gaussian-point-charges
+>>>>>>> 9be4019c05eedf368b731c804c8bd89cbb47c567
 		fi
 	fi
 }
@@ -786,6 +794,7 @@ TONTO_TO_GAUSSIAN(){
 	awk 'NR>2' $J.tonto_cycle.$JOBNAME/$J.$JOBNAME.xyz >> $JOBNAME.com
 	echo "" >> $JOBNAME.com
 	if [ "$SCCHARGES" = "true" ]; then 
+<<<<<<< HEAD
 	if [[ -f gaussian-point-charges ]]; then
                 awk '{a[NR]=$0}{b=12}/^------------------------------------------------------------------------/{c=NR}END{for(d=b;d<=c-1;++d)print a[d]}' gaussian-point-charges | awk '{printf "%s\t %s\t %s\t %s\t \n", $2, $3, $4, $1 }' >> $JOBNAME.com
                 echo "" >> $JOBNAME.com
@@ -793,14 +802,21 @@ TONTO_TO_GAUSSIAN(){
                	awk '{a[NR]=$0}{b=12}/^------------------------------------------------------------------------/{c=NR}END{for(d=b;d<=c-1;++d)print a[d]}' cluster_charges | awk '{printf "%s\t %s\t %s\t %s\t \n", $1, $2, $3, $4 }' >> $JOBNAME.com
                 echo "" >> $JOBNAME.com
         fi
+=======
+>>>>>>> 9be4019c05eedf368b731c804c8bd89cbb47c567
 #                if [ ! -f gaussian-point-charges ]; then
 #                	echo "" > gaussian-point-charges
 #                	awk '/Cluster monopole charges and positions/{print p; f=1} {p=$0} /------------------------------------------------------------------------/{c=1} f; c--==0{f=0}' stdout >> gaussian-point-charges
 #                	awk '{a[NR]=$0}{b=11}/^------------------------------------------------------------------------/{c=NR}END{for(d=b;d<=c-1;++d)print a[d]}' gaussian-point-charges | awk '{printf "%s\t %s\t %s\t %s\t \n", $1, $2, $3, $4 }' >> $JOBNAME.com
 #                        echo "" >> $JOBNAME.com
 #                else
+<<<<<<< HEAD
 #               	awk '{a[NR]=$0}{b=12}/^------------------------------------------------------------------------/{c=NR}END{for(d=b;d<=c-1;++d)print a[d]}' cluster_charges | awk '{printf "%s\t %s\t %s\t %s\t \n", $1, $2, $3, $4 }' >> $JOBNAME.com
 #                       echo "" >> $JOBNAME.com
+=======
+                	awk '{a[NR]=$0}{b=12}/^------------------------------------------------------------------------/{c=NR}END{for(d=b;d<=c-1;++d)print a[d]}' cluster_charges | awk '{printf "%s\t %s\t %s\t %s\t \n", $1, $2, $3, $4 }' >> $JOBNAME.com
+                        echo "" >> $JOBNAME.com
+>>>>>>> 9be4019c05eedf368b731c804c8bd89cbb47c567
 #                fi
 #                rm gaussian-point-charges
 	fi
@@ -1619,7 +1635,11 @@ run_script(){
 				done
 			else
 #     				ONLY_ONE="opt=calcfc"
+<<<<<<< HEAD
      				ONLY_ONE="opt"
+=======
+				OPT=" opt"
+>>>>>>> 9be4019c05eedf368b731c804c8bd89cbb47c567
 				GET_FREQ
 			fi
 		fi
