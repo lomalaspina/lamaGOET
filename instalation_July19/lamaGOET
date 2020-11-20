@@ -801,16 +801,14 @@ TONTO_TO_ORCA(){
 	echo "* xyz $CHARGE $MULTIPLICITY"  >> $JOBNAME.inp
 	awk 'NR>2' $JOBNAME.xyz  >> $JOBNAME.inp
 	if [ "$SCCHARGES" = "true" ]; then 
-#                if [ ! -f gaussian-point-charges ]; then
-#                	echo "" > gaussian-point-charges
-#                	awk '/Cluster monopole charges and positions/{print p; f=1} {p=$0} /------------------------------------------------------------------------/{c=1} f; c--==0{f=0}' stdout >> gaussian-point-charges
-#                	awk '{a[NR]=$0}{b=11}/^------------------------------------------------------------------------/{c=NR}END{for(d=b;d<=c-1;++d)print a[d]}' gaussian-point-charges | awk '{printf "%s\t %s\t %s\t %s\t \n", $1, $2, $3, $4 }' >> $JOBNAME.inp
-#                        echo "" >> $JOBNAME.inp
-#                else
-                	awk '{a[NR]=$0}{b=12}/^------------------------------------------------------------------------/{c=NR}END{for(d=b;d<=c-1;++d)print a[d]}' gaussian-point-charges | awk '{printf "%s\t %s\t %s\t %s\t \n", $1, $2, $3, $4 }' >> $JOBNAME.inp
-                        echo "" >> $JOBNAME.inp
-#                fi
-#                rm gaussian-point-charges
+                 if [ ! -f gaussian-point-charges ]; then
+                 	echo "" > gaussian-point-charges
+                 	awk '/Cluster monopole charges and positions/{print p; f=1} {p=$0} /------------------------------------------------------------------------/{c=1} f; c--==0{f=0}' stdout >> gaussian-point-charges
+                fi
+                echo "" >> $JOBNAME.inp
+                awk '{a[NR]=$0}{b=12}/^------------------------------------------------------------------------/{c=NR}END{for(d=b;d<=c-1;++d)print a[d]}' gaussian-point-charges | awk '{printf "%s\t %s\t %s\t %s\t \n", $1, $2, $3, $4 }' >> $JOBNAME.inp
+                echo "" >> $JOBNAME.inp
+                rm gaussian-point-charges
 	fi
 	echo "*"  >> $JOBNAME.inp
 	echo "Running Orca, cycle number $I" 

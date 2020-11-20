@@ -672,11 +672,11 @@ SCF_TO_TONTO(){
 	echo "}" >> stdin 
 	J=$[ $J + 1 ]
 	echo "Running Tonto, cycle number $J" 
-        if [[ "$NUMPROC" != "1" ]]; then
-		mpirun -n $NUMPROC $TONTO	
-	else
+#        if [[ "$NUMPROC" != "1" ]]; then
+#		mpirun -n $NUMPROC $TONTO	
+#	else
 		$TONTO
-	fi
+#	fi
 	if [[ "$SCFCALCPROG" == "Tonto" ]]; then
 		mkdir $J.tonto_cycle.$JOBNAME
 		sed -i '/# NOTE: Cartesian 9Nx9N covariance matrix in BOHR units/,/# ===========/d' $JOBNAME.cartesian.cif2
@@ -739,7 +739,6 @@ SCF_TO_TONTO(){
 		if [[ "$SCFCALCPROG" != "elmodb" &&  "$SCCHARGES" == "true" ]]; then
 			cp cluster_charges $J.tonto_cycle.$JOBNAME/$J.cluster_charges
 			cp gaussian-point-charges $J.tonto_cycle.$JOBNAME/$J.gaussian-point-charges
-#			cp gaussian-point-charges $J.tonto_cycle.$JOBNAME/$J.gaussian-point-charges
 		fi
 	fi
 }
@@ -974,11 +973,11 @@ GET_RESIDUALS(){
 	echo "}" >> stdin 
 	echo "Calculating residual density at final geometry" 
 	J=$[ $J + 1 ]
-        if [[ "$NUMPROC" != "1" ]]; then
-		mpirun -n $NUMPROC $TONTO	
-	else
+#        if [[ "$NUMPROC" != "1" ]]; then
+#		mpirun -n $NUMPROC $TONTO	
+#	else
 		$TONTO
-	fi
+#	fi
 	mkdir $J.tonto_cycle.$JOBNAME
 	cp stdin $J.tonto_cycle.$JOBNAME/$J.stdin
 	cp stdout $J.tonto_cycle.$JOBNAME/$J.stdout
@@ -1068,11 +1067,11 @@ XCW(){
 	XCW_SCF_BLOCK
 	J=$[ $J + 1 ]
 	echo "Runing Tonto, cycle number $J" 
-        if [[ "$NUMPROC" != "1" ]]; then
-		mpirun -n $NUMPROC $TONTO	
-	else
+#        if [[ "$NUMPROC" != "1" ]]; then
+#		mpirun -n $NUMPROC $TONTO	
+#	else
 		$TONTO
-	fi
+#	fi
 	echo "Tonto cycle number $J ended"
 	mkdir $J.XCW_cycle.$JOBNAME
 	cp stdin $J.XCW_cycle.$JOBNAME/$J.stdin
@@ -1177,11 +1176,11 @@ PLOTS(){
 		BOTTOM_PLOT
 	fi
 	echo "}" >> stdin 
-        if [[ "$NUMPROC" != "1" ]]; then
-		mpirun -n $NUMPROC $TONTO	
-	else
+#        if [[ "$NUMPROC" != "1" ]]; then
+#		mpirun -n $NUMPROC $TONTO	
+#	else
 		$TONTO
-	fi
+#	fi
 	if ! grep -q 'Wall-clock time taken' "stdout"; then
 		echo "ERROR: problems in fit cycle, please check the $J.th stdout file for more details" | tee -a $JOBNAME.lst
 		unset MAIN_DIALOG
@@ -1391,11 +1390,11 @@ run_script(){
 		echo "" >> stdin
 		echo "}" >> stdin 
 		echo "Reading cif with Tonto"
-		if [[ "$NUMPROC" != "1" ]]; then
-			mpirun -n $NUMPROC $TONTO	
-		else
+#		if [[ "$NUMPROC" != "1" ]]; then
+#			mpirun -n $NUMPROC $TONTO	
+#		else
 			$TONTO
-		fi
+#		fi
 		INITIALCHI=$(awk '{a[NR]=$0}/^Begin rigid-atom fit/{b=NR}END {print a[b+10]}' stdout | awk '{print $2}')
 #		MAXSHIFT=$(awk '{a[NR]=$0}/^Begin rigid-atom fit/{b=NR+10}/^Rigid-atom fit results/{c=NR-4}END {for(d=b;d<=c;++d)print a[d]}' stdout | awk -v max=0 '{if($5>max){shift=$5; atom=$6; param=$7; max=$5}}END{print shift}')
 #		MAXSHIFTATOM=$(awk '{a[NR]=$0}/^Begin rigid-atom fit/{b=NR+10}/^Rigid-atom fit results/{c=NR-4}END {for(d=b;d<=c;++d)print a[d]}' stdout | awk -v max=0 '{if($5>max){shift=$5; atom=$6; param=$7; max=$5}}END{print atom}')
@@ -1605,7 +1604,6 @@ run_script(){
 			else
 #     				ONLY_ONE="opt=calcfc"
      				ONLY_ONE="opt"
-				OPT=" opt"
 				GET_FREQ
 			fi
 		fi
