@@ -14,6 +14,8 @@ cd ..
 LOCALDIR=$(pwd)
 cd /usr/local/bin
 sudo ln -s $LOCALDIR/lamaGOET lamaGOET
-sudo ln -s $LOCALDIR/hklfromm80.py hklfromm80.py
-sudo ln -s $LOCALDIR/projectioninputfromhar.py projectioninputfromhar.py 
+#sudo ln -s $LOCALDIR/hklfromm80.py hklfromm80.py
+#sudo ln -s $LOCALDIR/projectioninputfromhar.py projectioninputfromhar.py 
+sudo ln -s $LOCALDIR/powderHARstart.py powderHARstart.py
+sudo ln -s $LOCALDIR/powderHARcifrewrite.py powderHARcifrewrite.py
 cd $LOCALDIR
