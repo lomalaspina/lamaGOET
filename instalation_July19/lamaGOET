@@ -613,39 +613,43 @@ SPACEGROUP(){
 RUN_NOSPHERA2(){
 
 mkdir $NSA2_COUNTER.NoSphera2_cycle
-#Replace label on xyz block for assym unit cif
-#echo "xyz assym"
-EXISTS=$(awk '{a[NR]=$0}/^# Fractional coordinates/{b=NR+13}/^# ==================================/{c=NR-4}END{for(d=b;d<=c;++d)print a[d]}' $JOBNAME.archive.cif | awk 'substr($1,2,2)!~/^[0-9]/{print $0}')
-if [[ ! -z $EXISTS ]]; then
-        awk '{a[NR]=$0}/^# Fractional coordinates/{b=NR+13}/^# ==================================/{c=NR-4}END{for(d=b;d<=c;++d)print a[d]}' $JOBNAME.archive.cif | awk 'substr($1,2,2)!~/^[0-9]/{print $0}' | gawk  '$1=$1"1"' > ATOMS_NEW
-        awk '{a[NR]=$0}/^# Fractional coordinates/{b=NR+13}/^# ==================================/{c=NR-4}END{for(d=b;d<=c;++d)print a[d]}' $JOBNAME.archive.cif | awk 'substr($1,2,2)!~/^[0-9]/{print $0}' > ATOMS
-        sed -i -ne '/'"$(sed -n '1p' ATOMS)"'/ {r ATOMS_NEW' -e ':a; n; /'"$(awk 'END{print}' ATOMS)"'/ {b}; ba}; p' $JOBNAME.archive.cif 
+
+if [[ "$COMPLETESTRUCT" == "true"  ]]; then
+        #Replace label on xyz block for assym unit cif
+        #echo "xyz assym"
+        EXISTS=$(awk '{a[NR]=$0}/^# Fractional coordinates/{b=NR+13}/^# ==================================/{c=NR-4}END{for(d=b;d<=c;++d)print a[d]}' $JOBNAME.archive.cif | awk 'substr($1,2,2)!~/^[0-9]/{print $0}')
+        if [[ ! -z $EXISTS ]]; then
+                awk '{a[NR]=$0}/^# Fractional coordinates/{b=NR+13}/^# ==================================/{c=NR-4}END{for(d=b;d<=c;++d)print a[d]}' $JOBNAME.archive.cif | awk 'substr($1,2,2)!~/^[0-9]/{print $0}' | gawk  '$1=$1"1"' > ATOMS_NEW
+                awk '{a[NR]=$0}/^# Fractional coordinates/{b=NR+13}/^# ==================================/{c=NR-4}END{for(d=b;d<=c;++d)print a[d]}' $JOBNAME.archive.cif | awk 'substr($1,2,2)!~/^[0-9]/{print $0}' > ATOMS
+                sed -i -ne '/'"$(sed -n '1p' ATOMS)"'/ {r ATOMS_NEW' -e ':a; n; /'"$(awk 'END{print}' ATOMS)"'/ {b}; ba}; p' $JOBNAME.archive.cif 
+        fi
+        #echo "xyz assym done"
+
+        #Replace label on xyz block for frag unit cif
+        #echo "xyz frag"
+        awk '{a[NR]=$0}/^# Fractional coordinates/{b=NR+13}/^# ==================================/{c=NR-4}END{for(d=b;d<=c;++d)print a[d]}' $JOBNAME.fractional.cif1 | awk 'substr($1,2,2)!~/^[0-9]/{print $0}' | gawk  '$1=$1"1"' > ATOMS_NEW
+        awk '{a[NR]=$0}/^# Fractional coordinates/{b=NR+13}/^# ==================================/{c=NR-4}END{for(d=b;d<=c;++d)print a[d]}' $JOBNAME.fractional.cif1 | awk 'substr($1,2,2)!~/^[0-9]/{print $0}' > ATOMS
+        sed -i -ne '/'"$(sed -n '1p' ATOMS)"'/ {r ATOMS_NEW' -e ':a; n; /'"$(awk 'END{print}' ATOMS)"'/ {b}; ba}; p' $JOBNAME.fractional.cif1 
+        #echo "xyz frag done"
+        
+        #Replace label on ADP block for assym unit cif
+        #echo "adp assym"
+        EXISTS=$(awk '{a[NR]=$0}/^# ADPs/{b=NR+11}{c=FNR}END{for(d=b;d<=c;++d)print a[d]}' $JOBNAME.archive.cif | awk '{if(NF>6 && $2~/^[0-9]/) print $0}' | awk 'substr($1,2,2)!~/^[0-9]/{print $0}')
+        if [[ ! -z $EXISTS ]]; then
+                awk '{a[NR]=$0}/^# ADPs/{b=NR+11}{c=FNR}END{for(d=b;d<=c;++d)print a[d]}' $JOBNAME.archive.cif | awk '{if(NF>6 && $2~/^[0-9]/) print $0}' | awk 'substr($1,2,2)!~/^[0-9]/{print $0}' | gawk  '$1=$1"1"' > ATOMS_NEW
+                awk '{a[NR]=$0}/^# ADPs/{b=NR+11}{c=FNR}END{for(d=b;d<=c;++d)print a[d]}' $JOBNAME.archive.cif | awk '{if(NF>6 && $2~/^[0-9]/) print $0}' | awk 'substr($1,2,2)!~/^[0-9]/{print $0}'  > ATOMS
+                sed -i -ne '/'"$(sed -n '1p' ATOMS)"'/ {r ATOMS_NEW' -e ':a; n; /'"$(awk 'END{print}' ATOMS)"'/ {b}; ba}; p' $JOBNAME.archive.cif 
+        fi        
+        #echo "adp assym done"
+        
+        #Replace label on ADP block for frag unit cif
+        #echo "adp frag"
+        awk '{a[NR]=$0}/^# ADPs/{b=NR+11}{c=FNR}END{for(d=b;d<=c;++d)print a[d]}' $JOBNAME.fractional.cif1 | awk '{if(NF>6 && $2~/^[0-9]/) print $0}' | awk 'substr($1,2,2)!~/^[0-9]/{print $0}' | gawk  '$1=$1"1"' > ATOMS_NEW
+        awk '{a[NR]=$0}/^# ADPs/{b=NR+11}{c=FNR}END{for(d=b;d<=c;++d)print a[d]}' $JOBNAME.fractional.cif1 | awk '{if(NF>6 && $2~/^[0-9]/) print $0}' | awk 'substr($1,2,2)!~/^[0-9]/{print $0}'  > ATOMS
+        sed -i -ne '/'"$(sed -n '1p' ATOMS)"'/ {r ATOMS_NEW' -e ':a; n; /'"$(awk 'END{print}' ATOMS)"'/ {b}; ba}; p' $JOBNAME.fractional.cif1 
+        #echo "adp frag done"
+        rm ATOMS ATOMS_NEW
 fi
-#echo "xyz assym done"
-
-#Replace label on xyz block for frag unit cif
-#echo "xyz frag"
-awk '{a[NR]=$0}/^# Fractional coordinates/{b=NR+13}/^# ==================================/{c=NR-4}END{for(d=b;d<=c;++d)print a[d]}' $JOBNAME.fractional.cif1 | awk 'substr($1,2,2)!~/^[0-9]/{print $0}' | gawk  '$1=$1"1"' > ATOMS_NEW
-awk '{a[NR]=$0}/^# Fractional coordinates/{b=NR+13}/^# ==================================/{c=NR-4}END{for(d=b;d<=c;++d)print a[d]}' $JOBNAME.fractional.cif1 | awk 'substr($1,2,2)!~/^[0-9]/{print $0}' > ATOMS
-sed -i -ne '/'"$(sed -n '1p' ATOMS)"'/ {r ATOMS_NEW' -e ':a; n; /'"$(awk 'END{print}' ATOMS)"'/ {b}; ba}; p' $JOBNAME.fractional.cif1 
-#echo "xyz frag done"
-
-#Replace label on ADP block for assym unit cif
-#echo "adp assym"
-EXISTS=$(awk '{a[NR]=$0}/^# ADPs/{b=NR+11}{c=FNR}END{for(d=b;d<=c;++d)print a[d]}' $JOBNAME.archive.cif | awk '{if(NF>6 && $2~/^[0-9]/) print $0}' | awk 'substr($1,2,2)!~/^[0-9]/{print $0}')
-if [[ ! -z $EXISTS ]]; then
-        awk '{a[NR]=$0}/^# ADPs/{b=NR+11}{c=FNR}END{for(d=b;d<=c;++d)print a[d]}' $JOBNAME.archive.cif | awk '{if(NF>6 && $2~/^[0-9]/) print $0}' | awk 'substr($1,2,2)!~/^[0-9]/{print $0}' | gawk  '$1=$1"1"' > ATOMS_NEW
-        awk '{a[NR]=$0}/^# ADPs/{b=NR+11}{c=FNR}END{for(d=b;d<=c;++d)print a[d]}' $JOBNAME.archive.cif | awk '{if(NF>6 && $2~/^[0-9]/) print $0}' | awk 'substr($1,2,2)!~/^[0-9]/{print $0}'  > ATOMS
-        sed -i -ne '/'"$(sed -n '1p' ATOMS)"'/ {r ATOMS_NEW' -e ':a; n; /'"$(awk 'END{print}' ATOMS)"'/ {b}; ba}; p' $JOBNAME.archive.cif 
-fi        
-#echo "adp assym done"
-
-#Replace label on ADP block for frag unit cif
-#echo "adp frag"
-awk '{a[NR]=$0}/^# ADPs/{b=NR+11}{c=FNR}END{for(d=b;d<=c;++d)print a[d]}' $JOBNAME.fractional.cif1 | awk '{if(NF>6 && $2~/^[0-9]/) print $0}' | awk 'substr($1,2,2)!~/^[0-9]/{print $0}' | gawk  '$1=$1"1"' > ATOMS_NEW
-awk '{a[NR]=$0}/^# ADPs/{b=NR+11}{c=FNR}END{for(d=b;d<=c;++d)print a[d]}' $JOBNAME.fractional.cif1 | awk '{if(NF>6 && $2~/^[0-9]/) print $0}' | awk 'substr($1,2,2)!~/^[0-9]/{print $0}'  > ATOMS
-sed -i -ne '/'"$(sed -n '1p' ATOMS)"'/ {r ATOMS_NEW' -e ':a; n; /'"$(awk 'END{print}' ATOMS)"'/ {b}; ba}; p' $JOBNAME.fractional.cif1 
-#echo "adp frag done"
 
 #Add symmetry loop that NoSpherA2 reads
 echo "" > SYMMETRY
@@ -658,8 +662,7 @@ awk '{a[NR]=$0}/^    _symmetry_equiv_pos_as_xyz/{b=NR+1}/^# Unit cell/{c=NR-3}EN
 #sed -i -ne '/'"$(sed -n '1p' SYMMETRY_OLD )"'/ {p; r SYMMETRY' -e 'p; :a; n; /'"$(awk 'END{print}' ATOMS)"'/ {b}; ba}; p' $JOBNAME.fractional.cif1
 echo "$(cat SYMMETRY)" >> $JOBNAME.fractional.cif1
 echo "$(cat SYMMETRY)" >> $JOBNAME.archive.cif
-
-rm ATOMS ATOMS_NEW SYMMETRY
+rm SYMMETRY
 
 NoSphera2.exe -cif $JOBNAME.archive.cif -asym_cif $JOBNAME.fractional.cif1 -wfn $JOBNAME.wfn -hkl $JOBNAME.hkl -acc $NSA2ACC -cpus $NUMPROC > /dev/null
 if ! grep -q 'Time Breakdown:' "NoSpherA2.log"; then
@@ -679,12 +682,164 @@ NSA2_COUNTER=$[$JANA_COUNTER+1]
 }
 
 LABELS_IN_XYZ(){
-#Replace label on xyz block for xyz 
-awk '{if(NR>2 && $2~/^[0-9]/) print $0}' $JOBNAME.xyz | awk 'substr($1,2,2)!~/^[0-9]/{print $0}' | gawk  '$1=$1"1"' > ATOMS_NEW
-awk '{if(NR>2 && $2~/^[0-9]/) print $0}' $JOBNAME.xyz | awk 'substr($1,2,2)!~/^[0-9]/{print $0}'  > ATOMS
-sed -i -ne '/'"$(sed -n '1p' ATOMS)"'/ {r ATOMS_NEW' -e ':a; n; /'"$(awk 'END{print}' ATOMS)"'/ {b}; ba}; p' $JOBNAME.xyz
+if [[ "$COMPLETESTRUCT" == "true"  ]]; then
+        #Replace label on xyz block for xyz 
+        awk '{if(NR>2 && $2~/^[0-9]/) print $0}' $JOBNAME.xyz | awk 'substr($1,2,2)!~/^[0-9]/{print $0}' | gawk  '$1=$1"1"' > ATOMS_NEW
+        awk '{if(NR>2 && $2~/^[0-9]/) print $0}' $JOBNAME.xyz | awk 'substr($1,2,2)!~/^[0-9]/{print $0}'  > ATOMS
+        sed -i -ne '/'"$(sed -n '1p' ATOMS)"'/ {r ATOMS_NEW' -e ':a; n; /'"$(awk 'END{print}' ATOMS)"'/ {b}; ba}; p' $JOBNAME.xyz
 
-rm ATOMS ATOMS_NEW 
+        rm ATOMS ATOMS_NEW 
+fi
+}
+
+GAUSSIAN_NO_CHARGES(){
+echo "%rwf=./$JOBNAME.rwf" > $JOBNAME.com 
+echo "%rwf=./$JOBNAME.rwf" >> $JOBNAME.com 
+echo "%int=./$JOBNAME.int" >> $JOBNAME.com 
+echo "%NoSave" >> $JOBNAME.com 
+echo "%chk=./$JOBNAME.chk" >> $JOBNAME.com 
+echo "%mem=$MEM" >> $JOBNAME.com 
+echo "%nprocshared=$NUMPROC" >> $JOBNAME.com
+if [ "$SCFCALCPROG" = "optgaussian" ]; then
+		OPT=" opt=calcfc"
+	OPT=" opt"
+fi
+if [ "$METHOD" = "rks" ]; then
+	echo "# blyp/$BASISSETG nosymm $EXTRAKEY output=wfn 6D 10F Fchk $INT $GAUSSEMPDISPKEY" >> $JOBNAME.com    
+else
+	if [ "$METHOD" = "uks" ]; then
+		echo "# ublyp/$BASISSETG nosymm $EXTRAKEY output=wfn 6D 10F Fchk $INT $GAUSSEMPDISPKEY" >> $JOBNAME.com
+	else
+		echo "# $METHOD/$BASISSETG nosymm $EXTRAKEY output=wfn 6D 10F Fchk $INT $GAUSSEMPDISPKEY" >> $JOBNAME.com
+        fi
+fi			
+echo ""  >> $JOBNAME.com
+echo "$JOBNAME" >> $JOBNAME.com
+echo "" >>  $JOBNAME.com
+echo "$CHARGE $MULTIPLICITY" >>  $JOBNAME.com
+awk 'NR>2' $JOBNAME.xyz >>  $JOBNAME.com
+echo "" >> $JOBNAME.com 
+if [ "$GAUSGEN" = "true" ]; then
+	cat basis_gen.txt >> $JOBNAME.com 
+	echo "" >> $JOBNAME.com 
+fi
+echo "./$JOBNAME.wfn" >> $JOBNAME.com 
+echo "" >> $JOBNAME.com 
+#I=$"1"
+echo "Updating wave at gas phase" 
+$SCFCALC_BIN $JOBNAME.com
+cp Test.FChk $JOBNAME.fchk
+echo "Updating wave at gas phase done" 
+#echo "Gaussian cycle number $I ended"
+if ! grep -q 'Normal termination of Gaussian' "$JOBNAME.log"; then
+	echo "ERROR: Gaussian job finished with error, please check the $I.th log file for more details" | tee -a $JOBNAME.lst
+	unset MAIN_DIALOG
+	exit 0
+fi
+}
+
+ORCA_NO_CHARGES(){
+if [ "$METHOD" = "rks" ]; then
+	echo "! blyp $BASISSETG" > $JOBNAME.inp
+elif [ "$METHOD" = "uks" ]; then
+	echo "! ublyp $BASISSETG" > $JOBNAME.inp
+else
+	echo "! $METHOD $BASISSETG" > $JOBNAME.inp
+fi
+echo "" >> $JOBNAME.inp 
+echo "%output" >> $JOBNAME.inp 
+echo "   PrintLevel=Normal" >> $JOBNAME.inp 
+echo "   Print[ P_Basis       ] 2" >> $JOBNAME.inp 
+echo "   Print[ P_GuessOrb    ] 1" >> $JOBNAME.inp 
+echo "   Print[ P_MOs         ] 1" >> $JOBNAME.inp 
+echo "   Print[ P_Density     ] 1" >> $JOBNAME.inp 
+echo "   Print[ P_SpinDensity ] 1" >> $JOBNAME.inp 
+echo "end" >> $JOBNAME.inp 
+echo "" >> $JOBNAME.inp 
+echo "* xyz $CHARGE $MULTIPLICITY" >> $JOBNAME.inp 
+awk 'NR>2' $JOBNAME.xyz >> $JOBNAME.inp 
+echo "*" >> $JOBNAME.inp 
+#I=$"1"
+#echo "Running Orca, cycle number $I" 
+if [ -f $JOBNAME.gbw ]; then
+        rm $JOBNAME.gbw
+fi      
+echo "Updating wave at gas phase" 
+$SCFCALC_BIN $JOBNAME.inp > $JOBNAME.out
+echo "Updating wave at gas phase done" 
+orca_2mkl.exe $JOBNAME -molden  > /dev/null
+orca_2aim.exe $JOBNAME  > /dev/null
+#echo "Orca cycle number $I ended"
+if ! grep -q '****ORCA TERMINATED NORMALLY****' "$JOBNAME.out"; then
+	echo "ERROR: Orca job finished with error, please check the $I.th out file for more details" | tee -a $JOBNAME.lst
+	unset MAIN_DIALOG
+	exit 0
+fi
+}
+
+WRITEXYZ(){
+echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!" > stdin
+echo "!!!                                                                                         !!!" >> stdin
+echo "!!!                        This stdin was written with lamaGOET                             !!!" >> stdin
+echo "!!!                                                                                         !!!" >> stdin
+echo "!!!                    script written by Lorraine Andrade Malaspina                         !!!" >> stdin
+echo "!!!                        contact: lorraine.malaspina@gmail.com                            !!!" >> stdin
+echo "!!!                                                                                         !!!" >> stdin
+echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!" >> stdin
+echo "{ " >> stdin
+echo "" >> stdin
+echo "   keyword_echo_on" >> stdin
+echo "" >> stdin
+echo "   ! Process the CIF" >> stdin
+echo "   CIF= {" >> stdin
+echo "       file_name= $CIF" >> stdin
+if [ "$XHALONG" = "true" ]; then
+          	if [ ! -z "$BHBOND" ]; then
+	   	echo "       BH_bond_length= $BHBOND angstrom" >> stdin
+   	fi
+          	if [ ! -z "$CHBOND" ]; then
+	   	echo "       CH_bond_length= $CHBOND angstrom" >> stdin
+   	fi
+          	if [ ! -z "$NHBOND" ]; then
+	   	echo "       NH_bond_length= $NHBOND angstrom" >> stdin
+   	fi
+          	if [ ! -z "$OHBOND" ]; then
+	   	echo "       OH_bond_length= $OHBOND angstrom" >> stdin
+   	fi
+fi
+echo "    }" >> stdin
+echo "" >> stdin
+echo "   process_CIF" >> stdin
+echo "" >> stdin
+echo "   name= $JOBNAME" >> stdin
+echo "" >> stdin
+COMPLETECIFBLOCK
+echo "   put" >> stdin 
+echo "" >> stdin
+echo "   write_xyz_file" >> stdin
+echo "   put_cif" >> stdin
+if [[ "$COMPLETESTRUCT" == "true" || "$SCFCALCPROG" == "optgaussian" ]]; then
+	echo "" >> stdin
+	echo "   put_grown_cif" >> stdin
+fi
+echo "" >> stdin
+echo "}" >> stdin 
+echo "Updating geometry"
+$TONTO
+echo "Updating geometry done"
+if [[ "$SCFCALCPROG" != "Tonto" && "$SCFCALCPROG" != "elmodb" ]]; then
+        sed -i 's/(//g' $JOBNAME.xyz
+	sed -i 's/)//g' $JOBNAME.xyz
+fi
+if [ -f $JOBNAME.cartesian.cif2 ]; then
+	sed -i '/# NOTE: Cartesian 9Nx9N covariance matrix in BOHR units/,/# ===========/d' $JOBNAME.cartesian.cif2
+        cp $JOBNAME'.cartesian.cif2' $J.tonto_cycle.$JOBNAME/$J.$JOBNAME.cartesian.cif2
+fi
+if [ "$SCFCALCPROG" = "Gaussian" ]; then  
+        GAUSSIAN_NO_CHARGES
+else 
+	ORCA_NO_CHARGES
+fi
 }
 
 #CHECK_ATOM_LABELS(){
@@ -731,6 +886,9 @@ echo "Jana cycle number $JANA_COUNTER ended"
  cp Jana2006-Batch.log $JANA_COUNTER.Jana_cycle/"$JOBNAME"_Jana_batch.log
 
  JANA_COUNTER=$[$JANA_COUNTER+1]
+#if [[ "$SCCHARGES" == "true" && "$SCFCALCPROG" != "Tonto" ]]; then 
+#       WRITEXYZ
+#fi
 }
 
 GAMESS_ELMODB_OLD_PDB(){
@@ -970,6 +1128,9 @@ TONTO_TO_ORCA(){
 	fi
 	echo "*"  >> $JOBNAME.inp
 	echo "Running Orca, cycle number $I" 
+        if [ -f $JOBNAME.gbw ]; then
+                rm $JOBNAME.gbw
+        fi
 	$SCFCALC_BIN $JOBNAME.inp > $JOBNAME.out
 	echo "Orca cycle number $I ended"
 	if ! grep -q '****ORCA TERMINATED NORMALLY****' "$JOBNAME.out"; then
@@ -982,6 +1143,12 @@ TONTO_TO_ORCA(){
 	echo "Generation of wfn file for Orca cycle number $I"
 	orca_2aim.exe $JOBNAME  > /dev/null 
 	echo "Orca cycle number $I, final energy is: $ENERGIA, RMSD is: $RMSD "
+        NUMATOMWFN=$(grep -m1 " Q " $JOBNAME.wfn | awk '{ print $2 }' )
+        NUMATOMWFN=$[$NUMATOMWFN -1]
+        awk -v  NUMATOMWFN=$NUMATOMWFN 'NR==2 {gsub($7, NUMATOMWFN, $0); print}1' $JOBNAME.wfn > temp.wfn
+        sed -i '2d' temp.wfn
+        sed -i '/ Q /d' temp.wfn
+        mv temp.wfn $JOBNAME.wfn
 	if [[ "$USENOSPHERA2" == "true" ]]; then
 		#awk '$1 ~ /^[0-9]/ {printf "%4i%4i%4i%8.2f%8.2f\n", $1, $2, $3, $4, $5}' $HKL > shelx.hkl
 		echo "   0   0   0    0.00    0.00"  >> $JOBNAME.hkl
@@ -1034,17 +1201,23 @@ READ_ELMO_FCHK(){
 READ_GAUSSIAN_FCHK(){
         echo "   name= $JOBNAME" >> stdin 
         echo "" >> stdin
-	echo "   read_g09_fchk_file $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.fchk" >> stdin
+        if [[ "$POWDER_HAR" == "false" || ( "$POWDER_HAR" == "true" && "$SCFCALCPROG" == "Tonto") ]]; then
+	        echo "   read_g09_fchk_file $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.fchk" >> stdin
+        else
+	        echo "   read_g09_fchk_file $JOBNAME.fchk" >> stdin
+        fi
         echo "" >> stdin
 }
 
 READ_ORCA_FCHK(){
-#        if [[ "$POWDER_HAR" == "false" || ( "$POWDER_HAR" == "true" && "$SCFCALCPROG" == "Tonto") ]]; then
-                echo "   name= $JOBNAME" >> stdin 
-                echo "" >> stdin
-        	echo "   read_molden_file $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.molden.input" >> stdin
-                echo "" >> stdin
-#       fi
+        echo "   name= $JOBNAME" >> stdin 
+        echo "" >> stdin
+        if [[ "$POWDER_HAR" == "false" || ( "$POWDER_HAR" == "true" && "$SCFCALCPROG" == "Tonto") ]]; then
+               	echo "   read_molden_file $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.molden.input" >> stdin
+        else       
+        	echo "   read_molden_file $JOBNAME.molden.input" >> stdin
+        fi
+        echo "" >> stdin
 }
 
 DEFINE_JOB_NAME(){
@@ -1435,6 +1608,10 @@ SCF_TO_TONTO(){
 	if [ "$SCFCALCPROG" = "elmodb" ]; then
 		READ_ELMO_FCHK
 	fi
+	if [[ "$SCFCALCPROG" != "elmodb" && "$SCFCALCPROG" != "optgaussian" && $"$POWDER_HAR" == "true" ]]; then
+		PROCESS_CIF
+		DEFINE_JOB_NAME
+	fi
 	if [[ "$SCFCALCPROG" == "Gaussian" ||  "$SCFCALCPROG" == "optgaussian" ]]; then
 		READ_GAUSSIAN_FCHK
 	elif [ "$SCFCALCPROG" = "Orca" ]; then
@@ -1443,7 +1620,7 @@ SCF_TO_TONTO(){
 		DEFINE_JOB_NAME
 	fi
 	echo "" >> stdin
-	if [[ "$SCFCALCPROG" != "elmodb" && "$SCFCALCPROG" != "optgaussian" ]]; then
+	if [[ "$SCFCALCPROG" != "elmodb" && "$SCFCALCPROG" != "optgaussian" && $"$POWDER_HAR" != "true" ]]; then
 		PROCESS_CIF
 		DEFINE_JOB_NAME
 	fi
@@ -1631,6 +1808,7 @@ TONTO_TO_GAUSSIAN(){
 	echo "" >> $JOBNAME.com
 	echo "Running Gaussian, cycle number $I"
 	$SCFCALC_BIN $JOBNAME.com
+        cp Test.FChk $JOBNAME.fchk 
 	echo "Gaussian cycle number $I ended"
 	if ! grep -q 'Normal termination of Gaussian' "$JOBNAME.log"; then
 		echo "ERROR: Gaussian job finished with error, please check the $I.th log file for more details" | tee -a $JOBNAME.lst
@@ -1727,6 +1905,7 @@ GET_FREQ(){
 	echo "" >> $JOBNAME.com
 	echo "Running Gaussian, cycle number $I"
 	$SCFCALC_BIN $JOBNAME.com
+        cp Test.FChk $JOBNAME.fchk 
 	echo "Gaussian cycle number $I ended"
 	if ! grep -q 'Normal termination of Gaussian' "$JOBNAME.log"; then
 		echo "ERROR: Gaussian job finished with error, please check the $I.th log file for more details" | tee -a $JOBNAME.lst
@@ -2358,6 +2537,7 @@ run_script(){
 			I=$"1"
 			echo "Running Gaussian, cycle number $I" 
 			$SCFCALC_BIN $JOBNAME.com
+	                cp Test.FChk $JOBNAME.fchk
 			echo "Gaussian cycle number $I ended"
 			if ! grep -q 'Normal termination of Gaussian' "$JOBNAME.log"; then
 				echo "ERROR: Gaussian job finished with error, please check the $I.th log file for more details" | tee -a $JOBNAME.lst
@@ -2437,6 +2617,9 @@ run_script(){
 			echo "*" | tee -a $JOBNAME.inp $JOBNAME.lst
 			I=$"1"
 			echo "Running Orca, cycle number $I" 
+                        if [ -f $JOBNAME.gbw ]; then
+                                rm $JOBNAME.gbw
+                        fi      
 	 		$SCFCALC_BIN $JOBNAME.inp > $JOBNAME.out
 			echo "Orca cycle number $I ended"
 			if ! grep -q '****ORCA TERMINATED NORMALLY****' "$JOBNAME.out"; then
@@ -2453,6 +2636,12 @@ run_script(){
 			orca_2mkl.exe $JOBNAME -molden  > /dev/null
 			orca_2aim.exe $JOBNAME  > /dev/null
 			echo "Orca cycle number $I, final energy is: $ENERGIA, RMSD is: $RMSD "
+                        NUMATOMWFN=$(grep -m1 " Q " $JOBNAME.wfn | awk '{ print $2 }' )
+                        NUMATOMWFN=$[$NUMATOMWFN -1]
+                        awk -v  NUMATOMWFN=$NUMATOMWFN 'NR==2 {gsub($7, NUMATOMWFN, $0); print}1' $JOBNAME.wfn > temp.wfn
+                        sed -i '2d' temp.wfn
+                        sed -i '/ Q /d' temp.wfn
+                        mv temp.wfn $JOBNAME.wfn
 			if [[ "$USENOSPHERA2" == "true" && "$SCCHARGES" != "true" ]]; then
 		                echo "   0   0   0    0.00    0.00"  >> $JOBNAME.hkl
 				echo "Generation of .tsc file with NoSpherA2 for cycle number $I in progress"
@@ -2490,8 +2679,17 @@ run_script(){
 			if [[ "$DOUBLE_SCF" == "true" ]]; then #I think this whole block is not necessary! need to test
 				if [ "$POWDER_HAR" = "true" ]; then
                                         RUN_JANA
+                                        WRITEXYZ
+				        SCF_TO_TONTO
+				        if [ "$SCFCALCPROG" = "Gaussian" ]; then  
+					        TONTO_TO_GAUSSIAN
+        				else 
+	        				TONTO_TO_ORCA
+		        		fi
+                                        RUN_JANA
+                                        WRITEXYZ
                                 fi
-				SCF_TO_TONTO
+               			SCF_TO_TONTO
 				if [ "$SCFCALCPROG" = "Gaussian" ]; then  
 					TONTO_TO_GAUSSIAN
 				else 
@@ -2503,7 +2701,19 @@ run_script(){
 				while (( $(echo "$(echo ${DE#-}) > $CONVTOL" | bc -l) || $( echo "$J <= 1" | bc -l ) && $( echo "$JANA_COUNTER < $MAXPHARCYCLE" | bc -l ))); do
 #	                while (( $( echo "$JANA_COUNTER < $MAXPHARCYCLE" | bc -l )  )); do
                                         RUN_JANA
-				        SCF_TO_TONTO
+                                        if [[ "$SCCHARGES" == "true" ]]; then 
+                                                WRITEXYZ
+				                SCF_TO_TONTO
+        				        if [ "$SCFCALCPROG" = "Gaussian" ]; then  
+	        				        TONTO_TO_GAUSSIAN
+        	        			else 
+	                				TONTO_TO_ORCA
+	                			fi
+				                CHECK_ENERGY
+                                                RUN_JANA
+                                                WRITEXYZ
+                                        fi
+        				SCF_TO_TONTO
         				if [ "$SCFCALCPROG" = "Gaussian" ]; then  
 	        				TONTO_TO_GAUSSIAN
 	        			else 
@@ -2958,6 +3168,9 @@ export MAIN_DIALOG='
 	    <checkbox active="false" space-fill="True" space-expand="True" sensitive="true">
 	     <label>Calculate .tsc file with NoSpherA2</label>
 	      <variable>USENOSPHERA2</variable>
+	        <action>if true enable:NSA2ACC</action>
+	        <action>if false disable:NSA2ACC</action>
+              
 	    </checkbox>
 
 	    <checkbox active="false" space-fill="True"  space-expand="True" sensitive="false">
