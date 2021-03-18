@@ -672,13 +672,13 @@ if ! grep -q 'Time Breakdown:' "NoSpherA2.log"; then
 else
         mv experimental.tsc $JOBNAME.tsc
        	echo "NoSpherA2 job finish correctly."
-       	cp $JOBNAME.wfn  $NSA2_COUNTER.NoSphera2_cycle/$I.$JOBNAME.wfn
-       	cp $JOBNAME.tsc  $NSA2_COUNTER.NoSphera2_cycle/$I.$JOBNAME.tsc
-       	cp NoSpherA2.log $NSA2_COUNTER.NoSphera2_cycle//$I.NoSpherA2.log
+       	cp $JOBNAME.wfn  $NSA2_COUNTER.NoSphera2_cycle/$NSA2_COUNTER.$JOBNAME.wfn
+       	cp $JOBNAME.tsc  $NSA2_COUNTER.NoSphera2_cycle/$NSA2_COUNTER.$JOBNAME.tsc
+       	cp NoSpherA2.log $NSA2_COUNTER.NoSphera2_cycle//$NSA2_COUNTER.NoSpherA2.log
         #sleep 2s
 fi
 
-NSA2_COUNTER=$[$JANA_COUNTER+1]
+NSA2_COUNTER=$[$NSA2_COUNTER+1]
 }
 
 LABELS_IN_XYZ(){
@@ -998,7 +998,9 @@ GAMESS_ELMODB_OLD_PDB(){
 		if [[ "$USENOSPHERA2" == "true" ]]; then
 #			awk '$1 ~ /^[0-9]/ {printf "%4i%4i%4i%8.2f%8.2f\n", $1, $2, $3, $4, $5}' $HKL > shelx.hkl
 			echo "   0   0   0    0.00    0.00"  >> $JOBNAME.hkl
-			RUN_NOSPHERA2
+	                echo "Generation of .tsc file with NoSpherA2 for cycle number $NSA2_COUNTER in progress"
+       		        RUN_NOSPHERA2
+        	        echo "Generation of .tsc file with NoSpherA2 for cycle number $NSA2_COUNTER ended"
 ########		if ! grep -q 'Time Breakdown:' "NoSpherA2.log"; then
 ########			echo "ERROR: NoSpherA2 finished with error, please check the $I.th NoSpherA2.log file for more details" | tee -a $JOBNAME.lst
 ########			unset MAIN_DIALOG
@@ -1074,7 +1076,9 @@ ELMODB(){
 	if [[ "$USENOSPHERA2" == "true" ]]; then
 #		awk '$1 ~ /^[0-9]/ {printf "%4i%4i%4i%8.2f%8.2f\n", $1, $2, $3, $4, $5}' $HKL > shelx.hkl
 		echo "   0   0   0    0.00    0.00"  >> $JOBNAME.hkl
-		RUN_NOSPHERA2
+                echo "Generation of .tsc file with NoSpherA2 for cycle number $NSA2_COUNTER in progress"
+	        RUN_NOSPHERA2
+                echo "Generation of .tsc file with NoSpherA2 for cycle number $NSA2_COUNTER ended"
 ########	if ! grep -q 'Time Breakdown:' "NoSpherA2.log"; then
 ########		echo "ERROR: NoSpherA2 finished with error, please check the $I.th NoSpherA2.log file for more details" | tee -a $JOBNAME.lst
 ########		unset MAIN_DIALOG
@@ -1795,7 +1799,11 @@ TONTO_TO_GAUSSIAN(){
 #                	awk '{a[NR]=$0}{b=11}/^------------------------------------------------------------------------/{c=NR}END{for(d=b;d<=c-1;++d)print a[d]}' gaussian-point-charges | awk '{printf "%s\t %s\t %s\t %s\t \n", $1, $2, $3, $4 }' >> $JOBNAME.com
 #                        echo "" >> $JOBNAME.com
 #                else
+                if [ "$SCDIPOLES" = "true" ]; then       
                 	awk '{a[NR]=$0}{b=13}/^------------------------------------------------------------------------/{c=NR}END{for(d=b;d<=c-1;++d)print a[d]}' cluster_charges | awk '{printf "%s\t %s\t %s\t %s\t \n", $1, $2, $3, $4 }' >> $JOBNAME.com
+                else
+                	awk '{a[NR]=$0}{b=13}/^------------------------------------------------------------------------/{c=NR}END{for(d=b;d<=c-1;d+=3)print a[d]}' cluster_charges | awk '{printf "%s\t %s\t %s\t %s\t \n", $1, $2, $3i, $4 }' >> $JOBNAME.com
+                fi
                         echo "" >> $JOBNAME.com
 #                fi
 #                rm gaussian-point-charges
@@ -1815,8 +1823,8 @@ TONTO_TO_GAUSSIAN(){
 		unset MAIN_DIALOG
 		exit 0
 	fi
-	echo "Generation fcheck file for Gaussian cycle number $I"
-	if [[ "$USENOSPHERA2" == "true" ]]; then
+	if [[ "$USENOSPHERA2" == "true" && "$I" != "1" ]]; then
+	        echo "Generation fcheck file for Gaussian cycle number $I"
 #		awk '$1 ~ /^[0-9]/ {printf "%4i%4i%4i%8.2f%8.2f\n", $1, $2, $3, $4, $5}' $HKL > shelx.hkl
 		echo "   0   0   0    0.00    0.00"  >> $JOBNAME.hkl
 		echo "Generation of .tsc file with NoSpherA2 for cycle number $I in progress"
@@ -2260,9 +2268,21 @@ run_script(){
 	SECONDS=0
 	if [ "$POWDER_HAR" = "true" ]; then
                 NSA2_COUNTER=$"1"
-                JANA_COUNTER=$"1" ###counter for powder HAR
+                JANA_COUNTER=$"0" ###counter for powder HAR
+                mkdir $JANA_COUNTER.Jana_cycle
+                cp $JOBNAME.m40 $JANA_COUNTER.Jana_cycle/$JOBNAME.m40
+                cp $JOBNAME.m41 $JANA_COUNTER.Jana_cycle/$JOBNAME.m41
+                cp $JOBNAME.m70 $JANA_COUNTER.Jana_cycle/$JOBNAME.m70
+                cp $JOBNAME.m50 $JANA_COUNTER.Jana_cycle/$JOBNAME.m50
+                cp $JOBNAME.m90 $JANA_COUNTER.Jana_cycle/$JOBNAME.m90
+                cp $JOBNAME.m80 $JANA_COUNTER.Jana_cycle/$JOBNAME.m80
+                cp $JOBNAME.m83 $JANA_COUNTER.Jana_cycle/$JOBNAME.m83
+                cp $JOBNAME.m85 $JANA_COUNTER.Jana_cycle/$JOBNAME.m85
+                cp $JOBNAME.m95 $JANA_COUNTER.Jana_cycle/$JOBNAME.m95
+                cp $JOBNAME.cif $JANA_COUNTER.Jana_cycle/$JOBNAME.cif
                 python3 /usr/local/bin/powderHARstart.py
                 python3 /usr/local/bin/powderHARcifrewrite.py
+                JANA_COUNTER=$[$JANA_COUNTER+1]
         fi
 	I=$"0"   ###counter for gaussian jobs
 	J=$"0"   ###counter for tonto fits
@@ -2558,10 +2578,10 @@ run_script(){
 			if [[ "$USENOSPHERA2" == "true" ]]; then
 #				awk '$1 ~ /^[0-9]/ {printf "%4i%4i%4i%8.2f%8.2f\n", $1, $2, $3, $4, $5}' $HKL > shelx.hkl
 		                echo "   0   0   0    0.00    0.00"  >> $JOBNAME.hkl
-				echo "Generation of .tsc file with NoSpherA2 for cycle number $I in progress"
                                 if [[ "$SCCHARGES" != "true" ]]; then 
+				        echo "Generation of .tsc file with NoSpherA2 for cycle number $NSA2_COUNTER in progress"
 				        RUN_NOSPHERA2
-				        echo "Generation of .tsc file with NoSpherA2 for cycle number $I ended"
+				        echo "Generation of .tsc file with NoSpherA2 for cycle number $NSA2_COUNTER ended"
 ########		        	if ! grep -q 'Time Breakdown:' "NoSpherA2.log"; then
 ########		        		echo "ERROR: NoSpherA2 finished with error, please check the $I.th NoSpherA2.log file for more details" | tee -a $JOBNAME.lst
 ########		        		unset MAIN_DIALOG
@@ -2644,10 +2664,10 @@ run_script(){
                         mv temp.wfn $JOBNAME.wfn
 			if [[ "$USENOSPHERA2" == "true" && "$SCCHARGES" != "true" ]]; then
 		                echo "   0   0   0    0.00    0.00"  >> $JOBNAME.hkl
-				echo "Generation of .tsc file with NoSpherA2 for cycle number $I in progress"
                                 if [[ "$SCCHARGES" != "true" ]]; then 
+				        echo "Generation of .tsc file with NoSpherA2 for cycle number $NSA2_COUNTER in progress"
 				        RUN_NOSPHERA2
-	        			echo "Generation of .tsc file with NoSpherA2 for cycle number $I ended"
+				        echo "Generation of .tsc file with NoSpherA2 for cycle number $NSA2_COUNTER ended"
 ########        			if ! grep -q 'Time Breakdown:' "NoSpherA2.log"; then
 ########        				echo "ERROR: NoSpherA2 finished with error, please check the $I.th NoSpherA2.log file for more details" | tee -a $JOBNAME.lst
 ########        				unset MAIN_DIALOG
@@ -2698,28 +2718,19 @@ run_script(){
 				CHECK_ENERGY
 			fi		
 		        if [ "$POWDER_HAR" = "true" ]; then
-				while (( $(echo "$(echo ${DE#-}) > $CONVTOL" | bc -l) || $( echo "$J <= 1" | bc -l ) && $( echo "$JANA_COUNTER < $MAXPHARCYCLE" | bc -l ))); do
+				while (( $(echo "$(echo ${DE#-}) > $CONVTOL" | bc -l) && $( echo  "$JANA_COUNTER <= $MAXPHARCYCLE" | bc -l ) )); do
 #	                while (( $( echo "$JANA_COUNTER < $MAXPHARCYCLE" | bc -l )  )); do
                                         RUN_JANA
                                         if [[ "$SCCHARGES" == "true" ]]; then 
                                                 WRITEXYZ
-				                SCF_TO_TONTO
-        				        if [ "$SCFCALCPROG" = "Gaussian" ]; then  
-	        				        TONTO_TO_GAUSSIAN
-        	        			else 
-	                				TONTO_TO_ORCA
-	                			fi
-				                CHECK_ENERGY
-                                                RUN_JANA
-                                                WRITEXYZ
                                         fi
-        				SCF_TO_TONTO
+				        SCF_TO_TONTO
         				if [ "$SCFCALCPROG" = "Gaussian" ]; then  
-	        				TONTO_TO_GAUSSIAN
-	        			else 
-	        				TONTO_TO_ORCA
-	        			fi
-	        			CHECK_ENERGY
+	        			        TONTO_TO_GAUSSIAN
+        	        		else 
+	                			TONTO_TO_ORCA
+	                		fi
+				        CHECK_ENERGY
                                 done
                         else
 			        while (( $(echo "$MAXSHIFT > $CONVTOL" | bc -l) || $( echo "$J <= 1" | bc -l )  )); do
@@ -2790,14 +2801,18 @@ run_script(){
 
                 if [[  "$SCFCALCPROG" == "Tonto" && "$POWDER_HAR" == "true" ]]; then
 		        SCF_TO_TONTO
-                        RUN_NOSPHERA2
+		        echo "Generation of .tsc file with NoSpherA2 for cycle number $NSA2_COUNTER in progress"
+		        RUN_NOSPHERA2
+		        echo "Generation of .tsc file with NoSpherA2 for cycle number $NSA2_COUNTER ended"
                         RUN_JANA
                 fi
 		while (( $( echo "$JANA_COUNTER < $MAXPHARCYCLE" | bc -l )  )); do
-                        echo "I am here again"
+        #               echo "I am here again"
 		        SCF_TO_TONTO
 		        if [ "$POWDER_HAR" = "true" ]; then
-                                RUN_NOSPHERA2
+		                echo "Generation of .tsc file with NoSpherA2 for cycle number $NSA2_COUNTER in progress"
+        		        RUN_NOSPHERA2
+	        	        echo "Generation of .tsc file with NoSpherA2 for cycle number $NSA2_COUNTER ended"
                                 RUN_JANA
                         fi
                 done
@@ -2959,6 +2974,8 @@ export MAIN_DIALOG='
 	        <action>if false disable:GAUSSEMPDISP</action>
 	        <action>if true enable:EXTRAKEY</action>
 	        <action>if false disable:EXTRAKEY</action>
+	        <action>if true enable:SCDIPOLES</action>
+	        <action>if false disable:SCDIPOLES</action>
 	      </radiobutton>
 	      <radiobutton space-fill="True"  space-expand="True">
 	        <label>Orca</label>
@@ -3001,6 +3018,8 @@ export MAIN_DIALOG='
 	        <action>if false enable:GAUSSEMPDISP</action>
 	        <action>if true enable:EXTRAKEY</action>
 	        <action>if false disable:EXTRAKEY</action>
+	        <action>if true disable:SCDIPOLES</action>
+	        <action>if false enable:SCDIPOLES</action>
 	      </radiobutton>
 	      <radiobutton space-fill="True"  space-expand="True">
 	        <label>Tonto</label>
@@ -3041,6 +3060,8 @@ export MAIN_DIALOG='
 	        <action>if false enable:GAUSSEMPDISP</action>
 	        <action>if true disable:EXTRAKEY</action>
 	        <action>if false enable:EXTRAKEY</action>
+	        <action>if true disable:SCDIPOLES</action>
+	        <action>if false enable:SCDIPOLES</action>
 	      </radiobutton>
 	      <radiobutton space-fill="True"  space-expand="True">
 	        <label>elmodb</label>
@@ -3082,6 +3103,8 @@ export MAIN_DIALOG='
 	        <action>if false enable:GAUSSEMPDISP</action>
 	        <action>if true disable:EXTRAKEY</action>
 	        <action>if false enable:EXTRAKEY</action>
+	        <action>if true disable:SCDIPOLES</action>
+	        <action>if false enable:SCDIPOLES</action>
 	      </radiobutton>
 	      <radiobutton space-fill="True"  space-expand="True">
 	        <label>SC CC opt with Gaussian and Tonto</label>
@@ -3152,6 +3175,8 @@ export MAIN_DIALOG='
 	        <action>if false disable:GAUSSEMPDISP</action>
 	        <action>if true enable:EXTRAKEY</action>
 	        <action>if false disable:EXTRAKEY</action>
+	        <action>if true enable:SCDIPOLES</action>
+	        <action>if false disable:SCDIPOLES</action>
 	      </radiobutton>
 
 	   </hbox>
@@ -3164,6 +3189,8 @@ export MAIN_DIALOG='
 	        <action>if false disable:JANAEXE</action>
 	        <action>if true enable:MAXPHARCYCLE</action>
 	        <action>if false disable:MAXPHARCYCLE</action>
+	        <action>if true enable:NSA2ACC</action>
+	        <action>if false disable:NSA2ACC</action>
 	    </checkbox>
 	    <checkbox active="false" space-fill="True" space-expand="True" sensitive="true">
 	     <label>Calculate .tsc file with NoSpherA2</label>
@@ -3531,6 +3558,12 @@ export MAIN_DIALOG='
 	     <default>false</default>
 	      <variable>DEFRAG</variable>
 	    </checkbox>
+
+	    <checkbox sensitive="true">
+	     <label>Use dipoles </label>
+	     <default>false</default>
+	      <variable>SCDIPOLES</variable>
+	    </checkbox>
 	   </hbox>
 	
 	   <hseparator></hseparator>
@@ -3797,7 +3830,7 @@ export MAIN_DIALOG='
 	    <text text-xalign="0" use-markup="true" wrap="false" space-expand="FALSE" space-fill="false"><label>Accuracy for NoSpherA2 tsc calculation:</label></text>
 	   <hbox space-expand="true" space-fill="true">
 	    <entry space-expand="true" sensitive="false">
-             <input>if [ ! -z $NSA2ACC ]; then echo "$NSA2ACC"; else (echo "5"); fi</input>
+             <input>if [ ! -z $NSA2ACC ]; then echo "$NSA2ACC"; else (echo "2"); fi</input>
 	     <variable>NSA2ACC</variable>
 	    </entry>
 	
