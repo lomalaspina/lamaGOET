@@ -159,7 +159,9 @@ echo "Updating wave at gas phase"
 $SCFCALC_BIN $JOBNAME.inp > $JOBNAME.out
 echo "Updating wave at gas phase done" 
 orca_2mkl.exe $JOBNAME -molden  > /dev/null
+orca_2mkl $JOBNAME -molden  > /dev/null
 orca_2aim.exe $JOBNAME  > /dev/null
+orca_2aim $JOBNAME  > /dev/null
 #echo "Orca cycle number $I ended"
 if ! grep -q '****ORCA TERMINATED NORMALLY****' "$JOBNAME.out"; then
 	echo "ERROR: Orca job finished with error, please check the $I.th out file for more details" | tee -a $JOBNAME.lst
@@ -539,8 +541,10 @@ TONTO_TO_ORCA(){
 	fi
 	echo "Generation of molden file for Orca cycle number $I"
 	orca_2mkl.exe $JOBNAME -molden  > /dev/null
+	orca_2mkl $JOBNAME -molden  > /dev/null
 	echo "Generation of wfn file for Orca cycle number $I"
 	orca_2aim.exe $JOBNAME  > /dev/null 
+	orca_2aim $JOBNAME  > /dev/null 
 	echo "Orca cycle number $I, final energy is: $ENERGIA, RMSD is: $RMSD "
         NUMATOMWFN=$(grep -m1 " Q " $JOBNAME.wfn | awk '{ print $2 }' )
         NUMATOMWFN=$[$NUMATOMWFN -1]
@@ -799,18 +803,18 @@ CRYSTAL_BLOCK(){
         		echo "         REDIRECT $HKL" >> stdin
         		echo "         f_sigma_cutoff= $FCUT" >> stdin
         		if [[ "$PLOT_TONTO" == "false" ]]; then
-        			if [ "$MINCORCOEF" != "" ]; then
+        			if [[ "$MINCORCOEF" != "" ]]; then
         				echo "         min_correlation= $MINCORCOEF"  >> stdin
         			fi
         			echo "         tol_for_shift_on_esd= $CONVTOL" >> stdin
         			echo "         refine_H_U_iso= $HADP" >> stdin
-        			if [[ "$SCFCALCPROG" = "Tonto" && "$IAMTONTO" = "true" ]]; then 
+        			if [[ "$SCFCALCPROG" == "Tonto" && "$IAMTONTO" == "true" ]]; then 
         				echo "" >> stdin
         				echo "         show_fit_output= false" >> stdin
         				echo "         show_fit_results= false" >> stdin
         			fi
         			echo "" >> stdin
-        			if [ "$SCFCALCPROG" != "Tonto" ]; then 
+        			if [[ "$SCFCALCPROG" != "Tonto" ]]; then 
         				echo "	 show_fit_output= TRUE" >> stdin
         				echo "	 show_fit_results= TRUE" >> stdin
         				echo "" >> stdin
@@ -827,7 +831,7 @@ CRYSTAL_BLOCK(){
         				fi
         			fi
         			if [ "$REFHPOS" = "false" ]; then
-        				if [ "$ADPSONLY" != "true" ]; then
+        				if [[ "$ADPSONLY" != "true" ]]; then
         					echo "	 refine_H_positions= $REFHPOS" >> stdin 
         				fi
         			fi
@@ -2071,7 +2075,9 @@ run_script(){
 			echo "###############################################################################################" >> $JOBNAME.lst
 			echo "Generation molden file for Orca cycle number $I"
 			orca_2mkl.exe $JOBNAME -molden  > /dev/null
+			orca_2mkl $JOBNAME -molden  > /dev/null
 			orca_2aim.exe $JOBNAME  > /dev/null
+			orca_2aim $JOBNAME  > /dev/null
 			echo "Orca cycle number $I, final energy is: $ENERGIA, RMSD is: $RMSD "
                         NUMATOMWFN=$(grep -m1 " Q " $JOBNAME.wfn | awk '{ print $2 }' )
                         NUMATOMWFN=$[$NUMATOMWFN -1]
@@ -2321,7 +2327,7 @@ run_script(){
 	fi
 }
 
-if [[ "$SCFCALCPROG" = "elmodb" && "$EXIT" = "OK" ]]; then
+if [[ "$SCFCALCPROG" == "elmodb" && "$EXIT" == "OK" ]]; then
 	if [[ ! -f "$( echo $CIF | awk -F "/" '{print $NF}' )" ]]; then
 		cp $CIF .
 	fi
@@ -2332,11 +2338,6 @@ if [[ "$SCFCALCPROG" = "elmodb" && "$EXIT" = "OK" ]]; then
 		PDB=$( echo $CIF | awk -F "/" '{print $NF}' ) 
 		echo "PDB=\"$PDB\"" >> job_options.txt
 	fi
-fi
-
-if [[ -z "$SCFCALCPROG" ]]; then
-	SCFCALCPROG="Gaussian"
-	echo "SCFCALCPROG=\"$SCFCALCPROG\"" >> job_options.txt
 fi
 
 if [ "$GAUSGEN" = "true" ]; then
@@ -2354,5 +2355,11 @@ if [ "$GAUSSREL" = "true" ]; then
 fi
 
 source job_options.txt
+
+if [[ -z "$SCFCALCPROG" ]]; then
+	SCFCALCPROG="Gaussian"
+	echo "SCFCALCPROG=\"$SCFCALCPROG\"" >> job_options.txt
+        source job_options.txt
+fi
 
 run_script

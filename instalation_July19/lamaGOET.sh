@@ -1407,18 +1407,18 @@ CRYSTAL_BLOCK(){
         		echo "         REDIRECT $HKL" >> stdin
         		echo "         f_sigma_cutoff= $FCUT" >> stdin
         		if [[ "$PLOT_TONTO" == "false" ]]; then
-        			if [ "$MINCORCOEF" != "" ]; then
+        			if [[ "$MINCORCOEF" != "" ]]; then
         				echo "         min_correlation= $MINCORCOEF"  >> stdin
         			fi
         			echo "         tol_for_shift_on_esd= $CONVTOL" >> stdin
         			echo "         refine_H_U_iso= $HADP" >> stdin
-        			if [[ "$SCFCALCPROG" = "Tonto" && "$IAMTONTO" = "true" ]]; then 
+        			if [[ "$SCFCALCPROG" == "Tonto" && "$IAMTONTO" == "true" ]]; then 
         				echo "" >> stdin
         				echo "         show_fit_output= false" >> stdin
         				echo "         show_fit_results= false" >> stdin
         			fi
         			echo "" >> stdin
-        			if [ "$SCFCALCPROG" != "Tonto" ]; then 
+        			if [[ "$SCFCALCPROG" != "Tonto" ]]; then 
         				echo "	 show_fit_output= TRUE" >> stdin
         				echo "	 show_fit_results= TRUE" >> stdin
         				echo "" >> stdin
@@ -1435,7 +1435,7 @@ CRYSTAL_BLOCK(){
         				fi
         			fi
         			if [ "$REFHPOS" = "false" ]; then
-        				if [ "$ADPSONLY" != "true" ]; then
+        				if [[ "$ADPSONLY" != "true" ]]; then
         					echo "	 refine_H_positions= $REFHPOS" >> stdin 
         				fi
         			fi
@@ -2677,7 +2677,9 @@ run_script(){
 			echo "###############################################################################################" >> $JOBNAME.lst
 			echo "Generation molden file for Orca cycle number $I"
 			orca_2mkl.exe $JOBNAME -molden  > /dev/null
+			orca_2mkl $JOBNAME -molden  > /dev/null
 			orca_2aim.exe $JOBNAME  > /dev/null
+			orca_2aim $JOBNAME  > /dev/null
 			echo "Orca cycle number $I, final energy is: $ENERGIA, RMSD is: $RMSD "
                         NUMATOMWFN=$(grep -m1 " Q " $JOBNAME.wfn | awk '{ print $2 }' )
                         NUMATOMWFN=$[$NUMATOMWFN -1]
