@@ -1502,6 +1502,7 @@ SCF_BLOCK_NOT_TONTO(){
 		echo "   }" >> stdin
 		echo "" >> stdin
 		echo "   make_scf_density_matrix" >> stdin
+		echo "   assign_NOs_to_MOs " >> stdin
 		echo "   make_hirshfeld_inputs" >> stdin
 		echo "   make_fock_matrix" >> stdin
 		echo "" >> stdin
@@ -2024,6 +2025,7 @@ GET_RESIDUALS(){
 	echo "   }" >> stdin
 	echo "" >> stdin
 	echo "   make_scf_density_matrix" >> stdin
+	echo "   assign_NOs_to_MOs " >> stdin
 	echo "   make_structure_factors" >> stdin
 	echo "" >> stdin
 	echo "   put_minmax_residual_density" >> stdin
@@ -2212,6 +2214,7 @@ PLOTS(){
 	echo "" >> stdin
 	SCF_BLOCK_REST_TONTO
 	echo "   make_scf_density_matrix" >> stdin
+	echo "   assign_NOs_to_MOs " >> stdin
 	echo "   make_structure_factors" >> stdin
 	echo "" >> stdin
 	if [ "$DEFDEN" = "true" ]; then
