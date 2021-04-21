@@ -728,6 +728,7 @@ echo "" >> $JOBNAME.com
 echo "Updating wave at gas phase" 
 $SCFCALC_BIN $JOBNAME.com
 cp Test.FChk $JOBNAME.fchk
+sed -i '/^#/d' $JOBNAME.fchk
 echo "Updating wave at gas phase done" 
 #echo "Gaussian cycle number $I ended"
 if ! grep -q 'Normal termination of Gaussian' "$JOBNAME.log"; then
@@ -1827,6 +1828,7 @@ TONTO_TO_GAUSSIAN(){
 	echo "Running Gaussian, cycle number $I"
 	$SCFCALC_BIN $JOBNAME.com
         cp Test.FChk $JOBNAME.fchk 
+        sed -i '/^#/d' $JOBNAME.fchk
 	echo "Gaussian cycle number $I ended"
 	if ! grep -q 'Normal termination of Gaussian' "$JOBNAME.log"; then
 		echo "ERROR: Gaussian job finished with error, please check the $I.th log file for more details" | tee -a $JOBNAME.lst
@@ -1855,6 +1857,7 @@ TONTO_TO_GAUSSIAN(){
      	mkdir $I.$SCFCALCPROG.cycle.$JOBNAME
 	cp $JOBNAME.com  $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.com
 	cp Test.FChk $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.fchk
+        sed -i '/^#/d' $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.fchk 
 	cp $JOBNAME.log  $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.log
 	if [[ "$USENOSPHERA2" == "true" ]]; then
 		cp $JOBNAME.wfn $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.wfn
@@ -1924,6 +1927,7 @@ GET_FREQ(){
 	echo "Running Gaussian, cycle number $I"
 	$SCFCALC_BIN $JOBNAME.com
         cp Test.FChk $JOBNAME.fchk 
+        sed -i '/^#/d' $JOBNAME.fchk
 	echo "Gaussian cycle number $I ended"
 	if ! grep -q 'Normal termination of Gaussian' "$JOBNAME.log"; then
 		echo "ERROR: Gaussian job finished with error, please check the $I.th log file for more details" | tee -a $JOBNAME.lst
@@ -1952,6 +1956,7 @@ GET_FREQ(){
      	mkdir $I.$SCFCALCPROG.cycle.$JOBNAME
 	cp $JOBNAME.com  $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.com
 	cp Test.FChk $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.fchk
+        sed -i '/^#/d' $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.fchk 
 	cp $JOBNAME.log  $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.log
 	if [[ "$USENOSPHERA2" == "true" ]]; then
 		cp $JOBNAME.wfn  $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.wfn
@@ -2584,6 +2589,7 @@ run_script(){
 			echo "Running Gaussian, cycle number $I" 
 			$SCFCALC_BIN $JOBNAME.com
 	                cp Test.FChk $JOBNAME.fchk
+                        sed -i '/^#/d' $JOBNAME.fchk
 			echo "Gaussian cycle number $I ended"
 			if ! grep -q 'Normal termination of Gaussian' "$JOBNAME.log"; then
 				echo "ERROR: Gaussian job finished with error, please check the $I.th log file for more details" | tee -a $JOBNAME.lst
@@ -2624,6 +2630,7 @@ run_script(){
 	     		mkdir $I.$SCFCALCPROG.cycle.$JOBNAME
 			cp $JOBNAME.com  $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.com
 			cp Test.FChk $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.fchk
+                        sed -i '/^#/d' $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.fchk 
 			cp $JOBNAME.log  $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.log
 			if [[ "$USENOSPHERA2" == "true" ]]; then
 				cp $JOBNAME.wfn  $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.wfn
