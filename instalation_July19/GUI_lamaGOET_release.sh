@@ -614,10 +614,10 @@ QUEUE(){
 echo '#!/bin/sh' > lamaGOET.pbs
 echo "" >> lamaGOET.pbs
 echo '#PBS -V'  >> lamaGOET.pbs
-if [ "$SCFCALCPROG" = "Gaussian" ]; then
+if [ "$SCFCALCPROG" != "Tonto" ]; then
 	echo "#PBS -l nodes=1:g09:RUN_lamaGOET:ppn=$NUMPROC" >> lamaGOET.pbs
 else
-	echo "#PBS -l nodes=1:RUN_lamaGOET:ppn=$NUMPROC" >> lamaGOET.pbs
+	echo "#PBS -l nodes=1:RUN_lamaGOET:ppn=$NUMPROCTONTO" >> lamaGOET.pbs
 fi
 echo '#PBS -j eo' >> lamaGOET.pbs
 echo '#PBS -q batch' >> lamaGOET.pbs

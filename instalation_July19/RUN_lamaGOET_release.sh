@@ -120,6 +120,7 @@ echo "" >> $JOBNAME.com
 echo "Updating wave at gas phase" 
 $SCFCALC_BIN $JOBNAME.com
 cp Test.FChk $JOBNAME.fchk
+sed -i '/^#/d' $JOBNAME.fchk
 echo "Updating wave at gas phase done" 
 #echo "Gaussian cycle number $I ended"
 if ! grep -q 'Normal termination of Gaussian' "$JOBNAME.log"; then
@@ -159,9 +160,7 @@ echo "Updating wave at gas phase"
 $SCFCALC_BIN $JOBNAME.inp > $JOBNAME.out
 echo "Updating wave at gas phase done" 
 orca_2mkl.exe $JOBNAME -molden  > /dev/null
-orca_2mkl $JOBNAME -molden  > /dev/null
 orca_2aim.exe $JOBNAME  > /dev/null
-orca_2aim $JOBNAME  > /dev/null
 #echo "Orca cycle number $I ended"
 if ! grep -q '****ORCA TERMINATED NORMALLY****' "$JOBNAME.out"; then
 	echo "ERROR: Orca job finished with error, please check the $I.th out file for more details" | tee -a $JOBNAME.lst
@@ -541,10 +540,8 @@ TONTO_TO_ORCA(){
 	fi
 	echo "Generation of molden file for Orca cycle number $I"
 	orca_2mkl.exe $JOBNAME -molden  > /dev/null
-	orca_2mkl $JOBNAME -molden  > /dev/null
 	echo "Generation of wfn file for Orca cycle number $I"
 	orca_2aim.exe $JOBNAME  > /dev/null 
-	orca_2aim $JOBNAME  > /dev/null 
 	echo "Orca cycle number $I, final energy is: $ENERGIA, RMSD is: $RMSD "
         NUMATOMWFN=$(grep -m1 " Q " $JOBNAME.wfn | awk '{ print $2 }' )
         NUMATOMWFN=$[$NUMATOMWFN -1]
@@ -877,13 +874,22 @@ SCF_BLOCK_NOT_TONTO(){
 	if [[ "$SCCHARGES" == "true" && "$SCFCALCPROG" != "elmodb" ]]; then 
 		echo "     ! SC cluster charge SCF" >> stdin
 		echo "      scfdata= {" >> stdin
-		echo "      initial_MOs= restricted   " >> stdin # Only for new tonto may 2020
-#		echo "      initial_MOs= existing" >> stdin
 		if [[ "$METHOD" != "rks" && "$METHOD" != "rhf" && "$METHOD" != "uhf" && "$METHOD" != "uks" ]]; then
-			echo "      kind= rks " >> stdin
+                        if [[ "$METHOD" == "ub3lyp" || "$METHOD" == "UB3LYP" ]]; then
+		                echo "      initial_MOs= unrestricted   " >> stdin # Only for new tonto may 2020
+			        echo "      kind= uks " >> stdin
+			        echo "      dft_exchange_functional= b3lypgx" >> stdin
+        			echo "      dft_correlation_functional= b3lypgc" >> stdin
+                        elif [[ "$METHOD" == "b3lyp" || "$METHOD" == "B3LYP" ]]; then
+		                echo "      initial_MOs= restricted   " >> stdin # Only for new tonto may 2020
+			        echo "      kind= rks " >> stdin
+			        echo "      dft_exchange_functional= b3lypgx" >> stdin
+        			echo "      dft_correlation_functional= b3lypgc" >> stdin
+                        elif [[ "$METHOD" == "uhf" || "$METHOD" == "UHF" ]]; then
+	                	echo "      initial_MOs= unrestricted   " >> stdin # Only for new tonto may 2020
+			        echo "      kind= uhf " >> stdin
+                        fi
 			echo "      output= true " >> stdin
-			echo "      dft_exchange_functional= b3lypgx" >> stdin
-			echo "      dft_correlation_functional= b3lypgc" >> stdin
 		else
 			echo "      kind= $METHOD" >> stdin
                         echo "      output= true " >> stdin
@@ -899,19 +905,29 @@ SCF_BLOCK_NOT_TONTO(){
 		echo "   }" >> stdin
 		echo "" >> stdin
 		echo "   make_scf_density_matrix" >> stdin
+		echo "   assign_NOs_to_MOs " >> stdin
 		echo "   make_hirshfeld_inputs" >> stdin
 		echo "   make_fock_matrix" >> stdin
 		echo "" >> stdin
 		echo "   ! SC cluster charge SCF" >> stdin
 		echo "   scfdata= {" >> stdin
 		echo "      initial_density= promolecule" >> stdin
-		echo "      initial_MOs= restricted " >> stdin # Only for new tonto may 2020
-#		echo "      initial_MOs= existing" >> stdin
 		if [[ "$METHOD" != "rks" && "$METHOD" != "rhf" && "$METHOD" != "uhf" && "$METHOD" != "uks" ]]; then
-			echo "      kind= rks " >> stdin
+                        if [[ "$METHOD" == "ub3lyp" || "$METHOD" == "UB3LYP" ]]; then
+		                echo "      initial_MOs= unrestricted   " >> stdin # Only for new tonto may 2020
+			        echo "      kind= uks " >> stdin
+			        echo "      dft_exchange_functional= b3lypgx" >> stdin
+        			echo "      dft_correlation_functional= b3lypgc" >> stdin
+                        elif [[ "$METHOD" == "b3lyp" || "$METHOD" == "B3LYP" ]]; then
+		                echo "      initial_MOs= restricted   " >> stdin # Only for new tonto may 2020
+			        echo "      kind= rks " >> stdin
+			        echo "      dft_exchange_functional= b3lypgx" >> stdin
+        			echo "      dft_correlation_functional= b3lypgc" >> stdin
+                        elif [[ "$METHOD" == "uhf" || "$METHOD" == "UHF" ]]; then
+	                	echo "      initial_MOs= unrestricted   " >> stdin # Only for new tonto may 2020
+			        echo "      kind= uhf " >> stdin
+                        fi
 			echo "      output= true " >> stdin
-			echo "      dft_exchange_functional= b3lypgx" >> stdin
-			echo "      dft_correlation_functional= b3lypgc" >> stdin
 		else
 			echo "      kind= $METHOD" >> stdin
 			echo "      output= true " >> stdin
@@ -1224,6 +1240,7 @@ TONTO_TO_GAUSSIAN(){
 	echo "Running Gaussian, cycle number $I"
 	$SCFCALC_BIN $JOBNAME.com
         cp Test.FChk $JOBNAME.fchk 
+        sed -i '/^#/d' $JOBNAME.fchk
 	echo "Gaussian cycle number $I ended"
 	if ! grep -q 'Normal termination of Gaussian' "$JOBNAME.log"; then
 		echo "ERROR: Gaussian job finished with error, please check the $I.th log file for more details" | tee -a $JOBNAME.lst
@@ -1252,6 +1269,7 @@ TONTO_TO_GAUSSIAN(){
      	mkdir $I.$SCFCALCPROG.cycle.$JOBNAME
 	cp $JOBNAME.com  $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.com
 	cp Test.FChk $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.fchk
+        sed -i '/^#/d' $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.fchk 
 	cp $JOBNAME.log  $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.log
 	if [[ "$USENOSPHERA2" == "true" ]]; then
 		cp $JOBNAME.wfn $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.wfn
@@ -1321,6 +1339,7 @@ GET_FREQ(){
 	echo "Running Gaussian, cycle number $I"
 	$SCFCALC_BIN $JOBNAME.com
         cp Test.FChk $JOBNAME.fchk 
+        sed -i '/^#/d' $JOBNAME.fchk
 	echo "Gaussian cycle number $I ended"
 	if ! grep -q 'Normal termination of Gaussian' "$JOBNAME.log"; then
 		echo "ERROR: Gaussian job finished with error, please check the $I.th log file for more details" | tee -a $JOBNAME.lst
@@ -1349,6 +1368,7 @@ GET_FREQ(){
      	mkdir $I.$SCFCALCPROG.cycle.$JOBNAME
 	cp $JOBNAME.com  $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.com
 	cp Test.FChk $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.fchk
+        sed -i '/^#/d' $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.fchk 
 	cp $JOBNAME.log  $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.log
 	if [[ "$USENOSPHERA2" == "true" ]]; then
 		cp $JOBNAME.wfn  $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.wfn
@@ -1403,11 +1423,21 @@ GET_RESIDUALS(){
 		CHARGE_MULT
 		CRYSTAL_BLOCK
 	echo "   scfdata= {" >> stdin
-	echo "      initial_MOs= restricted" >> stdin  #Only for new tonto may 2020
 	if [[ "$METHOD" != "rks" && "$METHOD" != "rhf" && "$METHOD" != "uhf" && "$METHOD" != "uks" ]]; then
-		echo "      kind= rks " >> stdin
-		echo "      dft_exchange_functional= b3lypgx" >> stdin
-		echo "      dft_correlation_functional= b3lypgc" >> stdin
+                if [[ "$METHOD" == "ub3lyp" || "$METHOD" == "UB3LYP" ]]; then
+	                echo "      initial_MOs= unrestricted   " >> stdin # Only for new tonto may 2020
+		        echo "      kind= uks " >> stdin
+		        echo "      dft_exchange_functional= b3lypgx" >> stdin
+        		echo "      dft_correlation_functional= b3lypgc" >> stdin
+                elif [[ "$METHOD" == "b3lyp" || "$METHOD" == "B3LYP" ]]; then
+	                echo "      initial_MOs= restricted   " >> stdin # Only for new tonto may 2020
+		        echo "      kind= rks " >> stdin
+		        echo "      dft_exchange_functional= b3lypgx" >> stdin
+        		echo "      dft_correlation_functional= b3lypgc" >> stdin
+                elif [[ "$METHOD" == "uhf" || "$METHOD" == "UHF" ]]; then
+	        	echo "      initial_MOs= unrestricted   " >> stdin # Only for new tonto may 2020
+		        echo "      kind= uhf " >> stdin
+                fi
 	else
 		echo "      kind= $METHOD" >> stdin
 	fi
@@ -1422,6 +1452,7 @@ GET_RESIDUALS(){
 	echo "   }" >> stdin
 	echo "" >> stdin
 	echo "   make_scf_density_matrix" >> stdin
+	echo "   assign_NOs_to_MOs " >> stdin
 	echo "   make_structure_factors" >> stdin
 	echo "" >> stdin
 	echo "   put_minmax_residual_density" >> stdin
@@ -1610,6 +1641,7 @@ PLOTS(){
 	echo "" >> stdin
 	SCF_BLOCK_REST_TONTO
 	echo "   make_scf_density_matrix" >> stdin
+	echo "   assign_NOs_to_MOs " >> stdin
 	echo "   make_structure_factors" >> stdin
 	echo "" >> stdin
 	if [ "$DEFDEN" = "true" ]; then
@@ -1979,6 +2011,7 @@ run_script(){
 			echo "Running Gaussian, cycle number $I" 
 			$SCFCALC_BIN $JOBNAME.com
 	                cp Test.FChk $JOBNAME.fchk
+                        sed -i '/^#/d' $JOBNAME.fchk
 			echo "Gaussian cycle number $I ended"
 			if ! grep -q 'Normal termination of Gaussian' "$JOBNAME.log"; then
 				echo "ERROR: Gaussian job finished with error, please check the $I.th log file for more details" | tee -a $JOBNAME.lst
@@ -2019,6 +2052,7 @@ run_script(){
 	     		mkdir $I.$SCFCALCPROG.cycle.$JOBNAME
 			cp $JOBNAME.com  $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.com
 			cp Test.FChk $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.fchk
+                        sed -i '/^#/d' $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.fchk 
 			cp $JOBNAME.log  $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.log
 			if [[ "$USENOSPHERA2" == "true" ]]; then
 				cp $JOBNAME.wfn  $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.wfn
