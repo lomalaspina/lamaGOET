@@ -1619,8 +1619,10 @@ SCF_BLOCK_REST_TONTO(){
 	fi
 	echo "   }" >> stdin
 	echo "" >> stdin
-	echo "   scf" >> stdin
-	echo "" >> stdin
+	if [[ "$PLOT_TONTO" == "false" ]]; then
+	        echo "   scf" >> stdin
+	        echo "" >> stdin
+        fi
 	if [[ "$XCWONLY" != "true" && "$PLOT_TONTO" == "false" && "$POWDER_HAR" != "true" ]]; then
 		echo "   ! Make Hirshfeld structure factors" >> stdin
 		echo "   refine_hirshfeld_atoms" >> stdin
@@ -2248,7 +2250,8 @@ PLOTS(){
 	echo "   read_archive orbital_energies restricted" >> stdin
 	echo "" >> stdin
 	SCF_BLOCK_REST_TONTO
-	echo "   make_scf_density_matrix" >> stdin
+#	echo "   make_scf_density_matrix" >> stdin
+	echo "   read_archive density_matrix restricted" >> stdin
 	echo "   assign_NOs_to_MOs " >> stdin
 	echo "   make_structure_factors" >> stdin
 	echo "" >> stdin
