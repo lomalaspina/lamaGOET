@@ -1487,25 +1487,27 @@ SCF_BLOCK_NOT_TONTO(){
 		                echo "      initial_MOs= unrestricted   " >> stdin # Only for new tonto may 2020
 			        echo "      kind= uks " >> stdin
 			        echo "      dft_exchange_functional= b3lypgx" >> stdin
-        			echo "      dft_correlation_functional= b3lypgc" >> stdin
+                		echo "      dft_correlation_functional= b3lypgc" >> stdin
                         elif [[ "$METHOD" == "b3lyp" || "$METHOD" == "B3LYP" ]]; then
 		                echo "      initial_MOs= restricted   " >> stdin # Only for new tonto may 2020
 			        echo "      kind= rks " >> stdin
 			        echo "      dft_exchange_functional= b3lypgx" >> stdin
-        			echo "      dft_correlation_functional= b3lypgc" >> stdin
-                        elif [[ "$METHOD" == "uhf" || "$METHOD" == "UHF" ]]; then
-	                	echo "      initial_MOs= unrestricted   " >> stdin # Only for new tonto may 2020
-			        echo "      kind= uhf " >> stdin
+                		echo "      dft_correlation_functional= b3lypgc" >> stdin
                         else
 		                echo "      initial_MOs= restricted   " >> stdin # Only for new tonto may 2020
 			        echo "      kind= rks " >> stdin
 			        echo "      dft_exchange_functional= b3lypgx" >> stdin
-        			echo "      dft_correlation_functional= b3lypgc" >> stdin
+                		echo "      dft_correlation_functional= b3lypgc" >> stdin
                         fi
 			echo "      output= true " >> stdin
 		else
+                        if [[ "$METHOD" == "uhf" || "$METHOD" == "UHF" || "$METHOD" == "UKS" || "$METHOD" == "uks" ]]; then
+		        	echo "      initial_MOs= unrestricted   " >> stdin # Only for new tonto may 2020
+                        elif [[ "$METHOD" == "rhf" || "$METHOD" == "RHF" || "$METHOD" == "RKS" || "$METHOD" == "rks" ]]; then
+		        	echo "      initial_MOs= restricted   " >> stdin # Only for new tonto may 2020
+                        fi
 			echo "      kind= $METHOD" >> stdin
-                        echo "      output= true " >> stdin
+			echo "      output= true " >> stdin
 		fi
 		echo "      use_SC_cluster_charges= TRUE" >> stdin
 		echo "      cluster_radius= $SCCRADIUS angstrom" >> stdin
@@ -1536,9 +1538,6 @@ SCF_BLOCK_NOT_TONTO(){
 			        echo "      kind= rks " >> stdin
 			        echo "      dft_exchange_functional= b3lypgx" >> stdin
         			echo "      dft_correlation_functional= b3lypgc" >> stdin
-                        elif [[ "$METHOD" == "uhf" || "$METHOD" == "UHF" ]]; then
-	                	echo "      initial_MOs= unrestricted   " >> stdin # Only for new tonto may 2020
-			        echo "      kind= uhf " >> stdin
                         else
 		                echo "      initial_MOs= restricted   " >> stdin # Only for new tonto may 2020
 			        echo "      kind= rks " >> stdin
@@ -1547,6 +1546,11 @@ SCF_BLOCK_NOT_TONTO(){
                         fi
 			echo "      output= true " >> stdin
 		else
+                        if [[ "$METHOD" == "uhf" || "$METHOD" == "UHF" || "$METHOD" == "UKS" || "$METHOD" == "uks" ]]; then
+	                	echo "      initial_MOs= unrestricted   " >> stdin # Only for new tonto may 2020
+                        elif [[ "$METHOD" == "rhf" || "$METHOD" == "RHF" || "$METHOD" == "RKS" || "$METHOD" == "rks" ]]; then
+	                	echo "      initial_MOs= restricted   " >> stdin # Only for new tonto may 2020
+                        fi
 			echo "      kind= $METHOD" >> stdin
 			echo "      output= true " >> stdin
 		fi
@@ -2054,17 +2058,21 @@ GET_RESIDUALS(){
 		        echo "      kind= rks " >> stdin
 		        echo "      dft_exchange_functional= b3lypgx" >> stdin
         		echo "      dft_correlation_functional= b3lypgc" >> stdin
-                elif [[ "$METHOD" == "uhf" || "$METHOD" == "UHF" ]]; then
-	        	echo "      initial_MOs= unrestricted   " >> stdin # Only for new tonto may 2020
-		        echo "      kind= uhf " >> stdin
                 else
-		        echo "      initial_MOs= restricted   " >> stdin # Only for new tonto may 2020
+	                echo "      initial_MOs= restricted   " >> stdin # Only for new tonto may 2020
 		        echo "      kind= rks " >> stdin
 		        echo "      dft_exchange_functional= b3lypgx" >> stdin
         		echo "      dft_correlation_functional= b3lypgc" >> stdin
                 fi
+		echo "      output= true " >> stdin
 	else
+                if [[ "$METHOD" == "uhf" || "$METHOD" == "UHF" || "$METHOD" == "UKS" || "$METHOD" == "uks" ]]; then
+	        	echo "      initial_MOs= unrestricted   " >> stdin # Only for new tonto may 2020
+                elif [[ "$METHOD" == "rhf" || "$METHOD" == "RHF" || "$METHOD" == "RKS" || "$METHOD" == "rks" ]]; then
+	        	echo "      initial_MOs= restricted   " >> stdin # Only for new tonto may 2020
+                fi
 		echo "      kind= $METHOD" >> stdin
+		echo "      output= true " >> stdin
 	fi
 	echo "      use_SC_cluster_charges= $SCCHARGES" >> stdin
 	if [ "$SCCHARGES" == "true" ]; then 
