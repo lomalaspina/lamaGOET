@@ -2057,6 +2057,11 @@ GET_RESIDUALS(){
                 elif [[ "$METHOD" == "uhf" || "$METHOD" == "UHF" ]]; then
 	        	echo "      initial_MOs= unrestricted   " >> stdin # Only for new tonto may 2020
 		        echo "      kind= uhf " >> stdin
+                else
+		        echo "      initial_MOs= restricted   " >> stdin # Only for new tonto may 2020
+		        echo "      kind= rks " >> stdin
+		        echo "      dft_exchange_functional= b3lypgx" >> stdin
+        		echo "      dft_correlation_functional= b3lypgc" >> stdin
                 fi
 	else
 		echo "      kind= $METHOD" >> stdin
