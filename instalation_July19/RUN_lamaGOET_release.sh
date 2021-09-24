@@ -798,7 +798,9 @@ CRYSTAL_BLOCK(){
 		fi
 	        if [[ "$POWDER_HAR" != "true" ]]; then 
         		echo "         REDIRECT $HKL" >> stdin
-        		echo "         f_sigma_cutoff= $FCUT" >> stdin
+	                if [[ "$FCUT" != "0" ]]; then
+        		        echo "         f_sigma_cutoff= $FCUT" >> stdin
+                        fi
         		if [[ "$PLOT_TONTO" == "false" ]]; then
         			if [[ "$MINCORCOEF" != "" ]]; then
         				echo "         min_correlation= $MINCORCOEF"  >> stdin
