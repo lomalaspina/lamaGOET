@@ -2263,6 +2263,8 @@ GET_RESIDUALS(){
 		READ_GAUSSIAN_FCHK
 	elif [ "$SCFCALCPROG" = "Orca" ]; then
 		READ_ORCA_FCHK
+	elif [ "$SCFCALCPROG" = "Crystal14" ]; then
+		READ_CRYSTAL_WFN
 	else
 		DEFINE_JOB_NAME
 	fi
@@ -3027,7 +3029,7 @@ run_script(){
 			TONTO_TO_ORCA
 			CHECK_ENERGY
 		fi
-		if [[ "$SCFCALCPROG" == "Gaussian" || "$SCFCALCPROG" == "Orca"  ]]; then
+		if [[ "$SCFCALCPROG" == "Gaussian" || "$SCFCALCPROG" == "Orca" || "$SCFCALCPROG" == "Crystal14"  ]]; then
 			if [[ "$DOUBLE_SCF" == "true" ]]; then #I think this whole block is not necessary! need to test
 				if [[ "$POWDER_HAR" == "true" ]]; then
                                         RUN_JANA
@@ -3074,8 +3076,10 @@ run_script(){
 				        SCF_TO_TONTO
 				        if [ "$SCFCALCPROG" = "Gaussian" ]; then  
 			        		TONTO_TO_GAUSSIAN
-			        	else 
+				        elif [ "$SCFCALCPROG" = "Orca" ]; then  
 			        		TONTO_TO_ORCA
+				        elif [ "$SCFCALCPROG" = "Crystal14" ]; then  
+			        		TONTO_TO_CRYSTAL
 			        	fi
 			        	CHECK_ENERGY
 		        	done
