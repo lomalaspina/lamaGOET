@@ -2416,12 +2416,12 @@ if [ "$GAUSSREL" = "true" ]; then
 	echo "INT=\"$INT\"" >> job_options.txt
 fi
 
-source job_options.txt
+source ./job_options.txt
 
 if [[ -z "$SCFCALCPROG" ]]; then
 	SCFCALCPROG="Gaussian"
 	echo "SCFCALCPROG=\"$SCFCALCPROG\"" >> job_options.txt
-        source job_options.txt
+        source ./job_options.txt
 fi
 
 run_script

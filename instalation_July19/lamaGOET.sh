@@ -4760,7 +4760,7 @@ export MAIN_DIALOG='
 #checking if job_options file exists for tests
 if [[ -f job_options.txt  ]]; then
 	sed -i '/EXIT/d' job_options.txt
-	source job_options.txt 
+	source ./job_options.txt 
 	sed -n -i '/=/p' job_options.txt
 	if [[ ! -z "$MANUALRESIDUE" ]]; then 
 		if [[ ! -f TAILORED ]]; then
@@ -4845,7 +4845,7 @@ CB_HB3    1    2   .f.     CB  HB3 CA
 	gtkdialog --program=MAIN_DIALOG > job_options.txt
 fi
 
-source job_options.txt
+source ./job_options.txt
 #rm job_options.txt
 echo "" > $JOBNAME.lst
 if [[ -z "$SCFCALCPROG" ]]; then
