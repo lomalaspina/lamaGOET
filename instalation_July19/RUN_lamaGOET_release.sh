@@ -773,8 +773,8 @@ CRYSTAL_BLOCK(){
 	if [[ "$SCFCALCPROG" != "optgaussian" ]]; then 
 		echo "      xray_data= {   " >> stdin
 	        if [[ "$POWDER_HAR" != "true" ]]; then 
-        		echo "         thermal_smearing_model= oc-hirshfeld" >> stdin
-        		echo "         partition_model= mulliken" >> stdin
+        		echo "         thermal_smearing_model= atom-based" >> stdin
+        		echo "         partition_model= oc-hirshfeld" >> stdin
         		if [[ "$PLOT_TONTO" == "false" ]]; then
         			echo "         optimise_extinction= false" >> stdin
         			echo "         correct_dispersion= $DISP" >> stdin
