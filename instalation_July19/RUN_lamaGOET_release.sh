@@ -773,8 +773,8 @@ CRYSTAL_BLOCK(){
 	if [[ "$SCFCALCPROG" != "optgaussian" ]]; then 
 		echo "      xray_data= {   " >> stdin
 	        if [[ "$POWDER_HAR" != "true" ]]; then 
-        		echo "         thermal_smearing_model= hirshfeld" >> stdin
-        		echo "         partition_model= mulliken" >> stdin
+        		echo "         thermal_smearing_model= atom-based" >> stdin
+        		echo "         partition_model= oc-hirshfeld" >> stdin
         		if [[ "$PLOT_TONTO" == "false" ]]; then
         			echo "         optimise_extinction= false" >> stdin
         			echo "         correct_dispersion= $DISP" >> stdin
@@ -798,7 +798,9 @@ CRYSTAL_BLOCK(){
 		fi
 	        if [[ "$POWDER_HAR" != "true" ]]; then 
         		echo "         REDIRECT $HKL" >> stdin
-        		echo "         f_sigma_cutoff= $FCUT" >> stdin
+	                if [[ "$FCUT" != "0" ]]; then
+        		        echo "         f_sigma_cutoff= $FCUT" >> stdin
+                        fi
         		if [[ "$PLOT_TONTO" == "false" ]]; then
         			if [[ "$MINCORCOEF" != "" ]]; then
         				echo "         min_correlation= $MINCORCOEF"  >> stdin
@@ -2414,12 +2416,12 @@ if [ "$GAUSSREL" = "true" ]; then
 	echo "INT=\"$INT\"" >> job_options.txt
 fi
 
-source job_options.txt
+source ./job_options.txt
 
 if [[ -z "$SCFCALCPROG" ]]; then
 	SCFCALCPROG="Gaussian"
 	echo "SCFCALCPROG=\"$SCFCALCPROG\"" >> job_options.txt
-        source job_options.txt
+        source ./job_options.txt
 fi
 
 run_script

@@ -2232,7 +2232,7 @@ export MAIN_DIALOG='
 '
 gtkdialog --program=MAIN_DIALOG > job_options.txt
 
-source job_options.txt
+source ./job_options.txt
 
 CIF="$(echo $CIF | awk -F "/" '{print $NF}')"
 INITADPFILE="$(echo $INITADPFILE | awk -F "/" '{print $NF}')"
@@ -2247,7 +2247,7 @@ sed -i '/HKL=/c\HKL=\".\/'$HKL'"' job_options.txt
 #sed -i "34s/HKL=.*/HKL=\".\/$HKL\"/g" job_options.txt doesnt work with the source
 #sed -i "46s/TONTO=.*/TONTO=\".\/$TONTO\"/g" job_options.txt doesnt work with the source
 
-source job_options.txt
+source ./job_options.txt
 
 #rm job_options.txt
 
@@ -2379,7 +2379,7 @@ if [ "$EXIT" = "OK" ]; then
 	QUEUE
 else
 	unset MAIN_DIALOG
-	clear
+ 	clear
 	exit 0
 fi
 
