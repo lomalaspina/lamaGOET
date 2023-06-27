@@ -16,7 +16,14 @@ sudo make install
 cd ..
 LOCALDIR=$(pwd)
 cd /usr/local/bin
+if test -f "gtkdialog"; then
+    echo "gtkdialog compiled correctly."
+else 
+    sudo ln -s $LOCALDIR/gtkdialog-0.8.3/src/gtkdialog_pre_compiled gtkdialog
+fi
 sudo ln -s $LOCALDIR/lamaGOET.sh lamaGOET
+sudo ln -s $LOCALDIR/RUN_lamaGOET_release.sh RUN_lamaGOET
+sudo ln -s $LOCALDIR/GUI_lamaGOET_release.sh GUI_lamaGOET
 ##sudo ln -s $LOCALDIR/hklfromm80.py hklfromm80.py
 ##sudo ln -s $LOCALDIR/projectioninputfromhar.py projectioninputfromhar.py 
 #sudo ln -s $LOCALDIR/powderHARstart.py powderHARstart.py
