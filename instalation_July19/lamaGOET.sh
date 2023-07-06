@@ -3560,7 +3560,7 @@ export MAIN_DIALOG='
 	   </hbox>
 	
           <hbox>
-	    <checkbox active="false" space-fill="True" space-expand="True" sensitive="true">
+	    <checkbox active="false" space-fill="True" space-expand="True" sensitive="true" visible="false">
 	     <label>Powder HAR</label>
 	      <variable>POWDER_HAR</variable>
 	        <action>if true enable:JANAEXE</action>
@@ -3570,7 +3570,7 @@ export MAIN_DIALOG='
 	        <action>if true enable:NSA2ACC</action>
 	        <action>if false disable:NSA2ACC</action>
 	    </checkbox>
-	    <checkbox active="false" space-fill="True" space-expand="True" sensitive="true">
+	    <checkbox active="false" space-fill="True" space-expand="True" sensitive="true" visible="false">
 	     <label>Calculate .tsc file with NoSpherA2</label>
 	      <variable>USENOSPHERA2</variable>
 	        <action>if true enable:NSA2ACC</action>
@@ -3578,7 +3578,7 @@ export MAIN_DIALOG='
               
 	    </checkbox>
 
-	    <checkbox active="false" space-fill="True"  space-expand="True" sensitive="false">
+	    <checkbox active="false" space-fill="True"  space-expand="True" sensitive="false" visible="false">
 	     <label>Use Gamess for calculation of overlap integrals</label>
 	      <variable>USEGAMESS</variable>
 	        <action>if true enable:GAMESS</action>
