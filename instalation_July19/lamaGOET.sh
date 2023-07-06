@@ -1417,6 +1417,20 @@ PROCESS_CIF(){
 		else
 			echo "       file_name= $J.tonto_cycle.$JOBNAME/$J.$JOBNAME.cartesian.cif2" >> stdin
 		fi
+                if [ "$XHALONG" = "true" ]; then
+                        	if [ ! -z "$BHBOND" ]; then
+                	   	echo "       BH_bond_length= $BHBOND angstrom" >> stdin
+                   	fi
+                          	if [ ! -z "$CHBOND" ]; then
+                	   	echo "       CH_bond_length= $CHBOND angstrom" >> stdin
+                   	fi
+                          	if [ ! -z "$NHBOND" ]; then
+	                	echo "       NH_bond_length= $NHBOND angstrom" >> stdin
+                   	fi
+                          	if [ ! -z "$OHBOND" ]; then
+                	   	echo "       OH_bond_length= $OHBOND angstrom" >> stdin
+                   	fi
+                fi
 		echo "    }" >> stdin
 		echo "" >> stdin
 		echo "   process_CIF" >> stdin
