@@ -1855,7 +1855,7 @@ SCF_TO_TONTO(){
 	fi
 	if [[ "$SCFCALCPROG" == "Tonto" ]]; then 
 		TONTO_BASIS_SET
-		if [[ "$COMPLETESTRUCT" == "true"  ]]; then
+		if [[ "$COMPLETESTRUCT" == "true" || "$EXPLICITMOL" == "true" ]]; then
 			COMPLETECIFBLOCK
 		fi
 	fi
@@ -2584,9 +2584,15 @@ RUN_XWR(){
 }
 
 COMPLETECIFBLOCK(){
-	if [ "$COMPLETESTRUCT" = "true" ]; then
+	if [[ "$COMPLETESTRUCT" == "true" || "$EXPLICITMOL" == "true" ]]; then
 		echo "   cluster= {" >> stdin
-		echo "      defragment= $COMPLETESTRUCT" >> stdin
+                if [ "$EXPLICITMOL" = "true" ]; then
+		        echo "      generation_method= within_radius" >> stdin
+		        echo "      radius= $EXPLRADIUS Angstrom" >> stdin
+        		echo "      defragment= $DEFRAGEXPL" >> stdin
+                else
+        		echo "      defragment= $COMPLETESTRUCT" >> stdin
+                fi
 		echo "      make_info" >> stdin
 		echo "   }" >> stdin
 		echo "" >> stdin
@@ -2793,7 +2799,7 @@ run_script(){
                         echo "   write_xtal14_xyz_file" >> stdin
                 fi
 		echo "   put_cif" >> stdin
-		if [[ "$COMPLETESTRUCT" == "true" || "$SCFCALCPROG" == "optgaussian" ]]; then
+		if [[ "$COMPLETESTRUCT" == "true" || "$EXPLICITMOL" == "true" || "$SCFCALCPROG" == "optgaussian" ]]; then
 			echo "" >> stdin
 			echo "   put_grown_cif" >> stdin
 		fi
@@ -3944,6 +3950,32 @@ export MAIN_DIALOG='
 	    </checkbox>
 	   </hbox>
 	
+	   <hseparator></hseparator>
+	
+	   <hbox>
+	
+	    <checkbox>
+	     <label>Use explicit cluster of molecules? </label>
+	      <variable>EXPLICITMOL</variable>
+	      <action>if true enable:EXPLRADIUS</action>
+	      <action>if false disable:EXPLRADIUS</action>
+	      <action>if true enable:DEFRAGEXPL</action>
+	      <action>if false disable:DEFRAGEXPL</action>
+	    </checkbox>
+	
+	    <text use-markup="true" wrap="false" ><label>within radius</label></text>
+	    <entry has-tooltip="true" tooltip-markup="in Angstrom" sensitive="false">
+             <input>if [ ! -z $EXPLRADIUS ]; then echo "$EXPLRADIUS"; else (echo "3"); fi</input>
+	     <variable>EXPLRADIUS</variable>
+	    </entry>
+	
+	    <checkbox sensitive="false">
+	     <label>Complete molecules </label>
+	     <default>false</default>
+	      <variable>DEFRAGEXPL</variable>
+	    </checkbox>
+	   </hbox>
+	   <hseparator></hseparator>
 	   <hseparator></hseparator>
 		
 	   <hbox>

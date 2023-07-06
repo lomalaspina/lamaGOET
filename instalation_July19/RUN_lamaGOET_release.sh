@@ -208,7 +208,11 @@ echo "" >> stdin
 COMPLETECIFBLOCK
 echo "   put" >> stdin 
 echo "" >> stdin
-echo "   write_xyz_file" >> stdin
+if [[ "$SCFCALCPROG" != "Crystal14" ]]; then
+        echo "   write_xyz_file" >> stdin
+else 
+        echo "   write_xtal14_xyz_file" >> stdin
+fi
 echo "   put_cif" >> stdin
 if [[ "$COMPLETESTRUCT" == "true" || "$SCFCALCPROG" == "optgaussian" ]]; then
 	echo "" >> stdin
@@ -620,6 +624,16 @@ READ_ORCA_FCHK(){
         echo "" >> stdin
 }
 
+READ_CRYSTAL_WFN(){
+        echo "   name= $JOBNAME" >> stdin 
+        echo "" >> stdin
+        echo "   read_molden_file $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.molden.input" >> stdin
+	echo "This routine is still being writen, come back later. " | tee -a $JOBNAME.lst
+	unset MAIN_DIALOG
+	exit 0
+        echo "" >> stdin
+}
+
 DEFINE_JOB_NAME(){
 	echo "   name= $JOBNAME" >> stdin
         echo "" >> stdin
@@ -977,7 +991,11 @@ SCF_BLOCK_NOT_TONTO(){
         			echo "" >> stdin
 	        	fi
                 fi
-		echo "   write_xyz_file" >> stdin
+                if [[ "$SCFCALCPROG" != "Crystal14" ]]; then
+                        echo "   write_xyz_file" >> stdin
+                else 
+                        echo "   write_xtal14_xyz_file" >> stdin
+                fi
 		if [[ "$SCFCALCPROG" == "optgaussian" ]]; then
 			echo "" >> stdin
 			echo "   put_grown_cif" >> stdin
@@ -992,7 +1010,11 @@ SCF_BLOCK_NOT_TONTO(){
                                 echo "   put_cif" >> stdin
         		fi
                 fi
-		echo "   write_xyz_file" >> stdin
+                if [[ "$SCFCALCPROG" != "Crystal14" ]]; then
+                        echo "   write_xyz_file" >> stdin
+                else 
+                        echo "   write_xtal14_xyz_file" >> stdin
+                fi
 		if [[ "$SCFCALCPROG" == "optgaussian" ]]; then
 			echo "" >> stdin
 			echo "   put_grown_cif" >> stdin
@@ -1071,6 +1093,8 @@ SCF_TO_TONTO(){
 		READ_GAUSSIAN_FCHK
 	elif [ "$SCFCALCPROG" = "Orca" ]; then
 		READ_ORCA_FCHK
+	elif [ "$SCFCALCPROG" = "Crystal14" ]; then
+		READ_CRYSTAL_WFN
 	else
 		DEFINE_JOB_NAME
 	fi
@@ -1096,7 +1120,7 @@ SCF_TO_TONTO(){
 	fi
 	if [[ "$SCFCALCPROG" == "Tonto" ]]; then 
 		TONTO_BASIS_SET
-		if [[ "$COMPLETESTRUCT" == "true"  ]]; then
+		if [[ "$COMPLETESTRUCT" == "true" || "$EXPLICITMOL" == "true" ]]; then
 			COMPLETECIFBLOCK
 		fi
 	fi
@@ -1308,6 +1332,81 @@ TONTO_TO_GAUSSIAN(){
 	fi
 }
 
+TONTO_TO_CRYSTAL(){
+	CELLA=$(grep "a cell parameter ............" stdout | awk '{print $NF}' | cut -f1 -d"(" )
+	CELLB=$(grep "b cell parameter ............" stdout | awk '{print $NF}' | cut -f1 -d"(" )
+	CELLC=$(grep "c cell parameter ............" stdout | awk '{print $NF}' | cut -f1 -d"(" )
+	CELLALPHA=$(grep "alpha angle ................." stdout | awk '{print $NF}' | cut -f1 -d"(" )
+	CELLBETA=$(grep "beta  angle ................." stdout | awk '{print $NF}'  | cut -f1 -d"(" )
+	CELLGAMMA=$(grep "gamma angle ................." stdout | awk '{print $NF}' | cut -f1 -d"(" )
+	echo "$JOBNAME"  > $JOBNAME.d12 
+	echo "CRYSTAL"   >> $JOBNAME.d12
+	echo "0 0 0"     >> $JOBNAME.d12
+        SPACEGROUPITNUMBER=$(grep "_symmetry_Int_Tables_number" $CIF | tr -d \' | awk '{print $2}')
+	if [[ "$SPACEGROUPITNUMBER" == "" ]]; then
+		echo "ERROR: Space group number not found. Please enter the space group number in your cif with the keyword _symmetry_Int_Tables_number and restart your job" | tee -a $JOBNAME.lst
+		unset MAIN_DIALOG
+		exit 0
+	fi
+        echo "$SPACEGROUPITNUMBER"  >> $JOBNAME.d12
+        if [[ $( bc <<< "$CELLALPHA == 90") ]]; then 
+                CELLALPHA2=""
+        fi
+        if [[ $( bc <<< "$CELLBETA == 90") ]]; then 
+                CELLBETA2=""
+        fi
+        if [[ $( bc <<< "$CELLGAMMA == 90") ]]; then 
+                CELLGAMMA2=""
+        fi
+        echo "$CELLA $CELLB $CELLC $CELLALPHA2 $CELLBETA2 $CELLGAMMA2"  >> $JOBNAME.d12
+        cat $JOBNAME.xyz  >> $JOBNAME.d12
+        echo "MOLECULE"  >> $JOBNAME.d12
+        echo "1"  >> $JOBNAME.d12
+        echo "1 0 0 0"  >> $JOBNAME.d12
+        echo "END"  >> $JOBNAME.d12
+        cat basis_gen.txt >>  $JOBNAME.d12
+        echo "99 0"  >> $JOBNAME.d12
+        echo "END"  >> $JOBNAME.d12
+        if [[ "$METHOD" != "rhf" && "$METHOD" != "uhf" ]]; then
+                echo "DFT"  >> $JOBNAME.d12
+        fi
+        echo "$METHOD"  >> $JOBNAME.d12
+        echo "XLGRID"  >> $JOBNAME.d12
+        echo "END"  >> $JOBNAME.d12
+        echo "SCFDIR"  >> $JOBNAME.d12
+        echo "BIPOSIZE"  >> $JOBNAME.d12
+        echo "60000000"  >> $JOBNAME.d12
+        echo "EXCHSIZE"  >> $JOBNAME.d12
+        echo "40000000"  >> $JOBNAME.d12
+        echo "SHRINK"  >> $JOBNAME.d12
+        echo "8 8"  >> $JOBNAME.d12
+        echo "LEVSHIFT"  >> $JOBNAME.d12
+        echo "6 1"  >> $JOBNAME.d12
+        echo "TOLINTEG"  >> $JOBNAME.d12
+        echo "7 7 7 7 25"  >> $JOBNAME.d12
+        echo "END"  >> $JOBNAME.d12
+	I=$"1"
+	echo "Running Crystal, cycle number $I" 
+	$SCFCALC_BIN $JOBNAME
+	echo "Crystal cycle number $I ended"
+	if ! grep -q 'SCF ENDED - CONVERGENCE ON ENERGY' "$JOBNAME.out"; then
+		echo "ERROR: Crystal job finished with error, please check the $I.th out file for more details" | tee -a $JOBNAME.lst
+		unset MAIN_DIALOG
+		exit 0
+	fi
+        ENERGIA=$(grep "TOTAL ENERGY" $JOBNAME.out | awk '{print $4}')
+        RMSD=$(grep "TOTAL ENERGY" $JOBNAME.out | awk '{print $5}' | sed 's/DE//g' )
+	echo "Starting geometry: Energy= $ENERGIA, RMSD= $RMSD" >> $JOBNAME.lst
+	echo "" >> $JOBNAME.lst
+	echo "###############################################################################################" >> $JOBNAME.lst
+	echo "Crystal cycle number $I, final energy is: $ENERGIA, RMSD is: $RMSD "
+	mkdir $I.$SCFCALCPROG.cycle.$JOBNAME
+	cp $JOBNAME.d12 $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.d12
+	cp $JOBNAME.f98 $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.f98
+	cp $JOBNAME.f9 $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.f9
+	cp $JOBNAME.out  $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.out
+}
+
 GET_FREQ(){
 	I=$[ $I + 1 ]
 	echo "Extrating XYZ for Gaussian cycle number $I"
@@ -1417,6 +1516,9 @@ CHECK_ENERGY(){
 		ENERGIA2=$(sed -n '/Total Energy       :/p' $JOBNAME.out | awk '{print $4}' | tr -d '\r')
 		RMSD2=$(sed -n '/Last RMS-Density change/p' $JOBNAME.out | awk '{print $5}' | tr -d '\r')
 		echo "Orca cycle number $I, final energy is: $ENERGIA2, RMSD is: $RMSD2 "
+	elif [ "$SCFCALCPROG" = "Crystal14" ]; then
+                ENERGIA=$(grep "TOTAL ENERGY" $JOBNAME.out | awk '{print $4}')
+                RMSD=$(grep "TOTAL ENERGY" $JOBNAME.out | awk '{print $6}')
 	fi
 		DE=$(awk "BEGIN {print $ENERGIA2 - $ENERGIA}")
 		DE=$(printf '%.12f' $DE)
@@ -1440,6 +1542,8 @@ GET_RESIDUALS(){
 		READ_GAUSSIAN_FCHK
 	elif [ "$SCFCALCPROG" = "Orca" ]; then
 		READ_ORCA_FCHK
+	elif [ "$SCFCALCPROG" = "Crystal14" ]; then
+		READ_CRYSTAL_WFN
 	else
 		DEFINE_JOB_NAME
 	fi
@@ -1745,9 +1849,15 @@ RUN_XWR(){
 }
 
 COMPLETECIFBLOCK(){
-	if [ "$COMPLETESTRUCT" = "true" ]; then
+	if [[ "$COMPLETESTRUCT" == "true" || "$EXPLICITMOL" == "true" ]]; then
 		echo "   cluster= {" >> stdin
-		echo "      defragment= $COMPLETESTRUCT" >> stdin
+                if [ "$EXPLICITMOL" = "true" ]; then
+		        echo "      generation_method= within_radius" >> stdin
+		        echo "      radius= $EXPLRADIUS Angstrom" >> stdin
+        		echo "      defragment= $DEFRAGEXPL" >> stdin
+                else
+        		echo "      defragment= $COMPLETESTRUCT" >> stdin
+                fi
 		echo "      make_info" >> stdin
 		echo "   }" >> stdin
 		echo "" >> stdin
@@ -1948,9 +2058,13 @@ run_script(){
 		COMPLETECIFBLOCK
 		echo "   put" >> stdin 
 		echo "" >> stdin
-		echo "   write_xyz_file" >> stdin
+                if [[ "$SCFCALCPROG" != "Crystal14" ]]; then
+                        echo "   write_xyz_file" >> stdin
+                else 
+                        echo "   write_xtal14_xyz_file" >> stdin
+                fi
 		echo "   put_cif" >> stdin
-		if [[ "$COMPLETESTRUCT" == "true" || "$SCFCALCPROG" == "optgaussian" ]]; then
+		if [[ "$COMPLETESTRUCT" == "true" || "$EXPLICITMOL" == "true" || "$SCFCALCPROG" == "optgaussian" ]]; then
 			echo "" >> stdin
 			echo "   put_grown_cif" >> stdin
 		fi
@@ -2014,6 +2128,12 @@ run_script(){
 			echo "      REVERT" >> tonto.cell
 		fi
 #is this ok now?if [[ "$SCFCALCPROG" == "Gaussian" || "$SCFCALCPROG" == "optgaussian" ]]; then 
+                if [[ "$SCFCALCPROG" == "Crystal14" ]]; then
+ 	        	TONTO_TO_CRYSTAL
+        		SCF_TO_TONTO
+ 	        	TONTO_TO_CRYSTAL
+#	        	CHECK_ENERGY
+                fi
 		if [[ "$SCFCALCPROG" == "Gaussian" ]] || [[ "$SCFCALCPROG" == "optgaussian"  &&  "$SCCHARGES" == "true" ]]; then 
 			echo "###############################################################################################" >> $JOBNAME.lst
 			echo "                                     Starting Gaussian                                         " >> $JOBNAME.lst
@@ -2194,7 +2314,7 @@ run_script(){
 			TONTO_TO_ORCA
 			CHECK_ENERGY
 		fi
-		if [[ "$SCFCALCPROG" == "Gaussian" || "$SCFCALCPROG" == "Orca"  ]]; then
+		if [[ "$SCFCALCPROG" == "Gaussian" || "$SCFCALCPROG" == "Orca" || "$SCFCALCPROG" == "Crystal14"  ]]; then
 			if [[ "$DOUBLE_SCF" == "true" ]]; then #I think this whole block is not necessary! need to test
 				if [[ "$POWDER_HAR" == "true" ]]; then
                                         RUN_JANA
@@ -2242,8 +2362,10 @@ run_script(){
 				        SCF_TO_TONTO
 				        if [ "$SCFCALCPROG" = "Gaussian" ]; then  
 			        		TONTO_TO_GAUSSIAN
-			        	else 
+				        elif [ "$SCFCALCPROG" = "Orca" ]; then  
 			        		TONTO_TO_ORCA
+				        elif [ "$SCFCALCPROG" = "Crystal14" ]; then  
+			        		TONTO_TO_CRYSTAL
 			        	fi
 			        	CHECK_ENERGY
 		        	done
