@@ -1888,7 +1888,7 @@ COMPLETECIFBLOCK(){
                         DOUBLEGROW=false
                         TONTO_HEADER
                         PROCESS_CIF
-                        DEFINE_JOBNAME
+                        DEFINE_JOB_NAME
 	                if [[ "$SCFCALCPROG" == "Tonto" ]]; then 
                 		TONTO_BASIS_SET
                         fi
