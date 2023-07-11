@@ -1861,7 +1861,6 @@ SCF_TO_TONTO(){
 		TONTO_BASIS_SET
 		if [[ "$COMPLETESTRUCT" == "true" || "$EXPLICITMOL" == "true" ]]; then
 			COMPLETECIFBLOCK
-			echo I am in the loop
 		fi
 	fi
 	if [[ "$DISP" == "yes" ]]; then 
