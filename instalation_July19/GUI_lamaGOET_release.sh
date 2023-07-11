@@ -926,6 +926,30 @@ export MAIN_DIALOG='
 	        <action>if false enable:SCDIPOLES</action>
 	      </radiobutton>
 	      <radiobutton space-fill="True"  space-expand="True">
+	        <label>Crystal14</label>
+	        <default>false</default>
+	        <action>if true echo 'SCFCALCPROG="Crystal14"'</action>
+	        <action>if true disable:NTAIL</action>
+	        <action>if true enable:MEM</action>
+	        <action>if true enable:NUMPROC</action>
+	        <action>if true enable:SCFCALC_BIN</action>
+	        <action>if true disable:BASISSETDIR</action>
+	        <action>if true disable:BASISSETT</action>
+	        <action>if true disable:SCCHARGES</action>
+	        <action>if true disable:ELMOLIB</action>
+	        <action>if true disable:XHALONG</action>
+	        <action>if true disable:COMPLETESTRUCT</action>
+	        <action>if true disable:USEGAMESS</action>
+	        <action>if true enable:GAUSGEN</action>
+	        <action>if true disable:GAUSSREL</action>
+	        <action>if true disable:MANUALRESIDUE</action>
+	        <action>if true disable:NSSBOND</action>
+	        <action>if true disable:INITADP</action>
+	        <action>if true disable:GAUSSEMPDISP</action>
+	        <action>if true disable:EXTRAKEY</action>
+	        <action>if true disable:SCDIPOLES</action>
+	      </radiobutton>
+	      <radiobutton space-fill="True"  space-expand="True">
 	        <label>SC CC opt with Gaussian and Tonto</label>
 	        <default>false</default>
 	        <action>if true echo 'SCFCALCPROG="optgaussian"'</action>  
@@ -1001,7 +1025,7 @@ export MAIN_DIALOG='
 	   </hbox>
 	
           <hbox>
-	    <checkbox active="false" space-fill="True" space-expand="True" sensitive="true">
+	    <checkbox active="false" space-fill="True" space-expand="True" sensitive="true" visible="false">
 	     <label>Powder HAR</label>
 	      <variable>POWDER_HAR</variable>
 	        <action>if true enable:JANAEXE</action>
@@ -1011,7 +1035,7 @@ export MAIN_DIALOG='
 	        <action>if true enable:NSA2ACC</action>
 	        <action>if false disable:NSA2ACC</action>
 	    </checkbox>
-	    <checkbox active="false" space-fill="True" space-expand="True" sensitive="true">
+	    <checkbox active="false" space-fill="True" space-expand="True" sensitive="true" visible="false">
 	     <label>Calculate .tsc file with NoSpherA2</label>
 	      <variable>USENOSPHERA2</variable>
 	        <action>if true enable:NSA2ACC</action>
@@ -1019,7 +1043,7 @@ export MAIN_DIALOG='
               
 	    </checkbox>
 
-	    <checkbox active="false" space-fill="True"  space-expand="True" sensitive="false">
+	    <checkbox active="false" space-fill="True"  space-expand="True" sensitive="false" visible="false">
 	     <label>Use Gamess for calculation of overlap integrals</label>
 	      <variable>USEGAMESS</variable>
 	        <action>if true enable:GAMESS</action>
@@ -1386,6 +1410,32 @@ export MAIN_DIALOG='
 	   </hbox>
 	
 	   <hseparator></hseparator>
+	
+	   <hbox>
+	
+	    <checkbox>
+	     <label>Use explicit cluster of molecules? </label>
+	      <variable>EXPLICITMOL</variable>
+	      <action>if true enable:EXPLRADIUS</action>
+	      <action>if false disable:EXPLRADIUS</action>
+	      <action>if true enable:DEFRAGEXPL</action>
+	      <action>if false disable:DEFRAGEXPL</action>
+	    </checkbox>
+	
+	    <text use-markup="true" wrap="false" ><label>within radius</label></text>
+	    <entry has-tooltip="true" tooltip-markup="in Angstrom" sensitive="false">
+             <input>if [ ! -z $EXPLRADIUS ]; then echo "$EXPLRADIUS"; else (echo "3"); fi</input>
+	     <variable>EXPLRADIUS</variable>
+	    </entry>
+	
+	    <checkbox sensitive="false">
+	     <label>Complete molecules </label>
+	     <default>false</default>
+	      <variable>DEFRAGEXPL</variable>
+	    </checkbox>
+	   </hbox>
+
+	   <hseparator></hseparator>
 		
 	   <hbox>
 	    <text xalign="0" use-markup="true" wrap="false" space-fill="True"  space-expand="True"><label>Refinement options (all atom types): </label></text>
@@ -1418,9 +1468,18 @@ export MAIN_DIALOG='
 	      <variable>IAMTONTO</variable>
 	      <action>if true disable:XHALONG</action>
 	      <action>if false enable:XHALONG</action>
+	      <action>if true enable:ONLYIAMTONTO</action>
+	      <action>if false disable:ONLYIAMTONTO</action>
+	    </checkbox>
+           
+	    <checkbox sensitive="false" space-fill="True"  space-expand="True">
+	     <label>Only Perform the Tonto IAM </label>
+	      <variable>ONLYIAMTONTO</variable>
+	      <action>if true disable:XHALONG</action>
+	      <action>if false enable:XHALONG</action>
 	    </checkbox>
 	   </hbox>
-           
+
 	   <hseparator></hseparator>
 
            <hbox>
@@ -1646,7 +1705,7 @@ export MAIN_DIALOG='
 
 	   <hbox space-expand="false" space-fill="false">
 
-	    <text text-xalign="0" use-markup="true" wrap="false" space-expand="FALSE" space-fill="false"><label>Max. number of iteration (for each L.S. cicle):</label></text>
+	    <text text-xalign="0" use-markup="true" wrap="false" space-expand="FALSE" space-fill="false"><label>Max. number of iteration (for each L.S. cycle):</label></text>
 	   <hbox space-expand="true" space-fill="true">
 	    <entry space-expand="true">
              <input>if [ ! -z $MAXLSCYCLE ]; then echo "$MAXLSCYCLE"; else (echo ""); fi</input>

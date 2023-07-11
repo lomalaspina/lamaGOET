@@ -1519,6 +1519,10 @@ TONTO_IAM_BLOCK(){
 	echo "" >> stdin
 	echo "   IAM_refinement" >> stdin
 	echo "" >> stdin
+        if [[ "$ONLYIAMTONTO" == "true" ]]; then 
+	        echo "}" >> stdin
+	        echo "" >> stdin
+        fi
 }
 
 CRYSTAL_BLOCK(){
@@ -1857,6 +1861,7 @@ SCF_TO_TONTO(){
 		TONTO_BASIS_SET
 		if [[ "$COMPLETESTRUCT" == "true" || "$EXPLICITMOL" == "true" ]]; then
 			COMPLETECIFBLOCK
+			echo I am in the loop
 		fi
 	fi
 	if [[ "$DISP" == "yes" ]]; then 
@@ -2586,11 +2591,11 @@ RUN_XWR(){
 COMPLETECIFBLOCK(){
 	if [[ "$COMPLETESTRUCT" == "true" || "$EXPLICITMOL" == "true" ]]; then
 		echo "   cluster= {" >> stdin
-                if [ "$EXPLICITMOL" = "true" ]; then
+                if [[ "$EXPLICITMOL" == "true" && "$COMPLETESTRUCT" == "false" ]]; then
 		        echo "      generation_method= within_radius" >> stdin
 		        echo "      radius= $EXPLRADIUS Angstrom" >> stdin
         		echo "      defragment= $DEFRAGEXPL" >> stdin
-                else
+                elif [[ "$DOUBLEGROW" == "true" ]]; then
         		echo "      defragment= $COMPLETESTRUCT" >> stdin
                 fi
 		echo "      make_info" >> stdin
@@ -2600,6 +2605,41 @@ COMPLETECIFBLOCK(){
 		echo "" >> stdin
 		echo "   name= $JOBNAME" >> stdin		
 		echo "" >> stdin
+                if [[ "$EXPLICITMOL" == "true" && "$DOUBLEGROW" == "true" ]]; then
+		        echo "   put" >> stdin
+        		echo "   put_grown_cif" >> stdin
+        		echo "" >> stdin
+        		echo "}" >> stdin
+        		echo "" >> stdin
+                        $TONTO
+	                if [[ "$SCFCALCPROG" == "Tonto" ]]; then 
+                                cp $JOBNAME.cartesian.cif2 defrag.cif
+                                CIF=defrag.cif
+                        else
+                                mkdir $J.tonto_cycle.$JOBNAME
+                                cp $JOBNAME.cartesian.cif2 $J.tonto_cycle.$JOBNAME/$J.$JOBNAME.cartesian.cif2
+                                cp stdin $J.tonto_cycle.$JOBNAME/0.stdin
+                                cp stdout $J.tonto_cycle.$JOBNAME/0.stdout
+                        fi
+                        DOUBLEGROW=false
+                        TONTO_HEADER
+                        PROCESS_CIF
+                        DEFINE_JOBNAME
+	                if [[ "$SCFCALCPROG" == "Tonto" ]]; then 
+                		TONTO_BASIS_SET
+                        fi
+        	        echo "   cluster= {" >> stdin
+                	echo "      generation_method= within_radius" >> stdin
+        	        echo "      radius= $EXPLRADIUS Angstrom" >> stdin
+               		echo "      defragment= $DEFRAGEXPL" >> stdin
+                	echo "      make_info" >> stdin
+        	        echo "   }" >> stdin
+        		echo "" >> stdin
+                	echo "   create_cluster" >> stdin
+        	        echo "" >> stdin
+        		echo "   name= $JOBNAME" >> stdin		
+                	echo "" >> stdin
+               fi
 	fi
 }
 
@@ -2691,6 +2731,9 @@ run_script(){
 	fi 
 	if [[ ("$SCFCALCPROG" == "Tonto" && "$POWDER_HAR" == "true") && "$SCCHARGES" == "true" ]]; then
 		DOUBLE_SCF="true"
+	fi 
+	if [[ "$COMPLETESTRUCT" == "true" && "$EXPLICITMOL" == "true" ]]; then
+		DOUBLEGROW="true"
 	fi 
 	echo "###############################################################################################" > $JOBNAME.lst
 	echo "                                           lamaGOET                                            " >> $JOBNAME.lst
@@ -3975,7 +4018,7 @@ export MAIN_DIALOG='
 	      <variable>DEFRAGEXPL</variable>
 	    </checkbox>
 	   </hbox>
-	   <hseparator></hseparator>
+
 	   <hseparator></hseparator>
 		
 	   <hbox>
@@ -4009,9 +4052,18 @@ export MAIN_DIALOG='
 	      <variable>IAMTONTO</variable>
 	      <action>if true disable:XHALONG</action>
 	      <action>if false enable:XHALONG</action>
+	      <action>if true enable:ONLYIAMTONTO</action>
+	      <action>if false disable:ONLYIAMTONTO</action>
+	    </checkbox>
+           
+	    <checkbox sensitive="false" space-fill="True"  space-expand="True">
+	     <label>Only Perform the Tonto IAM </label>
+	      <variable>ONLYIAMTONTO</variable>
+	      <action>if true disable:XHALONG</action>
+	      <action>if false enable:XHALONG</action>
 	    </checkbox>
 	   </hbox>
-           
+
 	   <hseparator></hseparator>
 
            <hbox>
