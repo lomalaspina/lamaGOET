@@ -1522,6 +1522,12 @@ TONTO_IAM_BLOCK(){
         if [[ "$ONLYIAMTONTO" == "true" ]]; then 
 	        echo "}" >> stdin
 	        echo "" >> stdin
+	        echo "Running Tonto IAM refinement." 
+                $TONTO
+		echo "Job ended, elapsed time:" | tee -a $JOBNAME.lst
+		echo "$(($DURATION / 86400 )) days,  $((($DURATION / 3600) % 24 )) hours, $((($DURATION / 60) % 60 ))minutes and $(($DURATION % 60 )) seconds elapsed." | tee -a $JOBNAME.lst
+		unset MAIN_DIALOG
+		exit 0
         fi
 }
 
@@ -1735,10 +1741,10 @@ SCF_BLOCK_NOT_TONTO(){
                 else 
                         echo "   write_xtal14_xyz_file" >> stdin
                 fi
-		if [[ "$SCFCALCPROG" == "optgaussian" ]]; then
-			echo "" >> stdin
-			echo "   put_grown_cif" >> stdin
-		fi
+########	if [[ "$SCFCALCPROG" == "optgaussian" ]]; then
+########		echo "" >> stdin
+########		echo "   put_grown_cif" >> stdin
+########	fi
 	else
 		if [[ "$SCFCALCPROG" != "optgaussian" ]]; then 
 	                if [[ "$POWDERHAR" != "true" ]]; then
@@ -1754,10 +1760,10 @@ SCF_BLOCK_NOT_TONTO(){
                 else 
                         echo "   write_xtal14_xyz_file" >> stdin
                 fi
-		if [[ "$SCFCALCPROG" == "optgaussian" ]]; then
-			echo "" >> stdin
-			echo "   put_grown_cif" >> stdin
-		fi
+########	if [[ "$SCFCALCPROG" == "optgaussian" ]]; then
+########		echo "" >> stdin
+########		echo "   put_grown_cif" >> stdin
+########	fi
 	fi
 }
 
@@ -1910,7 +1916,7 @@ SCF_TO_TONTO(){
 		cp $JOBNAME'.archive.fcf' $J.tonto_cycle.$JOBNAME/$J.$JOBNAME.archive.fcf
 		cp stdin $J.tonto_cycle.$JOBNAME/$J.stdin
 		cp stdout $J.tonto_cycle.$JOBNAME/$J.stdout
-		cp $JOBNAME.residual_density_map,cell.cube $J.tonto_cycle.$JOBNAME/$J.residual_density_map,cell.cube
+		cp $JOBNAME.residual_density,cell.cube $J.tonto_cycle.$JOBNAME/$J.residual_density,cell.cube
                 if [[ "$POWDER_HAR" == "true" ]]; then
 		        cp $JOBNAME.hkl $J.tonto_cycle.$JOBNAME/$J.$JOBNAME.hkl
                 fi
@@ -2372,7 +2378,7 @@ GET_RESIDUALS(){
 	cp $JOBNAME'.archive.cif' $J.tonto_cycle.$JOBNAME/$J.$JOBNAME.archive.cif
 	cp $JOBNAME'.archive.fcf' $J.tonto_cycle.$JOBNAME/$J.$JOBNAME.archive.fcf
 	cp $JOBNAME'.archive.fco' $J.tonto_cycle.$JOBNAME/$J.$JOBNAME.archive.fco
-	cp $JOBNAME'.residual_density_map,cell.cube' $J.tonto_cycle.$JOBNAME/$J.$JOBNAME.residual_density_map,cell.cube
+	cp $JOBNAME'.residual_density,cell.cube' $J.tonto_cycle.$JOBNAME/$J.$JOBNAME.residual_density,cell.cube
 }
 
 XCW_SCF_BLOCK(){
@@ -2468,7 +2474,7 @@ XCW(){
 	cp $JOBNAME'.archive.cif' $J.XCW_cycle.$JOBNAME/$J.$JOBNAME.archive.cif
 	cp $JOBNAME'.archive.fcf' $J.XCW_cycle.$JOBNAME/$J.$JOBNAME.archive.fcf
 	cp $JOBNAME'.archive.fco' $J.XCW_cycle.$JOBNAME/$J.$JOBNAME.archive.fco
-	cp $JOBNAME.residual_density_map,cell.cube $J.XCW_cycle.$JOBNAME/$J.residual_density_map,cell.cube
+	cp $JOBNAME.residual_density,cell.cube $J.XCW_cycle.$JOBNAME/$J.residual_density,cell.cube
 	if ! grep -q 'Wall-clock time taken' "stdout"; then
 		echo "ERROR: problems in fit cycle, please check the $J.th stdout file for more details" | tee -a $JOBNAME.lst
 		unset MAIN_DIALOG
@@ -3471,6 +3477,8 @@ export MAIN_DIALOG='
 	        <action>if true echo 'SCFCALCPROG="elmodb"'</action>
 	        <action>if true enable:NTAIL</action>
 	        <action>if false disable:NTAIL</action>
+	        <action>if true disable:EXPLICITMOL</action>
+	        <action>if false enable:EXPLICITMOL</action>
 	        <action>if true enable:MEM</action>
 	        <action>if true enable:NUMPROC</action>
 	        <action>if true enable:SCFCALC_BIN</action>
