@@ -2594,7 +2594,7 @@ RUN_XWR(){
 }
 
 COMPLETECIFBLOCK(){
-	if [[ "$COMPLETESTRUCT" == "true" || "$EXPLICITMOL" == "true" ]]; then
+	if [[ "$COMPLETESTRUCT" == "true" && "$EXPLICITMOL" == "true" ]]; then
 		echo "   cluster= {" >> stdin
                 if [[ "$EXPLICITMOL" == "true" && "$COMPLETESTRUCT" == "false" ]]; then
 		        echo "      generation_method= within_radius" >> stdin
@@ -2645,6 +2645,18 @@ COMPLETECIFBLOCK(){
         		echo "   name= $JOBNAME" >> stdin		
                 	echo "" >> stdin
                fi
+	fi
+
+	if [[ "$COMPLETESTRUCT" == "true" && "$EXPLICITMOL" == "false" ]]; then
+		echo "   cluster= {" >> stdin
+        	echo "      defragment= $COMPLETESTRUCT" >> stdin
+		echo "      make_info" >> stdin
+		echo "   }" >> stdin
+		echo "" >> stdin
+		echo "   create_cluster" >> stdin
+		echo "" >> stdin
+		echo "   name= $JOBNAME" >> stdin		
+		echo "" >> stdin
 	fi
 }
 
