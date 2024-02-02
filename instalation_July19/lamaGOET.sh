@@ -2202,8 +2202,8 @@ TONTO_TO_CRYSTAL(){
 		unset MAIN_DIALOG
 		exit 0
 	fi
-        ENERGIA=$(grep "TOTAL ENERGY" $JOBNAME.out | awk '{print $4}')
-        RMSD=$(grep "TOTAL ENERGY" $JOBNAME.out | awk '{print $5}' | sed 's/DE//g' )
+        ENERGIA=$(grep "TOTAL ENERGY" $JOBNAME.out | tail -n1 | awk '{print $4}')
+        RMSD=$(grep "TOTAL ENERGY" $JOBNAME.out | tail -n1 | awk '{print $5}' | sed 's/DE//g' )
 	echo "Starting geometry: Energy= $ENERGIA, RMSD= $RMSD" >> $JOBNAME.lst
 	echo "" >> $JOBNAME.lst
 	echo "###############################################################################################" >> $JOBNAME.lst
