@@ -211,7 +211,7 @@ echo "" >> stdin
 if [[ "$SCFCALCPROG" != "Crystal14" ]]; then
         echo "   write_xyz_file" >> stdin
 else 
-        echo "   write_xtal14_xyz_file" >> stdin
+        echo "   write_xtal23_xyz_file" >> stdin
 fi
 echo "   put_cif" >> stdin
 if [[ "$COMPLETESTRUCT" == "true" || "$SCFCALCPROG" == "optgaussian" ]]; then
@@ -625,12 +625,14 @@ READ_ORCA_FCHK(){
 }
 
 READ_CRYSTAL_WFN(){
-        echo "   name= $JOBNAME" >> stdin 
         echo "" >> stdin
-        echo "   read_molden_file $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.molden.input" >> stdin
-	echo "This routine is still being writen, come back later. " | tee -a $JOBNAME.lst
-	unset MAIN_DIALOG
-	exit 0
+#        echo "   read_molden_file $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.molden.input" >> stdin
+        echo "   read_CRYSTAL_XML_file $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.XML" >> stdin
+#       echo "This routine is still being writen, come back later. " | tee -a $JOBNAME.lst
+#       unset MAIN_DIALOG
+#       exit 0
+        echo "" >> stdin
+        echo "   name= $JOBNAME" >> stdin 
         echo "" >> stdin
 }
 
@@ -650,7 +652,11 @@ PROCESS_CIF(){
 	if [ $POWDER_HAR = "false" ]; then 
 		if [ $J = 0 ]; then 
 			if [[ "$COMPLETESTRUCT" == "true" && "$SCFCALCPROG" != "Tonto" ]]; then
-				echo "       file_name= $J.tonto_cycle.$JOBNAME/$J.$JOBNAME.cartesian.cif2" >> stdin
+                                if [[ "$SCFCALCPROG" == "Crystal14" ]]; then
+        				echo "       file_name= $J.tonto_cycle.$JOBNAME/$J.$JOBNAME.archive.cif" >> stdin
+                                else
+        				echo "       file_name= $J.tonto_cycle.$JOBNAME/$J.$JOBNAME.cartesian.cif2" >> stdin
+                                fi
 			else
 				echo "       file_name= $CIF" >> stdin
 			fi
@@ -787,6 +793,12 @@ TONTO_IAM_BLOCK(){
         if [[ "$ONLYIAMTONTO" == "true" ]]; then 
 	        echo "}" >> stdin
 	        echo "" >> stdin
+	        echo "Running Tonto IAM refinement." 
+                $TONTO
+		echo "Job ended, elapsed time:" | tee -a $JOBNAME.lst
+		echo "$(($DURATION / 86400 )) days,  $((($DURATION / 3600) % 24 )) hours, $((($DURATION / 60) % 60 ))minutes and $(($DURATION % 60 )) seconds elapsed." | tee -a $JOBNAME.lst
+		unset MAIN_DIALOG
+		exit 0
         fi
 }
 
@@ -802,12 +814,19 @@ CRYSTAL_BLOCK(){
 	if [[ "$SCFCALCPROG" == "optgaussian" ]]; then 
 		echo "      REDIRECT tonto.cell" >> stdin
 	fi
+        if [[ "$SCFCALCPROG" == "Crystal14" ]]; then
+                echo "      spacegroup= { hermann_mauguin_symbol= "'"'$SPACEGROUPHM'"'" }" >> stdin
+        fi
 	if [[ "$SCFCALCPROG" != "optgaussian" ]]; then 
 		echo "      xray_data= {   " >> stdin
 	        if [[ "$POWDER_HAR" != "true" ]]; then 
         		echo "         thermal_smearing_model= atom-based" >> stdin
-        		echo "         partition_model= oc-hirshfeld" >> stdin
-        		if [[ "$PLOT_TONTO" == "false" ]]; then
+                        if [ "$SCFCALCPROG" = "Crystal14" ]; then
+        		        echo "         partition_model= oc-crystal23" >> stdin
+                        else
+        		        echo "         partition_model= oc-hirshfeld" >> stdin
+        		fi
+                        if [[ "$PLOT_TONTO" == "false" ]]; then
         			echo "         optimise_extinction= false" >> stdin
         			echo "         correct_dispersion= $DISP" >> stdin
         			echo "         optimise_scale_factor= true" >> stdin
@@ -876,6 +895,9 @@ CRYSTAL_BLOCK(){
         				echo "	 max_iterations= $MAXLSCYCLE" >> stdin 
         			fi
         		fi
+                fi
+                if [[ "$SCFCALCPROG" == "Crystal14" ]]; then
+		        echo "         do_residual_cube= YES " >> stdin
                 fi
 		echo "      }  " >> stdin
 	fi
@@ -991,24 +1013,26 @@ SCF_BLOCK_NOT_TONTO(){
 		if [[ "$SCFCALCPROG" != "optgaussian" && "$J" != "0" ]]; then 
 	                if [[ "$POWDERHAR" != "true" ]]; then
 			        echo "   ! Make Hirshfeld structure factors" >> stdin
-			        echo "   fit_hirshfeld_atoms" >> stdin
+#			        echo "   fit_hirshfeld_atoms" >> stdin
+			        echo "   ha_fit" >> stdin
         			echo "" >> stdin
 	        	fi
                 fi
                 if [[ "$SCFCALCPROG" != "Crystal14" ]]; then
                         echo "   write_xyz_file" >> stdin
                 else 
-                        echo "   write_xtal14_xyz_file" >> stdin
+                        echo "   write_xtal23_xyz_file" >> stdin
                 fi
-		if [[ "$SCFCALCPROG" == "optgaussian" ]]; then
-			echo "" >> stdin
-			echo "   put_grown_cif" >> stdin
-		fi
+########	if [[ "$SCFCALCPROG" == "optgaussian" ]]; then
+########		echo "" >> stdin
+########		echo "   put_grown_cif" >> stdin
+########	fi
 	else
 		if [[ "$SCFCALCPROG" != "optgaussian" ]]; then 
 	                if [[ "$POWDERHAR" != "true" ]]; then
 			        echo "   ! Make Hirshfeld structure factors" >> stdin
-        			echo "   fit_hirshfeld_atoms" >> stdin
+#       			echo "   fit_hirshfeld_atoms" >> stdin
+			        echo "   ha_fit" >> stdin
         			echo "" >> stdin
                         else
                                 echo "   put_cif" >> stdin
@@ -1017,12 +1041,12 @@ SCF_BLOCK_NOT_TONTO(){
                 if [[ "$SCFCALCPROG" != "Crystal14" ]]; then
                         echo "   write_xyz_file" >> stdin
                 else 
-                        echo "   write_xtal14_xyz_file" >> stdin
+                        echo "   write_xtal23_xyz_file" >> stdin
                 fi
-		if [[ "$SCFCALCPROG" == "optgaussian" ]]; then
-			echo "" >> stdin
-			echo "   put_grown_cif" >> stdin
-		fi
+########	if [[ "$SCFCALCPROG" == "optgaussian" ]]; then
+########		echo "" >> stdin
+########		echo "   put_grown_cif" >> stdin
+########	fi
 	fi
 }
 
@@ -1097,8 +1121,8 @@ SCF_TO_TONTO(){
 		READ_GAUSSIAN_FCHK
 	elif [ "$SCFCALCPROG" = "Orca" ]; then
 		READ_ORCA_FCHK
-	elif [ "$SCFCALCPROG" = "Crystal14" ]; then
-		READ_CRYSTAL_WFN
+#       elif [ "$SCFCALCPROG" = "Crystal14" ]; then
+#	        READ_CRYSTAL_WFN
 	else
 		DEFINE_JOB_NAME
 	fi
@@ -1106,6 +1130,10 @@ SCF_TO_TONTO(){
 	if [[ "$SCFCALCPROG" != "elmodb" && "$SCFCALCPROG" != "optgaussian" && $"$POWDER_HAR" != "true" ]]; then
 		PROCESS_CIF
 		DEFINE_JOB_NAME
+               if [[ "$SCFCALCPROG" == "Crystal14" ]]; then
+                        COMPLETECELLBLOCK
+        	        READ_CRYSTAL_WFN
+               fi
 	fi
 	if [[ $J -gt 0 && "$SCFCALCPROG" == "elmodb" ]]; then
 		PROCESS_CIF
@@ -1128,6 +1156,10 @@ SCF_TO_TONTO(){
 			COMPLETECIFBLOCK
 		fi
 	fi
+        if [ "$SCFCALCPROG" = "Crystal14" ]; then
+		echo "   use_spherical_basis= TRUE" >> stdin
+                TONTO_BASIS_SET
+        fi
 	if [[ "$DISP" == "yes" ]]; then 
 		DISPERSION_COEF
 	fi
@@ -1136,11 +1168,11 @@ SCF_TO_TONTO(){
 		TONTO_IAM_BLOCK
 	fi
 	CRYSTAL_BLOCK
-	if [[ "POWDER_HAR" != "true" ]]; then 
-	        if [[ "$HADP" == "yes" ]]; then 
-	        	SET_H_ISO
-        	fi
-        fi
+########if [[ "POWDER_HAR" != "true" ]]; then 
+########        if [[ "$HADP" == "yes" ]]; then 
+########        	SET_H_ISO
+########	fi
+########fi
        	PUT_GEOM
 	if [[ "POWDER_HAR" != "true" ]]; then 
         	if [[ "$USEBECKE" == "true" ]]; then 
@@ -1337,36 +1369,60 @@ TONTO_TO_GAUSSIAN(){
 }
 
 TONTO_TO_CRYSTAL(){
-	CELLA=$(grep "a cell parameter ............" stdout | awk '{print $NF}' | cut -f1 -d"(" )
-	CELLB=$(grep "b cell parameter ............" stdout | awk '{print $NF}' | cut -f1 -d"(" )
-	CELLC=$(grep "c cell parameter ............" stdout | awk '{print $NF}' | cut -f1 -d"(" )
-	CELLALPHA=$(grep "alpha angle ................." stdout | awk '{print $NF}' | cut -f1 -d"(" )
-	CELLBETA=$(grep "beta  angle ................." stdout | awk '{print $NF}'  | cut -f1 -d"(" )
-	CELLGAMMA=$(grep "gamma angle ................." stdout | awk '{print $NF}' | cut -f1 -d"(" )
+	I=$[ $I + 1 ]
+        if [[ "$SPACEGROUPHM" == "" ]]; then
+                SPACEGROUPHM=$( awk '/_symmetry_space_group_name_H-M/ {print $0}' 0.tonto_cycle.$JOBNAME/0.$JOBNAME.cartesian.cif2 | sed "s/'/\:/g" | awk -F ":" '{print $2}' )
+        fi
+	CELLA=$(grep "a cell parameter ............" stdout | head -1 | awk '{print $NF}' | cut -f1 -d"(" )
+	CELLB=$(grep "b cell parameter ............" stdout | head -1 | awk '{print $NF}' | cut -f1 -d"(" )
+	CELLC=$(grep "c cell parameter ............" stdout | head -1 | awk '{print $NF}' | cut -f1 -d"(" )
+	CELLALPHA=$(grep "alpha angle ................." stdout | head -1 | awk '{print $NF}' | cut -f1 -d"(" )
+	CELLBETA=$(grep "beta  angle ................." stdout | head -1 | awk '{print $NF}'  | cut -f1 -d"(" )
+	CELLGAMMA=$(grep "gamma angle ................." stdout | head -1 | awk '{print $NF}' | cut -f1 -d"(" )
 	echo "$JOBNAME"  > $JOBNAME.d12 
 	echo "CRYSTAL"   >> $JOBNAME.d12
 	echo "0 0 0"     >> $JOBNAME.d12
-        SPACEGROUPITNUMBER=$(grep "_symmetry_Int_Tables_number" $CIF | tr -d \' | awk '{print $2}')
+        SPACEGROUPITNUMBER=$(grep "_symmetry_Int_Tables_number" $CIF | tr -d \' | awk '{print $2}' | tr -d '\r')
 	if [[ "$SPACEGROUPITNUMBER" == "" ]]; then
-		echo "ERROR: Space group number not found. Please enter the space group number in your cif with the keyword _symmetry_Int_Tables_number and restart your job" | tee -a $JOBNAME.lst
-		unset MAIN_DIALOG
-		exit 0
+                SPACEGROUPITNUMBER=$(grep "_space_group_IT_number" $CIF | tr -d \' | awk '{print $2}' | tr -d '\r')
+	        if [[ "$SPACEGROUPITNUMBER" == "" ]]; then
+		        echo "ERROR: Space group number not found. Please enter the space group number in your cif with the keyword _symmetry_Int_Tables_number or _space_group_IT_number and restart your job" | tee -a $JOBNAME.lst
+		        unset MAIN_DIALOG
+		        exit 0
+                fi 
 	fi
-        echo "$SPACEGROUPITNUMBER"  >> $JOBNAME.d12
-        if [[ $( bc <<< "$CELLALPHA == 90") ]]; then 
+        echo $SPACEGROUPITNUMBER  >> $JOBNAME.d12
+        if (( $( bc <<< "$CELLALPHA == 90") )); then
                 CELLALPHA2=""
+        else
+                CELLALPHA2=$CELLALPHA
         fi
-        if [[ $( bc <<< "$CELLBETA == 90") ]]; then 
+        if (( $( bc <<< "$CELLBETA == 90") )); then
                 CELLBETA2=""
+        else
+                CELLBETA2=$CELLBETA
         fi
-        if [[ $( bc <<< "$CELLGAMMA == 90") ]]; then 
+        if (( $( bc <<< "$CELLGAMMA == 90") )); then
                 CELLGAMMA2=""
+        else
+                CELLGAMMA2=$CELLGAMMA
+        fi
+        if (( $( bc <<< "$CELLA == $CELLB") )); then
+                if (( $( bc <<< "$CELLB == $CELLC") )); then
+                        CELLC=""
+                fi
+                if (( $( bc <<< "$CELLGAMMA == 120") )); then
+                        CELLGAMMA2=""
+                fi
+                CELLB=""
         fi
         echo "$CELLA $CELLB $CELLC $CELLALPHA2 $CELLBETA2 $CELLGAMMA2"  >> $JOBNAME.d12
-        cat $JOBNAME.xyz  >> $JOBNAME.d12
-        echo "MOLECULE"  >> $JOBNAME.d12
-        echo "1"  >> $JOBNAME.d12
-        echo "1 0 0 0"  >> $JOBNAME.d12
+        sed '2d' my_job.xyz >> $JOBNAME.d12
+#       cat $JOBNAME.xyz  >> $JOBNAME.d12
+#        echo "MOLECULE"  >> $JOBNAME.d12
+        echo "NOSHIFT"  >> $JOBNAME.d12
+#       echo "1"  >> $JOBNAME.d12
+#       echo "1 0 0 0"  >> $JOBNAME.d12
         echo "END"  >> $JOBNAME.d12
         cat basis_gen.txt >>  $JOBNAME.d12
         echo "99 0"  >> $JOBNAME.d12
@@ -1375,31 +1431,44 @@ TONTO_TO_CRYSTAL(){
                 echo "DFT"  >> $JOBNAME.d12
         fi
         echo "$METHOD"  >> $JOBNAME.d12
-        echo "XLGRID"  >> $JOBNAME.d12
+#       echo "XLGRID"  >> $JOBNAME.d12
         echo "END"  >> $JOBNAME.d12
-        echo "SCFDIR"  >> $JOBNAME.d12
-        echo "BIPOSIZE"  >> $JOBNAME.d12
-        echo "60000000"  >> $JOBNAME.d12
-        echo "EXCHSIZE"  >> $JOBNAME.d12
-        echo "40000000"  >> $JOBNAME.d12
+#       echo "SCFDIR"  >> $JOBNAME.d12
+#       echo "BIPOSIZE"  >> $JOBNAME.d12
+#       echo "60000000"  >> $JOBNAME.d12
+#       echo "EXCHSIZE"  >> $JOBNAME.d12
+#       echo "40000000"  >> $JOBNAME.d12
         echo "SHRINK"  >> $JOBNAME.d12
-        echo "8 8"  >> $JOBNAME.d12
-        echo "LEVSHIFT"  >> $JOBNAME.d12
-        echo "6 1"  >> $JOBNAME.d12
-        echo "TOLINTEG"  >> $JOBNAME.d12
-        echo "7 7 7 7 25"  >> $JOBNAME.d12
+        echo "6 6"  >> $JOBNAME.d12
+#       echo "LEVSHIFT"  >> $JOBNAME.d12
+#       echo "6 1"  >> $JOBNAME.d12
+#       echo "TOLINTEG"  >> $JOBNAME.d12
+#       echo "7 7 7 7 25"  >> $JOBNAME.d12
+        echo "TOLDEE"  >> $JOBNAME.d12
+        echo "7"  >> $JOBNAME.d12
         echo "END"  >> $JOBNAME.d12
-	I=$"1"
+#       I=$"1"
 	echo "Running Crystal, cycle number $I" 
-	$SCFCALC_BIN $JOBNAME
+        if [[ "$NUMPROC" != "1" ]]; then
+                cp $JOBNAME.d12 INPUT
+        	mpirun -n $NUMPROCTONTO $SCFCALC_BIN >& $JOBNAME.out 	
+        else
+	        $SCFCALC_BIN $JOBNAME
+        fi
 	echo "Crystal cycle number $I ended"
+        if [[ ! -f GenerateXML.d3  ]]; then
+                echo "CRYAPI_OUT"  > GenerateXML.d3
+	fi
+        echo "Running Crystal properties, cycle number $I" 
+        runprop23 GenerateXML $JOBNAME
+	echo "Crystal properties, cycle number $I ended" 
 	if ! grep -q 'SCF ENDED - CONVERGENCE ON ENERGY' "$JOBNAME.out"; then
 		echo "ERROR: Crystal job finished with error, please check the $I.th out file for more details" | tee -a $JOBNAME.lst
 		unset MAIN_DIALOG
 		exit 0
 	fi
-        ENERGIA=$(grep "TOTAL ENERGY" $JOBNAME.out | awk '{print $4}')
-        RMSD=$(grep "TOTAL ENERGY" $JOBNAME.out | awk '{print $5}' | sed 's/DE//g' )
+        ENERGIA=$(grep "TOTAL ENERGY" $JOBNAME.out | tail -n1 | awk '{print $4}')
+        RMSD=$(grep "TOTAL ENERGY" $JOBNAME.out | tail -n1 | awk '{print $5}' | sed 's/DE//g' )
 	echo "Starting geometry: Energy= $ENERGIA, RMSD= $RMSD" >> $JOBNAME.lst
 	echo "" >> $JOBNAME.lst
 	echo "###############################################################################################" >> $JOBNAME.lst
@@ -1408,6 +1477,8 @@ TONTO_TO_CRYSTAL(){
 	cp $JOBNAME.d12 $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.d12
 	cp $JOBNAME.f98 $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.f98
 	cp $JOBNAME.f9 $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.f9
+#       cp $JOBNAME.d3 $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.d3
+	cp GenerateXML.XML $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.XML
 	cp $JOBNAME.out  $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.out
 }
 
@@ -1919,6 +1990,30 @@ COMPLETECIFBLOCK(){
 	fi
 }
 
+COMPLETECELLBLOCK(){
+        echo "   cluster= {" >> stdin
+        echo "      generation_method= unit_cell" >> stdin
+	echo "      make_info" >> stdin
+	echo "   }" >> stdin
+	echo "" >> stdin
+	echo "   create_cluster" >> stdin
+	echo "" >> stdin
+	echo "   name= $JOBNAME" >> stdin		
+	echo "" >> stdin
+}
+
+REDUCECELLCLUSTER(){
+        echo "   cluster= {" >> stdin
+        echo "      generation_method= assymetric_unit" >> stdin
+        echo "      make_info" >> stdin
+        echo "   }" >> stdin
+        echo "" >> stdin
+        echo "   create_cluster" >> stdin
+        echo "" >> stdin
+        echo "   name= $JOBNAME" >> stdin
+        echo "" >> stdin
+}
+
 run_script(){
 	SECONDS=0
 	if [ "$POWDER_HAR" = "true" ]; then
@@ -2109,13 +2204,17 @@ run_script(){
 		echo "" >> stdin
 		echo "   name= $JOBNAME" >> stdin
 		echo "" >> stdin
+#               if [[ "$SCFCALCPROG" == "Crystal14" ]]; then
+#                       COMPLETECELLBLOCK
+#               fi
 		COMPLETECIFBLOCK
 		echo "   put" >> stdin 
 		echo "" >> stdin
                 if [[ "$SCFCALCPROG" != "Crystal14" ]]; then
                         echo "   write_xyz_file" >> stdin
-                else 
-                        echo "   write_xtal14_xyz_file" >> stdin
+                else
+#                       REDUCECELLCLUSTER
+                        echo "   write_xtal23_xyz_file" >> stdin
                 fi
 		echo "   put_cif" >> stdin
 		if [[ "$COMPLETESTRUCT" == "true" || "$EXPLICITMOL" == "true" || "$SCFCALCPROG" == "optgaussian" ]]; then
@@ -2163,12 +2262,12 @@ run_script(){
 		echo "Done reading cif with Tonto"
 #is this ok now?if [[ "$SCFCALCPROG" == "elmodb" && ! -z tonto.cell || "$SCFCALCPROG" == "optgaussian" && ! -z tonto.cell  ]]; then
 		if [[ ( "$SCFCALCPROG" == "elmodb" && ! -f tonto.cell ) || ( "$SCFCALCPROG" == "optgaussian" && ! -f tonto.cell ) ]]; then
-			CELLA=$(grep "a cell parameter ............" stdout | awk '{print $NF}')
-			CELLB=$(grep "b cell parameter ............" stdout | awk '{print $NF}')
-			CELLC=$(grep "c cell parameter ............" stdout | awk '{print $NF}')
-			CELLALPHA=$(grep "alpha angle ................." stdout | awk '{print $NF}')
-			CELLBETA=$(grep "beta  angle ................." stdout | awk '{print $NF}')
-			CELLGAMMA=$(grep "gamma angle ................." stdout | awk '{print $NF}')
+			CELLA=$(grep "a cell parameter ............" stdout | head -1 | awk '{print $NF}')
+			CELLB=$(grep "b cell parameter ............" stdout | head -1 | awk '{print $NF}')
+			CELLC=$(grep "c cell parameter ............" stdout | head -1 | awk '{print $NF}')
+			CELLALPHA=$(grep "alpha angle ................." stdout | head -1 | awk '{print $NF}')
+			CELLBETA=$(grep "beta  angle ................." stdout | head -1 | awk '{print $NF}')
+			CELLGAMMA=$(grep "gamma angle ................." stdout | head -1 | awk '{print $NF}')
 			SPACEGROUP=$(grep "Hall symbol" stdout | gawk 'BEGIN { FS = " ................ " } {print $NF}')
 	  		echo "      spacegroup= { hall_symbol= '$SPACEGROUP' }" > tonto.cell
 			echo "" >> tonto.cell
