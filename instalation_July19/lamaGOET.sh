@@ -966,11 +966,11 @@ if [[ "$SCFCALCPROG" != "Tonto" && "$SCFCALCPROG" != "elmodb" ]]; then
         sed -i 's/(//g' $JOBNAME.xyz
 	sed -i 's/)//g' $JOBNAME.xyz
 fi
-if [ -f $JOBNAME.cartesian.cif2 ]; then
+if [[ -f $JOBNAME.cartesian.cif2 ]]; then
 	sed -i '/# NOTE: Cartesian 9Nx9N covariance matrix in BOHR units/,/# ===========/d' $JOBNAME.cartesian.cif2
         cp $JOBNAME'.cartesian.cif2' $J.tonto_cycle.$JOBNAME/$J.$JOBNAME.cartesian.cif2
 fi
-if [ "$SCFCALCPROG" = "Gaussian" ]; then  
+if [[ "$SCFCALCPROG" == "Gaussian" ]]; then  
         GAUSSIAN_NO_CHARGES
 else 
 	ORCA_NO_CHARGES
@@ -1387,11 +1387,7 @@ PROCESS_CIF(){
 	if [ $POWDER_HAR = "false" ]; then 
 		if [ $J = 0 ]; then 
 			if [[ "$COMPLETESTRUCT" == "true" && "$SCFCALCPROG" != "Tonto" ]]; then
-                                if [[ "$SCFCALCPROG" == "Crystal14" ]]; then
-        				echo "       file_name= $J.tonto_cycle.$JOBNAME/$J.$JOBNAME.archive.cif" >> stdin
-                                else
-        				echo "       file_name= $J.tonto_cycle.$JOBNAME/$J.$JOBNAME.cartesian.cif2" >> stdin
-                                fi
+       				echo "       file_name= $J.tonto_cycle.$JOBNAME/$J.$JOBNAME.cartesian.cif2" >> stdin
 			else
 				echo "       file_name= $CIF" >> stdin
 			fi
@@ -1418,10 +1414,18 @@ PROCESS_CIF(){
 						echo "       file_name= $CIF" >> stdin
 					fi
 			else
-				echo "       file_name= $J.tonto_cycle.$JOBNAME/$J.$JOBNAME.cartesian.cif2" >> stdin
+                                if [[ "$SCFCALCPROG" == "Crystal14" ]]; then
+        				echo "       file_name= $J.tonto_cycle.$JOBNAME/$J.$JOBNAME.archive.cif" >> stdin
+                                else
+        				echo "       file_name= $J.tonto_cycle.$JOBNAME/$J.$JOBNAME.cartesian.cif2" >> stdin
+                                fi
 			fi
 		else
-			echo "       file_name= $J.tonto_cycle.$JOBNAME/$J.$JOBNAME.cartesian.cif2" >> stdin
+                        if [[ "$SCFCALCPROG" == "Crystal14" ]]; then
+        			echo "       file_name= $J.tonto_cycle.$JOBNAME/$J.$JOBNAME.archive.cif" >> stdin
+                        else
+        			echo "       file_name= $J.tonto_cycle.$JOBNAME/$J.$JOBNAME.cartesian.cif2" >> stdin
+                        fi
 		fi
                 if [ "$XHALONG" = "true" ]; then
                         	if [ ! -z "$BHBOND" ]; then
@@ -2202,9 +2206,13 @@ TONTO_TO_CRYSTAL(){
 		unset MAIN_DIALOG
 		exit 0
 	fi
-        ENERGIA=$(grep "TOTAL ENERGY" $JOBNAME.out | tail -n1 | awk '{print $4}')
-        RMSD=$(grep "TOTAL ENERGY" $JOBNAME.out | tail -n1 | awk '{print $5}' | sed 's/DE//g' )
-	echo "Starting geometry: Energy= $ENERGIA, RMSD= $RMSD" >> $JOBNAME.lst
+        if [[ "$I" == "1" ]]; then
+                ENERGIA=$(grep "TOTAL ENERGY" $JOBNAME.out | tail -n1 | awk '{print $4}')
+                RMSD=$(grep "TOTAL ENERGY" $JOBNAME.out | tail -n1 | awk '{print $5}' | sed 's/DE//g' )
+        	echo "Starting geometry: Energy= $ENERGIA, RMSD= $RMSD" >> $JOBNAME.lst
+#       else
+#       	echo "Energy= $ENERGIA, RMSD= $RMSD" >> $JOBNAME.lst
+        fi
 	echo "" >> $JOBNAME.lst
 	echo "###############################################################################################" >> $JOBNAME.lst
 	echo "Crystal cycle number $I, final energy is: $ENERGIA, RMSD is: $RMSD "
@@ -2322,13 +2330,13 @@ CHECK_ENERGY(){
 #		ENERGIA2=$(sed 's/^ //' $JOBNAME.log | sed 'N;s/\n//' | sed 'N;s/\n//' | sed 'N;s/\n//' | sed 'N;s/\n//' | sed -n '/HF=/{N;p;}' | sed 's/^.*HF=//' | sed 'N;s/\n//' | sed '2d' | sed 's/RMSD=//g' | awk -F '\' '{ print $1}' | tr -d '\r')
 #		RMSD2=$(sed 's/^ //' $JOBNAME.log | sed 'N;s/\n//' | sed 'N;s/\n//' | sed 'N;s/\n//'| sed -n '/RMSD=/{N;p;}' | sed 's/^.*RMSD=//' | sed 'N;s/\n//' | sed '2d' | sed 's/RMSD=//g' | awk -F '\' '{ print $1}'| tr -d '\r')
 		echo "Gaussian cycle number $I, final energy is: $ENERGIA2, RMSD is: $RMSD2 "
-	elif [ "$SCFCALCPROG" = "Orca" ]; then
+	elif [[ "$SCFCALCPROG" == "Orca" ]]; then
 		ENERGIA2=$(sed -n '/Total Energy       :/p' $JOBNAME.out | awk '{print $4}' | tr -d '\r')
 		RMSD2=$(sed -n '/Last RMS-Density change/p' $JOBNAME.out | awk '{print $5}' | tr -d '\r')
 		echo "Orca cycle number $I, final energy is: $ENERGIA2, RMSD is: $RMSD2 "
-	elif [ "$SCFCALCPROG" = "Crystal14" ]; then
-                ENERGIA=$(grep "TOTAL ENERGY" $JOBNAME.out | awk '{print $4}')
-                RMSD=$(grep "TOTAL ENERGY" $JOBNAME.out | awk '{print $6}')
+	elif [[ "$SCFCALCPROG" == "Crystal14" ]]; then
+                ENERGIA2=$(grep "TOTAL ENERGY" $JOBNAME.out | tail -n1 | awk '{print $4}')
+                RMSD2=$(grep "TOTAL ENERGY" $JOBNAME.out | tail -n1 | awk '{print $5}' | sed 's/DE//g' )
 	fi
 		DE=$(awk "BEGIN {print $ENERGIA2 - $ENERGIA}")
 		DE=$(printf '%.12f' $DE)
@@ -3020,7 +3028,7 @@ run_script(){
  	        	TONTO_TO_CRYSTAL
         		SCF_TO_TONTO
  	        	TONTO_TO_CRYSTAL
-#	        	CHECK_ENERGY
+ 	        	CHECK_ENERGY
                 fi
 		if [[ "$SCFCALCPROG" == "Gaussian" ]] || [[ "$SCFCALCPROG" == "optgaussian"  &&  "$SCCHARGES" == "true" ]]; then 
 			echo "###############################################################################################" >> $JOBNAME.lst

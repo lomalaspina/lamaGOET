@@ -1467,9 +1467,13 @@ TONTO_TO_CRYSTAL(){
 		unset MAIN_DIALOG
 		exit 0
 	fi
-        ENERGIA=$(grep "TOTAL ENERGY" $JOBNAME.out | tail -n1 | awk '{print $4}')
-        RMSD=$(grep "TOTAL ENERGY" $JOBNAME.out | tail -n1 | awk '{print $5}' | sed 's/DE//g' )
-	echo "Starting geometry: Energy= $ENERGIA, RMSD= $RMSD" >> $JOBNAME.lst
+        if [[ "$I" == "1" ]]; then
+                ENERGIA=$(grep "TOTAL ENERGY" $JOBNAME.out | tail -n1 | awk '{print $4}')
+                RMSD=$(grep "TOTAL ENERGY" $JOBNAME.out | tail -n1 | awk '{print $5}' | sed 's/DE//g' )
+        	echo "Starting geometry: Energy= $ENERGIA, RMSD= $RMSD" >> $JOBNAME.lst
+#       else
+#       	echo "Energy= $ENERGIA, RMSD= $RMSD" >> $JOBNAME.lst
+        fi
 	echo "" >> $JOBNAME.lst
 	echo "###############################################################################################" >> $JOBNAME.lst
 	echo "Crystal cycle number $I, final energy is: $ENERGIA, RMSD is: $RMSD "
@@ -1587,13 +1591,13 @@ CHECK_ENERGY(){
 #		ENERGIA2=$(sed 's/^ //' $JOBNAME.log | sed 'N;s/\n//' | sed 'N;s/\n//' | sed 'N;s/\n//' | sed 'N;s/\n//' | sed -n '/HF=/{N;p;}' | sed 's/^.*HF=//' | sed 'N;s/\n//' | sed '2d' | sed 's/RMSD=//g' | awk -F '\' '{ print $1}' | tr -d '\r')
 #		RMSD2=$(sed 's/^ //' $JOBNAME.log | sed 'N;s/\n//' | sed 'N;s/\n//' | sed 'N;s/\n//'| sed -n '/RMSD=/{N;p;}' | sed 's/^.*RMSD=//' | sed 'N;s/\n//' | sed '2d' | sed 's/RMSD=//g' | awk -F '\' '{ print $1}'| tr -d '\r')
 		echo "Gaussian cycle number $I, final energy is: $ENERGIA2, RMSD is: $RMSD2 "
-	elif [ "$SCFCALCPROG" = "Orca" ]; then
+	elif [[ "$SCFCALCPROG" == "Orca" ]]; then
 		ENERGIA2=$(sed -n '/Total Energy       :/p' $JOBNAME.out | awk '{print $4}' | tr -d '\r')
 		RMSD2=$(sed -n '/Last RMS-Density change/p' $JOBNAME.out | awk '{print $5}' | tr -d '\r')
 		echo "Orca cycle number $I, final energy is: $ENERGIA2, RMSD is: $RMSD2 "
-	elif [ "$SCFCALCPROG" = "Crystal14" ]; then
-                ENERGIA=$(grep "TOTAL ENERGY" $JOBNAME.out | awk '{print $4}')
-                RMSD=$(grep "TOTAL ENERGY" $JOBNAME.out | awk '{print $6}')
+	elif [[ "$SCFCALCPROG" == "Crystal14" ]]; then
+                ENERGIA2=$(grep "TOTAL ENERGY" $JOBNAME.out | tail -n1 | awk '{print $4}')
+                RMSD2=$(grep "TOTAL ENERGY" $JOBNAME.out | tail -n1 | awk '{print $5}' | sed 's/DE//g' )
 	fi
 		DE=$(awk "BEGIN {print $ENERGIA2 - $ENERGIA}")
 		DE=$(printf '%.12f' $DE)
@@ -2285,7 +2289,7 @@ run_script(){
  	        	TONTO_TO_CRYSTAL
         		SCF_TO_TONTO
  	        	TONTO_TO_CRYSTAL
-#	        	CHECK_ENERGY
+ 	        	CHECK_ENERGY
                 fi
 		if [[ "$SCFCALCPROG" == "Gaussian" ]] || [[ "$SCFCALCPROG" == "optgaussian"  &&  "$SCCHARGES" == "true" ]]; then 
 			echo "###############################################################################################" >> $JOBNAME.lst
