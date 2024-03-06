@@ -627,7 +627,9 @@ READ_ORCA_FCHK(){
 READ_CRYSTAL_WFN(){
         echo "" >> stdin
 #        echo "   read_molden_file $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.molden.input" >> stdin
-        echo "   read_CRYSTAL_XML_file $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.XML" >> stdin
+##        echo "   read_CRYSTAL_XML_file $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.XML" >> stdin #this one was the one working before
+        echo "   c23_XML_file_name= $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.XML" >> stdin 
+        echo "   process_cif_and_c23_xml" >> stdin 
 #       echo "This routine is still being writen, come back later. " | tee -a $JOBNAME.lst
 #       unset MAIN_DIALOG
 #       exit 0
@@ -708,14 +710,18 @@ PROCESS_CIF(){
                 fi
 		echo "    }" >> stdin
 		echo "" >> stdin
-		echo "   process_CIF" >> stdin
-		echo "" >> stdin
+                if [[ "$SCFCALCPROG" != "Crystal14" ]]; then
+        		echo "   process_CIF" >> stdin
+		        echo "" >> stdin
+                fi
 	else 
 		echo "       file_name= $CIF" >> stdin
 		echo "    }" >> stdin
 		echo "" >> stdin
-		echo "   process_CIF" >> stdin
-		echo "" >> stdin
+                if [[ "$SCFCALCPROG" != "Crystal14" ]]; then
+        		echo "   process_CIF" >> stdin
+	        	echo "" >> stdin
+                fi
 		COMPLETECIFBLOCK
 
         fi
@@ -1135,7 +1141,7 @@ SCF_TO_TONTO(){
 		PROCESS_CIF
 		DEFINE_JOB_NAME
                if [[ "$SCFCALCPROG" == "Crystal14" ]]; then
-                        COMPLETECELLBLOCK
+#                       COMPLETECELLBLOCK
         	        READ_CRYSTAL_WFN
                fi
 	fi
