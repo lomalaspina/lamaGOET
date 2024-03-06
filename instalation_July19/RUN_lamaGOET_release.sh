@@ -1167,7 +1167,7 @@ SCF_TO_TONTO(){
 		fi
 	fi
         if [ "$SCFCALCPROG" = "Crystal14" ]; then
-		echo "   use_spherical_basis= TRUE" >> stdin
+#       	echo "   use_spherical_basis= TRUE" >> stdin
                 TONTO_BASIS_SET
         fi
 	if [[ "$DISP" == "yes" ]]; then 
