@@ -1877,6 +1877,8 @@ SCF_TO_TONTO(){
 		DEFINE_JOB_NAME
                if [[ "$SCFCALCPROG" == "Crystal14" ]]; then
 #                       COMPLETECELLBLOCK
+                        TONTO_BASIS_SET
+        	        CHARGE_MULT
         	        READ_CRYSTAL_WFN
                fi
 	fi
@@ -1901,14 +1903,16 @@ SCF_TO_TONTO(){
 			COMPLETECIFBLOCK
 		fi
 	fi
-        if [ "$SCFCALCPROG" = "Crystal14" ]; then
+#       if [[ "$SCFCALCPROG" == "Crystal14" ]]; then
 #       	echo "   use_spherical_basis= TRUE" >> stdin
-                TONTO_BASIS_SET
-        fi
+#               TONTO_BASIS_SET
+#       fi
 	if [[ "$DISP" == "yes" ]]; then 
 		DISPERSION_COEF
 	fi
-		CHARGE_MULT
+        if [[ "$SCFCALCPROG" != "Crystal14" ]]; then
+         	CHARGE_MULT
+        fi
 	if [[ $J == 0 && "$IAMTONTO" == "true" ]]; then 
 		TONTO_IAM_BLOCK
 	fi
@@ -1999,7 +2003,7 @@ SCF_TO_TONTO(){
 		echo "__________________________________________________________________________________________________________________________________________________________________" >> $JOBNAME.lst
 		echo "" >> $JOBNAME.lst
 	fi
-	if [[ "$SCFCALCPROG" != "Gaussian" && "$SCFCALCPROG" != "Orca" ]]; then 
+	if [[ "$SCFCALCPROG" != "Gaussian" && "$SCFCALCPROG" != "Orca" && "$SCFCALCPROG" != "Crystal14" ]]; then 
 		echo -e " $J\t$(awk '{a[NR]=$0}/^Rigid-atom fit results/{b=NR}END {print a[b-4]}' stdout | awk '{print $1}' )\t$INITIALCHI\t$(awk '{a[NR]=$0}/^Rigid-atom fit results/{b=NR}END {print a[b-4]}' stdout | awk '{print  $2"\t"$3"\t"$4"\t"}') $MAXSHIFT\t$MAXSHIFTATOM $MAXSHIFTPARAM $(awk '{a[NR]=$0}/^Rigid-atom fit results/{b=NR}END {print a[b-4]}' stdout | awk '{print  "\t""    "$9" \t"$10 }' ) "  >> $JOBNAME.lst  
 	fi
 	if [[ "$SCFCALCPROG" != "Tonto" ]]; then 
@@ -3265,22 +3269,42 @@ run_script(){
 				        CHECK_ENERGY
                                 done
                         else
- 			        while (( $(echo "$MAXSHIFT > $CONVTOL" | bc -l) && $( echo "$J <= $MAXCYCLE" | bc -l )  )); do
-				        if [[ $J -ge $MAXCYCLE ]]; then
-				        	CHECK_ENERGY
-				        	echo "ERROR: Refinement ended. Too many fit cycles. Check if result is reasonable and/or change your convergency criteira."
-				        	break
-				        fi
-				        SCF_TO_TONTO
-				        if [ "$SCFCALCPROG" = "Gaussian" ]; then  
-			        		TONTO_TO_GAUSSIAN
-				        elif [ "$SCFCALCPROG" = "Orca" ]; then  
-			        		TONTO_TO_ORCA
-				        elif [ "$SCFCALCPROG" = "Crystal14" ]; then  
-			        		TONTO_TO_CRYSTAL
-			        	fi
-			        	CHECK_ENERGY
-		        	done
+                                if [[ "$SCFCALCPROG" != "Crystal14" ]]; then  
+ 		        	        while (( $(echo "$MAXSHIFT > $CONVTOL" | bc -l) && $( echo "$J <= $MAXCYCLE" | bc -l )  )); do
+				                if [[ $J -ge $MAXCYCLE ]]; then
+				                	CHECK_ENERGY
+        				        	echo "ERROR: Refinement ended. Too many fit cycles. Check if result is reasonable and/or change your convergency criteira."
+        				        	break
+        				        fi
+        				        SCF_TO_TONTO
+        				        if [ "$SCFCALCPROG" = "Gaussian" ]; then  
+        			        		TONTO_TO_GAUSSIAN
+        				        elif [ "$SCFCALCPROG" = "Orca" ]; then  
+        			        		TONTO_TO_ORCA
+        				        elif [ "$SCFCALCPROG" = "Crystal14" ]; then  
+        			        		TONTO_TO_CRYSTAL
+        			        	fi
+        			        	CHECK_ENERGY
+        		        	done
+                                 else 
+ 		        	        while (( $(echo "$MAXSHIFT > $CONVTOL" | bc -l) && $( echo "$J <= $MAXCYCLE" | bc -l ) && $(echo "$(echo ${DE#-}) > $CONVTOL" | bc -l) )); do
+				                if [[ $J -ge $MAXCYCLE ]]; then
+				                	CHECK_ENERGY
+        				        	echo "ERROR: Refinement ended. Too many fit cycles. Check if result is reasonable and/or change your convergency criteira."
+        				        	break
+        				        fi
+        				        SCF_TO_TONTO
+        				        if [ "$SCFCALCPROG" = "Gaussian" ]; then  
+        			        		TONTO_TO_GAUSSIAN
+        				        elif [ "$SCFCALCPROG" = "Orca" ]; then  
+        			        		TONTO_TO_ORCA
+        				        elif [ "$SCFCALCPROG" = "Crystal14" ]; then  
+        			        		TONTO_TO_CRYSTAL
+        			        	fi
+        			        	CHECK_ENERGY
+        		        	done
+
+                                 fi
                         fi
 		fi
 		if [[ "$SCFCALCPROG" == "optgaussian" ]]; then
@@ -3315,7 +3339,7 @@ run_script(){
 		echo "Energy= $ENERGIA2, RMSD= $RMSD2" >> $JOBNAME.lst
 		echo " $(awk '{a[NR]=$0}/^Rigid-atom fit results/{b=NR}/^Wall-clock time taken for job /{c=NR}END{for (d=b-2;d<c-1;++d) print a[d]}' stdout)"  >> $JOBNAME.lst
 		if [[ "$SCFCALCPROG" != "optgaussian" ]]; then  
-		        if [[ "$POWDER_HAR" != "true" ]]; then  
+		        if [[ "$POWDER_HAR" != "true" && "$SCFCALCPROG" != "Crystal14" ]]; then  
 			        GET_RESIDUALS
 			        echo " $(awk '{a[NR]=$0}/^Residual density data/{b=NR}/^Wall-clock time taken for job/{c=NR}END{for (d=b-2;d<c-1;++d) print a[d]}' stdout)" >> $JOBNAME.lst
                         fi
