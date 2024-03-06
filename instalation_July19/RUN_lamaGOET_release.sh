@@ -1500,7 +1500,7 @@ TONTO_TO_CRYSTAL(){
 #       	echo "Energy= $ENERGIA, RMSD= $RMSD" >> $JOBNAME.lst
         fi
 	echo "" >> $JOBNAME.lst
-	echo "###############################################################################################" >> $JOBNAME.lst
+#       echo "###############################################################################################" >> $JOBNAME.lst
 	echo "Crystal cycle number $I, final energy is: $ENERGIA, RMSD is: $RMSD "
 	mkdir $I.$SCFCALCPROG.cycle.$JOBNAME
 	cp $JOBNAME.d12 $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.d12
