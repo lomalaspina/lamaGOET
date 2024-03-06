@@ -1442,7 +1442,7 @@ TONTO_TO_CRYSTAL(){
                 CELLB=""
         fi
         echo "$CELLA $CELLB $CELLC $CELLALPHA2 $CELLBETA2 $CELLGAMMA2"  >> $JOBNAME.d12
-        sed '2d' my_job.xyz >> $JOBNAME.d12
+        sed '2d' $JOBNAME.xyz >> $JOBNAME.d12
 #       cat $JOBNAME.xyz  >> $JOBNAME.d12
 #        echo "MOLECULE"  >> $JOBNAME.d12
         echo "NOSHIFT"  >> $JOBNAME.d12
