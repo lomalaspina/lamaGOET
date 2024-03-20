@@ -1715,7 +1715,7 @@ export MAIN_DIALOG='
             space-expand="FALSE" space-fill="false"><label>Conv. tol. for DE (between two consec. cycles)</label></text>
 	   <hbox space-expand="true" space-fill="true">
 	    <entry space-expand="true">
-             <input>if [ ! -z $CONVTOLE ]; then echo "$CONVTOLE"; else (echo "0.010000"); fi</input>
+             <input>if [ ! -z $CONVTOLE ]; then echo "$CONVTOLE"; else (echo "0.000001"); fi</input>
 	     <variable>CONVTOL</variable>
 	    </entry>
 	
