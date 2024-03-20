@@ -824,9 +824,9 @@ CRYSTAL_BLOCK(){
 	if [[ "$SCFCALCPROG" == "optgaussian" ]]; then 
 		echo "      REDIRECT tonto.cell" >> stdin
 	fi
-#       if [[ "$SCFCALCPROG" == "Crystal14" ]]; then
-#               echo "      spacegroup= { hermann_mauguin_symbol= "'"'$SPACEGROUPHM'"'" }" >> stdin
-#       fi
+        if [[ "$SCFCALCPROG" == "Crystal14" ]]; then
+                echo "      spacegroup= { hermann_mauguin_symbol= "'"'$SPACEGROUPHM'"'" }" >> stdin
+        fi
 	if [[ "$SCFCALCPROG" != "optgaussian" ]]; then 
 		echo "      xray_data= {   " >> stdin
 	        if [[ "$POWDER_HAR" != "true" ]]; then 
@@ -2552,7 +2552,7 @@ run_script(){
         			        	CHECK_ENERGY
         		        	done
                                  else 
- 		        	        while (( $(echo "$MAXSHIFT > $CONVTOL" | bc -l) && $( echo "$J <= $MAXCYCLE" | bc -l ) && $(echo "$(echo ${DE#-}) > $CONVTOL" | bc -l) )); do
+ 		        	        while (( $(echo "$MAXSHIFT > $CONVTOLE" | bc -l) && $(echo "$(echo ${DE#-}) > $CONVTOL" | bc -l) )); do
 				                if [[ $J -ge $MAXCYCLE ]]; then
 				                	CHECK_ENERGY
         				        	echo "ERROR: Refinement ended. Too many fit cycles. Check if result is reasonable and/or change your convergency criteira."

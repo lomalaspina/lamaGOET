@@ -848,6 +848,8 @@ export MAIN_DIALOG='
 	        <action>if false disable:USEBECKE</action>
 	        <action>if true disable:BASISSETG</action>
 	        <action>if false enable:BASISSETG</action>
+	        <action>if true enable:BASISSETT</action>
+	        <action>if false disable:BASISSETT</action>
 	        <action>if true disable:GAMESS</action>
 	        <action>if true disable:MEM</action>
 	        <action>if true disable:NUMPROC</action>
@@ -888,6 +890,8 @@ export MAIN_DIALOG='
 	        <action>if true echo 'SCFCALCPROG="elmodb"'</action>
 	        <action>if true enable:NTAIL</action>
 	        <action>if false disable:NTAIL</action>
+	        <action>if true disable:EXPLICITMOL</action>
+	        <action>if false enable:EXPLICITMOL</action>
 	        <action>if true enable:MEM</action>
 	        <action>if true enable:NUMPROC</action>
 	        <action>if true enable:SCFCALC_BIN</action>
@@ -926,15 +930,17 @@ export MAIN_DIALOG='
 	        <action>if false enable:SCDIPOLES</action>
 	      </radiobutton>
 	      <radiobutton space-fill="True"  space-expand="True">
-	        <label>Crystal14</label>
+	        <label>Crystal23</label>
 	        <default>false</default>
 	        <action>if true echo 'SCFCALCPROG="Crystal14"'</action>
 	        <action>if true disable:NTAIL</action>
 	        <action>if true enable:MEM</action>
 	        <action>if true enable:NUMPROC</action>
+	        <action>if false disable:NUMPROC</action>
 	        <action>if true enable:SCFCALC_BIN</action>
 	        <action>if true disable:BASISSETDIR</action>
-	        <action>if true disable:BASISSETT</action>
+	        <action>if true enable:BASISSETT</action>
+	        <action>if false disable:BASISSETT</action>
 	        <action>if true disable:SCCHARGES</action>
 	        <action>if true disable:ELMOLIB</action>
 	        <action>if true disable:XHALONG</action>
@@ -1695,6 +1701,21 @@ export MAIN_DIALOG='
 	   <hbox space-expand="true" space-fill="true">
 	    <entry space-expand="true">
              <input>if [ ! -z $CONVTOL ]; then echo "$CONVTOL"; else (echo "0.010000"); fi</input>
+	     <variable>CONVTOL</variable>
+	    </entry>
+	
+	   </hbox>
+	   </hbox>
+
+	   <hseparator></hseparator>
+
+	   <hbox space-expand="false" space-fill="false">
+
+	    <text text-xalign="0" use-markup="true" wrap="false"
+            space-expand="FALSE" space-fill="false"><label>Conv. tol. for DE (between two consec. cycles)</label></text>
+	   <hbox space-expand="true" space-fill="true">
+	    <entry space-expand="true">
+             <input>if [ ! -z $CONVTOLE ]; then echo "$CONVTOLE"; else (echo "0.010000"); fi</input>
 	     <variable>CONVTOL</variable>
 	    </entry>
 	
