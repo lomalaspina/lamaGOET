@@ -2,7 +2,7 @@
 Encoding=UTF-8
 export LC_NUMERIC="en_US.UTF-8"
 
-SPACEGROUP(){
+SPACEGROUPMENU(){
 	SPACEGROUPARRAY=(
         "1        = p 1          =  p 1            "
 	"2        = p -1         =  -p 1           "
@@ -598,13 +598,15 @@ SPACEGROUP(){
 	"229      = i m -3 m     =  -i 4 2 3       "
 	"230      = i a -3 d     =  -i 4bd 2c 3    ")
 	
-	zenity --forms --title="Crystal data" --text="Enter the unit cell parameters and space group:" \
-	   --add-entry="a= " \
-	   --add-entry="b= " \
-	   --add-entry="c= " \
-	   --add-entry="alpha= " \
-	   --add-entry="beta = " \
-	   --add-entry="gamma= " > crystal_data.txt
+        if [[ "$SCFCALCPROG" == "elmodb" ]]; then
+        	zenity --forms --title="Crystal data" --text="Enter the unit cell parameters and space group:" \
+	           --add-entry="a= " \
+        	   --add-entry="b= " \
+        	   --add-entry="c= " \
+        	   --add-entry="alpha= " \
+        	   --add-entry="beta = " \
+        	   --add-entry="gamma= " > crystal_data.txt
+        fi
 	
 	zenity --entry --title "Window title" --text "${SPACEGROUPARRAY[@]}" --text "Select the space group (number = IT symbol = Hall Symbol):" > spacegroup.txt
 	
@@ -2141,7 +2143,7 @@ TONTO_TO_CRYSTAL(){
 	CELLGAMMA=$(grep "gamma angle ................." stdout | head -1 | awk '{print $NF}' | cut -f1 -d"(" )
 	echo "$JOBNAME"  > $JOBNAME.d12 
 	echo "CRYSTAL"   >> $JOBNAME.d12
-	echo "0 0 0"     >> $JOBNAME.d12
+	echo "0 $XTALSETTING 0"     >> $JOBNAME.d12
         SPACEGROUPITNUMBER=$(grep "_symmetry_Int_Tables_number" $CIF | tr -d \' | awk '{print $2}' | tr -d '\r')
 	if [[ "$SPACEGROUPITNUMBER" == "" ]]; then
                 SPACEGROUPITNUMBER=$(grep "_space_group_IT_number" $CIF | tr -d \' | awk '{print $2}' | tr -d '\r')
@@ -5185,7 +5187,7 @@ if [[ "$SCFCALCPROG" == "elmodb" && "$EXIT" == "OK" ]]; then
 			echo "" >> tonto.cell
 			echo "      REVERT" >> tonto.cell
 		else
-			SPACEGROUP
+			SPACEGROUPMENU
 			CELLA=$(awk -F'|' '{print $1}'  crystal_data.txt )
 			CELLB=$(awk -F'|' '{print $2}'  crystal_data.txt )
 			CELLC=$(awk -F'|' '{print $3}'  crystal_data.txt )
@@ -5219,6 +5221,18 @@ if [[ "$SCFCALCPROG" == "elmodb" && "$EXIT" == "OK" ]]; then
 fi
 
 if [ "$EXIT" = "OK" ]; then
+        if [[ "$SCFCALCPROG" == "Crystal14" ]]; then
+                if [[ ! -f "spacegroup.txt"  ]]; then
+                        SPACEGROUPMENU
+                fi
+                SPACEGROUP=$(cat spacegroup.txt | awk -F'=' '{print $2}' )
+                SETTING=$(echo "$SPACEGROUP" | awk -F':' '{print $2}' | tr -d ' ')
+                if [[ "$SETTING" == "r" ]]; then
+                        XTALSETTING=1
+                else
+                        XTALSETTING=0
+                fi
+        fi
         tail -f $JOBNAME.lst | zenity --title "Job output file - this file will auto-update, scroll down to see later results." --no-wrap --text-info --width 1024 --height 800 --font='DejaVu Sans Mono' &
 	run_script
 else

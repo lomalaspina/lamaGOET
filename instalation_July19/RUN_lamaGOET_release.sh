@@ -2761,4 +2761,18 @@ if [[ -z "$SCFCALCPROG" ]]; then
         source ./job_options.txt
 fi
 
+
+if [[ "$SCFCALCPROG" == "Crystal14" ]]; then
+        if [[ ! -f "spacegroup.txt"  ]]; then
+                SPACEGROUPMENU
+        fi
+        SPACEGROUP=$(cat spacegroup.txt | awk -F'=' '{print $2}' )
+        SETTING=$(echo "$SPACEGROUP" | awk -F':' '{print $2}' | tr -d ' ')
+        if [[ "$SETTING" == "r" ]]; then
+                XTALSETTING=1
+        else
+                XTALSETTING=0
+        fi
+fi
+
 run_script
