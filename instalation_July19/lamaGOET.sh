@@ -4443,7 +4443,7 @@ export MAIN_DIALOG='
 	   <hbox space-expand="true" space-fill="true">
 	    <entry space-expand="true">
              <input>if [ ! -z $CONVTOLE ]; then echo "$CONVTOLE"; else (echo "0.000001"); fi</input>
-	     <variable>CONVTOL</variable>
+	     <variable>CONVTOLE</variable>
 	    </entry>
 	
 	   </hbox>

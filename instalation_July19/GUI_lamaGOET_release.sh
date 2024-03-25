@@ -1,7 +1,7 @@
 #!/bin/bash
 Encoding=UTF-8
 
-SPACEGROUP(){
+SPACEGROUPMENU(){
 	SPACEGROUPARRAY=(
         "1        = p 1          =  p 1            "
 	"2        = p -1         =  -p 1           "
@@ -597,13 +597,15 @@ SPACEGROUP(){
 	"229      = i m -3 m     =  -i 4 2 3       "
 	"230      = i a -3 d     =  -i 4bd 2c 3    ")
 	
-	zenity --forms --title="Crystal data" --text="Enter the unit cell parameters and space group:" \
-	   --add-entry="a= " \
-	   --add-entry="b= " \
-	   --add-entry="c= " \
-	   --add-entry="alpha= " \
-	   --add-entry="beta = " \
-	   --add-entry="gamma= " > crystal_data.txt
+        if [[ "$SCFCALCPROG" == "elmodb" ]]; then
+        	zenity --forms --title="Crystal data" --text="Enter the unit cell parameters and space group:" \
+	           --add-entry="a= " \
+        	   --add-entry="b= " \
+        	   --add-entry="c= " \
+        	   --add-entry="alpha= " \
+        	   --add-entry="beta = " \
+        	   --add-entry="gamma= " > crystal_data.txt
+        fi
 	
 	zenity --entry --title "Window title" --text "${SPACEGROUPARRAY[@]}" --text "Select the space group (number = IT symbol = Hall Symbol):" > spacegroup.txt
 	
@@ -1716,7 +1718,7 @@ export MAIN_DIALOG='
 	   <hbox space-expand="true" space-fill="true">
 	    <entry space-expand="true">
              <input>if [ ! -z $CONVTOLE ]; then echo "$CONVTOLE"; else (echo "0.000001"); fi</input>
-	     <variable>CONVTOL</variable>
+	     <variable>CONVTOLE</variable>
 	    </entry>
 	
 	   </hbox>
@@ -2422,7 +2424,7 @@ CB_HB3    1    2   .f.     CB  HB3 CA
 			echo "" >> tonto.cell
 			echo "      REVERT" >> tonto.cell
 		else
-			SPACEGROUP
+			SPACEGROUPMENU
 			CELLA=$(awk -F'|' '{print $1}'  crystal_data.txt )
 			CELLB=$(awk -F'|' '{print $2}'  crystal_data.txt )
 			CELLC=$(awk -F'|' '{print $3}'  crystal_data.txt )
