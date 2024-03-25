@@ -628,7 +628,8 @@ READ_CRYSTAL_WFN(){
         echo "" >> stdin
 #        echo "   read_molden_file $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.molden.input" >> stdin
 ##        echo "   read_CRYSTAL_XML_file $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.XML" >> stdin #this one was the one working before
-        echo "   c23_XML_file_name= $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.XML" >> stdin 
+##        echo "   c23_XML_file_name= $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.XML" >> stdin # this is the one working before, exchanging to use the one in the work folder to compat the files.
+        echo "   c23_XML_file_name= GenerateXML.XML" >> stdin 
         echo "   process_cif_and_c23_xml" >> stdin 
 #       echo "This routine is still being writen, come back later. " | tee -a $JOBNAME.lst
 #       unset MAIN_DIALOG
@@ -1476,7 +1477,7 @@ TONTO_TO_CRYSTAL(){
 	echo "Running Crystal, cycle number $I" 
         if [[ "$NUMPROC" != "1" ]]; then
                 cp $JOBNAME.d12 INPUT
-        	mpirun -n $NUMPROCTONTO $SCFCALC_BIN >& $JOBNAME.out 	
+        	mpirun -n $NUMPROC $SCFCALC_BIN >& $JOBNAME.out 	
         else
 	        $SCFCALC_BIN $JOBNAME
         fi
@@ -1485,7 +1486,13 @@ TONTO_TO_CRYSTAL(){
                 echo "CRYAPI_OUT"  > GenerateXML.d3
 	fi
         echo "Running Crystal properties, cycle number $I" 
-        runprop23 GenerateXML $JOBNAME
+        if [[ "$NUMPROC" != "1" ]]; then
+                cp fort.9 $JOBNAME.f9
+                cp fort.98 $JOBNAME.f98
+                runPprop23 $NUMPROC GenerateXML $JOBNAME
+        else
+                runprop23 GenerateXML $JOBNAME
+        fi
 	echo "Crystal properties, cycle number $I ended" 
 	if ! grep -q 'SCF ENDED - CONVERGENCE ON ENERGY' "$JOBNAME.out"; then
 		echo "ERROR: Crystal job finished with error, please check the $I.th out file for more details" | tee -a $JOBNAME.lst
@@ -1507,7 +1514,8 @@ TONTO_TO_CRYSTAL(){
 	cp $JOBNAME.f98 $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.f98
 	cp $JOBNAME.f9 $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.f9
 #       cp $JOBNAME.d3 $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.d3
-	cp GenerateXML.XML $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.XML
+        gzip -k Generate.XML
+	mv GenerateXML.XML.gz $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.XML.gz
 	cp $JOBNAME.out  $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.out
 }
 
