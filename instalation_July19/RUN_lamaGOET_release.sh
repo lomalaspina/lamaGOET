@@ -1406,7 +1406,7 @@ TONTO_TO_CRYSTAL(){
 	CELLGAMMA=$(grep "gamma angle ................." stdout | head -1 | awk '{print $NF}' | cut -f1 -d"(" )
 	echo "$JOBNAME"  > $JOBNAME.d12 
 	echo "CRYSTAL"   >> $JOBNAME.d12
-	echo "0 0 0"     >> $JOBNAME.d12
+	echo "0 $XTALSETTING 0"     >> $JOBNAME.d12
         SPACEGROUPITNUMBER=$(grep "_symmetry_Int_Tables_number" $CIF | tr -d \' | awk '{print $2}' | tr -d '\r')
 	if [[ "$SPACEGROUPITNUMBER" == "" ]]; then
                 SPACEGROUPITNUMBER=$(grep "_space_group_IT_number" $CIF | tr -d \' | awk '{print $2}' | tr -d '\r')
@@ -2552,7 +2552,7 @@ run_script(){
         			        	CHECK_ENERGY
         		        	done
                                  else 
- 		        	        while (( $(echo "$MAXSHIFT > $CONVTOLE" | bc -l) && $(echo "$(echo ${DE#-}) > $CONVTOL" | bc -l) )); do
+ 		        	        while (( $(echo "$MAXSHIFT > $CONVTOL" | bc -l) && $(echo "$(echo ${DE#-}) > $CONVTOLE" | bc -l) )); do
 				                if [[ $J -ge $MAXCYCLE ]]; then
 				                	CHECK_ENERGY
         				        	echo "ERROR: Refinement ended. Too many fit cycles. Check if result is reasonable and/or change your convergency criteira."
