@@ -3298,7 +3298,7 @@ run_script(){
         			        	CHECK_ENERGY
         		        	done
                                  else 
- 		        	        while (( $(echo "$MAXSHIFT > $CONVTOL" | bc -l) && $(echo "$(echo ${DE#-}) > $CONVTOLE" | bc -l) )); do
+ 		        	        while (( $(echo "$MAXSHIFT > $CONVTOL" | bc -l) || $(echo "$(echo ${DE#-}) > $CONVTOLE" | bc -l) )); do
 				                if [[ $J -ge $MAXCYCLE ]]; then
 				                	CHECK_ENERGY
         				        	echo "ERROR: Refinement ended. Too many fit cycles. Check if result is reasonable and/or change your convergency criteira."
