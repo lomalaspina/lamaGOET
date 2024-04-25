@@ -3304,13 +3304,13 @@ run_script(){
         				        	echo "ERROR: Refinement ended. Too many fit cycles. Check if result is reasonable and/or change your convergency criteira."
         				        	break
         				        fi
-                                                if [[ $(echo "$J" > 1 | bc -l) ]];then 
+                                                if [[ $J > 1 ]]; then
+                                                        echo J is $J I am in
                                                         awk '{a[NR]=$0}/^# Precise fractional system coordinates/{b=NR}/^# Reflections/{c=NR}END{for (d=b-1;d<c-1;++d) print a[d]}' $JOBNAME.archive.cif > temp1
                                                         awk '{a[NR]=$0}/^# Precise fractional system coordinates/{b=NR}/^# Reflections/{c=NR}END{for (d=b-1;d<c-1;++d) print a[d]}' $[ $J - 1 ].tonto_cycle.$JOBNAME/$[ $J - 1 ].$JOBNAME.archive.cif > temp2
                                                         SAME=$(diff temp1 temp2)
                                                         rm temp1 temp2
-                                                        if [[ "$(echo ${DE#-}) = 0 | bc -l)" && ("$SAME" == "") ]]; then
-	        			                	CHECK_ENERGY
+                                                        if [[ "($(echo ${DE#-}) = 0 | bc -l)" && ("$SAME" == "") ]]; then
         	        			        	echo "Refinement ended. The geometry has converged."
         		        		        	break
                                                         fi
