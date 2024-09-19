@@ -1894,12 +1894,15 @@ PLOTS(){
 	if [[ "$USEBECKE" == "true" ]]; then 
 		BECKE_GRID
 	fi
-	echo "   read_archive molecular_orbitals restricted" >> stdin
-	echo "   read_archive orbital_energies restricted" >> stdin
+#echo "   read_archive molecular_orbitals restricted" >> stdin
+	echo "   read_archive MOs r" >> stdin
+#echo "   read_archive orbital_energies restricted" >> stdin
+	echo "   read_archive MO_energies r" >> stdin
 	echo "" >> stdin
 	SCF_BLOCK_REST_TONTO
 #	echo "   make_scf_density_matrix" >> stdin
-	echo "   read_archive density_matrix restricted" >> stdin
+#echo "   read_archive density_matrix restricted" >> stdin
+	echo "   read_archive density_mx r" >> stdin
 	echo "   assign_NOs_to_MOs " >> stdin
 	echo "   make_structure_factors" >> stdin
 	echo "" >> stdin
