@@ -3697,7 +3697,7 @@ export MAIN_DIALOG='
 	        <action>if true disable:SCDIPOLES</action>
 	        <action>if false enable:SCDIPOLES</action>
 	      </radiobutton>
-	      <radiobutton space-fill="True"  space-expand="True">
+	      <radiobutton space-fill="True"  space-expand="True" visible="false">
 	        <label>Crystal23</label>
 	        <default>false</default>
 	        <action>if true echo 'SCFCALCPROG="Crystal14"'</action>
