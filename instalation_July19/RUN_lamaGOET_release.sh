@@ -2029,6 +2029,59 @@ COMPLETECIFBLOCK(){
 		echo "   name= $JOBNAME" >> stdin		
 		echo "" >> stdin
 	fi
+
+	if [[ "$COMPLETESTRUCT" == "false" && "$EXPLICITMOL" == "true" ]]; then
+		echo "   cluster= {" >> stdin
+                if [[ "$EXPLICITMOL" == "true" && "$COMPLETESTRUCT" == "false" ]]; then
+		        echo "      generation_method= within_radius" >> stdin
+		        echo "      radius= $EXPLRADIUS Angstrom" >> stdin
+        		echo "      defragment= $DEFRAGEXPL" >> stdin
+                elif [[ "$DOUBLEGROW" == "true" ]]; then
+        		echo "      defragment= $COMPLETESTRUCT" >> stdin
+                fi
+		echo "      make_info" >> stdin
+		echo "   }" >> stdin
+		echo "" >> stdin
+		echo "   create_cluster" >> stdin
+		echo "" >> stdin
+		echo "   name= $JOBNAME" >> stdin		
+		echo "" >> stdin
+                if [[ "$EXPLICITMOL" == "true" && "$DOUBLEGROW" == "true" ]]; then
+		        echo "   put" >> stdin
+        		echo "   put_grown_cif" >> stdin
+        		echo "" >> stdin
+        		echo "}" >> stdin
+        		echo "" >> stdin
+                        $TONTO
+	                if [[ "$SCFCALCPROG" == "Tonto" ]]; then 
+                                cp $JOBNAME.cartesian.cif2 defrag.cif
+                                CIF=defrag.cif
+                        else
+                                mkdir $J.tonto_cycle.$JOBNAME
+                                cp $JOBNAME.cartesian.cif2 $J.tonto_cycle.$JOBNAME/$J.$JOBNAME.cartesian.cif2
+                                cp stdin $J.tonto_cycle.$JOBNAME/0.stdin
+                                cp stdout $J.tonto_cycle.$JOBNAME/0.stdout
+                        fi
+                        DOUBLEGROW=false
+                        TONTO_HEADER
+                        PROCESS_CIF
+                        DEFINE_JOB_NAME
+	                if [[ "$SCFCALCPROG" == "Tonto" ]]; then 
+                		TONTO_BASIS_SET
+                        fi
+        	        echo "   cluster= {" >> stdin
+                	echo "      generation_method= within_radius" >> stdin
+        	        echo "      radius= $EXPLRADIUS Angstrom" >> stdin
+               		echo "      defragment= $DEFRAGEXPL" >> stdin
+                	echo "      make_info" >> stdin
+        	        echo "   }" >> stdin
+        		echo "" >> stdin
+                	echo "   create_cluster" >> stdin
+        	        echo "" >> stdin
+        		echo "   name= $JOBNAME" >> stdin		
+                	echo "" >> stdin
+               fi
+	fi
 }
 
 COMPLETECELLBLOCK(){
