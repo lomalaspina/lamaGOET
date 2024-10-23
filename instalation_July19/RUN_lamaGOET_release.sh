@@ -209,7 +209,11 @@ COMPLETECIFBLOCK
 echo "   put" >> stdin 
 echo "" >> stdin
 if [[ "$SCFCALCPROG" != "Crystal14" ]]; then
-        echo "   write_xyz_file" >> stdin
+        if [[ "$COMPLETESTRUCT" == "true" || "$EXPLICITMOL" == "true" ]]; then
+                echo "   write_fragment_xyz_file " >> stdin
+        else 
+                echo "   write_xyz_file" >> stdin
+        fi
 else 
         echo "   write_xtal23_xyz_file" >> stdin
 fi
@@ -231,9 +235,12 @@ if [[ "$SCFCALCPROG" != "Tonto" && "$SCFCALCPROG" != "elmodb" ]]; then
         sed -i 's/(//g' $JOBNAME.xyz
 	sed -i 's/)//g' $JOBNAME.xyz
 fi
-if [[ -f $JOBNAME.cartesian.cif2 ]]; then
+#if [[ -f $JOBNAME.cartesian.cif2 ]]; then
+if [[ -f $JOBNAME.fractional.cif1 ]]; then
 	sed -i '/# NOTE: Cartesian 9Nx9N covariance matrix in BOHR units/,/# ===========/d' $JOBNAME.cartesian.cif2
+	sed -i '/# NOTE: Cartesian 9Nx9N covariance matrix in BOHR units/,/# ===========/d' $JOBNAME.fractional.cif1
         cp $JOBNAME'.cartesian.cif2' $J.tonto_cycle.$JOBNAME/$J.$JOBNAME.cartesian.cif2
+        cp $JOBNAME'.fractional.cif1' $J.tonto_cycle.$JOBNAME/$J.$JOBNAME.fractional.cif1
 fi
 if [[ "$SCFCALCPROG" == "Gaussian" ]]; then  
         GAUSSIAN_NO_CHARGES
@@ -332,7 +339,9 @@ GAMESS_ELMODB_OLD_PDB(){
 	echo "Calculating overlap integrals with gamessus, cycle number $I" 
 	$GAMESS < $JOBNAME.gamess.inp > $JOBNAME.gamess.out
 	echo "Gamess cycle number $I ended"
-	mkdir $I.$SCFCALCPROG.cycle.$JOBNAME
+        if [ ! -d "$I.$SCFCALCPROG.cycle.$JOBNAME" ]; then
+                mkdir $I.$SCFCALCPROG.cycle.$JOBNAME
+        fi
 	cp $JOBNAME.gamess.inp  $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.gamess.inp
 	cp $JOBNAME.gamess.out  $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.gamess.out
 	cp sao  $I.$SCFCALCPROG.cycle.$JOBNAME/$I.sao
@@ -465,7 +474,9 @@ ELMODB(){
 		exit 0
 	else
 		echo "elmodb job finish correctly."
-		mkdir $I.$SCFCALCPROG.cycle.$JOBNAME
+                if [ ! -d "$I.$SCFCALCPROG.cycle.$JOBNAME" ]; then
+		        mkdir $I.$SCFCALCPROG.cycle.$JOBNAME
+                fi
 		cp $JOBNAME.elmodb.out  $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.elmodb.out
 		cp $JOBNAME.elmodb.inp  $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.elmodb.inp
 		cp $JOBNAME.fchk  $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.elmodb.fchk
@@ -571,7 +582,9 @@ TONTO_TO_ORCA(){
 ########		cp NoSpherA2.log $I.$SCFCALCPROG.cycle.$JOBNAME/$I.NoSpherA2.log
 ########	fi
 	fi
-	mkdir $I.$SCFCALCPROG.cycle.$JOBNAME
+        if [ ! -d "$I.$SCFCALCPROG.cycle.$JOBNAME" ]; then
+                mkdir $I.$SCFCALCPROG.cycle.$JOBNAME
+        fi
 	cp $JOBNAME.inp          $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.inp
 	cp $JOBNAME.molden.input $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.molden.input
 	cp $JOBNAME.out          $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.out
@@ -652,10 +665,11 @@ CHANGE_JOB_NAME(){
 PROCESS_CIF(){
 	echo "   ! Process the CIF" >> stdin
 	echo "   CIF= {" >> stdin
-	if [ $POWDER_HAR = "false" ]; then 
-		if [ $J = 0 ]; then 
-			if [[ "$COMPLETESTRUCT" == "true" && "$SCFCALCPROG" != "Tonto" ]]; then
-       				echo "       file_name= $J.tonto_cycle.$JOBNAME/$J.$JOBNAME.cartesian.cif2" >> stdin
+	if [[ $POWDER_HAR == "false" ]]; then 
+		if [[ $J == 0 ]]; then 
+			if [[ ( "$COMPLETESTRUCT" == "true" || "$EXPLICITMOL" == "true" ) && "$SCFCALCPROG" != "Tonto" ]]; then
+#      				echo "       file_name= $J.tonto_cycle.$JOBNAME/$J.$JOBNAME.cartesian.cif2" >> stdin
+       				echo "       file_name= $J.tonto_cycle.$JOBNAME/$J.$JOBNAME.fractional.cif1" >> stdin
 			else
 				echo "       file_name= $CIF" >> stdin
 			fi
@@ -676,24 +690,27 @@ PROCESS_CIF(){
 		elif [ $J = 1 ]; then 
 			if [[ "$SCCHARGES" == "true" && ("$SCFCALCPROG" == "Gaussian" || "$SCFCALCPROG" == "Orca") ]]; then
 #	#			if [[ "$SCFCALCPROG" == "Gaussian" || "$SCFCALCPROG" == "Orca" ]]; then
-					if [[ "$COMPLETESTRUCT" == "true" ]]; then
-						echo "       file_name= 0.tonto_cycle.$JOBNAME/0.$JOBNAME.cartesian.cif2" >> stdin
+					if [[ "$COMPLETESTRUCT" == "true" || "$EXPLICITMOL" == "true" ]]; then
+#						echo "       file_name= 0.tonto_cycle.$JOBNAME/0.$JOBNAME.cartesian.cif2" >> stdin
+       				                echo "       file_name= 0.tonto_cycle.$JOBNAME/0.$JOBNAME.fractional.cif1" >> stdin
 					else
 						echo "       file_name= $CIF" >> stdin
 					fi
 			else
-                                if [[ "$SCFCALCPROG" == "Crystal14" ]]; then
-        				echo "       file_name= $J.tonto_cycle.$JOBNAME/$J.$JOBNAME.archive.cif" >> stdin
-                                else
-        				echo "       file_name= $J.tonto_cycle.$JOBNAME/$J.$JOBNAME.cartesian.cif2" >> stdin
-                                fi
+#                               if [[ "$SCFCALCPROG" == "Crystal14" ]]; then
+#       				echo "       file_name= $J.tonto_cycle.$JOBNAME/$J.$JOBNAME.archive.cif" >> stdin
+#                               else
+#        				echo "       file_name= $J.tonto_cycle.$JOBNAME/$J.$JOBNAME.cartesian.cif2" >> stdin
+       				        echo "       file_name= $J.tonto_cycle.$JOBNAME/$J.$JOBNAME.fractional.cif1" >> stdin
+#                               fi
         		fi
         	else
-                        if [[ "$SCFCALCPROG" == "Crystal14" ]]; then
-        			echo "       file_name= $J.tonto_cycle.$JOBNAME/$J.$JOBNAME.archive.cif" >> stdin
-                        else
-        			echo "       file_name= $J.tonto_cycle.$JOBNAME/$J.$JOBNAME.cartesian.cif2" >> stdin
-                        fi
+#                       if [[ "$SCFCALCPROG" == "Crystal14" ]]; then
+#       			echo "       file_name= $J.tonto_cycle.$JOBNAME/$J.$JOBNAME.archive.cif" >> stdin
+#                       else
+#        			echo "       file_name= $J.tonto_cycle.$JOBNAME/$J.$JOBNAME.cartesian.cif2" >> stdin
+       				echo "       file_name= $J.tonto_cycle.$JOBNAME/$J.$JOBNAME.fractional.cif1" >> stdin
+#                       fi
 		fi
                 if [ "$XHALONG" = "true" ]; then
                         	if [ ! -z "$BHBOND" ]; then
@@ -1030,7 +1047,11 @@ SCF_BLOCK_NOT_TONTO(){
 	        	fi
                 fi
                 if [[ "$SCFCALCPROG" != "Crystal14" ]]; then
-                        echo "   write_xyz_file" >> stdin
+                        if [[ "$COMPLETESTRUCT" == "true" || "$EXPLICITMOL" == "true" ]]; then
+                                echo "   write_fragment_xyz_file " >> stdin
+                        else 
+                                echo "   write_xyz_file" >> stdin
+                        fi
                 else 
                         echo "   write_xtal23_xyz_file" >> stdin
                 fi
@@ -1050,7 +1071,11 @@ SCF_BLOCK_NOT_TONTO(){
         		fi
                 fi
                 if [[ "$SCFCALCPROG" != "Crystal14" ]]; then
-                        echo "   write_xyz_file" >> stdin
+                        if [[ "$COMPLETESTRUCT" == "true" || "$EXPLICITMOL" == "true" ]]; then
+                                echo "   write_fragment_xyz_file " >> stdin
+                        else 
+                                echo "   write_xyz_file" >> stdin
+                        fi
                 else 
                         echo "   write_xtal23_xyz_file" >> stdin
                 fi
@@ -1169,6 +1194,11 @@ SCF_TO_TONTO(){
 			COMPLETECIFBLOCK
 		fi
 	fi
+########if [[ "$SCFCALCPROG" == "Gaussian" || "$SCFCALCPROG" == "Orca" ]]; then 
+########	if [[ "$COMPLETESTRUCT" == "true" || "$EXPLICITMOL" == "true" ]]; then
+########		COMPLETECIFBLOCK
+########	fi
+########fi
 #       if [[ "$SCFCALCPROG" == "Crystal14" ]]; then
 #       	echo "   use_spherical_basis= TRUE" >> stdin
 #               TONTO_BASIS_SET
@@ -1214,9 +1244,13 @@ SCF_TO_TONTO(){
                 LABELS_IN_XYZ
         fi
 	if [[ "$SCFCALCPROG" == "Tonto" ]]; then
-		mkdir $J.tonto_cycle.$JOBNAME
+                if [ ! -d "$J.tonto_cycle.$JOBNAME" ]; then
+	        	mkdir $J.tonto_cycle.$JOBNAME
+                fi
 		sed -i '/# NOTE: Cartesian 9Nx9N covariance matrix in BOHR units/,/# ===========/d' $JOBNAME.cartesian.cif2
+		sed -i '/# NOTE: Cartesian 9Nx9N covariance matrix in BOHR units/,/# ===========/d' $JOBNAME.fractional.cif1
 		cp $JOBNAME'.cartesian.cif2' $J.tonto_cycle.$JOBNAME/$J.$JOBNAME.cartesian.cif2
+		cp $JOBNAME'.fractional.cif1' $J.tonto_cycle.$JOBNAME/$J.$JOBNAME.fractional.cif1
 		cp $JOBNAME'.archive.cif' $J.tonto_cycle.$JOBNAME/$J.$JOBNAME.archive.cif
 		cp $JOBNAME'.archive.fco' $J.tonto_cycle.$JOBNAME/$J.$JOBNAME.archive.fco
 		cp $JOBNAME'.archive.fcf' $J.tonto_cycle.$JOBNAME/$J.$JOBNAME.archive.fcf
@@ -1274,14 +1308,19 @@ SCF_TO_TONTO(){
 		echo -e " $J\t$(awk '{a[NR]=$0}/^Rigid-atom fit results/{b=NR}END {print a[b-4]}' stdout | awk '{print $1}' )\t$INITIALCHI\t$(awk '{a[NR]=$0}/^Rigid-atom fit results/{b=NR}END {print a[b-4]}' stdout | awk '{print  $2"\t"$3"\t"$4"\t"}') $MAXSHIFT\t$MAXSHIFTATOM $MAXSHIFTPARAM $(awk '{a[NR]=$0}/^Rigid-atom fit results/{b=NR}END {print a[b-4]}' stdout | awk '{print  "\t""    "$9" \t"$10 }' ) "  >> $JOBNAME.lst  
 	fi
 	if [[ "$SCFCALCPROG" != "Tonto" ]]; then 
-		mkdir $J.tonto_cycle.$JOBNAME
+                if [ ! -d "$J.tonto_cycle.$JOBNAME" ]; then
+	        	mkdir $J.tonto_cycle.$JOBNAME
+                fi
 		cp $JOBNAME.xyz $J.tonto_cycle.$JOBNAME/$J.$JOBNAME.xyz
 		cp stdin $J.tonto_cycle.$JOBNAME/$J.stdin
 		cp stdout $J.tonto_cycle.$JOBNAME/$J.stdout
 		if [[ "$SCFCALCPROG" != "optgaussian" ]]; then
-	                if [ -f $JOBNAME.cartesian.cif2 ]; then
+	                if [ -f $JOBNAME.fractional.cif1 ]; then
+#                       if [ -f $JOBNAME.cartesian.cif2 ]; then
 				sed -i '/# NOTE: Cartesian 9Nx9N covariance matrix in BOHR units/,/# ===========/d' $JOBNAME.cartesian.cif2
+				sed -i '/# NOTE: Cartesian 9Nx9N covariance matrix in BOHR units/,/# ===========/d' $JOBNAME.fractional.cif1
 				cp $JOBNAME'.cartesian.cif2' $J.tonto_cycle.$JOBNAME/$J.$JOBNAME.cartesian.cif2
+				cp $JOBNAME'.fractional.cif1' $J.tonto_cycle.$JOBNAME/$J.$JOBNAME.fractional.cif1
 				cp $JOBNAME'.archive.cif' $J.tonto_cycle.$JOBNAME/$J.$JOBNAME.archive.cif
 				cp $JOBNAME'.archive.fco' $J.tonto_cycle.$JOBNAME/$J.$JOBNAME.archive.fco
 				cp $JOBNAME'.archive.fcf' $J.tonto_cycle.$JOBNAME/$J.$JOBNAME.archive.fcf
@@ -1385,7 +1424,9 @@ TONTO_TO_GAUSSIAN(){
 ########		cp NoSpherA2.log $I.$SCFCALCPROG.cycle.$JOBNAME/$I.NoSpherA2.log
 ########	fi
 	fi
-     	mkdir $I.$SCFCALCPROG.cycle.$JOBNAME
+        if [ ! -d "$I.$SCFCALCPROG.cycle.$JOBNAME" ]; then
+                mkdir $I.$SCFCALCPROG.cycle.$JOBNAME
+        fi
 	cp $JOBNAME.com  $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.com
 	cp Test.FChk $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.fchk
         sed -i '/^#/d' $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.fchk 
@@ -1446,20 +1487,35 @@ TONTO_TO_CRYSTAL(){
         echo "$CELLA $CELLB $CELLC $CELLALPHA2 $CELLBETA2 $CELLGAMMA2"  >> $JOBNAME.d12
         sed '2d' $JOBNAME.xyz >> $JOBNAME.d12
 #       cat $JOBNAME.xyz  >> $JOBNAME.d12
-#        echo "MOLECULE"  >> $JOBNAME.d12
+#       echo "MOLECULE"  >> $JOBNAME.d12
+        echo "KEEPSYMM"  >> $JOBNAME.d12
         echo "NOSHIFT"  >> $JOBNAME.d12
+        echo "SUPERCON"  >> $JOBNAME.d12
+        echo "1. 0. 0."  >> $JOBNAME.d12
+        echo "0. 1. 0."  >> $JOBNAME.d12
+        echo "0. 0. 1."  >> $JOBNAME.d12
 #       echo "1"  >> $JOBNAME.d12
 #       echo "1 0 0 0"  >> $JOBNAME.d12
-        echo "END"  >> $JOBNAME.d12
-        cat basis_gen.txt >>  $JOBNAME.d12
-        echo "99 0"  >> $JOBNAME.d12
-        echo "END"  >> $JOBNAME.d12
-        if [[ "$METHOD" != "rhf" && "$METHOD" != "uhf" ]]; then
-                echo "DFT"  >> $JOBNAME.d12
+        if [[ "$GAUSGEN" == "true" || "$BASISSETG" == "gen" ]]; then
+                echo "END"  >> $JOBNAME.d12
+                cat basis_gen.txt >>  $JOBNAME.d12
+                echo "99 0"  >> $JOBNAME.d12
+        else
+                echo "BASISSET"  >> $JOBNAME.d12
+                echo "$BASISSETG"  >> $JOBNAME.d12
         fi
-        echo "$METHOD"  >> $JOBNAME.d12
-#       echo "XLGRID"  >> $JOBNAME.d12
+        if [[ "$METHOD" != "rhf" ]]; then
+                echo "ENDBS"  >> $JOBNAME.d12
+                if [[ "$METHOD" == "uhf" ]]; then
+                        echo "$METHOD"  >> $JOBNAME.d12
+                else
+                        echo "DFT"  >> $JOBNAME.d12
+                        echo "$METHOD"  >> $JOBNAME.d12
+                fi
+        fi
         echo "END"  >> $JOBNAME.d12
+##      echo "END"  >> $JOBNAME.d12 is this extra??
+#       echo "XLGRID"  >> $JOBNAME.d12
 #       echo "SCFDIR"  >> $JOBNAME.d12
 #       echo "BIPOSIZE"  >> $JOBNAME.d12
 #       echo "60000000"  >> $JOBNAME.d12
@@ -1473,6 +1529,10 @@ TONTO_TO_CRYSTAL(){
 #       echo "7 7 7 7 25"  >> $JOBNAME.d12
         echo "TOLDEE"  >> $JOBNAME.d12
         echo "7"  >> $JOBNAME.d12
+        if [[ "$MAXXTALCYCLE" != "" ]]; then
+                echo "MAXCYCLE"  >> $JOBNAME.d12
+                echo "$MAXXTALCYCLE"  >> $JOBNAME.d12
+        fi
         echo "END"  >> $JOBNAME.d12
 #       I=$"1"
 	echo "Running Crystal, cycle number $I" 
@@ -1510,7 +1570,9 @@ TONTO_TO_CRYSTAL(){
 	echo "" >> $JOBNAME.lst
 #       echo "###############################################################################################" >> $JOBNAME.lst
 	echo "Crystal cycle number $I, final energy is: $ENERGIA, RMSD is: $RMSD "
-	mkdir $I.$SCFCALCPROG.cycle.$JOBNAME
+        if [ ! -d "$I.$SCFCALCPROG.cycle.$JOBNAME" ]; then
+	        mkdir $I.$SCFCALCPROG.cycle.$JOBNAME
+        fi
 	cp $JOBNAME.d12 $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.d12
 	cp $JOBNAME.f98 $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.f98
 	cp $JOBNAME.f9 $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.f9
@@ -1609,7 +1671,9 @@ GET_FREQ(){
 ########		cp NoSpherA2.log $I.$SCFCALCPROG.cycle.$JOBNAME/$I.NoSpherA2.log
 ########	fi
 	fi
-     	mkdir $I.$SCFCALCPROG.cycle.$JOBNAME
+        if [ ! -d "$I.$SCFCALCPROG.cycle.$JOBNAME" ]; then
+	        mkdir $I.$SCFCALCPROG.cycle.$JOBNAME
+        fi
 	cp $JOBNAME.com  $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.com
 	cp Test.FChk $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.fchk
         sed -i '/^#/d' $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.fchk 
@@ -1739,10 +1803,13 @@ GET_RESIDUALS(){
 	if [[ "$USE_NOSPHERA2" == "true" ]]; then
                 LABELS_IN_XYZ
         fi
-	mkdir $J.tonto_cycle.$JOBNAME
+        if [ ! -d "$J.tonto_cycle.$JOBNAME" ]; then
+        	mkdir $J.tonto_cycle.$JOBNAME
+        fi
 	cp stdin $J.tonto_cycle.$JOBNAME/$J.stdin
 	cp stdout $J.tonto_cycle.$JOBNAME/$J.stdout
 	cp $JOBNAME'.cartesian.cif2' $J.tonto_cycle.$JOBNAME/$J.$JOBNAME.cartesian.cif2
+	cp $JOBNAME'.fractional.cif1' $J.tonto_cycle.$JOBNAME/$J.$JOBNAME.fractional.cif1
 	cp $JOBNAME'.archive.cif' $J.tonto_cycle.$JOBNAME/$J.$JOBNAME.archive.cif
 	cp $JOBNAME'.archive.fcf' $J.tonto_cycle.$JOBNAME/$J.$JOBNAME.archive.fcf
 	cp $JOBNAME'.archive.fco' $J.tonto_cycle.$JOBNAME/$J.$JOBNAME.archive.fco
@@ -1834,11 +1901,15 @@ XCW(){
 		$TONTO
 	fi
 	echo "Tonto cycle number $J ended"
-	mkdir $J.XCW_cycle.$JOBNAME
+        if [ ! -d "$J.XCW_cycle.$JOBNAME" ]; then
+	        mkdir $J.XCW_cycle.$JOBNAME
+        fi
 	cp stdin $J.XCW_cycle.$JOBNAME/$J.stdin
 	cp stdout $J.XCW_cycle.$JOBNAME/$J.stdout
 	sed -i '/# NOTE: Cartesian 9Nx9N covariance matrix in BOHR units/,/# ===========/d' $JOBNAME.cartesian.cif2
+	sed -i '/# NOTE: Cartesian 9Nx9N covariance matrix in BOHR units/,/# ===========/d' $JOBNAME.fractional.cif1
 	cp $JOBNAME'.cartesian.cif2' $J.XCW_cycle.$JOBNAME/$J.$JOBNAME.cartesian.cif2
+	cp $JOBNAME'.fractional.cif1' $J.XCW_cycle.$JOBNAME/$J.$JOBNAME.fractional.cif1
 	cp $JOBNAME'.archive.cif' $J.XCW_cycle.$JOBNAME/$J.$JOBNAME.archive.cif
 	cp $JOBNAME'.archive.fcf' $J.XCW_cycle.$JOBNAME/$J.$JOBNAME.archive.fcf
 	cp $JOBNAME'.archive.fco' $J.XCW_cycle.$JOBNAME/$J.$JOBNAME.archive.fco
@@ -1989,11 +2060,15 @@ COMPLETECIFBLOCK(){
         		echo "" >> stdin
                         $TONTO
 	                if [[ "$SCFCALCPROG" == "Tonto" ]]; then 
-                                cp $JOBNAME.cartesian.cif2 defrag.cif
+#                               cp $JOBNAME.cartesian.cif2 defrag.cif
+                                cp $JOBNAME.fractional.cif1 defrag.cif
                                 CIF=defrag.cif
                         else
-                                mkdir $J.tonto_cycle.$JOBNAME
+                                if [ ! -d "$J.tonto_cycle.$JOBNAME" ]; then
+                	        	mkdir $J.tonto_cycle.$JOBNAME
+                                fi
                                 cp $JOBNAME.cartesian.cif2 $J.tonto_cycle.$JOBNAME/$J.$JOBNAME.cartesian.cif2
+                                cp $JOBNAME.fractional.cif1 $J.tonto_cycle.$JOBNAME/$J.$JOBNAME.fractional.cif1
                                 cp stdin $J.tonto_cycle.$JOBNAME/0.stdin
                                 cp stdout $J.tonto_cycle.$JOBNAME/0.stdout
                         fi
@@ -2054,11 +2129,15 @@ COMPLETECIFBLOCK(){
         		echo "" >> stdin
                         $TONTO
 	                if [[ "$SCFCALCPROG" == "Tonto" ]]; then 
-                                cp $JOBNAME.cartesian.cif2 defrag.cif
+#                               cp $JOBNAME.cartesian.cif2 defrag.cif
+                                cp $JOBNAME.fractional.cif1 defrag.cif
                                 CIF=defrag.cif
                         else
-                                mkdir $J.tonto_cycle.$JOBNAME
+                                if [ ! -d "$J.tonto_cycle.$JOBNAME" ]; then
+                	        	mkdir $J.tonto_cycle.$JOBNAME
+                                fi
                                 cp $JOBNAME.cartesian.cif2 $J.tonto_cycle.$JOBNAME/$J.$JOBNAME.cartesian.cif2
+                                cp $JOBNAME.fractional.cif1 $J.tonto_cycle.$JOBNAME/$J.$JOBNAME.fractional.cif1
                                 cp stdin $J.tonto_cycle.$JOBNAME/0.stdin
                                 cp stdout $J.tonto_cycle.$JOBNAME/0.stdout
                         fi
@@ -2113,7 +2192,9 @@ run_script(){
 	if [ "$POWDER_HAR" = "true" ]; then
                 NSA2_COUNTER=$"1"
                 JANA_COUNTER=$"0" ###counter for powder HAR
-                mkdir $JANA_COUNTER.Jana_cycle
+                if [ ! -d "$JANA_COUNTER.Jana_cycle" ]; then
+                        mkdir $JANA_COUNTER.Jana_cycle
+                fi
                 cp $JOBNAME.m40 $JANA_COUNTER.Jana_cycle/$JOBNAME.m40
                 cp $JOBNAME.m41 $JANA_COUNTER.Jana_cycle/$JOBNAME.m41
                 cp $JOBNAME.m70 $JANA_COUNTER.Jana_cycle/$JOBNAME.m70
@@ -2305,7 +2386,11 @@ run_script(){
 		echo "   put" >> stdin 
 		echo "" >> stdin
                 if [[ "$SCFCALCPROG" != "Crystal14" ]]; then
-                        echo "   write_xyz_file" >> stdin
+                        if [[ "$COMPLETESTRUCT" == "true" || "$EXPLICITMOL" == "true" ]]; then
+                                echo "   write_fragment_xyz_file " >> stdin
+                        else 
+                                echo "   write_xyz_file" >> stdin
+                        fi
                 else
 #                       REDUCECELLCLUSTER
                         echo "   write_xtal23_xyz_file" >> stdin
@@ -2340,7 +2425,9 @@ run_script(){
 			unset MAIN_DIALOG
 			exit 0
 		fi
-		mkdir $J.tonto_cycle.$JOBNAME
+                if [ ! -d "$J.tonto_cycle.$JOBNAME" ]; then
+	        	mkdir $J.tonto_cycle.$JOBNAME
+                fi
 		if [[ "$SCFCALCPROG" == "optgaussian"  &&  "$SCCHARGES" == "false" ]]; then 
 			cp $JOBNAME.xyz $J.tonto_cycle.$JOBNAME/$J.$JOBNAME.xyz
                 else
@@ -2348,9 +2435,12 @@ run_script(){
 		fi
 		cp stdin $J.tonto_cycle.$JOBNAME/$J.stdin
 		cp stdout $J.tonto_cycle.$JOBNAME/$J.stdout
-                if [ -f $JOBNAME.cartesian.cif2 ]; then
+#               if [ -f $JOBNAME.cartesian.cif2 ]; then
+                if [ -f $JOBNAME.fractional.cif1 ]; then
 			cp $JOBNAME'.cartesian.cif2' $J.tonto_cycle.$JOBNAME/$J.$JOBNAME.cartesian.cif2
+			cp $JOBNAME'.fractional.cif1' $J.tonto_cycle.$JOBNAME/$J.$JOBNAME.fractional.cif1
 			sed -i '/# NOTE: Cartesian 9Nx9N covariance matrix in BOHR units/,/# ===========/d' $J.tonto_cycle.$JOBNAME/$J.$JOBNAME.cartesian.cif2
+			sed -i '/# NOTE: Cartesian 9Nx9N covariance matrix in BOHR units/,/# ===========/d' $J.tonto_cycle.$JOBNAME/$J.$JOBNAME.fractional.cif1
 		fi
 		awk '{a[NR]=$0}/^Atom coordinates/{b=NR}/^Unit cell information/{c=NR}END{for(d=b-1;d<=c-2;++d)print a[d]}' stdout >> $JOBNAME.lst
 		echo "Done reading cif with Tonto"
@@ -2458,7 +2548,9 @@ run_script(){
 ########		        	fi
                                 fi
 			fi
-	     		mkdir $I.$SCFCALCPROG.cycle.$JOBNAME
+                        if [ ! -d "$I.$SCFCALCPROG.cycle.$JOBNAME" ]; then
+	        	        mkdir $I.$SCFCALCPROG.cycle.$JOBNAME
+                        fi
 			cp $JOBNAME.com  $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.com
 			cp Test.FChk $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.fchk
                         sed -i '/^#/d' $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.fchk 
@@ -2547,7 +2639,9 @@ run_script(){
 ########        			fi
                                 fi
 			fi
-			mkdir $I.$SCFCALCPROG.cycle.$JOBNAME
+                        if [ ! -d "$I.$SCFCALCPROG.cycle.$JOBNAME" ]; then
+		                mkdir $I.$SCFCALCPROG.cycle.$JOBNAME
+                        fi
 			cp $JOBNAME.inp          $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.inp
 			cp $JOBNAME.molden.input $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.molden.input
 			cp $JOBNAME.out          $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.out
