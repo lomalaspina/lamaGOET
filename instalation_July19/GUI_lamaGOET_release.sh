@@ -1767,11 +1767,11 @@ export MAIN_DIALOG='
 	    <text text-xalign="0" use-markup="true" wrap="false" space-expand="FALSE" space-fill="false"><label>Shrink values for Crystal23:</label></text>
 	   <hbox space-expand="true" space-fill="true">
 	    <entry space-expand="true">
-             <input>if [ ! -z $SHRINKA ]; then echo "$SHRINKA"; elsei (echo "6"); fi</input>
+             <input>if [ ! -z $SHRINKA ]; then echo "$SHRINKA"; else (echo "6"); fi</input>
 	     <variable>SHRINKA</variable>
 	    </entry>
 	    <entry space-expand="true">
-             <input>if [ ! -z $SHRINKB ]; then echo "$SHRINKB"; elsei (echo "6"); fi</input>
+             <input>if [ ! -z $SHRINKB ]; then echo "$SHRINKB"; else (echo "6"); fi</input>
 	     <variable>SHRINKB</variable>
 	    </entry>
 
