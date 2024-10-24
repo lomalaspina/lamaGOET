@@ -1490,10 +1490,12 @@ TONTO_TO_CRYSTAL(){
 #       echo "MOLECULE"  >> $JOBNAME.d12
         echo "KEEPSYMM"  >> $JOBNAME.d12
         echo "NOSHIFT"  >> $JOBNAME.d12
-        echo "SUPERCON"  >> $JOBNAME.d12
-        echo "1. 0. 0."  >> $JOBNAME.d12
-        echo "0. 1. 0."  >> $JOBNAME.d12
-        echo "0. 0. 1."  >> $JOBNAME.d12
+        if [[ "$SUPERCON" == "true" ]]; then
+                echo "SUPERCON"  >> $JOBNAME.d12
+                echo "1. 0. 0."  >> $JOBNAME.d12
+                echo "0. 1. 0."  >> $JOBNAME.d12
+                echo "0. 0. 1."  >> $JOBNAME.d12
+        fi
 #       echo "1"  >> $JOBNAME.d12
 #       echo "1 0 0 0"  >> $JOBNAME.d12
         if [[ "$GAUSGEN" == "true" || "$BASISSETG" == "gen" ]]; then
@@ -1522,7 +1524,7 @@ TONTO_TO_CRYSTAL(){
 #       echo "EXCHSIZE"  >> $JOBNAME.d12
 #       echo "40000000"  >> $JOBNAME.d12
         echo "SHRINK"  >> $JOBNAME.d12
-        echo "6 6"  >> $JOBNAME.d12
+        echo "$SHRINKA $SHRINKB"  >> $JOBNAME.d12
 #       echo "LEVSHIFT"  >> $JOBNAME.d12
 #       echo "6 1"  >> $JOBNAME.d12
 #       echo "TOLINTEG"  >> $JOBNAME.d12

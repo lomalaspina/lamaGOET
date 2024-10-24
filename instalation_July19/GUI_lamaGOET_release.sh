@@ -931,18 +931,22 @@ export MAIN_DIALOG='
 	        <action>if true disable:SCDIPOLES</action>
 	        <action>if false enable:SCDIPOLES</action>
 	      </radiobutton>
-	      <radiobutton space-fill="True"  space-expand="True">
+	      <radiobutton space-fill="True"  space-expand="True" visible="true">
 	        <label>Crystal23</label>
 	        <default>false</default>
 	        <action>if true echo 'SCFCALCPROG="Crystal14"'</action>
 	        <action>if true disable:NTAIL</action>
 	        <action>if true enable:MEM</action>
+	        <action>if true enable:MAXXTALCYCLE</action>
+	        <action>if true enable:SUPERCON</action>
 	        <action>if true enable:NUMPROC</action>
 	        <action>if false disable:NUMPROC</action>
 	        <action>if true enable:SCFCALC_BIN</action>
 	        <action>if true disable:BASISSETDIR</action>
 	        <action>if true enable:BASISSETT</action>
 	        <action>if false disable:BASISSETT</action>
+	        <action>if false disable:MAXXTALCYCLE</action>
+	        <action>if false disable:SUPERCON</action>
 	        <action>if true disable:SCCHARGES</action>
 	        <action>if true disable:ELMOLIB</action>
 	        <action>if true disable:XHALONG</action>
@@ -1265,13 +1269,13 @@ export MAIN_DIALOG='
 	
 	   <hbox> 
 	    <text xalign="0" use-markup="true" wrap="false"><label>Charge</label></text>
-	    <spinbutton  range-min="-10"  range-max="10" space-fill="True"  space-expand="True">
+	    <spinbutton  range-min="-20"  range-max="20" space-fill="True"  space-expand="True">
              <input>if [ ! -z $CHARGE ]; then echo "$CHARGE"; else (echo "0"); fi</input>
 		<variable>CHARGE</variable>
 	    </spinbutton>
 	
 	    <text xalign="1" use-markup="true" wrap="false"><label>Multiplicity</label></text>
-	    <spinbutton  range-min="0"  range-max="10"  space-fill="True"  space-expand="True" >
+	    <spinbutton  range-min="0"  range-max="20"  space-fill="True"  space-expand="True" >
              <input>if [ ! -z $MULTIPLICITY ]; then echo "$MULTIPLICITY"; else (echo "1"); fi</input>
 		<variable>MULTIPLICITY</variable>
 	    </spinbutton>
@@ -1735,6 +1739,42 @@ export MAIN_DIALOG='
 	     <variable>MAXLSCYCLE</variable>
 	    </entry>
 	
+	   </hbox>
+	   </hbox>
+
+	   <hseparator></hseparator>
+
+	   <hbox space-expand="false" space-fill="false">
+
+	    <text text-xalign="0" use-markup="true" wrap="false" space-expand="FALSE" space-fill="false"><label>Max. number of cycles for Crystal23 SCF calculation:</label></text>
+	   <hbox space-expand="true" space-fill="true">
+	    <entry space-expand="true">
+             <input>if [ ! -z $MAXXTALCYCLE ]; then echo "$MAXXTALCYCLE"; fi</input>
+	     <variable>MAXXTALCYCLE</variable>
+	    </entry>
+	        
+	    <checkbox active="false" sensitive="true" space-fill="True"  space-expand="True" sensitive="false" >
+	     <label>Force conventional cell on Crystal23</label>
+	     <variable>SUPERCON</variable>
+	     <default>false</default>
+	    </checkbox>
+
+	   </hbox>
+	   </hbox>
+
+	   <hbox space-expand="false" space-fill="false">
+           
+	    <text text-xalign="0" use-markup="true" wrap="false" space-expand="FALSE" space-fill="false"><label>Shrink values for Crystal23:</label></text>
+	   <hbox space-expand="true" space-fill="true">
+	    <entry space-expand="true">
+             <input>if [ ! -z $SHRINKA ]; then echo "$SHRINKA"; elsei (echo "6"); fi</input>
+	     <variable>SHRINKA</variable>
+	    </entry>
+	    <entry space-expand="true">
+             <input>if [ ! -z $SHRINKB ]; then echo "$SHRINKB"; elsei (echo "6"); fi</input>
+	     <variable>SHRINKB</variable>
+	    </entry>
+
 	   </hbox>
 	   </hbox>
 

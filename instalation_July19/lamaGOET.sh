@@ -2227,10 +2227,12 @@ TONTO_TO_CRYSTAL(){
 #       echo "MOLECULE"  >> $JOBNAME.d12
         echo "KEEPSYMM"  >> $JOBNAME.d12
         echo "NOSHIFT"  >> $JOBNAME.d12
-        echo "SUPERCON"  >> $JOBNAME.d12
-        echo "1. 0. 0."  >> $JOBNAME.d12
-        echo "0. 1. 0."  >> $JOBNAME.d12
-        echo "0. 0. 1."  >> $JOBNAME.d12
+        if [[ "$SUPERCON" == "true" ]]; then
+                echo "SUPERCON"  >> $JOBNAME.d12
+                echo "1. 0. 0."  >> $JOBNAME.d12
+                echo "0. 1. 0."  >> $JOBNAME.d12
+                echo "0. 0. 1."  >> $JOBNAME.d12
+        fi
 #       echo "1"  >> $JOBNAME.d12
 #       echo "1 0 0 0"  >> $JOBNAME.d12
         if [[ "$GAUSGEN" == "true" || "$BASISSETG" == "gen" ]]; then
@@ -2259,7 +2261,7 @@ TONTO_TO_CRYSTAL(){
 #       echo "EXCHSIZE"  >> $JOBNAME.d12
 #       echo "40000000"  >> $JOBNAME.d12
         echo "SHRINK"  >> $JOBNAME.d12
-        echo "6 6"  >> $JOBNAME.d12
+        echo "$SHRINKA $SHRINKB"  >> $JOBNAME.d12
 #       echo "LEVSHIFT"  >> $JOBNAME.d12
 #       echo "6 1"  >> $JOBNAME.d12
 #       echo "TOLINTEG"  >> $JOBNAME.d12
@@ -3851,6 +3853,7 @@ export MAIN_DIALOG='
 	        <action>if true disable:NTAIL</action>
 	        <action>if true enable:MEM</action>
 	        <action>if true enable:MAXXTALCYCLE</action>
+	        <action>if true enable:SUPERCON</action>
 	        <action>if true enable:NUMPROC</action>
 	        <action>if false disable:NUMPROC</action>
 	        <action>if true enable:SCFCALC_BIN</action>
@@ -3858,6 +3861,7 @@ export MAIN_DIALOG='
 	        <action>if true enable:BASISSETT</action>
 	        <action>if false disable:BASISSETT</action>
 	        <action>if false disable:MAXXTALCYCLE</action>
+	        <action>if false disable:SUPERCON</action>
 	        <action>if true disable:SCCHARGES</action>
 	        <action>if true disable:ELMOLIB</action>
 	        <action>if true disable:XHALONG</action>
@@ -4645,7 +4649,29 @@ export MAIN_DIALOG='
              <input>if [ ! -z $MAXXTALCYCLE ]; then echo "$MAXXTALCYCLE"; fi</input>
 	     <variable>MAXXTALCYCLE</variable>
 	    </entry>
-	
+	        
+	    <checkbox active="false" sensitive="true" space-fill="True"  space-expand="True" sensitive="false" >
+	     <label>Force conventional cell on Crystal23</label>
+	     <variable>SUPERCON</variable>
+	     <default>false</default>
+	    </checkbox>
+
+	   </hbox>
+	   </hbox>
+
+	   <hbox space-expand="false" space-fill="false">
+           
+	    <text text-xalign="0" use-markup="true" wrap="false" space-expand="FALSE" space-fill="false"><label>Shrink values for Crystal23:</label></text>
+	   <hbox space-expand="true" space-fill="true">
+	    <entry space-expand="true">
+             <input>if [ ! -z $SHRINKA ]; then echo "$SHRINKA"; elsei (echo "6"); fi</input>
+	     <variable>SHRINKA</variable>
+	    </entry>
+	    <entry space-expand="true">
+             <input>if [ ! -z $SHRINKB ]; then echo "$SHRINKB"; elsei (echo "6"); fi</input>
+	     <variable>SHRINKB</variable>
+	    </entry>
+
 	   </hbox>
 	   </hbox>
 
