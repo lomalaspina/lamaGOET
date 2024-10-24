@@ -3854,6 +3854,8 @@ export MAIN_DIALOG='
 	        <action>if true enable:MEM</action>
 	        <action>if true enable:MAXXTALCYCLE</action>
 	        <action>if true enable:SUPERCON</action>
+	        <action>if true enable:SHRINKA</action>
+	        <action>if true enable:SHRINKB</action>
 	        <action>if true enable:NUMPROC</action>
 	        <action>if false disable:NUMPROC</action>
 	        <action>if true enable:SCFCALC_BIN</action>
@@ -3862,6 +3864,8 @@ export MAIN_DIALOG='
 	        <action>if false disable:BASISSETT</action>
 	        <action>if false disable:MAXXTALCYCLE</action>
 	        <action>if false disable:SUPERCON</action>
+	        <action>if false disable:SHRINKA</action>
+	        <action>if false disable:SHRINKB</action>
 	        <action>if true disable:SCCHARGES</action>
 	        <action>if true disable:ELMOLIB</action>
 	        <action>if true disable:XHALONG</action>
