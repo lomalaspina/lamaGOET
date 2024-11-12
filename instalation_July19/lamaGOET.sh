@@ -896,8 +896,21 @@ fi
 echo "Updating wave at gas phase" 
 $SCFCALC_BIN $JOBNAME.inp > $JOBNAME.out
 echo "Updating wave at gas phase done" 
-orca_2mkl.exe $JOBNAME -molden  > /dev/null
-orca_2aim.exe $JOBNAME  > /dev/null
+if [[ "$(which orca_2mkl.exe)" == "" ]]; then
+	orca_2mkl $JOBNAME -molden  > /dev/null
+else 
+	orca_2mkl.exe $JOBNAME -molden  > /dev/null
+fi
+if [[ "$(which orca_2aim.exe)" == "" ]]; then
+	orca_2aim $JOBNAME  > /dev/null
+else
+	orca_2aim.exe $JOBNAME  > /dev/null
+fi
+NAPONE=$[ $NUMBEROFATOMS + 1 ]
+STARTLINE=$(grep -n "  $NAPONE 0" $JOBNAME.molden.input | awk -F: '{print $1}')
+ENDLINE=$(grep -n "\[5D\]" $JOBNAME.molden.input | awk -F: '{print $1}')
+sed -i "$STARTLINE","$[ $ENDLINE - 1]"'{/.*/d;}' $JOBNAME.molden.input
+sed -i '/Q\ /d' $JOBNAME.molden.input
 #echo "Orca cycle number $I ended"
 if ! grep -q '****ORCA TERMINATED NORMALLY****' "$JOBNAME.out"; then
 	echo "ERROR: Orca job finished with error, please check the $I.th out file for more details" | tee -a $JOBNAME.lst
@@ -1249,7 +1262,7 @@ TONTO_TO_ORCA(){
 	I=$[ $I + 1 ]
 	echo "Extracting XYZ for Orca cycle number $I"
 	if [ "$SCFCALCPROG" = "optorca" ]; then
-		OPT=" Opt"
+		ORCAOPT=" Opt"
 	fi
 	if [ "$METHOD" = "rks" ]; then
 		echo "! blyp $BASISSETG $ORCAOPT" > $JOBNAME.inp
@@ -1298,10 +1311,23 @@ TONTO_TO_ORCA(){
 		exit 0
 	fi
 	echo "Generation of molden file for Orca cycle number $I"
-	orca_2mkl.exe $JOBNAME -molden  > /dev/null
+	if [[ "$(which orca_2mkl.exe)" == "" ]]; then
+		orca_2mkl $JOBNAME -molden  > /dev/null
+	else 	
+		orca_2mkl.exe $JOBNAME -molden  > /dev/null
+	fi
 	echo "Generation of wfn file for Orca cycle number $I"
-	orca_2aim.exe $JOBNAME  > /dev/null 
-	echo "Orca cycle number $I, final energy is: $ENERGIA, RMSD is: $RMSD "
+	if [[ "$(which orca_2aim.exe)" == "" ]]; then
+		orca_2aim $JOBNAME  > /dev/null
+	else
+		orca_2aim.exe $JOBNAME  > /dev/null
+	fi
+ 	NAPONE=$[ $NUMBEROFATOMS + 1 ]
+	STARTLINE=$(grep -n "  $NAPONE 0" $JOBNAME.molden.input | awk -F: '{print $1}')
+	ENDLINE=$(grep -n "\[5D\]" $JOBNAME.molden.input | awk -F: '{print $1}')
+	sed -i "$STARTLINE","$[ $ENDLINE - 1 ]"'{/.*/d;}' $JOBNAME.molden.input
+	sed -i '/Q\ /d' $JOBNAME.molden.input
+#	echo "Orca cycle number $I, final energy is: $ENERGIA, RMSD is: $RMSD "
         NUMATOMWFN=$(grep -m1 " Q " $JOBNAME.wfn | awk '{ print $2 }' )
         NUMATOMWFN=$[$NUMATOMWFN -1]
         awk -v  NUMATOMWFN=$NUMATOMWFN 'NR==2 {gsub($7, NUMATOMWFN, $0); print}1' $JOBNAME.wfn > temp.wfn
@@ -1630,7 +1656,7 @@ CRYSTAL_BLOCK(){
         if [[ "$SCFCALCPROG" == "Crystal14" ]]; then
                 echo "      spacegroup= { hermann_mauguin_symbol= "'"'$SPACEGROUPHM'"'" }" >> stdin
         fi
-	if [[ "$SCFCALCPROG" != "optgaussian" ]]; then 
+	if [[ "$SCFCALCPROG" != "optgaussian" && "$SCFCALCPROG" != "optorca" ]]; then 
 		echo "      xray_data= {   " >> stdin
 	        if [[ "$POWDER_HAR" != "true" ]]; then 
         		echo "         thermal_smearing_model= atom-based" >> stdin
@@ -1823,7 +1849,7 @@ SCF_BLOCK_NOT_TONTO(){
 		echo "" >> stdin
 		echo "   }" >> stdin
 		echo "" >> stdin
-		if [[ "$SCFCALCPROG" != "optgaussian" && "$J" != "0" ]]; then 
+		if [[ "$SCFCALCPROG" != "optgaussian" && "$SCFCALCPROG" != "optorca" && "$J" != "0" ]]; then 
 	                if [[ "$POWDERHAR" != "true" ]]; then
 			        echo "   ! Make Hirshfeld structure factors" >> stdin
 #			        echo "   fit_hirshfeld_atoms" >> stdin
@@ -1852,6 +1878,12 @@ SCF_BLOCK_NOT_TONTO(){
 		if [[ "$SCFCALCPROG" != "optgaussian" ]]; then 
 	                if [[ "$POWDERHAR" != "true" ]]; then
 			        echo "   ! Make Hirshfeld structure factors" >> stdin
+				if [[ "$SCFCALCPROG" == "Orca" ]]; then
+			                echo "   make_scf_density_matrix" >> stdin
+			                echo "   assign_NOs_to_MOs " >> stdin
+			                echo "   make_hirshfeld_inputs" >> stdin
+			                echo "   make_fock_matrix" >> stdin
+				fi
 #       			echo "   fit_hirshfeld_atoms" >> stdin
 			        echo "   ha_fit" >> stdin
         			echo "" >> stdin
@@ -2485,9 +2517,9 @@ CHECK_ENERGY(){
 #		ENERGIA2=$(sed 's/^ //' $JOBNAME.log | sed 'N;s/\n//' | sed 'N;s/\n//' | sed 'N;s/\n//' | sed 'N;s/\n//' | sed -n '/HF=/{N;p;}' | sed 's/^.*HF=//' | sed 'N;s/\n//' | sed '2d' | sed 's/RMSD=//g' | awk -F '\' '{ print $1}' | tr -d '\r')
 #		RMSD2=$(sed 's/^ //' $JOBNAME.log | sed 'N;s/\n//' | sed 'N;s/\n//' | sed 'N;s/\n//'| sed -n '/RMSD=/{N;p;}' | sed 's/^.*RMSD=//' | sed 'N;s/\n//' | sed '2d' | sed 's/RMSD=//g' | awk -F '\' '{ print $1}'| tr -d '\r')
 		echo "Gaussian cycle number $I, final energy is: $ENERGIA2, RMSD is: $RMSD2 "
-	elif [[ "$SCFCALCPROG" == "Orca" ]]; then
-		ENERGIA2=$(sed -n '/Total Energy       :/p' $JOBNAME.out | awk '{print $4}' | tr -d '\r')
-		RMSD2=$(sed -n '/Last RMS-Density change/p' $JOBNAME.out | awk '{print $5}' | tr -d '\r')
+	elif [[ "$SCFCALCPROG" == "Orca" || "$SCFCALCPROG" == "optorca" ]]; then
+		ENERGIA2=$(sed -n '/FINAL SINGLE POINT ENERGY/p' $JOBNAME.out | awk '{print $5}' | tr -d '\r')
+		RMSD2=$(sed -n '/Last RMS-Density change/p' $JOBNAME.out | tail -1 | awk '{print $5}' | tr -d '\r')
 		echo "Orca cycle number $I, final energy is: $ENERGIA2, RMSD is: $RMSD2 "
 	elif [[ "$SCFCALCPROG" == "Crystal14" ]]; then
                 ENERGIA2=$(grep "TOTAL ENERGY" $JOBNAME.out | tail -n1 | awk '{print $4}')
@@ -2496,14 +2528,14 @@ CHECK_ENERGY(){
 		ENERGIA2=$(sed -n '/^total/p' $JOBNAME.out | awk '{print $2}' | tr -d '\r')
 		RMSD2=$( awk '{a[NR]=$0}/restricted spinorbital SCF energy converged after/ {print a[NR-1]}' $JOBNAME.out | awk '{print $3}'| tr -d '\r')
 	fi
-		DE=$(awk "BEGIN {print $ENERGIA2 - $ENERGIA}")
-		ABSDE=$(awk "function abs(x){return (( x < 0.0) ? -x : x)} BEGIN {print abs($ENERGIA2) - abs($ENERGIA)}")
-		ABSDE2=$(awk "function abs(x){return (( x < 0.0) ? -x : x)} BEGIN {print abs($ENERGIA2) - abs($ENERGIA3)}")
-		DE=$(printf '%.12f' $DE)
-		echo -e " $J\t$(awk '{a[NR]=$0}/^Rigid-atom fit results/{b=NR}END {print a[b-4]}' stdout | awk '{print $1}' )\t$INITIALCHI\t$(awk '{a[NR]=$0}/^Rigid-atom fit results/{b=NR}END {print a[b-4]}' stdout | awk '{print  $2"\t"$3"\t"$4"\t"}') $MAXSHIFT\t$MAXSHIFTATOM $MAXSHIFTPARAM $(awk '{a[NR]=$0}/^Rigid-atom fit results/{b=NR}END {print a[b-4]}' stdout | awk '{print  "    "$9" \t"$10 }' )  $ENERGIA2   $RMSD2   \t$DE"   >> $JOBNAME.lst  
-		ENERGIA=$ENERGIA2
-		RMSD=$RMSD2
-		echo "Delta E (cycle  $I - $[ I - 1 ]): $DE "
+	DE=$(awk "BEGIN {print $ENERGIA2 - $ENERGIA}")
+	ABSDE=$(awk "function abs(x){return (( x < 0.0) ? -x : x)} BEGIN {print abs($ENERGIA2) - abs($ENERGIA)}")
+	ABSDE2=$(awk "function abs(x){return (( x < 0.0) ? -x : x)} BEGIN {print abs($ENERGIA2) - abs($ENERGIA3)}")
+	DE=$(printf '%.12f' $DE)
+	echo -e " $J\t$(awk '{a[NR]=$0}/^Rigid-atom fit results/{b=NR}END {print a[b-4]}' stdout | awk '{print $1}' )\t$INITIALCHI\t$(awk '{a[NR]=$0}/^Rigid-atom fit results/{b=NR}END {print a[b-4]}' stdout | awk '{print  $2"\t"$3"\t"$4"\t"}') $MAXSHIFT\t$MAXSHIFTATOM $MAXSHIFTPARAM $(awk '{a[NR]=$0}/^Rigid-atom fit results/{b=NR}END {print a[b-4]}' stdout | awk '{print  "    "$9" \t"$10 }' )  $ENERGIA2   $RMSD2   \t$DE"   >> $JOBNAME.lst  
+	ENERGIA=$ENERGIA2
+	RMSD=$RMSD2
+	echo "Delta E (cycle  $I - $[ I - 1 ]): $DE "
 }
 
 CHECKCONV(){
@@ -3213,6 +3245,7 @@ run_script(){
 		else
 			$TONTO
 		fi
+		NUMBEROFATOMS=$(awk '/No. of atoms ............../ {print $5}' stdout )
 	        if [[ "$USE_NOSPHERA2" == "true" ]]; then
                         LABELS_IN_XYZ
                 fi
@@ -3411,23 +3444,36 @@ run_script(){
 				unset MAIN_DIALOG
 				exit 0
 			fi
-			ENERGIA=$(sed -n '/Total Energy       :/p' $JOBNAME.out | awk '{print $4}' | tr -d '\r')
-			RMSD=$(sed -n '/Last RMS-Density change/p' $JOBNAME.out | awk '{print $5}' | tr -d '\r')
+			ENERGIA=$(sed -n '/FINAL SINGLE POINT ENERGY/p' $JOBNAME.out | awk '{print $5}' | tr -d '\r')
+			RMSD=$(sed -n '/Last RMS-Density change/p' $JOBNAME.out | tail -1 | awk '{print $5}' | tr -d '\r')
 			echo "Starting geometry: Energy= $ENERGIA, RMSD= $RMSD" >> $JOBNAME.lst
 			echo "" >> $JOBNAME.lst
 			echo "###############################################################################################" >> $JOBNAME.lst
 			echo "Generation molden file for Orca cycle number $I"
-			orca_2mkl.exe $JOBNAME -molden  > /dev/null
-			orca_2mkl $JOBNAME -molden  > /dev/null
-			orca_2aim.exe $JOBNAME  > /dev/null
-			orca_2aim $JOBNAME  > /dev/null
-			echo "Orca cycle number $I, final energy is: $ENERGIA, RMSD is: $RMSD "
-                        NUMATOMWFN=$(grep -m1 " Q " $JOBNAME.wfn | awk '{ print $2 }' )
-                        NUMATOMWFN=$[$NUMATOMWFN -1]
-                        awk -v  NUMATOMWFN=$NUMATOMWFN 'NR==2 {gsub($7, NUMATOMWFN, $0); print}1' $JOBNAME.wfn > temp.wfn
-                        sed -i '2d' temp.wfn
-                        sed -i '/ Q /d' temp.wfn
-                        mv temp.wfn $JOBNAME.wfn
+			if [[ "$(which orca_2mkl.exe)" == "" ]]; then
+				orca_2mkl $JOBNAME -molden  > /dev/null
+			else 
+				orca_2mkl.exe $JOBNAME -molden  > /dev/null
+			fi
+			if [[ "$(which orca_2aim.exe)" == "" ]]; then
+				orca_2aim $JOBNAME  > /dev/null
+			else
+				orca_2aim.exe $JOBNAME  > /dev/null
+			fi
+#			echo "Orca cycle number $I, final energy is: $ENERGIA, RMSD is: $RMSD "
+# 			This is the first cycle, no charges here yet!!!
+#                       NUMATOMWFN=$(grep -m1 " Q " $JOBNAME.wfn | awk '{ print $2 }' )
+#                       NUMATOMWFN=$[$NUMATOMWFN -1]
+#                       awk -v  NUMATOMWFN=$NUMATOMWFN 'NR==2 {gsub($7, NUMATOMWFN, $0); print}1' $JOBNAME.wfn > temp.wfn
+#                       sed -i '2d' temp.wfn
+#                       sed -i '/ Q /d' temp.wfn
+#                       mv temp.wfn $JOBNAME.wfn
+# 			This is the first cycle, no charges here yet!!!
+#			NAPONE=$[ $NUMBEROFATOMS + 1 ]
+#			STARTLINE=$(grep -n "  $NAPONE 0" $JOBNAME.molden.input | awk -F: '{print $1}')
+#			ENDLINE=$(grep -n "\[5D\]" $JOBNAME.molden.input | awk -F: '{print $1}')
+#			sed -i "$STARTLINE","$[ $ENDLINE - 1]"'{/.*/d;}' $JOBNAME.molden.input
+#			sed -i '/Q\ /d' $JOBNAME.molden.input
 			if [[ "$USENOSPHERA2" == "true" && "$SCCHARGES" != "true" ]]; then
 		                echo "   0   0   0    0.00    0.00"  >> $JOBNAME.hkl
                                 if [[ "$SCCHARGES" != "true" ]]; then 
@@ -3636,7 +3682,7 @@ run_script(){
 		echo "" >> $JOBNAME.lst
 		echo "Energy= $ENERGIA2, RMSD= $RMSD2" >> $JOBNAME.lst
 		echo " $(awk '{a[NR]=$0}/^Rigid-atom fit results/{b=NR}/^Wall-clock time taken for job /{c=NR}END{for (d=b-2;d<c-1;++d) print a[d]}' stdout)"  >> $JOBNAME.lst
-		if [[ "$SCFCALCPROG" != "optgaussian" ]]; then  
+		if [[ "$SCFCALCPROG" != "optgaussian" && "$SCFCALCPROG" != "optorca" ]]; then  
 		        if [[ "$POWDER_HAR" != "true" && "$SCFCALCPROG" != "Crystal14" ]]; then  
 			        GET_RESIDUALS
 			        echo " $(awk '{a[NR]=$0}/^Residual density data/{b=NR}/^Wall-clock time taken for job/{c=NR}END{for (d=b-2;d<c-1;++d) print a[d]}' stdout)" >> $JOBNAME.lst
@@ -3644,7 +3690,7 @@ run_script(){
 		        if [[ "$XWR" == "true" ]]; then
 		        	RUN_XWR
         		fi
-		elif [[ "$SCFCALCPROG" == "optgaussian" && "$SCCHARGES" == "true" ]]; then  
+		elif [[ ("$SCFCALCPROG" == "optgaussian" || "$SCFCALCPROG" != "optorca") && "$SCCHARGES" == "true" ]]; then  
 			SCF_TO_TONTO
 			GET_FREQ
 		fi
