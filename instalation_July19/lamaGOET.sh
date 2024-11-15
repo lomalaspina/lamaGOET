@@ -1616,7 +1616,11 @@ TONTO_IAM_BLOCK(){
 			exit 0
 		fi
 	fi
-	echo "         REDIRECT $HKL" >> stdin
+	if [[ "$ISFCF" != "true" ]]; then
+		echo "         REDIRECT $HKL" >> stdin
+	else
+		echo "         read_fcf_file $HKL" >> stdin
+	fi
 	if [[ "$FCUT" != "0" ]]; then
 		echo "         f_sigma_cutoff= $FCUT" >> stdin
 	fi
@@ -1697,7 +1701,11 @@ CRYSTAL_BLOCK(){
 			fi
 		fi
 	        if [[ "$POWDER_HAR" != "true" ]]; then 
-        		echo "         REDIRECT $HKL" >> stdin
+			if [[ "$ISFCF" != "true" ]]; then
+				echo "         REDIRECT $HKL" >> stdin
+			else
+				echo "         read_fcf_file $HKL" >> stdin
+			fi
 	                if [[ "$FCUT" != "0" ]]; then
         		        echo "         f_sigma_cutoff= $FCUT" >> stdin
                         fi
@@ -3169,52 +3177,57 @@ run_script(){
 	shopt -s nocasematch	
 
 	if [[ "$SCFCALCPROG" != "optgaussian" && "$SCFCALCPROG" != "optorca" && "$POWDER_HAR" != "true" ]]; then 
-		#removing  0 0 0 line 
-		if [[ ! -z $(awk '{if (($1) == "0" && ($2) == "0" && ($3) == "0" ) print}' $HKL) ]]; then
-			awk '{if (($1) != "0" && ($2) != "0" && ($3) != "0" ) print}' $HKL > $JOBNAME.tonto_edited.hkl
-		fi
-		#backing up hkl input file and copying the one without the 0 line to the $HKL variable
-		if [ -f "$JOBNAME.tonto_edited.hkl" ]; then
-			cp $HKL $JOBNAME.your_input.hkl
-			cp $JOBNAME.tonto_edited.hkl $HKL
-			rm $JOBNAME.tonto_edited.hkl
-			echo "WARNING: HKL has been formated, your original input is saved with the name $JOBNAME.your_input.hkl!"
-		fi
-		
-		#checking if numbers are grown together and separating them. note that this will ignore the header lines if is exists.
-		if [[ ! -z "$(awk ' NF<5 && NF>2 {print $0}' $HKL)" ]]; then
-			gawk 'BEGIN { FS = "" } { for (i = 1; i <= NF; i = i + 1) h=$1$2$3$4; k=$5$6$7$8; l=$9$10$11$12; i_f=$13$14$15$16$17$18$19$20; sig=$21$22$23$24$25$26$27$28; print h, k, l, i_f, sig }' $HKL > $JOBNAME.tonto_edited.hkl
-			cp $HKL $JOBNAME.your_input.hkl
-			cp $JOBNAME.tonto_edited.hkl $HKL
-			rm $JOBNAME.tonto_edited.hkl
-		fi
-	
-		# writing header on hkl
-		if [ "$WRITEHEADER" = "true" ]; then
-		  	#checking if the header was not there already
-			if [[ ! -z "$(grep "reflection_data= {" $HKL)" ]]; then
-				echo "header was already in the hkl file, nothing to do."
-			else
-				#putting the header in
-				sed -i '1 i\   data= {' $HKL 
-				if [ "$ONF" = "true" ]; then
-					sed -i '1 i\  keys= { h= k= l= f_exp= f_sigma= }' $HKL 
-			     	elif [ "$ONF2" = "true" ]; then
-					sed -i '1 i\  keys= { h= k= l= i_exp= i_sigma= }' $HKL 
-				else
-					echo "ERROR: Please select the format of the hkl file for header (F or F^2)" | tee -a $JOBNAME.lst
-					unset MAIN_DIALOG
-					exit 0
-				fi
-				sed -i '1 i\ reflection_data= {' $HKL 
-				sed -i '$ a\   }' $HKL
-				sed -i '$ a\  }' $HKL 
-				sed -i '$ a\ REVERT' $HKL 
+		HKLEXT=$(echo $HKL | awk -F. '{print $NF}')
+		if [[ "$HKLEXT" != "fcf" ]]; then
+			#removing  0 0 0 line 
+			if [[ ! -z $(awk '{if (($1) == "0" && ($2) == "0" && ($3) == "0" ) print}' $HKL) ]]; then
+				awk '{if (($1) != "0" && ($2) != "0" && ($3) != "0" ) print}' $HKL > $JOBNAME.tonto_edited.hkl
 			fi
-		fi
-	
-		if [[ -z "$(grep "reflection_data= {" $HKL)" ]]; then
-			echo "You are missing the tonto header in the hkl file."
+			#backing up hkl input file and copying the one without the 0 line to the $HKL variable
+			if [ -f "$JOBNAME.tonto_edited.hkl" ]; then
+				cp $HKL $JOBNAME.your_input.hkl
+				cp $JOBNAME.tonto_edited.hkl $HKL
+				rm $JOBNAME.tonto_edited.hkl
+				echo "WARNING: HKL has been formated, your original input is saved with the name $JOBNAME.your_input.hkl!"
+			fi
+			
+			#checking if numbers are grown together and separating them. note that this will ignore the header lines if is exists.
+			if [[ ! -z "$(awk ' NF<5 && NF>2 {print $0}' $HKL)" ]]; then
+				gawk 'BEGIN { FS = "" } { for (i = 1; i <= NF; i = i + 1) h=$1$2$3$4; k=$5$6$7$8; l=$9$10$11$12; i_f=$13$14$15$16$17$18$19$20; sig=$21$22$23$24$25$26$27$28; print h, k, l, i_f, sig }' $HKL > $JOBNAME.tonto_edited.hkl
+				cp $HKL $JOBNAME.your_input.hkl
+				cp $JOBNAME.tonto_edited.hkl $HKL
+				rm $JOBNAME.tonto_edited.hkl
+			fi
+		
+			# writing header on hkl
+			if [ "$WRITEHEADER" = "true" ]; then
+			  	#checking if the header was not there already
+				if [[ ! -z "$(grep "reflection_data= {" $HKL)" ]]; then
+					echo "header was already in the hkl file, nothing to do."
+				else
+					#putting the header in
+					sed -i '1 i\   data= {' $HKL 
+					if [ "$ONF" = "true" ]; then
+						sed -i '1 i\  keys= { h= k= l= f_exp= f_sigma= }' $HKL 
+				     	elif [ "$ONF2" = "true" ]; then
+						sed -i '1 i\  keys= { h= k= l= i_exp= i_sigma= }' $HKL 
+					else
+						echo "ERROR: Please select the format of the hkl file for header (F or F^2)" | tee -a $JOBNAME.lst
+						unset MAIN_DIALOG
+						exit 0
+					fi
+					sed -i '1 i\ reflection_data= {' $HKL 
+					sed -i '$ a\   }' $HKL
+					sed -i '$ a\  }' $HKL 
+					sed -i '$ a\ REVERT' $HKL 
+				fi
+			fi
+		
+			if [[ -z "$(grep "reflection_data= {" $HKL)" ]]; then
+				echo "You are missing the tonto header in the hkl file."
+			fi
+		else
+			ISFCF=true
 		fi
 	fi
 	if [[ "$PLOT_TONTO" == "true" ]]; then
