@@ -2149,6 +2149,9 @@ SCF_TO_TONTO(){
 		cp $JOBNAME.xyz $J.tonto_cycle.$JOBNAME/$J.$JOBNAME.xyz
 		cp stdin $J.tonto_cycle.$JOBNAME/$J.stdin
 		cp stdout $J.tonto_cycle.$JOBNAME/$J.stdout
+		if [[ "$SCFCALCPROG" == "Crystal14" ]]; then
+			cp $JOBNAME.residual_density,cell.cube $J.tonto_cycle.$JOBNAME/$J.$JOBNAME.residual_density,cell.cube
+		fi
 		if [[ "$SCFCALCPROG" != "optgaussian" ]]; then
 	                if [ -f $JOBNAME.fractional.cif1 ]; then
 #                       if [ -f $JOBNAME.cartesian.cif2 ]; then
@@ -2662,8 +2665,8 @@ GET_RESIDUALS(){
 		READ_GAUSSIAN_FCHK
 	elif [ "$SCFCALCPROG" = "Orca" ]; then
 		READ_ORCA_FCHK
-	elif [ "$SCFCALCPROG" = "Crystal14" ]; then
-		READ_CRYSTAL_WFN
+#	elif [ "$SCFCALCPROG" = "Crystal14" ]; then
+#		READ_CRYSTAL_WFN
 	else
 		DEFINE_JOB_NAME
 	fi
@@ -2676,48 +2679,57 @@ GET_RESIDUALS(){
 	if [ "$DISP" = "yes" ]; then 
 		DISPERSION_COEF
 	fi
+	if [ "$SCFCALCPROG" = "Crystal14" ]; then
+		TONTO_BASIS_SET
+	fi
 		CHARGE_MULT
+	if [ "$SCFCALCPROG" = "Crystal14" ]; then
+		READ_CRYSTAL_WFN
 		CRYSTAL_BLOCK
-	echo "   scfdata= {" >> stdin
-	if [[ "$METHOD" != "rks" && "$METHOD" != "rhf" && "$METHOD" != "uhf" && "$METHOD" != "uks" && "$METHOD" != "HF" ]]; then
-                if [[ "$METHOD" == "ub3lyp" || "$METHOD" == "UB3LYP" ]]; then
-	                echo "      initial_MOs= unrestricted   " >> stdin # Only for new tonto may 2020
-		        echo "      kind= uks " >> stdin
-		        echo "      dft_exchange_functional= b3lypgx" >> stdin
-        		echo "      dft_correlation_functional= b3lypgc" >> stdin
-                elif [[ "$METHOD" == "b3lyp" || "$METHOD" == "B3LYP" ]]; then
-	                echo "      initial_MOs= restricted   " >> stdin # Only for new tonto may 2020
-		        echo "      kind= rks " >> stdin
-		        echo "      dft_exchange_functional= b3lypgx" >> stdin
-        		echo "      dft_correlation_functional= b3lypgc" >> stdin
-                else
-	                echo "      initial_MOs= restricted   " >> stdin # Only for new tonto may 2020
-		        echo "      kind= rks " >> stdin
-		        echo "      dft_exchange_functional= b3lypgx" >> stdin
-        		echo "      dft_correlation_functional= b3lypgc" >> stdin
-                fi
-		echo "      output= true " >> stdin
-	else
-                if [[ "$METHOD" == "uhf" || "$METHOD" == "UHF" || "$METHOD" == "UKS" || "$METHOD" == "uks" ]]; then
-	        	echo "      initial_MOs= unrestricted   " >> stdin # Only for new tonto may 2020
-                elif [[ "$METHOD" == "rhf" || "$METHOD" == "RHF" || "$METHOD" == "RKS" || "$METHOD" == "rks" ]]; then
-	        	echo "      initial_MOs= restricted   " >> stdin # Only for new tonto may 2020
-                fi
-		echo "      kind= $METHOD" >> stdin
-		echo "      output= true " >> stdin
+		DEFINE_JOB_NAME
 	fi
-	echo "      use_SC_cluster_charges= $SCCHARGES" >> stdin
-	if [ "$SCCHARGES" == "true" ]; then 
-		echo "      cluster_radius= $SCCRADIUS angstrom" >> stdin
-		echo "      defragment= $DEFRAG" >> stdin
-		echo "      save_cluster_charges= true" >> stdin
+	if [[ "$SCFCALCPROG" != "Crystal14" ]]; then
+		echo "   scfdata= {" >> stdin
+		if [[ "$METHOD" != "rks" && "$METHOD" != "rhf" && "$METHOD" != "uhf" && "$METHOD" != "uks" && "$METHOD" != "HF" ]]; then
+	                if [[ "$METHOD" == "ub3lyp" || "$METHOD" == "UB3LYP" ]]; then
+		                echo "      initial_MOs= unrestricted   " >> stdin # Only for new tonto may 2020
+			        echo "      kind= uks " >> stdin
+			        echo "      dft_exchange_functional= b3lypgx" >> stdin
+	        		echo "      dft_correlation_functional= b3lypgc" >> stdin
+	                elif [[ "$METHOD" == "b3lyp" || "$METHOD" == "B3LYP" ]]; then
+		                echo "      initial_MOs= restricted   " >> stdin # Only for new tonto may 2020
+			        echo "      kind= rks " >> stdin
+			        echo "      dft_exchange_functional= b3lypgx" >> stdin
+	        		echo "      dft_correlation_functional= b3lypgc" >> stdin
+	                else
+		                echo "      initial_MOs= restricted   " >> stdin # Only for new tonto may 2020
+			        echo "      kind= rks " >> stdin
+			        echo "      dft_exchange_functional= b3lypgx" >> stdin
+	        		echo "      dft_correlation_functional= b3lypgc" >> stdin
+	                fi
+			echo "      output= true " >> stdin
+		else
+	                if [[ "$METHOD" == "uhf" || "$METHOD" == "UHF" || "$METHOD" == "UKS" || "$METHOD" == "uks" ]]; then
+		        	echo "      initial_MOs= unrestricted   " >> stdin # Only for new tonto may 2020
+	                elif [[ "$METHOD" == "rhf" || "$METHOD" == "RHF" || "$METHOD" == "RKS" || "$METHOD" == "rks" ]]; then
+		        	echo "      initial_MOs= restricted   " >> stdin # Only for new tonto may 2020
+	                fi
+			echo "      kind= $METHOD" >> stdin
+			echo "      output= true " >> stdin
+		fi
+		echo "      use_SC_cluster_charges= $SCCHARGES" >> stdin
+		if [ "$SCCHARGES" == "true" ]; then 
+			echo "      cluster_radius= $SCCRADIUS angstrom" >> stdin
+			echo "      defragment= $DEFRAG" >> stdin
+			echo "      save_cluster_charges= true" >> stdin
+		fi
+		echo "      convergence= 0.001" >> stdin
+		echo "      diis= { convergence_tolerance= 0.0002 }" >> stdin
+		echo "   }" >> stdin
+		echo "" >> stdin
+		echo "   make_scf_density_matrix" >> stdin
+		echo "   assign_NOs_to_MOs " >> stdin
 	fi
-	echo "      convergence= 0.001" >> stdin
-	echo "      diis= { convergence_tolerance= 0.0002 }" >> stdin
-	echo "   }" >> stdin
-	echo "" >> stdin
-	echo "   make_scf_density_matrix" >> stdin
-	echo "   assign_NOs_to_MOs " >> stdin
 	echo "   make_structure_factors" >> stdin
 	echo "" >> stdin
 	echo "   put_minmax_residual_density" >> stdin
@@ -3733,6 +3745,11 @@ run_script(){
         			        	CHECK_ENERGY
         		        	done
                                  else 
+#					echo "I AM IN THE FIRST LOOP XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
+#					echo maxshif $MAXSHIFT
+#					echo convtol $CONVTOL
+#					echo DE $DE
+#					echo convtoleee $CONVTOLE
  		        	        while (( $(echo "$MAXSHIFT > $CONVTOL" | bc -l) || $(echo "$(echo ${DE#-}) > $CONVTOLE" | bc -l) )); do
 				                if [[ $J -ge $MAXCYCLE ]]; then
 				                	CHECK_ENERGY
@@ -3740,7 +3757,6 @@ run_script(){
         				        	break
         				        fi
                                                 if [[ $J > 1 ]]; then
-#                                                       echo J is $J I am in
                                                         awk '{a[NR]=$0}/^# Precise fractional system coordinates/{b=NR}/^# Reflections/{c=NR}END{for (d=b-1;d<c-1;++d) print a[d]}' $JOBNAME.archive.cif > temp1
                                                         awk '{a[NR]=$0}/^# Precise fractional system coordinates/{b=NR}/^# Reflections/{c=NR}END{for (d=b-1;d<c-1;++d) print a[d]}' $[ $J - 1 ].tonto_cycle.$JOBNAME/$[ $J - 1 ].$JOBNAME.archive.cif > temp2
                                                         SAME=$(diff temp1 temp2)
@@ -3749,20 +3765,14 @@ run_script(){
         	        			        	echo "Refinement ended. The geometry has converged."
         		        		        	break
                                                         fi
+#						echo "I AM IN THE WHILE LOOP BEFORE TESTING ENERGYXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
                                                 fi
         				        SCF_TO_TONTO
-        				        if [ "$SCFCALCPROG" = "Gaussian" ]; then  
-        			        		TONTO_TO_GAUSSIAN
-        				        elif [ "$SCFCALCPROG" = "Orca" ]; then  
-        			        		TONTO_TO_ORCA
-        				        elif [ "$SCFCALCPROG" = "OCC" ]; then  
-        			        		TONTO_TO_OCC
-        				        elif [ "$SCFCALCPROG" = "Crystal14" ]; then  
-        			        		TONTO_TO_CRYSTAL
-        			        	fi
+        			        	TONTO_TO_CRYSTAL
         			        	CHECK_ENERGY
+#						echo "I AM HERE!!!"
         		        	done
-
+					GET_RESIDUALS
                                  fi
                         fi
 		fi
