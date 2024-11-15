@@ -724,7 +724,7 @@ export MAIN_DIALOG='
 
 	<window window_position="1" title="lamaGOET: An interface for quantum crystallography">
 
-	 <vbox scrollable="true" space-expand="true" space-fill="true" height="600" width="1000" >
+	 <vbox scrollable="true" space-expand="true" space-fill="true" height="800" width="1400" >
 	
 	  <hbox homogeneous="True" >
 	
@@ -839,6 +839,50 @@ export MAIN_DIALOG='
 	        <action>if false disable:EXTRAKEY</action>
 	        <action>if true disable:SCDIPOLES</action>
 	        <action>if false enable:SCDIPOLES</action>
+	      </radiobutton>
+	      <radiobutton space-fill="True"  space-expand="True">
+	        <label>OCC</label>
+	        <default>false</default>
+	        <action>if true echo 'SCFCALCPROG="OCC"'</action>
+	        <action>if true enable:MEM</action>
+	        <action>if true enable:NUMPROC</action>
+	        <action>if true enable:SCFCALC_BIN</action>
+	        <action>if true disable:BASISSETDIR</action>
+	        <action>if false disable:MEM</action>
+	        <action>if false disable:NUMPROC</action>
+	        <action>if false disable:SCFCALC_BIN</action>
+	        <action>if true disable:GAMESS</action>
+	        <action>if false enable:BASISSETDIR</action>
+	        <action>if true disable:BASISSETT</action>
+	        <action>if false enable:BASISSETT</action>
+	        <action>if true disable:ELMOLIB</action>
+	        <action>if false enable:ELMOLIB</action>
+	        <action>if true enable:XHALONG</action>
+	        <action>if false disable:XHALONG</action>
+	        <action>if true enable:COMPLETESTRUCT</action>
+	        <action>if false disable:COMPLETESTRUCT</action>
+	        <action>if true disable:USEGAMESS</action>
+	        <action>if false enable:USEGAMESS</action>
+	        <action>if true disable:GAUSGEN</action>
+	        <action>if false enable:GAUSGEN</action>
+	        <action>if true disable:GAUSSREL</action>
+	        <action>if false enable:GAUSSREL</action>
+	        <action>if true disable:NTAIL</action>
+	        <action>if false enable:NTAIL</action>
+	        <action>if true disable:MANUALRESIDUE</action>
+	        <action>if false enable:MANUALRESIDUE</action>
+	        <action>if true disable:NSSBOND</action>
+	        <action>if false enable:NSSBOND</action>
+	        <action>if true disable:INITADP</action>
+	        <action>if false enable:INITADP</action>
+	        <action>if true enable:USEBECKE</action>
+	        <action>if false disable:USEBECKE</action>
+	        <action>if true disable:GAUSSEMPDISP</action>
+	        <action>if false enable:GAUSSEMPDISP</action>
+	        <action>if true enable:EXTRAKEY</action>
+	        <action>if false disable:EXTRAKEY</action>
+	        <action>if true enable:SCDIPOLES</action>
+	        <action>if false disable:SCDIPOLES</action>
 	      </radiobutton>
 	      <radiobutton space-fill="True"  space-expand="True">
 	        <label>Tonto</label>
@@ -969,6 +1013,78 @@ export MAIN_DIALOG='
 	        <label>SC CC opt with Gaussian and Tonto</label>
 	        <default>false</default>
 	        <action>if true echo 'SCFCALCPROG="optgaussian"'</action>  
+	        <action>if true enable:MEM</action>
+	        <action>if true enable:NUMPROC</action>
+	        <action>if true disable:BASISSETDIR</action>
+	        <action>if true enable:SCFCALC_BIN</action>
+	        <action>if false disable:MEM</action>
+	        <action>if false disable:NUMPROC</action>
+	        <action>if false disable:SCFCALC_BIN</action>
+	        <action>if false enable:BASISSETDIR</action>
+	        <action>if true disable:BASISSETT</action>
+	        <action>if false enable:BASISSETT</action>
+	        <action>if true disable:GAMESS</action>
+	        <action>if true disable:ELMOLIB</action>
+	        <action>if false enable:ELMOLIB</action>
+	        <action>if true enable:XHALONG</action>
+	        <action>if false disable:XHALONG</action>
+	        <action>if true enable:COMPLETESTRUCT</action>
+	        <action>if false disable:COMPLETESTRUCT</action>
+	        <action>if true disable:HKL</action>
+       	        <action>if false enable:HKL</action>
+	        <action>if true disable:WAVE</action>
+       	        <action>if false enable:WAVE</action>
+	        <action>if true disable:FCUT</action>
+       	        <action>if false enable:FCUT</action>
+	        <action>if true disable:POSADP</action>
+       	        <action>if false enable:POSADP</action>
+	        <action>if true disable:POSONLY</action>
+       	        <action>if false enable:POSONLY</action>
+	        <action>if true disable:ADPSONLY</action>
+       	        <action>if false enable:ADPSONLY</action>
+	        <action>if true disable:IAMTONTO</action>
+       	        <action>if false enable:IAMTONTO</action>
+	        <action>if true disable:REFNOTHING</action>
+       	        <action>if false enable:REFNOTHING</action>
+	        <action>if true disable:REFUISO</action>
+       	        <action>if false enable:REFUISO</action>
+	        <action>if true disable:REFHPOS</action>
+       	        <action>if false enable:REFHPOS</action>
+	        <action>if true disable:REFHADP</action>
+       	        <action>if false enable:REFHADP</action>
+	        <action>if true disable:REFANHARM</action>
+       	        <action>if false enable:REFANHARM</action>
+	        <action>if true disable:DISP</action>
+       	        <action>if false enable:DISP</action>
+	        <action>if true enable:USEBECKE</action>
+	        <action>if false disable:USEBECKE</action>
+	        <action>if true disable:WRITEHEADER</action>
+       	        <action>if false enable:WRITEHEADER</action>
+	        <action>if true disable:USEGAMESS</action>
+	        <action>if false enable:USEGAMESS</action>
+	        <action>if true enable:GAUSGEN</action>
+	        <action>if false disable:GAUSGEN</action>
+	        <action>if true enable:GAUSSREL</action>
+	        <action>if false disable:GAUSSREL</action>
+	        <action>if true disable:NTAIL</action>
+	        <action>if false enable:NTAIL</action>
+	        <action>if true disable:MANUALRESIDUE</action>
+	        <action>if false enable:MANUALRESIDUE</action>
+	        <action>if true disable:NSSBOND</action>
+	        <action>if false enable:NSSBOND</action>
+	        <action>if true disable:INITADP</action>
+	        <action>if false enable:INITADP</action>
+	        <action>if true enable:GAUSSEMPDISP</action>
+	        <action>if false disable:GAUSSEMPDISP</action>
+	        <action>if true enable:EXTRAKEY</action>
+	        <action>if false disable:EXTRAKEY</action>
+	        <action>if true enable:SCDIPOLES</action>
+	        <action>if false disable:SCDIPOLES</action>
+	      </radiobutton>
+	      <radiobutton space-fill="True"  space-expand="True">
+	        <label>SC CC opt with Orca and Tonto</label>
+	        <default>false</default>
+	        <action>if true echo 'SCFCALCPROG="optorca"'</action>  
 	        <action>if true enable:MEM</action>
 	        <action>if true enable:NUMPROC</action>
 	        <action>if true disable:BASISSETDIR</action>
@@ -1329,6 +1445,7 @@ export MAIN_DIALOG='
 	     <item>DZP</item>
 	     <item>DZP-DKH</item>
 	     <item>pVDZ-Ahlrichs</item>
+	     <item>pob-TZVP-rev2</item>
 	     <item>Sadlej+</item>
 	     <item>Sadlej-PVTZ</item>
 	     <item>Spackman-DZP+</item>
@@ -1423,8 +1540,13 @@ export MAIN_DIALOG='
 	     <default>false</default>
 	      <variable>SCDIPOLES</variable>
 	    </checkbox>
-	   </hbox>
 	
+	    <checkbox>
+	     <label>Include Nuclear energy interaction? (Orca only) </label>
+	      <variable>ADDNUCINTER</variable>
+	    </checkbox>
+           </hbox>
+
 	   <hseparator></hseparator>
 	
 	   <hbox>

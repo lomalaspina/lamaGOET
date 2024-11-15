@@ -909,8 +909,10 @@ fi
 NAPONE=$[ $NUMBEROFATOMS + 1 ]
 STARTLINE=$(grep -n "  $NAPONE 0" $JOBNAME.molden.input | awk -F: '{print $1}')
 ENDLINE=$(grep -n "\[5D\]" $JOBNAME.molden.input | awk -F: '{print $1}')
-sed -i "$STARTLINE","$[ $ENDLINE - 1]"'{/.*/d;}' $JOBNAME.molden.input
-sed -i '/Q\ /d' $JOBNAME.molden.input
+if [[ "$STARTLINE" != "" && "$ENDLINE" != "" ]]; then
+	sed -i "$STARTLINE","$[ $ENDLINE - 1]"'{/.*/d;}' $JOBNAME.molden.input
+	sed -i '/Q\ /d' $JOBNAME.molden.input
+fi
 #echo "Orca cycle number $I ended"
 if ! grep -q '****ORCA TERMINATED NORMALLY****' "$JOBNAME.out"; then
 	echo "ERROR: Orca job finished with error, please check the $I.th out file for more details" | tee -a $JOBNAME.lst
@@ -1283,21 +1285,26 @@ TONTO_TO_ORCA(){
 	echo "   Print[ P_SpinDensity ] 1"  >> $JOBNAME.inp
 	echo "end"  >> $JOBNAME.inp
 	echo ""  >> $JOBNAME.inp
+	if [ "$SCCHARGES" = "true" ]; then 
+		echo '% pointcharges "'$JOBNAME'.qxyz"'  >> $JOBNAME.inp
+		sed -i '1,12{/.*/d}' cluster_charges 
+		sed -i '$ d' cluster_charges
+		sed -i -n '1~3p' cluster_charges 
+		sed -i '{/^$/d}' cluster_charges 
+		LINEONE=$(wc -l cluster_charges | awk '{print $1}')
+		echo $LINEONE > $JOBNAME.qxyz
+		awk '{printf " %12s  %12s %12s  %12s\n",$4,$1,$2,$3}' cluster_charges >> $JOBNAME.qxyz
+                echo "" >> $JOBNAME.qxyz
+		echo ""  >> $JOBNAME.inp
+		if [[ "$ADDNUCINTER" == "true" ]]; then
+			echo "%method" >> $JOBNAME.inp
+			echo "   DoEQ true" >> $JOBNAME.inp
+			echo "end"  >> $JOBNAME.inp
+			echo ""  >> $JOBNAME.inp
+		fi
+	fi
 	echo "* xyz $CHARGE $MULTIPLICITY"  >> $JOBNAME.inp
 	awk 'NR>2' $JOBNAME.xyz  >> $JOBNAME.inp
-	if [ "$SCCHARGES" = "true" ]; then 
-#                if [ ! -f gaussian-point-charges ]; then
-#                	echo "" > gaussian-point-charges
-#                	awk '/Cluster monopole charges and positions/{print p; f=1} {p=$0} /------------------------------------------------------------------------/{c=1} f; c--==0{f=0}' stdout >> gaussian-point-charges
-#                	awk '{a[NR]=$0}{b=11}/^------------------------------------------------------------------------/{c=NR}END{for(d=b;d<=c-1;++d)print a[d]}' gaussian-point-charges | awk '{printf "%s\t %s\t %s\t %s\t \n", $1, $2, $3, $4 }' >> $JOBNAME.inp
-#                        echo "" >> $JOBNAME.inp
-#                else
-##              	awk '{a[NR]=$0}{b=13}/^------------------------------------------------------------------------/{c=NR}END{for(d=b;d<=c-1;++d)print a[d]}' gaussian-point-charges | awk '{printf "%s\t %s\t %s\t %s\t \n", $1, $2, $3, $4 }' >> $JOBNAME.inp
-                	awk '{a[NR]=$0}{b=13}/^------------------------------------------------------------------------/{c=NR}END{for(d=b;d<=c-1;d+=3)print a[d]}' cluster_charges | awk '{printf "\t %s\t %s\t %s\t %s\t %s\t \n", "Q", $4, $1, $2, $3 }' >> $JOBNAME.inp
-                        echo "" >> $JOBNAME.inp
-#                fi
-#                rm gaussian-point-charges
-	fi
 	echo "*"  >> $JOBNAME.inp
 	echo "Running Orca, cycle number $I" 
         if [ -f $JOBNAME.gbw ]; then
@@ -1325,8 +1332,10 @@ TONTO_TO_ORCA(){
  	NAPONE=$[ $NUMBEROFATOMS + 1 ]
 	STARTLINE=$(grep -n "  $NAPONE 0" $JOBNAME.molden.input | awk -F: '{print $1}')
 	ENDLINE=$(grep -n "\[5D\]" $JOBNAME.molden.input | awk -F: '{print $1}')
-	sed -i "$STARTLINE","$[ $ENDLINE - 1 ]"'{/.*/d;}' $JOBNAME.molden.input
-	sed -i '/Q\ /d' $JOBNAME.molden.input
+	if [[ "$STARTLINE" != "" && "$ENDLINE" != "" ]]; then
+		sed -i "$STARTLINE","$[ $ENDLINE - 1 ]"'{/.*/d;}' $JOBNAME.molden.input
+		sed -i '/Q\ /d' $JOBNAME.molden.input
+	fi
 #	echo "Orca cycle number $I, final energy is: $ENERGIA, RMSD is: $RMSD "
         NUMATOMWFN=$(grep -m1 " Q " $JOBNAME.wfn | awk '{ print $2 }' )
         NUMATOMWFN=$[$NUMATOMWFN -1]
@@ -1356,6 +1365,7 @@ TONTO_TO_ORCA(){
                 mkdir $I.$SCFCALCPROG.cycle.$JOBNAME
         fi
 	cp $JOBNAME.inp          $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.inp
+	cp $JOBNAME.qxyz         $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.qxyz
 	cp $JOBNAME.molden.input $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.molden.input
 	cp $JOBNAME.out          $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.out
 	if [[ "$USENOSPHERA2" == "true" ]]; then
@@ -1650,7 +1660,7 @@ CRYSTAL_BLOCK(){
 #	if [[ "$POWDER_HAR" == "true" && $PROFILE_COUNTER -gt 1  ]]; then
 #		echo "      REDIRECT tonto.cell" >> stdin
 #	fi
-	if [[ "$SCFCALCPROG" == "optgaussian" ]]; then 
+	if [[ "$SCFCALCPROG" == "optgaussian" || "$SCFCALCPROG" == "optorca" ]]; then 
 		echo "      REDIRECT tonto.cell" >> stdin
 	fi
         if [[ "$SCFCALCPROG" == "Crystal14" ]]; then
@@ -1875,7 +1885,7 @@ SCF_BLOCK_NOT_TONTO(){
 ########		echo "   put_grown_cif" >> stdin
 ########	fi
 	else
-		if [[ "$SCFCALCPROG" != "optgaussian" ]]; then 
+		if [[ "$SCFCALCPROG" != "optgaussian" && "$SCFCALCPROG" != "optorca" ]]; then 
 	                if [[ "$POWDERHAR" != "true" ]]; then
 			        echo "   ! Make Hirshfeld structure factors" >> stdin
 				if [[ "$SCFCALCPROG" == "Orca" ]]; then
@@ -1988,7 +1998,7 @@ SCF_TO_TONTO(){
 		DEFINE_JOB_NAME
 	fi
 	echo "" >> stdin
-	if [[ "$SCFCALCPROG" != "elmodb" && "$SCFCALCPROG" != "optgaussian" && $"$POWDER_HAR" != "true" ]]; then
+	if [[ "$SCFCALCPROG" != "elmodb" && "$SCFCALCPROG" != "optgaussian" && "$SCFCALCPROG" != "optorca" && $"$POWDER_HAR" != "true" ]]; then
 		PROCESS_CIF
 		DEFINE_JOB_NAME
                if [[ "$SCFCALCPROG" == "Crystal14" ]]; then
@@ -2509,6 +2519,106 @@ GET_FREQ(){
 		cp $JOBNAME.wfn  $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.wfn
 	fi
 }
+
+GET_FREQ_ORCA(){
+	I=$[ $I + 1 ]
+	echo "Extrating XYZ for Orca cycle number $I"
+	if [ "$SCFCALCPROG" = "optorca" ]; then
+		ORCAOPT=" Opt"
+	fi
+	if [[ "$SCFCALCPROG" == "optorca" && "$SCCHARGES" == "false" ]]; then
+		ONLY_ONE=" Opt"
+	fi
+	if [ "$METHOD" = "rks" ]; then
+		echo "! blyp $BASISSETG $ONLY_ONE FREQ" > $JOBNAME.inp
+	else
+		if [ "$METHOD" = "uks" ]; then
+			echo "! ublyp $BASISSETG $ONLY_ONE FREQ" > $JOBNAME.inp
+		else
+			echo "! $METHOD $BASISSETG $ONLY_ONE FREQ" > $JOBNAME.inp
+		fi
+	fi
+	echo "" >> $JOBNAME.inp
+	echo "%output"  >> $JOBNAME.inp
+	echo "   PrintLevel=Normal"  >> $JOBNAME.inp
+	echo "   Print[ P_Basis       ] 2"  >> $JOBNAME.inp
+	echo "   Print[ P_GuessOrb    ] 1"  >> $JOBNAME.inp
+	echo "   Print[ P_MOs         ] 1"  >> $JOBNAME.inp
+	echo "   Print[ P_Density     ] 1"  >> $JOBNAME.inp
+	echo "   Print[ P_SpinDensity ] 1"  >> $JOBNAME.inp
+	echo "end"  >> $JOBNAME.inp
+	echo ""  >> $JOBNAME.inp
+	if [ "$SCCHARGES" = "true" ]; then 
+		echo '% pointcharges "'$JOBNAME'.qxyz"'  >> $JOBNAME.inp
+		sed -i '1,12{/.*/d}' cluster_charges 
+		sed -i '$ d' cluster_charges
+		sed -i -n '1~3p' cluster_charges 
+		sed -i '{/^$/d}' cluster_charges 
+		LINEONE=$(wc -l cluster_charges | awk '{print $1}')
+		echo $LINEONE > $JOBNAME.qxyz
+		awk '{printf " %12s  %12s %12s  %12s\n",$4,$1,$2,$3}' cluster_charges >> $JOBNAME.qxyz
+                echo "" >> $JOBNAME.qxyz
+		echo ""  >> $JOBNAME.inp
+		if [[ "$ADDNUCINTER" == "true" ]]; then
+			echo "%method" >> $JOBNAME.inp
+			echo "   DoEQ true" >> $JOBNAME.inp
+			echo "end"  >> $JOBNAME.inp
+		fi
+	fi
+	echo "* xyz $CHARGE $MULTIPLICITY"  >> $JOBNAME.inp
+	awk 'NR>2' $JOBNAME.xyz  >> $JOBNAME.inp
+	if [ "$SCCHARGES" = "true" ]; then 
+		echo ""  >> $JOBNAME.inp
+	fi
+	echo "*"  >> $JOBNAME.inp
+	echo "Running Orca, cycle number $I" 
+        if [ -f $JOBNAME.gbw ]; then
+                rm $JOBNAME.gbw
+        fi
+	$SCFCALC_BIN $JOBNAME.inp > $JOBNAME.out
+	echo "Orca cycle number $I ended"
+	if ! grep -q '****ORCA TERMINATED NORMALLY****' "$JOBNAME.out"; then
+		echo "ERROR: Orca job finished with error, please check the $I.th out file for more details" | tee -a $JOBNAME.lst
+		unset MAIN_DIALOG
+		exit 0
+	fi
+	echo "Generation of molden file for Orca cycle number $I"
+	if [[ "$(which orca_2mkl.exe)" == "" ]]; then
+		orca_2mkl $JOBNAME -molden  > /dev/null
+	else 	
+		orca_2mkl.exe $JOBNAME -molden  > /dev/null
+	fi
+	echo "Generation of wfn file for Orca cycle number $I"
+	if [[ "$(which orca_2aim.exe)" == "" ]]; then
+		orca_2aim $JOBNAME  > /dev/null
+	else
+		orca_2aim.exe $JOBNAME  > /dev/null
+	fi
+        NUMATOMWFN=$(grep -m1 " Q " $JOBNAME.wfn | awk '{ print $2 }' )
+        NUMATOMWFN=$[$NUMATOMWFN -1]
+        awk -v  NUMATOMWFN=$NUMATOMWFN 'NR==2 {gsub($7, NUMATOMWFN, $0); print}1' $JOBNAME.wfn > temp.wfn
+        sed -i '2d' temp.wfn
+        sed -i '/ Q /d' temp.wfn
+        mv temp.wfn $JOBNAME.wfn
+	if [[ "$USENOSPHERA2" == "true" ]]; then
+		#awk '$1 ~ /^[0-9]/ {printf "%4i%4i%4i%8.2f%8.2f\n", $1, $2, $3, $4, $5}' $HKL > shelx.hkl
+		echo "   0   0   0    0.00    0.00"  >> $JOBNAME.hkl
+		echo "Generation of .tsc file with NoSpherA2 for cycle number $I in progress"
+		RUN_NOSPHERA2
+		echo "Generation of .tsc file with NoSpherA2 for cycle number $I ended"
+	fi
+        if [ ! -d "$I.$SCFCALCPROG.cycle.$JOBNAME" ]; then
+                mkdir $I.$SCFCALCPROG.cycle.$JOBNAME
+        fi
+	cp $JOBNAME.inp          $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.inp
+	cp $JOBNAME.qxyz         $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.qxyz
+	cp $JOBNAME.molden.input $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.molden.input
+	cp $JOBNAME.out          $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.out
+	if [[ "$USENOSPHERA2" == "true" ]]; then
+		cp $JOBNAME.wfn $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.wfn
+	fi
+}
+
 CHECK_ENERGY(){
 	if [[ "$SCFCALCPROG" == "Gaussian" || "$SCFCALCPROG" == "optgaussian" ]]; then 
 		ENERGIA3=$ENERGIA
@@ -2518,7 +2628,7 @@ CHECK_ENERGY(){
 #		RMSD2=$(sed 's/^ //' $JOBNAME.log | sed 'N;s/\n//' | sed 'N;s/\n//' | sed 'N;s/\n//'| sed -n '/RMSD=/{N;p;}' | sed 's/^.*RMSD=//' | sed 'N;s/\n//' | sed '2d' | sed 's/RMSD=//g' | awk -F '\' '{ print $1}'| tr -d '\r')
 		echo "Gaussian cycle number $I, final energy is: $ENERGIA2, RMSD is: $RMSD2 "
 	elif [[ "$SCFCALCPROG" == "Orca" || "$SCFCALCPROG" == "optorca" ]]; then
-		ENERGIA2=$(sed -n '/FINAL SINGLE POINT ENERGY/p' $JOBNAME.out | awk '{print $5}' | tr -d '\r')
+		ENERGIA2=$(sed -n '/FINAL SINGLE POINT ENERGY/p' $JOBNAME.out | tail -1 | awk '{print $5}' | tr -d '\r')
 		RMSD2=$(sed -n '/Last RMS-Density change/p' $JOBNAME.out | tail -1 | awk '{print $5}' | tr -d '\r')
 		echo "Orca cycle number $I, final energy is: $ENERGIA2, RMSD is: $RMSD2 "
 	elif [[ "$SCFCALCPROG" == "Crystal14" ]]; then
@@ -3233,7 +3343,11 @@ run_script(){
                         echo "   write_xtal23_xyz_file" >> stdin
                 fi
 		echo "   put_cif" >> stdin
-		if [[ "$COMPLETESTRUCT" == "true" || "$EXPLICITMOL" == "true" || "$SCFCALCPROG" == "optgaussian" || "$SCFCALCPROG" == "OCC" ]]; then
+		if [[ "$COMPLETESTRUCT" == "true" || "$EXPLICITMOL" == "true" || "$SCFCALCPROG" == "OCC" ]]; then
+			echo "" >> stdin
+			echo "   put_grown_cif" >> stdin
+		fi
+		if [[ "$SCFCALCPROG" == "optgaussian" || "$SCFCALCPROG" == "optorca" ]];then
 			echo "" >> stdin
 			echo "   put_grown_cif" >> stdin
 		fi
@@ -3266,7 +3380,7 @@ run_script(){
                 if [ ! -d "$J.tonto_cycle.$JOBNAME" ]; then
 	        	mkdir $J.tonto_cycle.$JOBNAME
                 fi
-		if [[ "$SCFCALCPROG" == "optgaussian"  &&  "$SCCHARGES" == "false" ]]; then 
+		if [[ ( "$SCFCALCPROG" == "optgaussian"  &&  "$SCCHARGES" == "false" ) || "$SCFCALCPROG" == "optorca"  &&  "$SCCHARGES" == "false" ]]; then 
 			cp $JOBNAME.xyz $J.tonto_cycle.$JOBNAME/$J.$JOBNAME.xyz
                 else
 			cp $JOBNAME.xyz $J.tonto_cycle.$JOBNAME/$JOBNAME.starting_geom.xyz
@@ -3402,7 +3516,8 @@ run_script(){
 			SCF_TO_TONTO
 			TONTO_TO_GAUSSIAN
 			CHECK_ENERGY
-		elif [[ "$SCFCALCPROG" == "Orca" || "$SCFCALCPROG" == "optorca" ]]; then  
+#		elif [[ "$SCFCALCPROG" == "Orca" || "$SCFCALCPROG" == "optorca" ]]; then  
+		elif [[ "$SCFCALCPROG" == "Orca" ]] || [[ "$SCFCALCPROG" == "optorca"  &&  "$SCCHARGES" == "true" ]]; then 
 			echo "###############################################################################################" >> $JOBNAME.lst
 			echo "                                     Starting Orca                                             " >> $JOBNAME.lst
 			echo "###############################################################################################" >> $JOBNAME.lst
@@ -3410,14 +3525,14 @@ run_script(){
 				OPT="Opt"
 			fi
 			if [ "$METHOD" = "rks" ]; then
-				echo "! blyp $BASISSETG $OPT" > $JOBNAME.inp
-				echo "! blyp $BASISSETG $OPT" >> $JOBNAME.lst
+				echo "! blyp $BASISSETG " > $JOBNAME.inp
+				echo "! blyp $BASISSETG " >> $JOBNAME.lst
 			elif [ "$METHOD" = "uks" ]; then
-				echo "! ublyp $BASISSETG $OPT" > $JOBNAME.inp
-				echo "! ublyp $BASISSETG $OPT" >> $JOBNAME.lst
+				echo "! ublyp $BASISSETG " > $JOBNAME.inp
+				echo "! ublyp $BASISSETG " >> $JOBNAME.lst
 			else
-				echo "! $METHOD $BASISSETG $OPT" > $JOBNAME.inp
-				echo "! $METHOD $BASISSETG $OPT" >> $JOBNAME.lst
+				echo "! $METHOD $BASISSETG " > $JOBNAME.inp
+				echo "! $METHOD $BASISSETG " >> $JOBNAME.lst
 			fi
 			echo "" | tee -a $JOBNAME.inp $JOBNAME.lst
 			echo "%output" | tee -a $JOBNAME.inp $JOBNAME.lst
@@ -3444,7 +3559,7 @@ run_script(){
 				unset MAIN_DIALOG
 				exit 0
 			fi
-			ENERGIA=$(sed -n '/FINAL SINGLE POINT ENERGY/p' $JOBNAME.out | awk '{print $5}' | tr -d '\r')
+			ENERGIA=$(sed -n '/FINAL SINGLE POINT ENERGY/p' $JOBNAME.out | tail -1 | awk '{print $5}' | tr -d '\r')
 			RMSD=$(sed -n '/Last RMS-Density change/p' $JOBNAME.out | tail -1 | awk '{print $5}' | tr -d '\r')
 			echo "Starting geometry: Energy= $ENERGIA, RMSD= $RMSD" >> $JOBNAME.lst
 			echo "" >> $JOBNAME.lst
@@ -3668,10 +3783,19 @@ run_script(){
 					fi
 					CHECK_ENERGY
 				done
+				if [[ "$SCFCALCPROG" == "optgaussian" ]]; then
+					GET_FREQ
+				elif [[ "$SCFCALCPROG" == "optorca" ]]; then
+					GET_FREQ_ORCA
+				fi
 			else
 #     				ONLY_ONE="opt=calcfc"
      				ONLY_ONE="opt"
-				GET_FREQ
+				if [[ "$SCFCALCPROG" == "optgaussian" ]]; then
+					GET_FREQ
+				elif [[ "$SCFCALCPROG" == "optorca" ]]; then
+					GET_FREQ_ORCA
+				fi
 			fi
 		fi
 		echo "__________________________________________________________________________________________________________________________________________________________________" >> $JOBNAME.lst
@@ -3690,9 +3814,12 @@ run_script(){
 		        if [[ "$XWR" == "true" ]]; then
 		        	RUN_XWR
         		fi
-		elif [[ ("$SCFCALCPROG" == "optgaussian" || "$SCFCALCPROG" != "optorca") && "$SCCHARGES" == "true" ]]; then  
+		elif [[ "$SCFCALCPROG" == "optgaussian" && "$SCCHARGES" == "true" ]]; then  
 			SCF_TO_TONTO
 			GET_FREQ
+		elif [[ "$SCFCALCPROG" != "optorca" && "$SCCHARGES" == "true" ]]; then  
+			SCF_TO_TONTO
+			GET_FREQ_ORCA
 		fi
 		echo " $(awk '{a[NR]=$0}/^Reflections pruned/{b=NR}/^Atom coordinates/{c=NR}END{for (d=b-2;d<c-1;++d) print a[d]}' stdout)"  >> $JOBNAME.lst
 		DURATION=$SECONDS
@@ -4625,8 +4752,13 @@ export MAIN_DIALOG='
 	     <default>false</default>
 	      <variable>SCDIPOLES</variable>
 	    </checkbox>
-	   </hbox>
 	
+	    <checkbox>
+	     <label>Include Nuclear energy interaction? (Orca only) </label>
+	      <variable>ADDNUCINTER</variable>
+	    </checkbox>
+           </hbox>
+
 	   <hseparator></hseparator>
 	
 	   <hbox>
@@ -5001,7 +5133,7 @@ export MAIN_DIALOG='
 	    <text text-xalign="0" use-markup="true" wrap="false" space-expand="FALSE" space-fill="false"><label>Max. L.S. cycles (use if stuck at conv.):</label></text>
 	   <hbox space-expand="true" space-fill="true">
 	    <entry space-expand="true">
-             <input>if [ ! -z $MAXCYCLE ]; then echo "$MAXCYCLE"; else (echo "10"); fi</input>
+             <input>if [ ! -z $MAXCYCLE ]; then echo "$MAXCYCLE"; else (echo "30"); fi</input>
 	     <variable>MAXCYCLE</variable>
 	    </entry>
 	
@@ -5628,6 +5760,10 @@ if [[ -z "$SCFCALCPROG" ]]; then
 	echo "SCFCALCPROG=\"$SCFCALCPROG\"" >> job_options.txt
 fi
 
+if [[ "$COMPLETECIF" == "" ]]; then
+	COMPLETECIF=$COMPLETESTRUCT
+	echo "COMPLETECIF=\"$COMPLETECIF\"" >> job_options.txt
+fi
 if [[ "$GAUSGEN" = "true" && ! -f basis_gen.txt ]]; then
     BASISSETG="gen"
     zenity --entry --title="New basis set" --text="Enter or paste the basis set in the gaussian format as: \n !!NO EMPTY LINE!! \n C 0 \n S 5 \n exponent1 coefficient1 \n exponent2 coefficient2 \n exponent3 coefficient3 \n exponent4 coefficient4 \n exponent5 coefficient5 \n **** \n !!NO EMPTY LINE!! \n (Repeat this for all shells and all elements) " > basis_gen.txt
