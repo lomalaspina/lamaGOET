@@ -1338,6 +1338,8 @@ export MAIN_DIALOG='
 	    <text label="hkl file" space-expand="false" ></text>
 	    <entry fs-action="file" fs-folder="./"
 	           fs-filters="*.hkl"
+	           fs-filters="*.fcf"
+	           fs-filters="*.fco"
 	           fs-title="Select an hkl file">
              <input>if [ ! -z $HKL ]; then echo "$HKL"; fi</input>
 	     <variable>HKL</variable>
