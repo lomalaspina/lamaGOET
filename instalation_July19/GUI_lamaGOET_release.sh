@@ -1368,6 +1368,11 @@ export MAIN_DIALOG='
 	      <variable>ONF2</variable>
 	    </checkbox>
 	
+	    <checkbox sensitive="true" space-fill="True"  space-expand="True">
+	     <label>Use equivalents? </label>
+	      <variable>USEEQUIV</variable>
+	    </checkbox>
+
 	   </hbox>
 	 
 	   <hseparator></hseparator>

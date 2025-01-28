@@ -884,6 +884,9 @@ TONTO_IAM_BLOCK(){
 	else
 		echo "         read_fcf_file $HKL" >> stdin
 	fi
+	if [[ "$USEEQUIV" = "true" ]]; then
+		echo "         use_equivalents= $USEEQUIV" >> stdin
+        fi
 	if [[ "$FCUT" != "0" ]]; then
 		echo "         f_sigma_cutoff= $FCUT" >> stdin
 	fi
@@ -969,6 +972,9 @@ CRYSTAL_BLOCK(){
 			else
 				echo "         read_fcf_file $HKL" >> stdin
 			fi
+	                if [[ "$USEEQUIV" = "true" ]]; then
+                		echo "         use_equivalents= $USEEQUIV" >> stdin
+                        fi
 	                if [[ "$FCUT" != "0" ]]; then
         		        echo "         f_sigma_cutoff= $FCUT" >> stdin
                         fi
@@ -1616,15 +1622,17 @@ TONTO_TO_CRYSTAL(){
                 echo "$BASISSETG"  >> $JOBNAME.d12
         fi
         if [[ "$METHOD" != "rhf" ]]; then
-                echo "ENDBS"  >> $JOBNAME.d12
+                if [[ "$GAUSGEN" == "true" ]]; then
+                        echo "ENDBS"  >> $JOBNAME.d12
+                fi
                 if [[ "$METHOD" == "uhf" ]]; then
                         echo "$METHOD"  >> $JOBNAME.d12
                 else
                         echo "DFT"  >> $JOBNAME.d12
                         echo "$METHOD"  >> $JOBNAME.d12
+                        echo "END"  >> $JOBNAME.d12
                 fi
         fi
-        echo "END"  >> $JOBNAME.d12
 ##      echo "END"  >> $JOBNAME.d12 is this extra??
 #       echo "XLGRID"  >> $JOBNAME.d12
 #       echo "SCFDIR"  >> $JOBNAME.d12
