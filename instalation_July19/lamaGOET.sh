@@ -2301,7 +2301,6 @@ TONTO_TO_CRYSTAL(){
 	CELLGAMMA=$(grep "gamma angle ................." stdout | head -1 | awk '{print $NF}' | cut -f1 -d"(" )
 	echo "$JOBNAME"  > $JOBNAME.d12 
 	echo "CRYSTAL"   >> $JOBNAME.d12
-	echo "0 $XTALSETTING 0"     >> $JOBNAME.d12
         SPACEGROUPITNUMBER=$(grep "_symmetry_Int_Tables_number" $CIF | tr -d \' | awk '{print $2}' | tr -d '\r')
 	if [[ "$SPACEGROUPITNUMBER" == "" ]]; then
                 SPACEGROUPITNUMBER=$(grep "_space_group_IT_number" $CIF | tr -d \' | awk '{print $2}' | tr -d '\r')
@@ -2311,8 +2310,13 @@ TONTO_TO_CRYSTAL(){
 		        exit 0
                 fi 
 	fi
-#       echo $SPACEGROUPITNUMBER  >> $JOBNAME.d12
-        echo $SPACEGROUPHM >> $JOBNAME.d12
+        if [[ "$USEHMSYM" == "true" ]];then 
+	        echo "1 $XTALSETTING 0"     >> $JOBNAME.d12
+                echo $SPACEGROUPHM >> $JOBNAME.d12
+        else
+	        echo "0 $XTALSETTING 0"     >> $JOBNAME.d12
+                echo $SPACEGROUPITNUMBER  >> $JOBNAME.d12
+        fi
         if (( $( bc <<< "$CELLALPHA == 90") )); then
                 CELLALPHA2=""
         else
@@ -4223,6 +4227,8 @@ export MAIN_DIALOG='
 	        <action>if true echo 'SCFCALCPROG="Crystal14"'</action>
 	        <action>if true disable:NTAIL</action>
 	        <action>if true enable:MEM</action>
+	        <action>if true enable:USEHMSYM</action>
+	        <action>if false disable:USEHMSYM</action>
 	        <action>if true enable:MAXXTALCYCLE</action>
 	        <action>if true enable:SUPERCON</action>
 	        <action>if true enable:SHRINKA</action>
@@ -4547,6 +4553,11 @@ export MAIN_DIALOG='
 	      <variable>COMPLETESTRUCT</variable>
 	    </checkbox>
 	
+	    <checkbox active="false" has-tooltip="true" tooltip-markup="use HM symbol instead of space group number (crystal23 only)" space-fill="True" space-expand="True" sensitive="false">
+	     <label>Use HM symbol</label>
+	      <variable>USEHMSYM</variable>
+	    </checkbox>
+
 	   </hbox>
 	
 	   <hseparator></hseparator>

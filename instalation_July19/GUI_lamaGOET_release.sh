@@ -981,6 +981,8 @@ export MAIN_DIALOG='
 	        <action>if true echo 'SCFCALCPROG="Crystal14"'</action>
 	        <action>if true disable:NTAIL</action>
 	        <action>if true enable:MEM</action>
+	        <action>if true enable:USEHMSYM</action>
+	        <action>if false disable:USEHMSYM</action>
 	        <action>if true enable:MAXXTALCYCLE</action>
 	        <action>if true enable:SUPERCON</action>
 	        <action>if true enable:SHRINKA</action>
@@ -1305,6 +1307,11 @@ export MAIN_DIALOG='
 	      <variable>COMPLETESTRUCT</variable>
 	    </checkbox>
 	
+	    <checkbox active="false" has-tooltip="true" tooltip-markup="use HM symbol instead of space group number (crystal23 only)" space-fill="True" space-expand="True" sensitive="false">
+	     <label>Use HM symbol</label>
+	      <variable>USEHMSYM</variable>
+	    </checkbox>
+
 	   </hbox>
 	
 	   <hseparator></hseparator>
