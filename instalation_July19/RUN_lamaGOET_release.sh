@@ -1574,7 +1574,8 @@ TONTO_TO_CRYSTAL(){
 		        exit 0
                 fi 
 	fi
-        echo $SPACEGROUPITNUMBER  >> $JOBNAME.d12
+#       echo $SPACEGROUPITNUMBER  >> $JOBNAME.d12
+        echo $SPACEGROUPHM >> $JOBNAME.d12
         if (( $( bc <<< "$CELLALPHA == 90") )); then
                 CELLALPHA2=""
         else
@@ -1617,14 +1618,12 @@ TONTO_TO_CRYSTAL(){
                 echo "END"  >> $JOBNAME.d12
                 cat basis_gen.txt >>  $JOBNAME.d12
                 echo "99 0"  >> $JOBNAME.d12
+                echo "ENDBS"  >> $JOBNAME.d12
         else
                 echo "BASISSET"  >> $JOBNAME.d12
                 echo "$BASISSETG"  >> $JOBNAME.d12
         fi
         if [[ "$METHOD" != "rhf" ]]; then
-                if [[ "$GAUSGEN" == "true" ]]; then
-                        echo "ENDBS"  >> $JOBNAME.d12
-                fi
                 if [[ "$METHOD" == "uhf" ]]; then
                         echo "$METHOD"  >> $JOBNAME.d12
                 else
