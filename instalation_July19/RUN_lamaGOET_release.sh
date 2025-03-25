@@ -1140,6 +1140,9 @@ SCF_BLOCK_NOT_TONTO(){
 	                if [[ "$POWDERHAR" != "true" ]]; then
 			        echo "   ! Make Hirshfeld structure factors" >> stdin
 #			        echo "   fit_hirshfeld_atoms" >> stdin
+                                if [[ "$SCFCALCPROG" == "Crystal14" && "$DEFRAGNETW"=="true" ]]; then
+                                        echo "   phar_defragment" >> stdin
+                                fi
 			        echo "   ha_fit" >> stdin
         			echo "" >> stdin
 	        	fi
@@ -1172,6 +1175,9 @@ SCF_BLOCK_NOT_TONTO(){
 			                echo "   make_fock_matrix" >> stdin
 				fi
 #       			echo "   fit_hirshfeld_atoms" >> stdin
+                                if [[ "$SCFCALCPROG" == "Crystal14" && "$DEFRAGNETW"=="true" ]]; then
+                                        echo "   phar_defragment" >> stdin
+                                fi
 			        echo "   ha_fit" >> stdin
         			echo "" >> stdin
                         else

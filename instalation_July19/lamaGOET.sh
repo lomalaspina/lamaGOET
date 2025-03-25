@@ -1877,6 +1877,9 @@ SCF_BLOCK_NOT_TONTO(){
 	                if [[ "$POWDERHAR" != "true" ]]; then
 			        echo "   ! Make Hirshfeld structure factors" >> stdin
 #			        echo "   fit_hirshfeld_atoms" >> stdin
+                                if [[ "$SCFCALCPROG" == "Crystal14" && "$DEFRAGNETW"=="true" ]]; then
+                                        echo "   phar_defragment" >> stdin
+                                fi
 			        echo "   ha_fit" >> stdin
         			echo "" >> stdin
 	        	fi
@@ -1909,6 +1912,9 @@ SCF_BLOCK_NOT_TONTO(){
 			                echo "   make_fock_matrix" >> stdin
 				fi
 #       			echo "   fit_hirshfeld_atoms" >> stdin
+                                if [[ "$SCFCALCPROG" == "Crystal14" && "$DEFRAGNETW"=="true" ]]; then
+                                        echo "   phar_defragment" >> stdin
+                                fi
 			        echo "   ha_fit" >> stdin
         			echo "" >> stdin
                         else
@@ -4041,6 +4047,8 @@ export MAIN_DIALOG='
 	        <action>if false disable:EXTRAKEY</action>
 	        <action>if true enable:SCDIPOLES</action>
 	        <action>if false disable:SCDIPOLES</action>
+	        <action>if true disable:DEFRAGNETW</action>
+	        <action>if false enable:DEFRAGNETW</action>
 	      </radiobutton>
 	      <radiobutton space-fill="True"  space-expand="True">
 	        <label>Orca</label>
@@ -4085,6 +4093,8 @@ export MAIN_DIALOG='
 	        <action>if false disable:EXTRAKEY</action>
 	        <action>if true disable:SCDIPOLES</action>
 	        <action>if false enable:SCDIPOLES</action>
+	        <action>if true disable:DEFRAGNETW</action>
+	        <action>if false enable:DEFRAGNETW</action>
 	      </radiobutton>
 	      <radiobutton space-fill="True"  space-expand="True">
 	        <label>OCC</label>
@@ -4129,6 +4139,8 @@ export MAIN_DIALOG='
 	        <action>if false disable:EXTRAKEY</action>
 	        <action>if true enable:SCDIPOLES</action>
 	        <action>if false disable:SCDIPOLES</action>
+	        <action>if true disable:DEFRAGNETW</action>
+	        <action>if false enable:DEFRAGNETW</action>
 	      </radiobutton>
 	      <radiobutton space-fill="True"  space-expand="True">
 	        <label>Tonto</label>
@@ -4175,6 +4187,8 @@ export MAIN_DIALOG='
 	        <action>if false enable:EXTRAKEY</action>
 	        <action>if true disable:SCDIPOLES</action>
 	        <action>if false enable:SCDIPOLES</action>
+	        <action>if true disable:DEFRAGNETW</action>
+	        <action>if false enable:DEFRAGNETW</action>
 	      </radiobutton>
 	      <radiobutton space-fill="True"  space-expand="True">
 	        <label>elmodb</label>
@@ -4220,6 +4234,8 @@ export MAIN_DIALOG='
 	        <action>if false enable:EXTRAKEY</action>
 	        <action>if true disable:SCDIPOLES</action>
 	        <action>if false enable:SCDIPOLES</action>
+	        <action>if true disable:DEFRAGNETW</action>
+	        <action>if false enable:DEFRAGNETW</action>
 	      </radiobutton>
 	      <radiobutton space-fill="True"  space-expand="True" visible="true">
 	        <label>Crystal23</label>
@@ -4256,6 +4272,8 @@ export MAIN_DIALOG='
 	        <action>if true disable:GAUSSEMPDISP</action>
 	        <action>if true disable:EXTRAKEY</action>
 	        <action>if true disable:SCDIPOLES</action>
+	        <action>if true enable:DEFRAGNETW</action>
+	        <action>if false disable:DEFRAGNETW</action>
 	      </radiobutton>
 	      <radiobutton space-fill="True"  space-expand="True">
 	        <label>SC CC opt with Gaussian and Tonto</label>
@@ -4328,6 +4346,8 @@ export MAIN_DIALOG='
 	        <action>if false disable:EXTRAKEY</action>
 	        <action>if true enable:SCDIPOLES</action>
 	        <action>if false disable:SCDIPOLES</action>
+	        <action>if true disable:DEFRAGNETW</action>
+	        <action>if false enable:DEFRAGNETW</action>
 	      </radiobutton>
 	      <radiobutton space-fill="True"  space-expand="True">
 	        <label>SC CC opt with Orca and Tonto</label>
@@ -4400,6 +4420,8 @@ export MAIN_DIALOG='
 	        <action>if false disable:EXTRAKEY</action>
 	        <action>if true enable:SCDIPOLES</action>
 	        <action>if false disable:SCDIPOLES</action>
+	        <action>if true disable:DEFRAGNETW</action>
+	        <action>if false enable:DEFRAGNETW</action>
 	      </radiobutton>
 
 	   </hbox>
@@ -4556,6 +4578,12 @@ export MAIN_DIALOG='
 	    <checkbox active="false" has-tooltip="true" tooltip-markup="use HM symbol instead of space group number (crystal23 only)" space-fill="True" space-expand="True" sensitive="false">
 	     <label>Use HM symbol</label>
 	      <variable>USEHMSYM</variable>
+	    </checkbox>
+
+	    <checkbox active="false" has-tooltip="true"
+            tooltip-markup="output bond tables and angles using smart routine for network compounds (crystal23 only)" space-fill="True" space-expand="True" sensitive="false">
+	     <label>Network compound outputs</label>
+	      <variable>DEFRAGNETW</variable>
 	    </checkbox>
 
 	   </hbox>
