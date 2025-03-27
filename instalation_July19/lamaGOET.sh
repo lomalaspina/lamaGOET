@@ -1641,9 +1641,11 @@ TONTO_IAM_BLOCK(){
 	echo "      }  " >> stdin
 	echo "   }  " >> stdin
 	echo "" >> stdin
-	echo "   ! Geometry    " >> stdin
-	echo "   put" >> stdin
-	echo "" >> stdin
+        if [[ "$SCFCALCPROG" != "Crystal14" && "$DEFRAGNETW" != "true" ]]; then
+        	echo "   ! Geometry    " >> stdin
+	        echo "   put" >> stdin
+        	echo "" >> stdin
+        fi
 	echo "   IAM_refinement" >> stdin
 	echo "" >> stdin
         if [[ "$ONLYIAMTONTO" == "true" ]]; then 
@@ -1774,9 +1776,11 @@ SET_H_ISO(){
 }
 
 PUT_GEOM(){
-	echo "   ! Geometry    " >> stdin
-	echo "   put" >> stdin
-	echo "" >> stdin
+        if [[ "$SCFCALCPROG" != "Crystal14" && "$DEFRAGNETW" != "true" ]]; then
+	        echo "   ! Geometry    " >> stdin
+        	echo "   put" >> stdin
+        	echo "" >> stdin
+        fi
 }
 
 BECKE_GRID(){
