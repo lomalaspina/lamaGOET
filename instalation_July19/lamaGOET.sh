@@ -1954,6 +1954,9 @@ SCF_BLOCK_PROM_TONTO(){
 	echo "      kind= rhf" >> stdin   # this is the promolecule guess, should be always rhf
 	echo "      output= true " >> stdin
 	echo "      use_SC_cluster_charges= FALSE" >> stdin
+        if [[ "$LINEDEP" != "" ]]; then
+	        echo "      linear_dependence_tol= $LINEDEP" >> stdin
+        fi
 	echo "      convergence= 0.001" >> stdin
 	echo "      diis= { convergence_tolerance= 0.0002 }" >> stdin
 	echo "   }" >> stdin
@@ -1975,6 +1978,9 @@ SCF_BLOCK_REST_TONTO(){
 		echo "      kind= $METHOD" >> stdin
 	        echo "      output= true " >> stdin
 	fi
+        if [[ "$LINEDEP" != "" ]]; then
+	        echo "      linear_dependence_tol= $LINEDEP" >> stdin
+        fi
 	if [[ "$SCCHARGES" == "true" ]]; then 
 		echo "      use_SC_cluster_charges= TRUE" >> stdin
 		echo "      cluster_radius= $SCCRADIUS angstrom" >> stdin
@@ -5134,6 +5140,20 @@ export MAIN_DIALOG='
 	    <entry space-expand="true">
              <input>if [ ! -z $CONVTOLE ]; then echo "$CONVTOLE"; else (echo "0.000001"); fi</input>
 	     <variable>CONVTOLE</variable>
+	    </entry>
+	
+	   </hbox>
+	   </hbox>
+
+	   <hseparator></hseparator>
+
+	   <hbox space-expand="false" space-fill="false">
+
+	    <text text-xalign="0" use-markup="true" wrap="false" space-expand="FALSE" space-fill="false"><label>Linear dependence tolerance for SCF (default is 1.10-5)</label></text>
+	   <hbox space-expand="true" space-fill="true">
+	    <entry space-expand="true">
+             <input>if [ ! -z $LINEDEP ]; then echo "$LINEDEP"; else (echo ""); fi</input>
+	     <variable>LINEDEP</variable>
 	    </entry>
 	
 	   </hbox>

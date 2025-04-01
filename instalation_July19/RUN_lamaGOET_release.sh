@@ -1217,6 +1217,9 @@ SCF_BLOCK_PROM_TONTO(){
 	echo "      kind= rhf" >> stdin   # this is the promolecule guess, should be always rhf
 	echo "      output= true " >> stdin
 	echo "      use_SC_cluster_charges= FALSE" >> stdin
+        if [[ "$LINEDEP" != "" ]]; then
+	        echo "      linear_dependence_tol= $LINEDEP" >> stdin
+        fi
 	echo "      convergence= 0.001" >> stdin
 	echo "      diis= { convergence_tolerance= 0.0002 }" >> stdin
 	echo "   }" >> stdin
@@ -1238,6 +1241,9 @@ SCF_BLOCK_REST_TONTO(){
 		echo "      kind= $METHOD" >> stdin
 	        echo "      output= true " >> stdin
 	fi
+        if [[ "$LINEDEP" != "" ]]; then
+	        echo "      linear_dependence_tol= $LINEDEP" >> stdin
+        fi
 	if [[ "$SCCHARGES" == "true" ]]; then 
 		echo "      use_SC_cluster_charges= TRUE" >> stdin
 		echo "      cluster_radius= $SCCRADIUS angstrom" >> stdin

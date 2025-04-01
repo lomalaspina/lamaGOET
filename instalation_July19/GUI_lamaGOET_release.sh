@@ -1894,6 +1894,20 @@ export MAIN_DIALOG='
 
 	   <hbox space-expand="false" space-fill="false">
 
+	    <text text-xalign="0" use-markup="true" wrap="false" space-expand="FALSE" space-fill="false"><label>Linear dependence tolerance for SCF (default is 1.10-5)</label></text>
+	   <hbox space-expand="true" space-fill="true">
+	    <entry space-expand="true">
+             <input>if [ ! -z $LINEDEP ]; then echo "$LINEDEP"; else (echo ""); fi</input>
+	     <variable>LINEDEP</variable>
+	    </entry>
+	
+	   </hbox>
+	   </hbox>
+
+	   <hseparator></hseparator>
+
+	   <hbox space-expand="false" space-fill="false">
+
 	    <text text-xalign="0" use-markup="true" wrap="false" space-expand="FALSE" space-fill="false"><label>Max. number of iteration (for each L.S. cycle):</label></text>
 	   <hbox space-expand="true" space-fill="true">
 	    <entry space-expand="true">
