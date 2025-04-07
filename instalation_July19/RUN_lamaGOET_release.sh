@@ -2324,9 +2324,11 @@ COMPLETECIFBLOCK(){
         		echo "" >> stdin
                         $TONTO
 	                if [[ "$SCFCALCPROG" == "Tonto" ]]; then 
-#                               cp $JOBNAME.cartesian.cif2 defrag.cif
-                                cp $JOBNAME.fractional.cif1 defrag.cif
-                                CIF=defrag.cif
+	                        if [[ "$J" != "1" ]]; then 
+        #                               cp $JOBNAME.cartesian.cif2 defrag.cif
+                                        cp $JOBNAME.fractional.cif1 defrag.cif
+                                        CIF=defrag.cif
+                                fi
                         else
                                 if [ ! -d "$J.tonto_cycle.$JOBNAME" ]; then
                 	        	mkdir $J.tonto_cycle.$JOBNAME
@@ -2393,9 +2395,11 @@ COMPLETECIFBLOCK(){
         		echo "" >> stdin
                         $TONTO
 	                if [[ "$SCFCALCPROG" == "Tonto" ]]; then 
-#                               cp $JOBNAME.cartesian.cif2 defrag.cif
-                                cp $JOBNAME.fractional.cif1 defrag.cif
-                                CIF=defrag.cif
+	                        if [[ "$J" != "1" ]]; then 
+        #                               cp $JOBNAME.cartesian.cif2 defrag.cif
+                                        cp $JOBNAME.fractional.cif1 defrag.cif
+                                        CIF=defrag.cif
+                                fi
                         else
                                 if [ ! -d "$J.tonto_cycle.$JOBNAME" ]; then
                 	        	mkdir $J.tonto_cycle.$JOBNAME
