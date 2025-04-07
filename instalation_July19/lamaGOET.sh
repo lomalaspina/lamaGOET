@@ -3055,13 +3055,21 @@ COMPLETECIFBLOCK(){
 		echo "" >> stdin
                 if [[ "$EXPLICITMOL" == "true" && "$DOUBLEGROW" == "true" ]]; then
 		        echo "   put" >> stdin
+        		echo "   put_cif" >> stdin
         		echo "   put_grown_cif" >> stdin
         		echo "" >> stdin
         		echo "}" >> stdin
         		echo "" >> stdin
                         $TONTO
 	                if [[ "$SCFCALCPROG" == "Tonto" ]]; then 
-	                        if [[ "$J" != "1" ]]; then 
+                                if [ ! -d "$J.tonto_cycle.$JOBNAME" ]; then
+                	        	mkdir $J.tonto_cycle.$JOBNAME
+                                fi
+                                cp $JOBNAME.cartesian.cif2 $J.tonto_cycle.$JOBNAME/$J.$JOBNAME.cartesian.cif2
+                                cp $JOBNAME.fractional.cif1 $J.tonto_cycle.$JOBNAME/$J.$JOBNAME.fractional.cif1
+                                cp stdin $J.tonto_cycle.$JOBNAME/0.stdin
+                                cp stdout $J.tonto_cycle.$JOBNAME/0.stdout
+	                        if [[ "$J" == "0" ]]; then 
         #                               cp $JOBNAME.cartesian.cif2 defrag.cif
                                         cp $JOBNAME.fractional.cif1 defrag.cif
                                         CIF=defrag.cif
@@ -3075,7 +3083,9 @@ COMPLETECIFBLOCK(){
                                 cp stdin $J.tonto_cycle.$JOBNAME/0.stdin
                                 cp stdout $J.tonto_cycle.$JOBNAME/0.stdout
                         fi
-                        DOUBLEGROW=false
+	                        if [[ "$J" != "0" ]]; then 
+                                        DOUBLEGROW=false
+                                fi
                         TONTO_HEADER
                         PROCESS_CIF
                         DEFINE_JOB_NAME
@@ -3126,13 +3136,21 @@ COMPLETECIFBLOCK(){
 		echo "" >> stdin
                 if [[ "$EXPLICITMOL" == "true" && "$DOUBLEGROW" == "true" ]]; then
 		        echo "   put" >> stdin
+        		echo "   put_cif" >> stdin
         		echo "   put_grown_cif" >> stdin
         		echo "" >> stdin
         		echo "}" >> stdin
         		echo "" >> stdin
                         $TONTO
 	                if [[ "$SCFCALCPROG" == "Tonto" ]]; then 
-	                        if [[ "$J" != "1" ]]; then 
+                                if [ ! -d "$J.tonto_cycle.$JOBNAME" ]; then
+                	        	mkdir $J.tonto_cycle.$JOBNAME
+                                fi
+                                cp $JOBNAME.cartesian.cif2 $J.tonto_cycle.$JOBNAME/$J.$JOBNAME.cartesian.cif2
+                                cp $JOBNAME.fractional.cif1 $J.tonto_cycle.$JOBNAME/$J.$JOBNAME.fractional.cif1
+                                cp stdin $J.tonto_cycle.$JOBNAME/0.stdin
+                                cp stdout $J.tonto_cycle.$JOBNAME/0.stdout
+	                        if [[ "$J" == "0" ]]; then 
         #                               cp $JOBNAME.cartesian.cif2 defrag.cif
                                         cp $JOBNAME.fractional.cif1 defrag.cif
                                         CIF=defrag.cif
@@ -3146,7 +3164,9 @@ COMPLETECIFBLOCK(){
                                 cp stdin $J.tonto_cycle.$JOBNAME/0.stdin
                                 cp stdout $J.tonto_cycle.$JOBNAME/0.stdout
                         fi
-                        DOUBLEGROW=false
+                        if [[ "$J" != "0" ]]; then 
+                                DOUBLEGROW=false
+                        fi
                         TONTO_HEADER
                         PROCESS_CIF
                         DEFINE_JOB_NAME
