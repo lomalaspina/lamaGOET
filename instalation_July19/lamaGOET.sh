@@ -2416,14 +2416,21 @@ TONTO_TO_CRYSTAL(){
                 echo "MAXCYCLE"  >> $JOBNAME.d12
                 echo "$MAXXTALCYCLE"  >> $JOBNAME.d12
         fi
-        echo "END"  >> $JOBNAME.d12
+        if [[ "$I" -ge "1" && "$USEGUESS" == "true" ]]; then
+		echo "GUESSP" >> $JOBNAME.d12
+        	echo "END"  >> $JOBNAME.d12
+	fi
 #       I=$"1"
 	echo "Running Crystal, cycle number $I" 
         if [[ "$NUMPROC" != "1" ]]; then
                 cp $JOBNAME.d12 INPUT
         	mpirun -n $NUMPROC $SCFCALC_BIN >& $JOBNAME.out 	
         else
-	        $SCFCALC_BIN $JOBNAME
+        	if [[ "$I" -ge "1" && "$USEGUESS" == "true" ]]; then
+	        	$SCFCALC_BIN $JOBNAME $JOBNAME
+		else
+		        $SCFCALC_BIN $JOBNAME
+		fi
         fi
 	echo "Crystal cycle number $I ended"
         if [[ ! -f GenerateXML.d3  ]]; then
@@ -4319,6 +4326,8 @@ export MAIN_DIALOG='
 	        <action>if true disable:SCDIPOLES</action>
 	        <action>if true enable:DEFRAGNETW</action>
 	        <action>if false disable:DEFRAGNETW</action>
+	        <action>if true enable:USEGUESS</action>
+	        <action>if false disable:USEGUESS</action>
 	      </radiobutton>
 	      <radiobutton space-fill="True"  space-expand="True">
 	        <label>SC CC opt with Gaussian and Tonto</label>
@@ -4495,6 +4504,13 @@ export MAIN_DIALOG='
 	      <variable>USEGAMESS</variable>
 	        <action>if true enable:GAMESS</action>
 	        <action>if false disable:GAMESS</action>
+	    </checkbox>
+           </hbox>
+	
+	   <hbox> 
+	    <checkbox active="false" space-fill="True"  space-expand="True" sensitive="false" visible="true">
+	     <label>For Crystal only: Use initial guess from previous calculation?</label>
+	      <variable>USEGUESS</variable>
 	    </checkbox>
            </hbox>
 	
@@ -6003,7 +6019,7 @@ if [ "$EXIT" = "OK" ]; then
 	run_script
 else
 	unset MAIN_DIALOG
-	clear
+#	clear
 	exit 0
 fi
 

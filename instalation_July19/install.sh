@@ -6,6 +6,7 @@ sudo apt-get install libgtk2.0-dev -y
 sudo apt-get install gtkdialog -y
 sudo apt-get install gawk -y
 sudo apt-get install zenity -y
+sudo apt-get install language-pack-en-base -y
 wget https://storage.googleapis.com/google-code-archive-downloads/v2/code.google.com/gtkdialog/gtkdialog-0.8.3.tar.gz
 tar -xvf gtkdialog-0.8.3.tar.gz
 cd gtkdialog-0.8.3
