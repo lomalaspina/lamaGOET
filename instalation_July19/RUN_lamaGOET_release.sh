@@ -1679,14 +1679,21 @@ TONTO_TO_CRYSTAL(){
                 echo "MAXCYCLE"  >> $JOBNAME.d12
                 echo "$MAXXTALCYCLE"  >> $JOBNAME.d12
         fi
-        echo "END"  >> $JOBNAME.d12
+        if [[ "$I" -ge "1" && "$USEGUESS" == "true" ]]; then
+		echo "GUESSP" >> $JOBNAME.d12
+        	echo "END"  >> $JOBNAME.d12
+	fi
 #       I=$"1"
 	echo "Running Crystal, cycle number $I" 
         if [[ "$NUMPROC" != "1" ]]; then
                 cp $JOBNAME.d12 INPUT
         	mpirun -n $NUMPROC $SCFCALC_BIN >& $JOBNAME.out 	
         else
-	        $SCFCALC_BIN $JOBNAME
+        	if [[ "$I" -ge "1" && "$USEGUESS" == "true" ]]; then
+	        	$SCFCALC_BIN $JOBNAME $JOBNAME
+		else
+		        $SCFCALC_BIN $JOBNAME
+		fi
         fi
 	echo "Crystal cycle number $I ended"
         if [[ ! -f GenerateXML.d3  ]]; then
@@ -2318,6 +2325,7 @@ COMPLETECIFBLOCK(){
 		echo "" >> stdin
                 if [[ "$EXPLICITMOL" == "true" && "$DOUBLEGROW" == "true" ]]; then
 		        echo "   put" >> stdin
+        		echo "   put_cif" >> stdin
         		echo "   put_grown_cif" >> stdin
         		echo "" >> stdin
         		echo "}" >> stdin

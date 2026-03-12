@@ -1022,6 +1022,8 @@ export MAIN_DIALOG='
 	        <action>if true disable:SCDIPOLES</action>
 	        <action>if true enable:DEFRAGNETW</action>
 	        <action>if false disable:DEFRAGNETW</action>
+	        <action>if true enable:USEGUESS</action>
+	        <action>if false disable:USEGUESS</action>
 	      </radiobutton>
 	      <radiobutton space-fill="True"  space-expand="True">
 	        <label>SC CC opt with Gaussian and Tonto</label>
@@ -1198,6 +1200,13 @@ export MAIN_DIALOG='
 	      <variable>USEGAMESS</variable>
 	        <action>if true enable:GAMESS</action>
 	        <action>if false disable:GAMESS</action>
+	    </checkbox>
+           </hbox>
+	
+	   <hbox> 
+	    <checkbox active="false" space-fill="True"  space-expand="True" sensitive="false" visible="true">
+	     <label>For Crystal only: Use initial guess from previous calculation?</label>
+	      <variable>USEGUESS</variable>
 	    </checkbox>
            </hbox>
 	
