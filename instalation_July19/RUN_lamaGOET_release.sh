@@ -1681,8 +1681,8 @@ TONTO_TO_CRYSTAL(){
         fi
         if [[ $I -ge 2 && "$USEGUESS" == "true" ]]; then
 		echo "GUESSP" >> $JOBNAME.d12
-        	echo "END"  >> $JOBNAME.d12
 	fi
+       	echo "END"  >> $JOBNAME.d12
 #       I=$"1"
 	echo "Running Crystal, cycle number $I" 
         if [[ "$NUMPROC" != "1" ]]; then
