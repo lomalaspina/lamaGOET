@@ -2416,7 +2416,7 @@ TONTO_TO_CRYSTAL(){
                 echo "MAXCYCLE"  >> $JOBNAME.d12
                 echo "$MAXXTALCYCLE"  >> $JOBNAME.d12
         fi
-        if [[ $I -ge 1 && "$USEGUESS" == "true" ]]; then
+        if [[ $I -ge 2 && "$USEGUESS" == "true" ]]; then
 		echo "GUESSP" >> $JOBNAME.d12
         	echo "END"  >> $JOBNAME.d12
 	fi
@@ -2426,7 +2426,7 @@ TONTO_TO_CRYSTAL(){
                 cp $JOBNAME.d12 INPUT
         	mpirun -n $NUMPROC $SCFCALC_BIN >& $JOBNAME.out 	
         else
-        	if [[ $I -ge 1 && "$USEGUESS" == "true" ]]; then
+        	if [[ $I -ge 2 && "$USEGUESS" == "true" ]]; then
 	        	$SCFCALC_BIN $JOBNAME $JOBNAME
 		else
 		        $SCFCALC_BIN $JOBNAME
