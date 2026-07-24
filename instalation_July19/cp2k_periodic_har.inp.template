@@ -1,0 +1,77 @@
+! CP2K 2026.2+ periodic all-electron template for Tonto/lamaGOET.
+! Replace all __PLACEHOLDER__ tokens before running.
+
+&GLOBAL
+  PROJECT __PROJECT__
+  RUN_TYPE ENERGY
+  PRINT_LEVEL MEDIUM
+&END GLOBAL
+
+&FORCE_EVAL
+  METHOD QUICKSTEP
+
+  &DFT
+    BASIS_SET_FILE_NAME __BASIS_SET_FILE__
+    CHARGE __CHARGE__
+    MULTIPLICITY __MULTIPLICITY__
+    __UKS_LINE__
+
+    &QS
+      METHOD GAPW
+      EPS_DEFAULT __EPS_DEFAULT__
+      GAPW_ACCURATE_XCINT T
+    &END QS
+
+    &MGRID
+      CUTOFF __CUTOFF__
+      REL_CUTOFF __REL_CUTOFF__
+      NGRIDS 5
+    &END MGRID
+
+    &POISSON
+      PERIODIC XYZ
+    &END POISSON
+
+    &KPOINTS
+      SCHEME MONKHORST-PACK __KPOINT_GRID__
+      GAMMA_CENTERED T
+    &END KPOINTS
+
+    &SCF
+      MAX_SCF __MAX_SCF__
+      EPS_SCF __EPS_SCF__
+      SCF_GUESS __SCF_GUESS__
+      ADDED_MOS __ADDED_MOS__
+      &DIAGONALIZATION
+        ALGORITHM STANDARD
+      &END DIAGONALIZATION
+      &MIXING
+        METHOD BROYDEN_MIXING
+        ALPHA 0.20
+        NBROYDEN 8
+      &END MIXING
+      &PRINT
+        &RESTART ON
+          BACKUP_COPIES 1
+        &END RESTART
+      &END PRINT
+    &END SCF
+
+    &XC
+      &XC_FUNCTIONAL __XC_FUNCTIONAL__
+      &END XC_FUNCTIONAL
+    &END XC
+
+    &PRINT
+      &MO_KP ON
+        AO_EXPORT_TYPE GTO_BASIS
+        NDIGITS 15
+        UNIT BOHR
+        FILENAME =__PROJECT__.mokp
+        ADD_LAST NO
+      &END MO_KP
+    &END PRINT
+  &END DFT
+
+  @INCLUDE '__SUBSYS_INCLUDE__'
+&END FORCE_EVAL

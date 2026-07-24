@@ -1,5 +1,13 @@
 #!/bin/bash
 export LC_NUMERIC="en_US.UTF-8"
+# BEGIN LAMAGOET CP2K INTEGRATION: backend loader
+LAMAGOET_SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+if [ -f "$LAMAGOET_SCRIPT_DIR/lamaGOET_cp2k_backend.sh" ]; then
+	# shellcheck source=lamaGOET_cp2k_backend.sh
+	source "$LAMAGOET_SCRIPT_DIR/lamaGOET_cp2k_backend.sh"
+fi
+# END LAMAGOET CP2K INTEGRATION: backend loader
+
 
 
 RUN_NOSPHERA2(){
@@ -814,7 +822,7 @@ PROCESS_CIF(){
                 fi
 		echo "    }" >> stdin
 		echo "" >> stdin
-                if [[ "$SCFCALCPROG" != "Crystal14" ]]; then
+                if [[ "$SCFCALCPROG" != "Crystal14" && "$SCFCALCPROG" != "CP2K" ]]; then
         		echo "   process_CIF" >> stdin
 		        echo "" >> stdin
                 fi
@@ -822,7 +830,7 @@ PROCESS_CIF(){
 		echo "       file_name= $CIF" >> stdin
 		echo "    }" >> stdin
 		echo "" >> stdin
-                if [[ "$SCFCALCPROG" != "Crystal14" ]]; then
+                if [[ "$SCFCALCPROG" != "Crystal14" && "$SCFCALCPROG" != "CP2K" ]]; then
         		echo "   process_CIF" >> stdin
 	        	echo "" >> stdin
                 fi
@@ -944,7 +952,7 @@ CRYSTAL_BLOCK(){
 		echo "      xray_data= {   " >> stdin
 	        if [[ "$POWDER_HAR" != "true" ]]; then 
         		echo "         thermal_smearing_model= atom-based" >> stdin
-                        if [ "$SCFCALCPROG" = "Crystal14" ]; then
+                        if [[ "$SCFCALCPROG" == "Crystal14" || "$SCFCALCPROG" == "CP2K" ]]; then
         		        echo "         partition_model= oc-crystal23" >> stdin
                         else
         		        echo "         partition_model= oc-hirshfeld" >> stdin
@@ -1041,7 +1049,7 @@ SET_H_ISO(){
 }
 
 PUT_GEOM(){
-        if [[ "$SCFCALCPROG" != "Crystal14" && "$DEFRAGNETW" != "true" ]]; then
+        if [[ "$SCFCALCPROG" != "Crystal14" && "$SCFCALCPROG" != "CP2K" && "$DEFRAGNETW" != "true" ]]; then
 	        echo "   ! Geometry    " >> stdin
         	echo "   put" >> stdin
         	echo "" >> stdin
@@ -1303,6 +1311,12 @@ SCF_TO_TONTO(){
         	        READ_CRYSTAL_WFN
                fi
 	fi
+
+	# BEGIN LAMAGOET CP2K INTEGRATION: periodic density import
+	if [ "$SCFCALCPROG" = "CP2K" ]; then
+		CP2K_TONTO_PERIODIC_SETUP || return 1
+	fi
+	# END LAMAGOET CP2K INTEGRATION: periodic density import
 	if [[ $J -gt 0 && "$SCFCALCPROG" == "elmodb" ]]; then
 		PROCESS_CIF
 		DEFINE_JOB_NAME
@@ -1336,7 +1350,7 @@ SCF_TO_TONTO(){
 	if [[ "$DISP" == "yes" ]]; then 
 		DISPERSION_COEF
 	fi
-        if [[ "$SCFCALCPROG" != "Crystal14" ]]; then
+        if [[ "$SCFCALCPROG" != "Crystal14" && "$SCFCALCPROG" != "CP2K" ]]; then
          	CHARGE_MULT
         fi
 	if [[ $J == 0 && "$IAMTONTO" == "true" ]]; then 
@@ -1353,8 +1367,15 @@ SCF_TO_TONTO(){
         	if [[ "$USEBECKE" == "true" ]]; then 
         		BECKE_GRID
         	fi
-        	if [[ "$SCFCALCPROG" != "Tonto" ]]; then 
-        		SCF_BLOCK_NOT_TONTO
+        	if [[ "$SCFCALCPROG" != "Tonto" && "$SCFCALCPROG" != "CP2K" ]]; then
+        	    SCF_BLOCK_NOT_TONTO
+        	elif [ "$SCFCALCPROG" = "CP2K" ]; then
+        	    # BEGIN LAMAGOET CP2K INTEGRATION: periodic Hirshfeld fit
+        	    echo "   ! Make Hirshfeld structure factors from the periodic CP2K density" >> stdin
+        	    echo "   ha_fit" >> stdin
+        	    echo "   write_xtal23_xyz_file" >> stdin
+        	    echo "" >> stdin
+        	    # END LAMAGOET CP2K INTEGRATION: periodic Hirshfeld fit
         	fi
         fi
        	if [[ "$SCFCALCPROG" == "Tonto" ]]; then
@@ -1394,6 +1415,21 @@ SCF_TO_TONTO(){
 		        cp $JOBNAME.hkl $J.tonto_cycle.$JOBNAME/$J.$JOBNAME.hkl
                 fi
 	fi
+
+	# BEGIN LAMAGOET CP2K INTEGRATION: cycle archive
+	if [ "$SCFCALCPROG" = "CP2K" ]; then
+		mkdir -p "$J.tonto_cycle.$JOBNAME"
+		for cp2k_tonto_suffix in \
+			archive.cif fractional.cif1 cartesian.cif2 archive.fco archive.fcf; do
+			if [ -f "$JOBNAME.$cp2k_tonto_suffix" ]; then
+				cp "$JOBNAME.$cp2k_tonto_suffix" \
+					"$J.tonto_cycle.$JOBNAME/$J.$JOBNAME.$cp2k_tonto_suffix"
+			fi
+		done
+		cp stdin "$J.tonto_cycle.$JOBNAME/$J.stdin"
+		cp stdout "$J.tonto_cycle.$JOBNAME/$J.stdout"
+	fi
+	# END LAMAGOET CP2K INTEGRATION: cycle archive
 	INITIALCHI=$(awk '{a[NR]=$0}/^Begin rigid-atom fit/{b=NR}END {print a[b+10]}' stdout | awk '{print $2}')
 #	MAXSHIFT=$(awk '{a[NR]=$0}/^Begin rigid-atom fit/{b=NR+10}/^Rigid-atom fit results/{c=NR-4}END {for(d=b;d<=c;++d)print a[d]}' stdout | awk -v max=0 '{if($5>max){shift=$5; atom=$6; param=$7; max=$5}}END{print shift}')
 #	MAXSHIFTATOM=$(awk '{a[NR]=$0}/^Begin rigid-atom fit/{b=NR+10}/^Rigid-atom fit results/{c=NR-4}END {for(d=b;d<=c;++d)print a[d]}' stdout | awk -v max=0 '{if($5>max){shift=$5; atom=$6; param=$7; max=$5}}END{print atom}')
@@ -2484,6 +2520,16 @@ REDUCECELLCLUSTER(){
 
 run_script(){
 	SECONDS=0
+	# BEGIN LAMAGOET CP2K INTEGRATION: mode validation
+	if [ "$SCFCALCPROG" = "CP2K" ]; then
+		if ! declare -F TONTO_TO_CP2K >/dev/null; then
+			echo "ERROR: lamaGOET_cp2k_backend.sh is not installed in instalation_July19" >&2
+			exit 1
+		fi
+		CP2K_VALIDATE_LAMAGOET_MODE || exit 1
+	fi
+	# END LAMAGOET CP2K INTEGRATION: mode validation
+
 	if [ "$POWDER_HAR" = "true" ]; then
                 NSA2_COUNTER=$"1"
                 JANA_COUNTER=$"0" ###counter for powder HAR
@@ -2685,7 +2731,7 @@ run_script(){
 		COMPLETECIFBLOCK
 		echo "   put" >> stdin 
 		echo "" >> stdin
-                if [[ "$SCFCALCPROG" != "Crystal14" ]]; then
+                if [[ "$SCFCALCPROG" != "Crystal14" && "$SCFCALCPROG" != "CP2K" ]]; then
                         if [[ "$COMPLETESTRUCT" == "true" || "$EXPLICITMOL" == "true" ]]; then
                 		if [[ "$SCFCALCPROG" == "OCC" || "$SCFCALCPROG" == "Orca" || "$SCFCALCPROG" == "Gaussian" ]]; then
                                 	echo "   write_xyz_file" >> stdin
@@ -3181,6 +3227,49 @@ run_script(){
 		echo "Job ended, elapsed time:" | tee -a $JOBNAME.lst
 		echo "$(($DURATION / 86400 )) days,  $((($DURATION / 3600) % 24 )) hours, $((($DURATION / 60) % 60 ))minutes and $(($DURATION % 60 )) seconds elapsed." | tee -a $JOBNAME.lst
 		exit
+
+	# BEGIN LAMAGOET CP2K INTEGRATION: refinement loop
+	elif [[ "$SCFCALCPROG" == "CP2K" ]]; then
+		if ! declare -F TONTO_TO_CP2K >/dev/null; then
+			echo "ERROR: lamaGOET_cp2k_backend.sh is not installed in instalation_July19" | tee -a "$JOBNAME.lst"
+			exit 1
+		fi
+		CP2K_VALIDATE_LAMAGOET_MODE || exit 1
+		echo "###############################################################################################" >> "$JOBNAME.lst"
+		echo "                                     Starting CP2K                                             " >> "$JOBNAME.lst"
+		echo "###############################################################################################" >> "$JOBNAME.lst"
+
+		TONTO_TO_CP2K || exit 1
+		CP2K_CHECK_ENERGY || exit 1
+		SCF_TO_TONTO || exit 1
+		TONTO_TO_CP2K || exit 1
+		CP2K_CHECK_ENERGY || exit 1
+
+		while (( $(echo "$MAXSHIFT > $CONVTOL" | bc -l) || $(echo "$J <= 1" | bc -l) )); do
+			if [[ $J -ge $MAXCYCLE ]]; then
+				echo "ERROR: Refinement ended. Too many fit cycles. Check the result or change the convergence criterion."
+				break
+			fi
+			SCF_TO_TONTO || exit 1
+			TONTO_TO_CP2K || exit 1
+			CP2K_CHECK_ENERGY || exit 1
+		done
+
+		echo "__________________________________________________________________________________________________________________________________________________________________" >> "$JOBNAME.lst"
+		echo "" >> "$JOBNAME.lst"
+		echo "###############################################################################################" >> "$JOBNAME.lst"
+		echo "                                     Final Geometry                                            " >> "$JOBNAME.lst"
+		echo "###############################################################################################" >> "$JOBNAME.lst"
+		echo "" >> "$JOBNAME.lst"
+		echo "Energy= $ENERGIA2, RMSD= $RMSD2" >> "$JOBNAME.lst"
+		echo " $(awk '{a[NR]=$0}/^Rigid-atom fit results/{b=NR}/^Wall-clock time taken for job /{c=NR}END{for (d=b-2;d<c-1;++d) print a[d]}' stdout)" >> "$JOBNAME.lst"
+		GET_RESIDUALS
+		echo " $(awk '{a[NR]=$0}/^Residual density data/{b=NR}/^Wall-clock time taken for job/{c=NR}END{for (d=b-2;d<c-1;++d) print a[d]}' stdout)" >> "$JOBNAME.lst"
+		DURATION=$SECONDS
+		echo "Job ended, elapsed time:" | tee -a "$JOBNAME.lst"
+		echo "$((DURATION / 86400)) days,  $(((DURATION / 3600) % 24)) hours, $(((DURATION / 60) % 60))minutes and $((DURATION % 60)) seconds elapsed." | tee -a "$JOBNAME.lst"
+		exit
+	# END LAMAGOET CP2K INTEGRATION: refinement loop
 	elif [[ "$SCFCALCPROG" == "Tonto" ]]; then
 
                 if [[  "$SCFCALCPROG" == "Tonto" && "$POWDER_HAR" == "true" ]]; then
