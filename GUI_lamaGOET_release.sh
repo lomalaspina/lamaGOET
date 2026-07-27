@@ -1,7 +1,7 @@
 #!/bin/bash
 Encoding=UTF-8
 
-SPACEGROUP(){
+SPACEGROUPMENU(){
 	SPACEGROUPARRAY=(
         "1        = p 1          =  p 1            "
 	"2        = p -1         =  -p 1           "
@@ -597,13 +597,15 @@ SPACEGROUP(){
 	"229      = i m -3 m     =  -i 4 2 3       "
 	"230      = i a -3 d     =  -i 4bd 2c 3    ")
 	
-	zenity --forms --title="Crystal data" --text="Enter the unit cell parameters and space group:" \
-	   --add-entry="a= " \
-	   --add-entry="b= " \
-	   --add-entry="c= " \
-	   --add-entry="alpha= " \
-	   --add-entry="beta = " \
-	   --add-entry="gamma= " > crystal_data.txt
+        if [[ "$SCFCALCPROG" == "elmodb" ]]; then
+        	zenity --forms --title="Crystal data" --text="Enter the unit cell parameters and space group:" \
+	           --add-entry="a= " \
+        	   --add-entry="b= " \
+        	   --add-entry="c= " \
+        	   --add-entry="alpha= " \
+        	   --add-entry="beta = " \
+        	   --add-entry="gamma= " > crystal_data.txt
+        fi
 	
 	zenity --entry --title "Window title" --text "${SPACEGROUPARRAY[@]}" --text "Select the space group (number = IT symbol = Hall Symbol):" > spacegroup.txt
 	
@@ -614,10 +616,10 @@ QUEUE(){
 echo '#!/bin/sh' > lamaGOET.pbs
 echo "" >> lamaGOET.pbs
 echo '#PBS -V'  >> lamaGOET.pbs
-if [ "$SCFCALCPROG" = "Gaussian" ]; then
+if [ "$SCFCALCPROG" != "Tonto" ]; then
 	echo "#PBS -l nodes=1:g09:RUN_lamaGOET:ppn=$NUMPROC" >> lamaGOET.pbs
 else
-	echo "#PBS -l nodes=1:RUN_lamaGOET:ppn=$NUMPROC" >> lamaGOET.pbs
+	echo "#PBS -l nodes=1:RUN_lamaGOET:ppn=$NUMPROCTONTO" >> lamaGOET.pbs
 fi
 echo '#PBS -j eo' >> lamaGOET.pbs
 echo '#PBS -q batch' >> lamaGOET.pbs
@@ -722,7 +724,7 @@ export MAIN_DIALOG='
 
 	<window window_position="1" title="lamaGOET: An interface for quantum crystallography">
 
-	 <vbox scrollable="true" space-expand="true" space-fill="true" height="600" width="1000" >
+	 <vbox scrollable="true" space-expand="true" space-fill="true" height="800" width="1400" >
 	
 	  <hbox homogeneous="True" >
 	
@@ -791,6 +793,10 @@ export MAIN_DIALOG='
 	        <action>if false disable:GAUSSEMPDISP</action>
 	        <action>if true enable:EXTRAKEY</action>
 	        <action>if false disable:EXTRAKEY</action>
+	        <action>if true enable:SCDIPOLES</action>
+	        <action>if false disable:SCDIPOLES</action>
+	        <action>if true disable:DEFRAGNETW</action>
+	        <action>if false enable:DEFRAGNETW</action>
 	      </radiobutton>
 	      <radiobutton space-fill="True"  space-expand="True">
 	        <label>Orca</label>
@@ -833,6 +839,56 @@ export MAIN_DIALOG='
 	        <action>if false enable:GAUSSEMPDISP</action>
 	        <action>if true enable:EXTRAKEY</action>
 	        <action>if false disable:EXTRAKEY</action>
+	        <action>if true disable:SCDIPOLES</action>
+	        <action>if false enable:SCDIPOLES</action>
+	        <action>if true disable:DEFRAGNETW</action>
+	        <action>if false enable:DEFRAGNETW</action>
+	      </radiobutton>
+	      <radiobutton space-fill="True"  space-expand="True">
+	        <label>OCC</label>
+	        <default>false</default>
+	        <action>if true echo 'SCFCALCPROG="OCC"'</action>
+	        <action>if true enable:MEM</action>
+	        <action>if true enable:NUMPROC</action>
+	        <action>if true enable:SCFCALC_BIN</action>
+	        <action>if true disable:BASISSETDIR</action>
+	        <action>if false disable:MEM</action>
+	        <action>if false disable:NUMPROC</action>
+	        <action>if false disable:SCFCALC_BIN</action>
+	        <action>if true disable:GAMESS</action>
+	        <action>if false enable:BASISSETDIR</action>
+	        <action>if true disable:BASISSETT</action>
+	        <action>if false enable:BASISSETT</action>
+	        <action>if true disable:ELMOLIB</action>
+	        <action>if false enable:ELMOLIB</action>
+	        <action>if true enable:XHALONG</action>
+	        <action>if false disable:XHALONG</action>
+	        <action>if true enable:COMPLETESTRUCT</action>
+	        <action>if false disable:COMPLETESTRUCT</action>
+	        <action>if true disable:USEGAMESS</action>
+	        <action>if false enable:USEGAMESS</action>
+	        <action>if true disable:GAUSGEN</action>
+	        <action>if false enable:GAUSGEN</action>
+	        <action>if true disable:GAUSSREL</action>
+	        <action>if false enable:GAUSSREL</action>
+	        <action>if true disable:NTAIL</action>
+	        <action>if false enable:NTAIL</action>
+	        <action>if true disable:MANUALRESIDUE</action>
+	        <action>if false enable:MANUALRESIDUE</action>
+	        <action>if true disable:NSSBOND</action>
+	        <action>if false enable:NSSBOND</action>
+	        <action>if true disable:INITADP</action>
+	        <action>if false enable:INITADP</action>
+	        <action>if true enable:USEBECKE</action>
+	        <action>if false disable:USEBECKE</action>
+	        <action>if true disable:GAUSSEMPDISP</action>
+	        <action>if false enable:GAUSSEMPDISP</action>
+	        <action>if true enable:EXTRAKEY</action>
+	        <action>if false disable:EXTRAKEY</action>
+	        <action>if true enable:SCDIPOLES</action>
+	        <action>if false disable:SCDIPOLES</action>
+	        <action>if true disable:DEFRAGNETW</action>
+	        <action>if false enable:DEFRAGNETW</action>
 	      </radiobutton>
 	      <radiobutton space-fill="True"  space-expand="True">
 	        <label>Tonto</label>
@@ -844,11 +900,15 @@ export MAIN_DIALOG='
 	        <action>if false disable:USEBECKE</action>
 	        <action>if true disable:BASISSETG</action>
 	        <action>if false enable:BASISSETG</action>
+	        <action>if true enable:BASISSETT</action>
+	        <action>if false disable:BASISSETT</action>
 	        <action>if true disable:GAMESS</action>
 	        <action>if true disable:MEM</action>
-	        <action>if true enable:NUMPROC</action>
+	        <action>if true disable:NUMPROC</action>
+	        <action>if true enable:NUMPROCTONTO</action>
 	        <action>if false enable:MEM</action>
-	        <action>if false disable:NUMPROC</action>
+	        <action>if false enable:NUMPROC</action>
+	        <action>if false disable:NUMPROCTONTO</action>
 	        <action>if true disable:ELMOLIB</action>
 	        <action>if false enable:ELMOLIB</action>
 	        <action>if true enable:XHALONG</action>
@@ -873,6 +933,10 @@ export MAIN_DIALOG='
 	        <action>if false enable:GAUSSEMPDISP</action>
 	        <action>if true disable:EXTRAKEY</action>
 	        <action>if false enable:EXTRAKEY</action>
+	        <action>if true disable:SCDIPOLES</action>
+	        <action>if false enable:SCDIPOLES</action>
+	        <action>if true disable:DEFRAGNETW</action>
+	        <action>if false enable:DEFRAGNETW</action>
 	      </radiobutton>
 	      <radiobutton space-fill="True"  space-expand="True">
 	        <label>elmodb</label>
@@ -880,6 +944,8 @@ export MAIN_DIALOG='
 	        <action>if true echo 'SCFCALCPROG="elmodb"'</action>
 	        <action>if true enable:NTAIL</action>
 	        <action>if false disable:NTAIL</action>
+	        <action>if true disable:EXPLICITMOL</action>
+	        <action>if false enable:EXPLICITMOL</action>
 	        <action>if true enable:MEM</action>
 	        <action>if true enable:NUMPROC</action>
 	        <action>if true enable:SCFCALC_BIN</action>
@@ -914,6 +980,50 @@ export MAIN_DIALOG='
 	        <action>if false enable:GAUSSEMPDISP</action>
 	        <action>if true disable:EXTRAKEY</action>
 	        <action>if false enable:EXTRAKEY</action>
+	        <action>if true disable:SCDIPOLES</action>
+	        <action>if false enable:SCDIPOLES</action>
+	        <action>if true disable:DEFRAGNETW</action>
+	        <action>if false enable:DEFRAGNETW</action>
+	      </radiobutton>
+	      <radiobutton space-fill="True"  space-expand="True" visible="true">
+	        <label>Crystal23</label>
+	        <default>false</default>
+	        <action>if true echo 'SCFCALCPROG="Crystal14"'</action>
+	        <action>if true disable:NTAIL</action>
+	        <action>if true enable:MEM</action>
+	        <action>if true enable:USEHMSYM</action>
+	        <action>if false disable:USEHMSYM</action>
+	        <action>if true enable:MAXXTALCYCLE</action>
+	        <action>if true enable:SUPERCON</action>
+	        <action>if true enable:SHRINKA</action>
+	        <action>if true enable:SHRINKB</action>
+	        <action>if true enable:NUMPROC</action>
+	        <action>if false disable:NUMPROC</action>
+	        <action>if true enable:SCFCALC_BIN</action>
+	        <action>if true disable:BASISSETDIR</action>
+	        <action>if true enable:BASISSETT</action>
+	        <action>if false disable:BASISSETT</action>
+	        <action>if false disable:MAXXTALCYCLE</action>
+	        <action>if false disable:SUPERCON</action>
+	        <action>if false disable:SHRINKA</action>
+	        <action>if false disable:SHRINKB</action>
+	        <action>if true disable:SCCHARGES</action>
+	        <action>if true disable:ELMOLIB</action>
+	        <action>if true disable:XHALONG</action>
+	        <action>if true disable:COMPLETESTRUCT</action>
+	        <action>if true disable:USEGAMESS</action>
+	        <action>if true enable:GAUSGEN</action>
+	        <action>if true disable:GAUSSREL</action>
+	        <action>if true disable:MANUALRESIDUE</action>
+	        <action>if true disable:NSSBOND</action>
+	        <action>if true disable:INITADP</action>
+	        <action>if true disable:GAUSSEMPDISP</action>
+	        <action>if true disable:EXTRAKEY</action>
+	        <action>if true disable:SCDIPOLES</action>
+	        <action>if true enable:DEFRAGNETW</action>
+	        <action>if false disable:DEFRAGNETW</action>
+	        <action>if true enable:USEGUESS</action>
+	        <action>if false disable:USEGUESS</action>
 	      </radiobutton>
 	      <radiobutton space-fill="True"  space-expand="True">
 	        <label>SC CC opt with Gaussian and Tonto</label>
@@ -934,8 +1044,8 @@ export MAIN_DIALOG='
 	        <action>if false enable:ELMOLIB</action>
 	        <action>if true enable:XHALONG</action>
 	        <action>if false disable:XHALONG</action>
-	        <action>if true enable:COMPLETECIF</action>
-	        <action>if false disable:COMPLETECIF</action>
+	        <action>if true enable:COMPLETESTRUCT</action>
+	        <action>if false disable:COMPLETESTRUCT</action>
 	        <action>if true disable:HKL</action>
        	        <action>if false enable:HKL</action>
 	        <action>if true disable:WAVE</action>
@@ -984,16 +1094,121 @@ export MAIN_DIALOG='
 	        <action>if false disable:GAUSSEMPDISP</action>
 	        <action>if true enable:EXTRAKEY</action>
 	        <action>if false disable:EXTRAKEY</action>
+	        <action>if true enable:SCDIPOLES</action>
+	        <action>if false disable:SCDIPOLES</action>
+	        <action>if true disable:DEFRAGNETW</action>
+	        <action>if false enable:DEFRAGNETW</action>
+	      </radiobutton>
+	      <radiobutton space-fill="True"  space-expand="True">
+	        <label>SC CC opt with Orca and Tonto</label>
+	        <default>false</default>
+	        <action>if true echo 'SCFCALCPROG="optorca"'</action>  
+	        <action>if true enable:MEM</action>
+	        <action>if true enable:NUMPROC</action>
+	        <action>if true disable:BASISSETDIR</action>
+	        <action>if true enable:SCFCALC_BIN</action>
+	        <action>if false disable:MEM</action>
+	        <action>if false disable:NUMPROC</action>
+	        <action>if false disable:SCFCALC_BIN</action>
+	        <action>if false enable:BASISSETDIR</action>
+	        <action>if true disable:BASISSETT</action>
+	        <action>if false enable:BASISSETT</action>
+	        <action>if true disable:GAMESS</action>
+	        <action>if true disable:ELMOLIB</action>
+	        <action>if false enable:ELMOLIB</action>
+	        <action>if true enable:XHALONG</action>
+	        <action>if false disable:XHALONG</action>
+	        <action>if true enable:COMPLETESTRUCT</action>
+	        <action>if false disable:COMPLETESTRUCT</action>
+	        <action>if true disable:HKL</action>
+       	        <action>if false enable:HKL</action>
+	        <action>if true disable:WAVE</action>
+       	        <action>if false enable:WAVE</action>
+	        <action>if true disable:FCUT</action>
+       	        <action>if false enable:FCUT</action>
+	        <action>if true disable:POSADP</action>
+       	        <action>if false enable:POSADP</action>
+	        <action>if true disable:POSONLY</action>
+       	        <action>if false enable:POSONLY</action>
+	        <action>if true disable:ADPSONLY</action>
+       	        <action>if false enable:ADPSONLY</action>
+	        <action>if true disable:IAMTONTO</action>
+       	        <action>if false enable:IAMTONTO</action>
+	        <action>if true disable:REFNOTHING</action>
+       	        <action>if false enable:REFNOTHING</action>
+	        <action>if true disable:REFUISO</action>
+       	        <action>if false enable:REFUISO</action>
+	        <action>if true disable:REFHPOS</action>
+       	        <action>if false enable:REFHPOS</action>
+	        <action>if true disable:REFHADP</action>
+       	        <action>if false enable:REFHADP</action>
+	        <action>if true disable:REFANHARM</action>
+       	        <action>if false enable:REFANHARM</action>
+	        <action>if true disable:DISP</action>
+       	        <action>if false enable:DISP</action>
+	        <action>if true enable:USEBECKE</action>
+	        <action>if false disable:USEBECKE</action>
+	        <action>if true disable:WRITEHEADER</action>
+       	        <action>if false enable:WRITEHEADER</action>
+	        <action>if true disable:USEGAMESS</action>
+	        <action>if false enable:USEGAMESS</action>
+	        <action>if true enable:GAUSGEN</action>
+	        <action>if false disable:GAUSGEN</action>
+	        <action>if true enable:GAUSSREL</action>
+	        <action>if false disable:GAUSSREL</action>
+	        <action>if true disable:NTAIL</action>
+	        <action>if false enable:NTAIL</action>
+	        <action>if true disable:MANUALRESIDUE</action>
+	        <action>if false enable:MANUALRESIDUE</action>
+	        <action>if true disable:NSSBOND</action>
+	        <action>if false enable:NSSBOND</action>
+	        <action>if true disable:INITADP</action>
+	        <action>if false enable:INITADP</action>
+	        <action>if true enable:GAUSSEMPDISP</action>
+	        <action>if false disable:GAUSSEMPDISP</action>
+	        <action>if true enable:EXTRAKEY</action>
+	        <action>if false disable:EXTRAKEY</action>
+	        <action>if true enable:SCDIPOLES</action>
+	        <action>if false disable:SCDIPOLES</action>
+	        <action>if true disable:DEFRAGNETW</action>
+	        <action>if false enable:DEFRAGNETW</action>
 	      </radiobutton>
 
 	   </hbox>
 	
-	    <checkbox active="false" space-fill="True"  space-expand="True" sensitive="false">
+          <hbox>
+	    <checkbox active="false" space-fill="True" space-expand="True" sensitive="true" visible="false">
+	     <label>Powder HAR</label>
+	      <variable>POWDER_HAR</variable>
+	        <action>if true enable:JANAEXE</action>
+	        <action>if false disable:JANAEXE</action>
+	        <action>if true enable:MAXPHARCYCLE</action>
+	        <action>if false disable:MAXPHARCYCLE</action>
+	        <action>if true enable:NSA2ACC</action>
+	        <action>if false disable:NSA2ACC</action>
+	    </checkbox>
+	    <checkbox active="false" space-fill="True" space-expand="True" sensitive="true" visible="false">
+	     <label>Calculate .tsc file with NoSpherA2</label>
+	      <variable>USENOSPHERA2</variable>
+	        <action>if true enable:NSA2ACC</action>
+	        <action>if false disable:NSA2ACC</action>
+              
+	    </checkbox>
+
+	    <checkbox active="false" space-fill="True"  space-expand="True" sensitive="false" visible="false">
 	     <label>Use Gamess for calculation of overlap integrals</label>
 	      <variable>USEGAMESS</variable>
 	        <action>if true enable:GAMESS</action>
 	        <action>if false disable:GAMESS</action>
 	    </checkbox>
+           </hbox>
+	
+	   <hbox> 
+	    <checkbox active="false" space-fill="True"  space-expand="True" sensitive="false" visible="true">
+	     <label>For Crystal only: Use initial guess from previous calculation?</label>
+	      <variable>USEGUESS</variable>
+	    </checkbox>
+           </hbox>
 	
 	   <hseparator></hseparator>
 	
@@ -1001,7 +1216,7 @@ export MAIN_DIALOG='
 	    <text label="Tonto executable" has-tooltip="true" tooltip-markup="This can be a full path" ></text>
 	    <entry fs-action="file" fs-folder="./"
 	           fs-title="Select the gamess_int file">
-	     <default>tonto</default>
+             <input>if [ ! -z $TONTO ]; then echo "$TONTO"; else (echo "tonto"); fi</input>
 	     <variable>TONTO</variable>
 	    </entry>
 	    <button>
@@ -1012,11 +1227,26 @@ export MAIN_DIALOG='
 	
 	   <hseparator></hseparator>
 	
+	   <hbox>
+	    <text label="Jana2006 executable" has-tooltip="true" tooltip-markup="This can be a full path" ></text>
+	    <entry fs-action="file" fs-folder="./" sensitive="false" 
+	           fs-title="Select the gamess_int file">
+             <input>if [ ! -z $JANAEXE ]; then echo "$JANAEXE"; else (echo "/mnt/c/Jana2006/Jana2006.exe"); fi</input>
+	     <variable>JANAEXE</variable>
+	    </entry>
+	    <button>
+	     <input file stock="gtk-open"></input>
+	     <action type="fileselect">JANAEXE</action>
+	    </button>
+	   </hbox>
+	
+	   <hseparator></hseparator>
+	
 	  <hbox>
 	    <text label="Gaussian, Orca or elmodb executable" has-tooltip="true" tooltip-markup="This can be a full path" ></text>
 	    <entry fs-action="file" fs-folder="./"
 	           fs-title="Select the gamess_int file">
-	     <default>g09</default>
+             <input>if [ ! -z $SCFCALC_BIN ]; then echo "$SCFCALC_BIN"; else (echo "g09"); fi</input>
 	     <variable>SCFCALC_BIN</variable>
 	    </entry>
 	    <button>
@@ -1032,7 +1262,7 @@ export MAIN_DIALOG='
 	    <entry sensitive="false" fs-action="file" fs-folder="./"
 	           fs-filters="gamess_int"
 	           fs-title="Select the gamess_int file">
-	     <default>gamess_int</default>
+             <input>if [ ! -z $GAMESS ]; then echo "$GAMESS"; else (echo "gamess_int"); fi</input>
 	     <variable>GAMESS</variable>
 	    </entry>
 	    <button>
@@ -1047,7 +1277,7 @@ export MAIN_DIALOG='
 	    <text label="ELMO libraries folder" has-tooltip="true" tooltip-markup="This can be a full path" ></text>
 	    <entry sensitive="false" fs-action="folder" fs-folder="./"
 	           fs-title="Select the ELMO library folder">
-	     <default>/home/lorraine/LIBRARIES</default>
+             <input>if [ ! -z $ELMOLIB ]; then echo "$ELMOLIB"; else (echo "/usr/local/bin/LIBRARIES"); fi</input>
 	     <variable>ELMOLIB</variable>
 	    </entry>
 	    <button>
@@ -1063,7 +1293,7 @@ export MAIN_DIALOG='
 	    <text label="basis sets directory" ></text>
 	    <entry sensitive="false" fs-action="folder" fs-folder="/usr/local/bin/"
 	           fs-title="Select the basis_sets directory">
-	     <default>/basis_sets</default>
+             <input>if [ ! -z $BASISSETDIR ]; then echo "$BASISSETDIR"; else (echo "/usr/local/bin/basis_sets"); fi</input>
 	     <variable>BASISSETDIR</variable>
 	    </entry>
 	    <button>
@@ -1077,7 +1307,7 @@ export MAIN_DIALOG='
 	   <hbox>
 	    <text use-markup="true" wrap="false"><label>Job name(one word)</label></text>
 	    <entry>
-	     <default>my_job</default>
+             <input>if [ ! -z $JOBNAME ]; then echo "$JOBNAME"; else (echo "my_job"); fi</input>
 	     <variable>JOBNAME</variable>
 	    </entry>
 	   </hbox>
@@ -1089,6 +1319,7 @@ export MAIN_DIALOG='
 	    <entry fs-action="file" fs-folder="./"
 	           fs-filters="*.cif|*.pdb"
 	           fs-title="Select a cif or pdb file">
+             <input>if [ ! -z $CIF ]; then echo "$CIF"; fi</input>
 	     <variable>CIF</variable>
 	    </entry>
 	    <button>
@@ -1101,6 +1332,17 @@ export MAIN_DIALOG='
 	      <variable>COMPLETESTRUCT</variable>
 	    </checkbox>
 	
+	    <checkbox active="false" has-tooltip="true" tooltip-markup="use HM symbol instead of space group number (crystal23 only)" space-fill="True" space-expand="True" sensitive="false">
+	     <label>Use HM symbol</label>
+	      <variable>USEHMSYM</variable>
+	    </checkbox>
+
+	    <checkbox active="false" has-tooltip="true"
+            tooltip-markup="output bond tables and angles using smart routine for network compounds (crystal23 only)" space-fill="True" space-expand="True" sensitive="false">
+	     <label>Network compound outputs</label>
+	      <variable>DEFRAGNETW</variable>
+	    </checkbox>
+
 	   </hbox>
 	
 	   <hseparator></hseparator>
@@ -1134,7 +1376,10 @@ export MAIN_DIALOG='
 	    <text label="hkl file" space-expand="false" ></text>
 	    <entry fs-action="file" fs-folder="./"
 	           fs-filters="*.hkl"
+	           fs-filters="*.fcf"
+	           fs-filters="*.fco"
 	           fs-title="Select an hkl file">
+             <input>if [ ! -z $HKL ]; then echo "$HKL"; fi</input>
 	     <variable>HKL</variable>
 	    </entry>
 	    <button>
@@ -1161,6 +1406,11 @@ export MAIN_DIALOG='
 	      <variable>ONF2</variable>
 	    </checkbox>
 	
+	    <checkbox sensitive="true" space-fill="True"  space-expand="True">
+	     <label>Use equivalents? </label>
+	      <variable>USEEQUIV</variable>
+	    </checkbox>
+
 	   </hbox>
 	 
 	   <hseparator></hseparator>
@@ -1168,13 +1418,13 @@ export MAIN_DIALOG='
 	   <hbox>
 	    <text use-markup="true" wrap="TRUE" space-expand="false"><label>Wavelenght (in Angstrom)</label></text>
 	    <entry>
-	     <default>0.71073</default>
+             <input>if [ ! -z $WAVE ]; then echo "$WAVE"; else (echo "0.71073"); fi</input>
 	     <variable>WAVE</variable>
 	    </entry>
 	
 	    <text use-markup="true" wrap="TRUE" space-expand="FALSE"><label>F/sigma cutoff</label></text>
 	    <entry>
-	     <default>3</default>
+             <input>if [ ! -z $FCUT ]; then echo "$FCUT"; else (echo "3"); fi</input>
 	     <variable>FCUT</variable>
 	    </entry>
 
@@ -1184,14 +1434,14 @@ export MAIN_DIALOG='
 	
 	   <hbox> 
 	    <text xalign="0" use-markup="true" wrap="false"><label>Charge</label></text>
-	    <spinbutton  range-min="-10"  range-max="10" space-fill="True"  space-expand="True">
-		<default>0</default>
+	    <spinbutton  range-min="-20"  range-max="20" space-fill="True"  space-expand="True">
+             <input>if [ ! -z $CHARGE ]; then echo "$CHARGE"; else (echo "0"); fi</input>
 		<variable>CHARGE</variable>
 	    </spinbutton>
 	
 	    <text xalign="1" use-markup="true" wrap="false"><label>Multiplicity</label></text>
-	    <spinbutton  range-min="0"  range-max="10"  space-fill="True"  space-expand="True" >
-		<default>1</default>
+	    <spinbutton  range-min="0"  range-max="20"  space-fill="True"  space-expand="True" >
+             <input>if [ ! -z $MULTIPLICITY ]; then echo "$MULTIPLICITY"; else (echo "1"); fi</input>
 		<variable>MULTIPLICITY</variable>
 	    </spinbutton>
 	   </hbox>
@@ -1240,6 +1490,7 @@ export MAIN_DIALOG='
 	     <item>DZP</item>
 	     <item>DZP-DKH</item>
 	     <item>pVDZ-Ahlrichs</item>
+	     <item>pob-TZVP-rev2</item>
 	     <item>Sadlej+</item>
 	     <item>Sadlej-PVTZ</item>
 	     <item>Spackman-DZP+</item>
@@ -1257,7 +1508,7 @@ export MAIN_DIALOG='
 	
 	    <text><label>Enter manually for Gaussian, Orca or elmodb!</label> </text>
 	    <entry tooltip-text="Use the correct Gaussian or Orca or Tonto format" sensitive="true">
-             <default>STO-3G</default>
+             <input>if [ ! -z $BASISSETG ]; then echo "$BASISSETG"; else (echo "STO-3G"); fi</input>
 	     <variable>BASISSETG</variable>
 	    </entry>
 	
@@ -1298,7 +1549,7 @@ export MAIN_DIALOG='
 	
 	    <text><label>Extra Gaussian keywords</label> </text>
 	    <entry tooltip-text="Use the correct Gaussian format" sensitive="true">
-             <input>if [ ! -z $EXTRAKEY ]; then echo "$EXTRAKEY"; else (echo "STO-3G"); fi</input>
+             <input>if [ ! -z $EXTRAKEY ]; then echo "$EXTRAKEY"; fi</input>
 	     <variable>EXTRAKEY</variable>
 	    </entry>
 	
@@ -1319,7 +1570,7 @@ export MAIN_DIALOG='
 	
 	    <text use-markup="true" wrap="false" ><label>SC Cluster charges radius</label></text>
 	    <entry has-tooltip="true" tooltip-markup="in Angstrom" sensitive="false">
-	     <default>8</default>
+             <input>if [ ! -z $SCCRADIUS ]; then echo "$SCCRADIUS"; else (echo "8"); fi</input>
 	     <variable>SCCRADIUS</variable>
 	    </entry>
 	
@@ -1328,8 +1579,45 @@ export MAIN_DIALOG='
 	     <default>false</default>
 	      <variable>DEFRAG</variable>
 	    </checkbox>
-	   </hbox>
+
+	    <checkbox sensitive="true">
+	     <label>Use dipoles </label>
+	     <default>false</default>
+	      <variable>SCDIPOLES</variable>
+	    </checkbox>
 	
+	    <checkbox>
+	     <label>Include Nuclear energy interaction? (Orca only) </label>
+	      <variable>ADDNUCINTER</variable>
+	    </checkbox>
+           </hbox>
+
+	   <hseparator></hseparator>
+	
+	   <hbox>
+	
+	    <checkbox>
+	     <label>Use explicit cluster of molecules? </label>
+	      <variable>EXPLICITMOL</variable>
+	      <action>if true enable:EXPLRADIUS</action>
+	      <action>if false disable:EXPLRADIUS</action>
+	      <action>if true enable:DEFRAGEXPL</action>
+	      <action>if false disable:DEFRAGEXPL</action>
+	    </checkbox>
+	
+	    <text use-markup="true" wrap="false" ><label>within radius</label></text>
+	    <entry has-tooltip="true" tooltip-markup="in Angstrom" sensitive="false">
+             <input>if [ ! -z $EXPLRADIUS ]; then echo "$EXPLRADIUS"; else (echo "3"); fi</input>
+	     <variable>EXPLRADIUS</variable>
+	    </entry>
+	
+	    <checkbox sensitive="false">
+	     <label>Complete molecules </label>
+	     <default>false</default>
+	      <variable>DEFRAGEXPL</variable>
+	    </checkbox>
+	   </hbox>
+
 	   <hseparator></hseparator>
 		
 	   <hbox>
@@ -1363,9 +1651,18 @@ export MAIN_DIALOG='
 	      <variable>IAMTONTO</variable>
 	      <action>if true disable:XHALONG</action>
 	      <action>if false enable:XHALONG</action>
+	      <action>if true enable:ONLYIAMTONTO</action>
+	      <action>if false disable:ONLYIAMTONTO</action>
+	    </checkbox>
+           
+	    <checkbox sensitive="false" space-fill="True"  space-expand="True">
+	     <label>Only Perform the Tonto IAM </label>
+	      <variable>ONLYIAMTONTO</variable>
+	      <action>if true disable:XHALONG</action>
+	      <action>if false enable:XHALONG</action>
 	    </checkbox>
 	   </hbox>
-           
+
 	   <hseparator></hseparator>
 
            <hbox>
@@ -1378,6 +1675,7 @@ export MAIN_DIALOG='
 	    </checkbox>
 	    <text use-markup="true" wrap="false" ><label>atom labels:</label></text>
 	    <entry sensitive="false">
+             <input>if [ ! -z $ATOMLIST ]; then echo "$ATOMLIST"; fi</input>
 	     <variable>ATOMLIST</variable>
 	    </entry>
            </hbox>
@@ -1441,6 +1739,7 @@ export MAIN_DIALOG='
 	
 	    <text use-markup="true" wrap="false"  ><label>Atom labels</label></text>
 	    <entry has-tooltip="true" tooltip-markup="as in the cif" sensitive="false">
+             <input>if [ ! -z $ANHARMATOMS ]; then echo "$ANHARMATOMS"; fi</input>
 	     <variable>ANHARMATOMS</variable>
 	    </entry>
 	
@@ -1482,13 +1781,13 @@ export MAIN_DIALOG='
 	   <hbox>
 	    <text xalign="0" use-markup="true" wrap="false"><label>B-H:</label></text>
 	    <entry sensitive="false">
-	     <default>1.190</default>
+             <input>if [ ! -z $BHBOND ]; then echo "$BHBOND"; else (echo "1.190"); fi</input>
 	     <variable>BHBOND</variable>
 	      <visible>disabled</visible>
 	    </entry>
 	    <text xalign="0" use-markup="true" wrap="false"><label>C-H:</label></text>
 	    <entry sensitive="false">
-	     <default>1.083</default>
+             <input>if [ ! -z $CHBOND ]; then echo "$CHBOND"; else (echo "1.083"); fi</input>
 	     <variable>CHBOND</variable>
 	    </entry>
 	   </hbox>
@@ -1496,12 +1795,12 @@ export MAIN_DIALOG='
 	   <hbox>
 	    <text xalign="0" use-markup="true" wrap="false"><label>N-H:</label></text>
 	    <entry sensitive="false">
-	     <default>1.009</default>
+             <input>if [ ! -z $NHBOND ]; then echo "$NHBOND"; else (echo "1.009"); fi</input>
 	     <variable>NHBOND</variable>
 	    </entry>
 	    <text xalign="0" use-markup="true" wrap="false"><label>O-H:</label></text>
 	    <entry sensitive="false">
-	     <default>0.983</default>
+             <input>if [ ! -z $OHBOND ]; then echo "$OHBOND"; else (echo "0.983"); fi</input>
 	     <variable>OHBOND</variable>
 	    </entry>
 	
@@ -1523,9 +1822,18 @@ export MAIN_DIALOG='
 	   <hbox> 
 	    <text xalign="0" use-markup="true" wrap="false"justify="1"><label>Number of processors available for the Gaussian or Orca job</label></text>
 	    <spinbutton  range-min="1"  range-max="100" space-fill="True"  space-expand="True">
-		<default>1</default>
+             <input>if [ ! -z $NUMPROC ]; then echo "$NUMPROC"; else (echo "1"); fi</input>
 		<variable>NUMPROC</variable>
 	    </spinbutton>
+
+
+	    <text xalign="0" use-markup="true"
+            wrap="false"justify="1"><label>Number of processors available for Tonto</label></text>
+            <spinbutton  range-min="1"  range-max="100" space-fill="True"  space-expand="True">
+             <input>if [ ! -z $NUMPROCTONTO ]; then echo "$NUMPROCTONTO"; else (echo "1"); fi</input>
+		<variable>NUMPROCTONTO</variable>
+	    </spinbutton>
+
 	   </hbox>
 	
 	   <hseparator></hseparator>
@@ -1533,7 +1841,7 @@ export MAIN_DIALOG='
 	   <hbox>
 	    <text xalign="0" use-markup="true" has-tooltip="true" tooltip-markup="(including the unit mb or gb. For elmodb only in mb without unit!)" wrap="false"><label>Memory available for the Gaussian, Orca or elmodb job</label></text>
 	    <entry>
-	     <default>1gb</default>
+             <input>if [ ! -z $MEM ]; then echo "$MEM"; else (echo "1gb"); fi</input>
 	     <variable>MEM</variable>
 	    </entry>
 	   </hbox>
@@ -1569,7 +1877,7 @@ export MAIN_DIALOG='
 	    <text text-xalign="0" use-markup="true" wrap="false" space-expand="FALSE" space-fill="false"><label>Conv. tol. for shift on esd</label></text>
 	   <hbox space-expand="true" space-fill="true">
 	    <entry space-expand="true">
-	     <default>0.010000</default>
+             <input>if [ ! -z $CONVTOL ]; then echo "$CONVTOL"; else (echo "0.010000"); fi</input>
 	     <variable>CONVTOL</variable>
 	    </entry>
 	
@@ -1580,10 +1888,130 @@ export MAIN_DIALOG='
 
 	   <hbox space-expand="false" space-fill="false">
 
-	    <text text-xalign="0" use-markup="true" wrap="false" space-expand="FALSE" space-fill="false"><label>Max. number of iteration (for each L.S. cicle):</label></text>
+	    <text text-xalign="0" use-markup="true" wrap="false"
+            space-expand="FALSE" space-fill="false"><label>Conv. tol. for DE (between two consec. cycles)</label></text>
 	   <hbox space-expand="true" space-fill="true">
 	    <entry space-expand="true">
-	     <variable>MAXLSCICLE</variable>
+             <input>if [ ! -z $CONVTOLE ]; then echo "$CONVTOLE"; else (echo "0.000001"); fi</input>
+	     <variable>CONVTOLE</variable>
+	    </entry>
+	
+	   </hbox>
+	   </hbox>
+
+	   <hseparator></hseparator>
+
+	   <hbox space-expand="false" space-fill="false">
+
+	    <text text-xalign="0" use-markup="true" wrap="false" space-expand="FALSE" space-fill="false"><label>Linear dependence tolerance for SCF (default is 1.10-5)</label></text>
+	   <hbox space-expand="true" space-fill="true">
+	    <entry space-expand="true">
+             <input>if [ ! -z $LINEDEP ]; then echo "$LINEDEP"; else (echo ""); fi</input>
+	     <variable>LINEDEP</variable>
+	    </entry>
+	
+	   </hbox>
+	   </hbox>
+
+	   <hseparator></hseparator>
+
+	   <hbox space-expand="false" space-fill="false">
+
+	    <text text-xalign="0" use-markup="true" wrap="false" space-expand="FALSE" space-fill="false"><label>Max. number of iteration (for each L.S. cycle):</label></text>
+	   <hbox space-expand="true" space-fill="true">
+	    <entry space-expand="true">
+             <input>if [ ! -z $MAXLSCYCLE ]; then echo "$MAXLSCYCLE"; else (echo "30"); fi</input>
+	     <variable>MAXLSCYCLE</variable>
+	    </entry>
+	
+	   </hbox>
+	   </hbox>
+
+	   <hseparator></hseparator>
+
+	   <hbox space-expand="false" space-fill="false">
+
+	    <text text-xalign="0" use-markup="true" wrap="false" space-expand="FALSE" space-fill="false"><label>Max. number of cycles for Crystal23 SCF calculation:</label></text>
+	   <hbox space-expand="true" space-fill="true">
+	    <entry space-expand="true">
+             <input>if [ ! -z $MAXXTALCYCLE ]; then echo "$MAXXTALCYCLE"; fi</input>
+	     <variable>MAXXTALCYCLE</variable>
+	    </entry>
+	        
+	    <checkbox active="false" sensitive="true" space-fill="True"  space-expand="True" sensitive="false" >
+	     <label>Force conventional cell on Crystal23</label>
+	     <variable>SUPERCON</variable>
+	     <default>false</default>
+	    </checkbox>
+
+	   </hbox>
+	   </hbox>
+
+	   <hbox space-expand="false" space-fill="false">
+           
+	    <text text-xalign="0" use-markup="true" wrap="false" space-expand="FALSE" space-fill="false"><label>Shrink values for Crystal23:</label></text>
+	   <hbox space-expand="true" space-fill="true">
+	    <entry space-expand="true">
+             <input>if [ ! -z $SHRINKA ]; then echo "$SHRINKA"; else (echo "6"); fi</input>
+	     <variable>SHRINKA</variable>
+	    </entry>
+	    <entry space-expand="true">
+             <input>if [ ! -z $SHRINKB ]; then echo "$SHRINKB"; else (echo "6"); fi</input>
+	     <variable>SHRINKB</variable>
+	    </entry>
+
+	   </hbox>
+	   </hbox>
+
+	   <hseparator></hseparator>
+
+	   <hbox space-expand="false" space-fill="false">
+
+	    <text text-xalign="0" use-markup="true" wrap="false"
+            space-expand="FALSE" space-fill="false"><label>Max. number of Powder HAR iteration (for each L.S. cycle):</label></text>
+	   <hbox space-expand="true" space-fill="true">
+	    <entry space-expand="true" sensitive="false">
+             <input>if [ ! -z $MAXPHARCYCLE ]; then echo "$MAXPHARCYCLE"; else (echo "10"); fi</input>
+	     <variable>MAXPHARCYCLE</variable>
+	    </entry>
+	
+	   </hbox>
+	   </hbox>
+
+	   <hbox space-expand="false" space-fill="false">
+
+	    <text text-xalign="0" use-markup="true" wrap="false" space-expand="FALSE" space-fill="false"><label>Accuracy for NoSpherA2 tsc calculation:</label></text>
+	   <hbox space-expand="true" space-fill="true">
+	    <entry space-expand="true" sensitive="false">
+             <input>if [ ! -z $NSA2ACC ]; then echo "$NSA2ACC"; else (echo "2"); fi</input>
+	     <variable>NSA2ACC</variable>
+	    </entry>
+	
+	   </hbox>
+
+	   </hbox>
+
+	   <hseparator></hseparator>
+
+	   <hbox space-expand="false" space-fill="false">
+
+	    <text text-xalign="0" use-markup="true" wrap="false" space-expand="FALSE" space-fill="false"><label>Max. L.S. cycles (use if stuck at conv.):</label></text>
+	   <hbox space-expand="true" space-fill="true">
+	    <entry space-expand="true">
+             <input>if [ ! -z $MAXCYCLE ]; then echo "$MAXCYCLE"; else (echo "30"); fi</input>
+	     <variable>MAXCYCLE</variable>
+	    </entry>
+	
+	   </hbox>
+	   </hbox>
+
+	   <hbox space-expand="false" space-fill="false">
+
+	    <text text-xalign="0" use-markup="true" wrap="false" space-expand="FALSE" space-fill="false"><label>The minimum value for correlation matrix elements to be printed:</label></text>
+	   <hbox space-expand="true" space-fill="true">
+	    <entry space-expand="true">
+             <input>if [ ! -z $MINCORCOEF ]; then echo "$MINCORCOEF"; else (echo ""); fi</input>
+	     <variable>MINCORCOEF</variable>
 	    </entry>
 	
 	   </hbox>
@@ -1687,7 +2115,7 @@ export MAIN_DIALOG='
 	    <text label="basis sets directory" ></text>
 	    <entry sensitive="false" fs-action="folder" fs-folder="/usr/local/bin/"
 	           fs-title="Select the basis_sets directory">
-             <default>/usr/local/bin/basis_sets</default>
+             <input>if [ ! -z $BASISSETDIRXCW ]; then echo "$BASISSETDIRXCW"; else (echo "/usr/local/bin/basis_sets"); fi</input>
 	     <variable>BASISSETDIRXCW</variable>
 	    </entry>
 	    <button>
@@ -1762,7 +2190,7 @@ export MAIN_DIALOG='
 	
 	    <text use-markup="true" wrap="false" ><label>SC Cluster charges radius</label></text>
 	    <entry has-tooltip="true" tooltip-markup="in Angstrom" sensitive="false">
-             <default>8</default>
+             <input>if [ ! -z $SCCRADIUSXCW ]; then echo "$SCCRADIUSXCW"; else (echo "8"); fi</input>
 	     <variable>SCCRADIUSXCW</variable>
 	    </entry>
 	
@@ -1776,7 +2204,7 @@ export MAIN_DIALOG='
    	  <hbox> 
 	    <text xalign="0" use-markup="true" wrap="false"justify="1"><label>Enter initial lambda value:</label></text>
 	    <entry  range-min="1"  range-max="100" space-fill="True"  space-expand="True" sensitive="false">
-             <default>0</default>
+             <input>if [ ! -z $LAMBDA ]; then echo "$LAMBDA"; else (echo "0"); fi</input>
 		<variable>LAMBDAINITIAL</variable>
 	    </entry>
 	   </hbox><
@@ -1784,7 +2212,7 @@ export MAIN_DIALOG='
    	  <hbox> 
 	    <text xalign="0" use-markup="true" wrap="false"justify="1"><label>Enter lambda step size value:</label></text>
 	    <entry  range-min="1"  range-max="100" space-fill="True"  space-expand="True" sensitive="false">
-             <default>0.1</default>
+             <input>if [ ! -z $LAMBDA ]; then echo "$LAMBDA"; else (echo "0.1"); fi</input>
 		<variable>LAMBDASTEP</variable>
 	    </entry>
 	   </hbox><
@@ -1792,7 +2220,7 @@ export MAIN_DIALOG='
    	  <hbox> 
 	    <text xalign="0" use-markup="true" wrap="false"justify="1"><label>Enter lambda max value:</label></text>
 	    <entry  range-min="1"  range-max="100" space-fill="True"  space-expand="True" sensitive="false">
-             <default>1</default>
+             <input>if [ ! -z $LAMBDA ]; then echo "$LAMBDA"; else (echo "1"); fi</input>
 		<variable>LAMBDAMAX</variable>
 	    </entry>
 	   </hbox><
@@ -1806,7 +2234,7 @@ export MAIN_DIALOG='
    	  <hbox> 
            <text xalign="0" use-markup="true" wrap="false" justify="1"><label>Number of dissulfide bonds:</label></text>
            <spinbutton  range-min="0"  range-max="1000" space-fill="True"  space-expand="True" sensitive="false">
-             <default>0</default>
+             <input>if [ ! -z $NSSBOND ]; then echo "$NSSBOND"; else (echo "0"); fi</input>
 	    <variable>NSSBOND</variable>
 	    <action condition="command_is_true( [ $NSSBOND -gt 0 ] && echo true )">enable:SSBONDATOMS</action>
 	    <action condition="command_is_false( [ $NSSBOND -eq 0 ] && echo false )">disable:SSBONDATOMS</action>
@@ -1818,10 +2246,7 @@ export MAIN_DIALOG='
  	    <edit space-expand="true" space-fill="true" sensitive="false">
 	    <action condition="command_is_true( [ $NSSBOND -gt 0 ] && echo true )">enable:SSBONDATOMS</action>
 	    <action condition="command_is_false( [ $NSSBOND -eq 0 ] && echo false )">disable:SSBONDATOMS</action>
-             <default>"
-   3  40
-   4  32
-  16  26"</default>
+             <input file>DISSBONDS</input>
              <variable>SSBONDATOMS</variable>
       	     <width>350</width><height>150</height>
              <action  condition="file_is_false(ntail.txt)">touch ntail.txt</action>
@@ -1831,7 +2256,7 @@ export MAIN_DIALOG='
    	  <hbox> 
            <text xalign="0" use-markup="true" wrap="false" justify="1"><label>Enter number of tailor made residues:</label></text>
            <spinbutton  range-min="0"  range-max="100" space-fill="True"  space-expand="True" sensitive="false">
-	    <default>0</default>
+             <input>if [ ! -z $NTAIL ]; then echo "$NTAIL"; else (echo "0"); fi</input>
 	    <variable>NTAIL</variable>
 	      <action condition="command_is_true( [ $NTAIL -gt 0 ] && echo true )">enable:ATAIL</action>
 	      <action condition="command_is_false( [ $NTAIL -eq 0 ] && echo false )">disable:ATAIL</action>
@@ -1841,17 +2266,17 @@ export MAIN_DIALOG='
 	   </hbox>
 
    	  <hbox> 
-           <text xalign="0" use-markup="true" wrap="false" justify="1"><label>Enter number of tailor made residues:</label></text>
+           <text xalign="0" use-markup="true" wrap="false" justify="1"><label>Enter maximum number of atoms in tailor made residues:</label></text>
            <spinbutton  range-min="0"  range-max="1000" space-fill="True"  space-expand="True" sensitive="false">
-	    <default>100</default>
+             <input>if [ ! -z $ATAIL ]; then echo "$ATAIL"; else (echo "100"); fi</input>
 	    <variable>ATAIL</variable>
 	   </spinbutton>
 	   </hbox>
 
    	  <hbox> 
-           <text xalign="0" use-markup="true" wrap="false" justify="1"><label>Enter number of tailor made residues:</label></text>
+           <text xalign="0" use-markup="true" wrap="false" justify="1"><label>Enter maximum number of fragments in tailor made residues:</label></text>
            <spinbutton  range-min="0"  range-max="1000" space-fill="True"  space-expand="True" sensitive="false">
-	    <default>200</default>
+             <input>if [ ! -z $FRTAIL ]; then echo "$FRTAIL"; else (echo "200"); fi</input>
 	    <variable>FRTAIL</variable>
 	   </spinbutton>
 	   </hbox>
@@ -1859,30 +2284,8 @@ export MAIN_DIALOG='
 	   <hbox>
 	    <text text-xalign="0" use-markup="true" wrap="false" space-expand="FALSE" space-fill="false"><label>Enter the residue information manually:</label></text>
  	    <edit space-expand="true" space-fill="true" sensitive="false">
-             <default>
-" 
-ALE   0   17  .t.        !Input for the first tailor-made residue 
-		
-CA        1    1   .f.     N   CA  C     
-N         1    1   .f.     CA  N   H1     
-C         1    1   .f.     CA  C   O     
-O         3    1   .f.     C   O   OXT     
-OXT       3    1   .f.     C   OXT O
-CB        1    1   .f.     CA  CB  HB1   
-CA_HA     1    2   .f.     CA  HA  C    
-CA_N      1    2   .f.     CA  N   HA     
-N_H1      1    2   .f.     N   H1  CA
-N_H2      1    2   .f.     N   H2  CA
-N_H3      1    2   .f.     N   H3  CA  
-CA_C      1    2   .f.     CA  C   O     
-C_O_OXT   4    3   .f.     C   O   OXT      
-CA_CB     1    2   .f.     CA  CB  C    
-CB_HB1    1    2   .f.     CB  HB1 CA   
-CB_HB2    1    2   .f.     CB  HB2 CA   
-CB_HB3    1    2   .f.     CB  HB3 CA 
- "
-             </default>
-	     <variable>MANUALRESIDUE</variable>
+             <input file> TAILORED</input>
+             <variable>MANUALRESIDUE</variable>
       	     <width>350</width><height>350</height>
              <action  condition="file_is_false(ntail.txt)">touch ntail.txt</action>
     	    </edit>
@@ -2136,7 +2539,7 @@ CB_HB3    1    2   .f.     CB  HB3 CA
 '
 gtkdialog --program=MAIN_DIALOG > job_options.txt
 
-source job_options.txt
+source ./job_options.txt
 
 CIF="$(echo $CIF | awk -F "/" '{print $NF}')"
 INITADPFILE="$(echo $INITADPFILE | awk -F "/" '{print $NF}')"
@@ -2151,7 +2554,7 @@ sed -i '/HKL=/c\HKL=\".\/'$HKL'"' job_options.txt
 #sed -i "34s/HKL=.*/HKL=\".\/$HKL\"/g" job_options.txt doesnt work with the source
 #sed -i "46s/TONTO=.*/TONTO=\".\/$TONTO\"/g" job_options.txt doesnt work with the source
 
-source job_options.txt
+source ./job_options.txt
 
 #rm job_options.txt
 
@@ -2246,7 +2649,7 @@ CB_HB3    1    2   .f.     CB  HB3 CA
 			echo "" >> tonto.cell
 			echo "      REVERT" >> tonto.cell
 		else
-			SPACEGROUP
+			SPACEGROUPMENU
 			CELLA=$(awk -F'|' '{print $1}'  crystal_data.txt )
 			CELLB=$(awk -F'|' '{print $2}'  crystal_data.txt )
 			CELLC=$(awk -F'|' '{print $3}'  crystal_data.txt )
@@ -2283,7 +2686,7 @@ if [ "$EXIT" = "OK" ]; then
 	QUEUE
 else
 	unset MAIN_DIALOG
-	clear
+ 	clear
 	exit 0
 fi
 
