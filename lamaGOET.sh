@@ -2,6 +2,680 @@
 Encoding=UTF-8
 export LC_NUMERIC="en_US.UTF-8"
 
+# BEGIN LAMAGOET CP2K SINGLE-FILE BACKEND
+# Periodic all-electron CP2K backend embedded directly in
+# instalation_July19/lamaGOET.sh. Only the CIF and binary-density parsers remain
+# external Python programs.
+LAMAGOET_SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+
+_cp2k_log() {
+    local message="$*"
+    printf '%s\n' "$message"
+    if [ -n "${JOBNAME:-}" ]; then
+        printf '%s\n' "$message" >> "${JOBNAME}.lst"
+    fi
+}
+
+_cp2k_error() {
+    local message="lamaGOET/CP2K: ERROR: $*"
+    printf '%s\n' "$message" >&2
+    if [ -n "${JOBNAME:-}" ]; then
+        printf '%s\n' "$message" >> "${JOBNAME}.lst"
+    fi
+    return 1
+}
+
+_cp2k_require_file() {
+    [ -f "$1" ] || _cp2k_error "required file not found: $1"
+}
+
+_cp2k_require_command() {
+    command -v "$1" >/dev/null 2>&1 || _cp2k_error "required command not found: $1"
+}
+
+_cp2k_abspath() {
+    realpath -m -- "$1"
+}
+
+_cp2k_resolve_executable() {
+    local executable=${1:-}
+    [ -n "$executable" ] || {
+        _cp2k_error "set CP2K_BIN in the GUI"
+        return 1
+    }
+    if [[ "$executable" == */* ]]; then
+        [ -x "$executable" ] || {
+            _cp2k_error "CP2K executable is missing or not executable: $executable"
+            return 1
+        }
+        _cp2k_abspath "$executable"
+    else
+        _cp2k_require_command "$executable" || return 1
+        command -v "$executable"
+    fi
+}
+
+# CP2K shared builds write required runtime library paths to bin/cp2k.conf.
+_cp2k_prepare_runtime() {
+    local cp2k_bin=$1 config line combined=""
+    config="$(dirname "$cp2k_bin")/cp2k.conf"
+    if [ -f "$config" ]; then
+        while IFS= read -r line; do
+            [[ "$line" == /* ]] || continue
+            if [ -z "$combined" ]; then
+                combined=$line
+            else
+                combined="$combined:$line"
+            fi
+        done < "$config"
+        if [ -n "$combined" ]; then
+            export LD_LIBRARY_PATH="$combined${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+        fi
+    fi
+}
+
+_cp2k_functional() {
+    local requested=${CP2K_XC_FUNCTIONAL:-}
+    if [ -n "$requested" ]; then
+        case "${requested^^}" in
+            B3LYP|PBE0|HSE*|*HYB*)
+                _cp2k_error "hybrid functional '$requested' requires an explicit periodic CP2K &HF section"
+                return 1
+                ;;
+        esac
+        printf '%s\n' "$requested"
+        return 0
+    fi
+    case "${METHOD,,}" in
+        rks|uks|blyp|ublyp) printf '%s\n' BLYP ;;
+        pbe|upbe)           printf '%s\n' PBE ;;
+        "")                  printf '%s\n' BLYP ;;
+        rhf|uhf|hf|b3lyp|ub3lyp|pbe0|upbe0)
+            _cp2k_error "METHOD='${METHOD:-}' requires a custom periodic CP2K &HF setup"
+            return 1
+            ;;
+        *)
+            _cp2k_error "cannot map METHOD='${METHOD:-}' to CP2K; set CP2K_XC_FUNCTIONAL"
+            return 1
+            ;;
+    esac
+}
+
+_cp2k_geometry_cif() {
+    local candidate
+    # Later CP2K cycles must use Tonto's refined archive CIF, never a grown
+    # Cartesian cluster CIF.
+    for candidate in \
+        "${JOBNAME:-job}.archive.cif" \
+        "${J:-0}.tonto_cycle.${JOBNAME:-job}/${J:-0}.${JOBNAME:-job}.archive.cif" \
+        "${CIF:-}"; do
+        if [ -n "$candidate" ] && [ -f "$candidate" ]; then
+            printf '%s\n' "$candidate"
+            return 0
+        fi
+    done
+    _cp2k_error "no CIF containing the current periodic geometry was found"
+}
+
+_cp2k_float_gt() {
+    awk -v a="${1:-0}" -v b="${2:-0}" 'BEGIN { exit !(a+0 > b+0) }'
+}
+
+CP2K_VALIDATE_LAMAGOET_MODE() {
+    local name value
+    for name in POWDER_HAR SCCHARGES COMPLETESTRUCT EXPLICITMOL DEFRAGNETW XCWONLY PLOT_TONTO XWR; do
+        eval "value=\${$name:-false}"
+        if [[ "${value,,}" == "true" ]]; then
+            _cp2k_error "$name=true is not supported by the periodic CP2K backend"
+            return 1
+        fi
+    done
+    return 0
+}
+
+_cp2k_write_input() {
+    local output=$1 project=$2 basis_file=$3 charge=$4 multiplicity=$5
+    local functional=$6 subsys=$7 scf_guess=$8 restart_file=${9:-}
+    local uks_line="" restart_line=""
+
+    if [ "$multiplicity" -gt 1 ] 2>/dev/null || [[ "${METHOD,,}" == u* ]]; then
+        uks_line="    UKS T"
+    fi
+    if [ -n "$restart_file" ]; then
+        restart_line="    WFN_RESTART_FILE_NAME $restart_file"
+    fi
+
+    cat > "$output" <<EOF_CP2K
+! Generated directly by instalation_July19/lamaGOET.sh
+! Periodic all-electron GAPW density for Tonto/lamaGOET HAR.
+&GLOBAL
+  PROJECT $project
+  RUN_TYPE ENERGY
+  PRINT_LEVEL MEDIUM
+&END GLOBAL
+
+&FORCE_EVAL
+  METHOD QUICKSTEP
+  &DFT
+    BASIS_SET_FILE_NAME $basis_file
+    CHARGE $charge
+    MULTIPLICITY $multiplicity
+$uks_line
+$restart_line
+    &QS
+      METHOD GAPW
+      EPS_DEFAULT ${CP2K_EPS_DEFAULT:-1.0E-12}
+      GAPW_ACCURATE_XCINT T
+    &END QS
+    &MGRID
+      CUTOFF ${CP2K_CUTOFF:-1200}
+      REL_CUTOFF ${CP2K_REL_CUTOFF:-80}
+      NGRIDS 5
+    &END MGRID
+    &POISSON
+      PERIODIC XYZ
+    &END POISSON
+    &KPOINTS
+      SCHEME MONKHORST-PACK ${CP2K_KPOINT_GRID:-2 2 2}
+      GAMMA_CENTERED T
+      SYMMETRY FALSE
+      FULL_GRID TRUE
+    &END KPOINTS
+    &SCF
+      MAX_SCF ${CP2K_MAX_SCF:-100}
+      EPS_SCF ${CP2K_EPS_SCF:-1.0E-8}
+      SCF_GUESS $scf_guess
+      ADDED_MOS ${CP2K_ADDED_MOS:-20}
+      &DIAGONALIZATION
+        ALGORITHM STANDARD
+      &END DIAGONALIZATION
+      &MIXING
+        METHOD BROYDEN_MIXING
+        ALPHA 0.20
+        NBROYDEN 8
+      &END MIXING
+      &PRINT
+        &RESTART ON
+          BACKUP_COPIES 1
+        &END RESTART
+      &END PRINT
+    &END SCF
+    &XC
+      &XC_FUNCTIONAL $functional
+      &END XC_FUNCTIONAL
+    &END XC
+    &PRINT
+      &MO_KP ON
+        AO_EXPORT_TYPE GTO_BASIS
+        NDIGITS 15
+        UNIT BOHR
+        FILENAME =$project.mokp
+        ADD_LAST NO
+      &END MO_KP
+    &END PRINT
+  &END DFT
+  @INCLUDE '$subsys'
+&END FORCE_EVAL
+EOF_CP2K
+}
+
+_cp2k_run() {
+    local cp2k_bin=$1 input=$2 output=$3 main_log=$4
+    local executable_name ranks threads rc
+    executable_name=$(basename "$cp2k_bin")
+    ranks=${CP2K_MPI_RANKS:-${NUMPROC:-1}}
+    threads=${CP2K_NUM_THREADS:-${NUMPROC:-1}}
+
+    _cp2k_prepare_runtime "$cp2k_bin" || return 1
+    set -o pipefail
+    if [ -n "${CP2K_RUN_COMMAND:-}" ]; then
+        CP2K_INPUT=$(basename "$input") \
+        CP2K_OUTPUT=$(basename "$output") \
+        CP2K_EXECUTABLE="$cp2k_bin" \
+        bash -lc "$CP2K_RUN_COMMAND" 2>&1 | tee "$(basename "$output")" -a "$main_log"
+        rc=${PIPESTATUS[0]}
+    elif [[ "$executable_name" == *.psmp || "$executable_name" == cp2k.psmp ]]; then
+        _cp2k_require_command mpirun || return 1
+        OMP_NUM_THREADS=${CP2K_NUM_THREADS:-1} \
+        OMP_PROC_BIND=${OMP_PROC_BIND:-spread} \
+        OMP_PLACES=${OMP_PLACES:-cores} \
+        mpirun -n "$ranks" "$cp2k_bin" -i "$(basename "$input")" 2>&1 \
+            | tee "$(basename "$output")" -a "$main_log"
+        rc=${PIPESTATUS[0]}
+    else
+        OMP_NUM_THREADS="$threads" \
+        OMP_PROC_BIND=${OMP_PROC_BIND:-spread} \
+        OMP_PLACES=${OMP_PLACES:-cores} \
+        "$cp2k_bin" -i "$(basename "$input")" 2>&1 \
+            | tee "$(basename "$output")" -a "$main_log"
+        rc=${PIPESTATUS[0]}
+    fi
+    set +o pipefail
+    return "$rc"
+}
+
+# Generate one periodic CP2K density and convert *.kp + *.mokp to Tonto XML.
+TONTO_TO_CP2K() {
+    local cp2k_bin bridge cif_converter basis_file basis_label functional geometry
+    local cycle_dir previous_dir subsys input output scf_guess restart_file=""
+    local kp_file mokp_file basis_mapping main_log
+    local basis_args=()
+
+    _cp2k_require_command python3 || return 1
+    _cp2k_require_command realpath || return 1
+    CP2K_VALIDATE_LAMAGOET_MODE || return 1
+
+    cp2k_bin=$(_cp2k_resolve_executable "${CP2K_BIN:-${SCFCALC_BIN:-}}") || return 1
+    bridge=${CP2K_TONTO_BRIDGE:-$LAMAGOET_SCRIPT_DIR/cp2k_tonto_bridge.py}
+    cif_converter=${CP2K_CIF_TO_SUBSYS:-$LAMAGOET_SCRIPT_DIR/cif_to_cp2k.py}
+    basis_file=${CP2K_BASIS_SET_FILE:-}
+    basis_label=${CP2K_BASIS_SET:-${BASISSETG:-}}
+
+    _cp2k_require_file "$bridge" || return 1
+    _cp2k_require_file "$cif_converter" || return 1
+    [ -n "$basis_file" ] || {
+        _cp2k_error "CP2K_BASIS_SET_FILE must name an all-electron CP2K basis file"
+        return 1
+    }
+    _cp2k_require_file "$basis_file" || return 1
+    [ -n "$basis_label" ] || {
+        _cp2k_error "CP2K_BASIS_SET must name an all-electron CP2K basis"
+        return 1
+    }
+
+    bridge=$(_cp2k_abspath "$bridge") || return 1
+    cif_converter=$(_cp2k_abspath "$cif_converter") || return 1
+    basis_file=$(_cp2k_abspath "$basis_file") || return 1
+    geometry=$(_cp2k_geometry_cif) || return 1
+    geometry=$(_cp2k_abspath "$geometry") || return 1
+    functional=$(_cp2k_functional) || return 1
+    main_log=$(_cp2k_abspath "${JOBNAME}.lst") || return 1
+
+    I=$((${I:-0} + 1))
+    cycle_dir="${I}.CP2K.cycle.${JOBNAME}"
+    mkdir -p "$cycle_dir" || return 1
+    cycle_dir=$(_cp2k_abspath "$cycle_dir") || return 1
+    subsys="$cycle_dir/${I}.${JOBNAME}.subsys.inc"
+    input="$cycle_dir/${I}.${JOBNAME}.cp2k.inp"
+    output="$cycle_dir/${I}.${JOBNAME}.cp2k.out"
+
+    for basis_mapping in ${CP2K_BASIS_MAP:-}; do
+        basis_args+=(--basis-map "$basis_mapping")
+    done
+    python3 "$cif_converter" \
+        --cif "$geometry" \
+        --output "$subsys" \
+        --basis "$basis_label" \
+        --potential ALL \
+        "${basis_args[@]}" || return 1
+
+    scf_guess=ATOMIC
+    if [ "$I" -gt 1 ]; then
+        previous_dir="$((I - 1)).CP2K.cycle.${JOBNAME}"
+        kp_file=$(find "$previous_dir" -maxdepth 1 -type f -name '*RESTART*.kp' -print 2>/dev/null | sort | tail -1)
+        if [ -n "$kp_file" ]; then
+            restart_file="$cycle_dir/$(basename "$kp_file")"
+            cp "$kp_file" "$restart_file" || return 1
+            restart_file=$(_cp2k_abspath "$restart_file") || return 1
+            scf_guess=RESTART
+        fi
+    fi
+
+    _cp2k_write_input "$input" "$JOBNAME" "$basis_file" \
+        "${CP2K_CELL_CHARGE:-0}" "${CP2K_CELL_MULTIPLICITY:-1}" \
+        "$functional" "$subsys" "$scf_guess" "$restart_file" || return 1
+
+    CP2K_LAST_CYCLE_DIR=$cycle_dir
+    CP2K_LAST_INPUT=$input
+    export CP2K_LAST_CYCLE_DIR CP2K_LAST_INPUT I
+
+    if [[ "${CP2K_PREPARE_ONLY:-false}" == "true" ]]; then
+        _cp2k_log "CP2K input prepared: $input"
+        _cp2k_log "Expanded periodic cell: $subsys"
+        return 0
+    fi
+
+    _cp2k_log "========== CP2K density cycle $I =========="
+    _cp2k_log "Periodic geometry: $geometry"
+    _cp2k_log "CP2K input: $input"
+    (
+        cd "$cycle_dir" || exit 1
+        _cp2k_run "$cp2k_bin" "$input" "$output" "$main_log"
+    ) || return 1
+
+    if ! grep -q 'PROGRAM ENDED AT' "$output"; then
+        _cp2k_error "CP2K did not terminate normally; inspect $output"
+        return 1
+    fi
+
+    kp_file=$(find "$cycle_dir" -maxdepth 1 -type f -name '*RESTART*.kp' -print | sort | tail -1)
+    mokp_file=$(find "$cycle_dir" -maxdepth 1 -type f -name '*.mokp' -print | sort | tail -1)
+    [ -n "$kp_file" ] || {
+        _cp2k_error "CP2K did not produce a *RESTART*.kp density restart"
+        return 1
+    }
+    [ -n "$mokp_file" ] || {
+        _cp2k_error "CP2K did not produce MO_KP .mokp metadata; use CP2K 2026.2+ and a non-Gamma k-point calculation"
+        return 1
+    }
+
+    CP2K_PERIODIC_XML="$cycle_dir/${I}.${JOBNAME}.cp2k.xml"
+    CP2K_TONTO_BASIS_DIR="$cycle_dir"
+    CP2K_TONTO_BASIS_NAME=${CP2K_TONTO_BASIS_NAME:-cp2k-generated}
+    CP2K_TONTO_BASIS_FILE="$cycle_dir/$CP2K_TONTO_BASIS_NAME"
+    CP2K_PERIODIC_MANIFEST="$cycle_dir/${I}.${JOBNAME}.cp2k-tonto.json"
+    CP2K_LAST_OUTPUT=$output
+
+    python3 "$bridge" \
+        --kp "$kp_file" \
+        --mokp "$mokp_file" \
+        --xml "$CP2K_PERIODIC_XML" \
+        --basis "$CP2K_TONTO_BASIS_FILE" \
+        --basis-name "$CP2K_TONTO_BASIS_NAME" \
+        --manifest "$CP2K_PERIODIC_MANIFEST" || return 1
+
+    CP2K_LAST_ENERGY=$(awk '/ENERGY\| Total FORCE_EVAL/{value=$NF} END{print value}' "$output")
+    CP2K_LAST_RMSD=$(awk '/RMS.*density|RMS.*Density/{value=$NF} END{print value}' "$output")
+    [ -n "$CP2K_LAST_ENERGY" ] || {
+        _cp2k_error "could not extract the final CP2K FORCE_EVAL energy from $output"
+        return 1
+    }
+
+    export CP2K_PERIODIC_XML CP2K_TONTO_BASIS_DIR CP2K_TONTO_BASIS_NAME
+    export CP2K_TONTO_BASIS_FILE CP2K_PERIODIC_MANIFEST CP2K_LAST_OUTPUT
+    export CP2K_LAST_ENERGY CP2K_LAST_RMSD
+    _cp2k_log "CP2K cycle $I complete: E = $CP2K_LAST_ENERGY Ha"
+}
+
+CP2K_TONTO_PERIODIC_SETUP() {
+    local slater_name slater_source
+    local tonto_exec tonto_root candidate
+
+    [ -n "${CP2K_PERIODIC_XML:-}" ] || {
+        _cp2k_error "CP2K_PERIODIC_XML is unset; run TONTO_TO_CP2K first"
+        return 1
+    }
+
+    _cp2k_require_file "$CP2K_PERIODIC_XML" || return 1
+    _cp2k_require_file "$CP2K_TONTO_BASIS_FILE" || return 1
+
+    # The CP2K bridge creates a Gaussian AO basis.  Tonto additionally
+    # requires a Slater pro-atom library for Hirshfeld references.
+    slater_name=${CP2K_TONTO_SLATER_BASIS_NAME:-Thakkar}
+    slater_source=${CP2K_TONTO_SLATER_BASIS_FILE:-}
+    tonto_exec=${TONTO:-${TONTO_BIN:-}}
+
+    # Optional explicit Tonto basis-library directory.
+    if [ -z "$slater_source" ] && [ -n "${TONTO_BASIS_DIR:-}" ]; then
+        candidate="$TONTO_BASIS_DIR/$slater_name"
+        if [ -f "$candidate" ]; then
+            slater_source=$candidate
+        fi
+    fi
+
+    # Derive the source checkout from .../build/tonto.
+    if [ -z "$slater_source" ] && [ -n "$tonto_exec" ]; then
+        case "$tonto_exec" in
+            */*) ;;
+            *) tonto_exec=$(command -v "$tonto_exec" 2>/dev/null || true) ;;
+        esac
+
+        if [ -n "$tonto_exec" ]; then
+            tonto_root=$(
+                cd "$(dirname "$tonto_exec")/.." 2>/dev/null &&
+                pwd -P
+            ) || tonto_root=
+
+            if [ -n "$tonto_root" ]; then
+                candidate="$tonto_root/basis_sets/$slater_name"
+                if [ -f "$candidate" ]; then
+                    slater_source=$candidate
+                fi
+            fi
+        fi
+    fi
+
+    # Known source-checkout fallbacks.
+    if [ -z "$slater_source" ]; then
+        for candidate in \
+            "$HOME/tonto_CP2K/basis_sets/$slater_name" \
+            "$HOME/tonto/basis_sets/$slater_name"
+        do
+            if [ -f "$candidate" ]; then
+                slater_source=$candidate
+                break
+            fi
+        done
+    fi
+
+    if [ -z "$slater_source" ] || [ ! -f "$slater_source" ]; then
+        _cp2k_error "Tonto Slater basis library '$slater_name' was not found"
+        _cp2k_error "expected, for example: $HOME/tonto_CP2K/basis_sets/$slater_name"
+        _cp2k_error "or set CP2K_TONTO_SLATER_BASIS_FILE explicitly"
+        return 1
+    fi
+
+    # basis_directory applies to both Gaussian and Slater libraries.
+    # Stage both files in the CP2K cycle directory.
+    cp -f -- \
+        "$slater_source" \
+        "$CP2K_TONTO_BASIS_DIR/$slater_name" || {
+        _cp2k_error "could not stage Slater basis $slater_source"
+        return 1
+    }
+
+    CP2K_TONTO_SLATER_BASIS_NAME=$slater_name
+    CP2K_TONTO_SLATER_BASIS_FILE="$CP2K_TONTO_BASIS_DIR/$slater_name"
+    export CP2K_TONTO_SLATER_BASIS_NAME
+    export CP2K_TONTO_SLATER_BASIS_FILE
+
+    _cp2k_require_file "$CP2K_TONTO_SLATER_BASIS_FILE" || return 1
+
+    {
+        echo "   ! Periodic all-electron density generated by CP2K"
+        echo "   basis_directory= $CP2K_TONTO_BASIS_DIR"
+        echo "   basis_name= $CP2K_TONTO_BASIS_NAME"
+        echo "   slaterbasis_name= $CP2K_TONTO_SLATER_BASIS_NAME"
+        echo "   c23_xml_file_name= $CP2K_PERIODIC_XML"
+        echo "   process_cif_and_c23_xml"
+        echo ""
+    } >> stdin
+
+    _cp2k_log "Tonto Gaussian basis: $CP2K_TONTO_BASIS_FILE"
+    _cp2k_log "Tonto Slater basis: $CP2K_TONTO_SLATER_BASIS_FILE"
+}
+
+CP2K_TONTO_SCFDATA() {
+    local periodic_functional reference_functional
+    periodic_functional=$(_cp2k_functional) || return 1
+    periodic_functional=${periodic_functional^^}
+    reference_functional=${CP2K_TONTO_REFERENCE_FUNCTIONAL:-$periodic_functional}
+    reference_functional=${reference_functional^^}
+
+    if [ "$periodic_functional" != "BLYP" ]; then
+        if [ "$reference_functional" = "BLYP" ] && [[ "${CP2K_ALLOW_REFERENCE_MISMATCH:-false}" == "true" ]]; then
+            _cp2k_log "WARNING: periodic CP2K uses $periodic_functional but Tonto free-atom references use BLYP"
+            _cp2k_log "WARNING: this mismatch is enabled only because CP2K_ALLOW_REFERENCE_MISMATCH=true"
+        else
+            _cp2k_error "Tonto does not implement the $periodic_functional functional for its free-atom Hirshfeld references"
+            _cp2k_error "use CP2K_XC_FUNCTIONAL=BLYP (recommended), or explicitly set CP2K_TONTO_REFERENCE_FUNCTIONAL=BLYP and CP2K_ALLOW_REFERENCE_MISMATCH=true for diagnostics only"
+            return 1
+        fi
+    fi
+
+    if [ "$reference_functional" != "BLYP" ]; then
+        _cp2k_error "unsupported Tonto Hirshfeld reference functional: $reference_functional; supported value is BLYP"
+        return 1
+    fi
+
+    {
+        echo "   ! SCF metadata for Tonto free-atom ANO/Hirshfeld reference densities"
+        echo "   ! The periodic molecular density remains the imported CP2K density."
+        echo "   scfdata= {"
+        echo "      initial_density= promolecule"
+        echo "      kind= rks"
+        echo "      dft_exchange_functional= becke88"
+        echo "      dft_correlation_functional= lyp"
+        echo "      output= false"
+        echo "      use_SC_cluster_charges= false"
+        echo "   }"
+        echo ""
+    } >> stdin
+}
+
+CP2K_CHECK_ENERGY() {
+    local previous
+    [ -n "${CP2K_LAST_ENERGY:-}" ] || {
+        _cp2k_error "CP2K_LAST_ENERGY is unset"
+        return 1
+    }
+    if [ -z "${ENERGIA:-}" ]; then
+        ENERGIA=$CP2K_LAST_ENERGY
+        RMSD=${CP2K_LAST_RMSD:-0.0}
+        ENERGIA2=$ENERGIA
+        RMSD2=$RMSD
+        DE=0.0
+    else
+        previous=${ENERGIA2:-$ENERGIA}
+        ENERGIA2=$CP2K_LAST_ENERGY
+        RMSD2=${CP2K_LAST_RMSD:-0.0}
+        DE=$(awk -v a="$ENERGIA2" -v b="$previous" 'BEGIN { printf "%.16g", a-b }')
+    fi
+    export ENERGIA ENERGIA2 RMSD RMSD2 DE
+    _cp2k_log "CP2K energy: $ENERGIA2 Ha; delta = $DE Ha"
+}
+
+CP2K_ASSERT_TONTO_FIT() {
+    if ! grep -q '^Begin rigid-atom fit' stdout || ! grep -q '^Rigid-atom fit results' stdout; then
+        _cp2k_error "Tonto did not perform a Hirshfeld atom fit; inspect stdin and stdout"
+        return 1
+    fi
+    [ -n "${MAXSHIFT:-}" ] || {
+        _cp2k_error "Tonto fit completed but MAXSHIFT could not be read from stdout"
+        return 1
+    }
+    _cp2k_log "Tonto HAR cycle $J complete: maximum shift/esd = $MAXSHIFT"
+}
+
+CP2K_FINAL_RESIDUALS() {
+    _cp2k_log "Calculating residual density at final geometry after $J completed HAR cycle(s)"
+    TONTO_HEADER
+    PROCESS_CIF
+    DEFINE_JOB_NAME
+    CP2K_TONTO_PERIODIC_SETUP || return 1
+    CRYSTAL_BLOCK
+    PUT_GEOM
+    {
+        echo "   make_structure_factors"
+        echo ""
+        echo "   put_minmax_residual_density"
+        echo ""
+        echo "   put_fitting_plots"
+        echo ""
+        echo "}"
+    } >> stdin
+
+    if [[ "${NUMPROCTONTO:-1}" != "1" ]]; then
+        mpirun -n "$NUMPROCTONTO" "$TONTO"
+    else
+        "$TONTO"
+    fi
+    if ! grep -q 'Wall-clock time taken' stdout; then
+        _cp2k_error "final Tonto residual calculation failed; inspect stdin and stdout"
+        return 1
+    fi
+    mkdir -p "final.CP2K.residuals.${JOBNAME}"
+    cp stdin "final.CP2K.residuals.${JOBNAME}/stdin"
+    cp stdout "final.CP2K.residuals.${JOBNAME}/stdout"
+    awk '{a[NR]=$0}/^Residual density data/{b=NR}/^Wall-clock time taken for job/{c=NR}END{for(d=b-2;d<c-1;++d)print a[d]}' stdout \
+        | tee -a "${JOBNAME}.lst"
+}
+
+CP2K_RUN_HAR() {
+    local duration
+    CP2K_VALIDATE_LAMAGOET_MODE || return 1
+    _cp2k_log "###############################################################################################"
+    _cp2k_log "                         Starting periodic CP2K Hirshfeld Atom Refinement"
+    _cp2k_log "###############################################################################################"
+
+    # Initial periodic wavefunction/density at the CIF geometry.
+    TONTO_TO_CP2K || return 1
+    CP2K_CHECK_ENERGY || return 1
+
+    # First Tonto Hirshfeld atom fit. This must occur before any convergence test.
+    SCF_TO_TONTO || return 1
+    CP2K_ASSERT_TONTO_FIT || return 1
+
+    while _cp2k_float_gt "$MAXSHIFT" "${CONVTOL:-0.01}" && [ "$J" -lt "${MAXCYCLE:-20}" ]; do
+        TONTO_TO_CP2K || return 1
+        CP2K_CHECK_ENERGY || return 1
+        SCF_TO_TONTO || return 1
+        CP2K_ASSERT_TONTO_FIT || return 1
+    done
+
+    if _cp2k_float_gt "$MAXSHIFT" "${CONVTOL:-0.01}"; then
+        _cp2k_log "WARNING: maximum HAR cycles reached before shift/esd convergence"
+    else
+        _cp2k_log "HAR geometry converged: maximum shift/esd $MAXSHIFT <= ${CONVTOL:-0.01}"
+    fi
+
+    # Recalculate the periodic density at the final refined geometry, then compute
+    # residuals. Therefore the residual-density message can only appear after HAR.
+    TONTO_TO_CP2K || return 1
+    CP2K_CHECK_ENERGY || return 1
+    CP2K_FINAL_RESIDUALS || return 1
+
+    _cp2k_log "###############################################################################################"
+    _cp2k_log "                         Periodic CP2K HAR finished"
+    _cp2k_log "###############################################################################################"
+    _cp2k_log "Final CP2K energy: ${ENERGIA2:-unknown} Ha"
+    _cp2k_log "Final maximum shift/esd: ${MAXSHIFT:-unknown}"
+    duration=$SECONDS
+    _cp2k_log "$((duration / 86400)) days, $(((duration / 3600) % 24)) hours, $(((duration / 60) % 60)) minutes and $((duration % 60)) seconds elapsed."
+}
+
+# CLI modes are limited to preparing/running one CP2K density; they do not set
+# TESTS and they do not replace the normal GUI HAR workflow.
+_cp2k_cli() {
+    local mode=$1 cif=${2:-} job=${3:-cp2k_example}
+    [ -n "$cif" ] || {
+        echo "Usage: $(basename "$0") $mode CIF [JOBNAME]" >&2
+        return 2
+    }
+    CIF=$cif
+    JOBNAME=$job
+    I=0
+    J=0
+    METHOD=${METHOD:-pbe}
+    SCFCALCPROG=CP2K
+    POWDER_HAR=false
+    SCCHARGES=false
+    COMPLETESTRUCT=false
+    EXPLICITMOL=false
+    DEFRAGNETW=false
+    XCWONLY=false
+    PLOT_TONTO=false
+    XWR=false
+    case "$mode" in
+        --cp2k-preflight) CP2K_PREPARE_ONLY=true ;;
+        --cp2k-smoke-test) CP2K_PREPARE_ONLY=false ;;
+        *) return 2 ;;
+    esac
+    TONTO_TO_CP2K
+}
+
+if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
+    case "${1:-}" in
+        --cp2k-preflight|--cp2k-smoke-test)
+            _cp2k_mode=$1
+            shift
+            _cp2k_cli "$_cp2k_mode" "$@"
+            exit $?
+            ;;
+    esac
+fi
+# END LAMAGOET CP2K SINGLE-FILE BACKEND
+
 SPACEGROUPMENU(){
 	SPACEGROUPARRAY=(
         "1        = p 1          =  p 1            "
@@ -988,8 +1662,10 @@ else
 fi
 echo "Updating geometry done"
 if [[ "$SCFCALCPROG" != "Tonto" && "$SCFCALCPROG" != "elmodb" ]]; then
-        sed -i 's/(//g' $JOBNAME.xyz
-	sed -i 's/)//g' $JOBNAME.xyz
+	if [ -f "$JOBNAME.xyz" ]; then
+		sed -i 's/(//g' $JOBNAME.xyz
+		sed -i 's/)//g' $JOBNAME.xyz
+	fi
 fi
 #if [[ -f $JOBNAME.cartesian.cif2 ]]; then
 if [[ -f $JOBNAME.fractional.cif1 ]]; then
@@ -1551,7 +2227,7 @@ PROCESS_CIF(){
                 fi
 		echo "    }" >> stdin
 		echo "" >> stdin
-                if [[ "$SCFCALCPROG" != "Crystal14" ]]; then
+                if [[ "$SCFCALCPROG" != "Crystal14" && "$SCFCALCPROG" != "CP2K" ]]; then
         		echo "   process_CIF" >> stdin
 		        echo "" >> stdin
                 fi
@@ -1559,7 +2235,7 @@ PROCESS_CIF(){
 		echo "       file_name= $CIF" >> stdin
 		echo "    }" >> stdin
 		echo "" >> stdin
-                if [[ "$SCFCALCPROG" != "Crystal14" ]]; then
+                if [[ "$SCFCALCPROG" != "Crystal14" && "$SCFCALCPROG" != "CP2K" ]]; then
         		echo "   process_CIF" >> stdin
 	        	echo "" >> stdin
                 fi
@@ -1681,7 +2357,7 @@ CRYSTAL_BLOCK(){
 		echo "      xray_data= {   " >> stdin
 	        if [[ "$POWDER_HAR" != "true" ]]; then 
         		echo "         thermal_smearing_model= atom-based" >> stdin
-                        if [ "$SCFCALCPROG" = "Crystal14" ]; then
+                        if [[ "$SCFCALCPROG" == "Crystal14" || "$SCFCALCPROG" == "CP2K" ]]; then
         		        echo "         partition_model= oc-crystal23" >> stdin
                         else
         		        echo "         partition_model= oc-hirshfeld" >> stdin
@@ -1778,7 +2454,7 @@ SET_H_ISO(){
 }
 
 PUT_GEOM(){
-        if [[ "$SCFCALCPROG" != "Crystal14" && "$DEFRAGNETW" != "true" ]]; then
+        if [[ "$SCFCALCPROG" != "Crystal14" && "$SCFCALCPROG" != "CP2K" && "$DEFRAGNETW" != "true" ]]; then
 	        echo "   ! Geometry    " >> stdin
         	echo "   put" >> stdin
         	echo "" >> stdin
@@ -2040,6 +2716,12 @@ SCF_TO_TONTO(){
         	        READ_CRYSTAL_WFN
                fi
 	fi
+
+	# BEGIN LAMAGOET CP2K INTEGRATION: periodic density import
+	if [ "$SCFCALCPROG" = "CP2K" ]; then
+		CP2K_TONTO_PERIODIC_SETUP || return 1
+	fi
+	# END LAMAGOET CP2K INTEGRATION: periodic density import
 	if [[ $J -gt 0 && "$SCFCALCPROG" == "elmodb" ]]; then
 		PROCESS_CIF
 		DEFINE_JOB_NAME
@@ -2073,7 +2755,7 @@ SCF_TO_TONTO(){
 	if [[ "$DISP" == "yes" ]]; then 
 		DISPERSION_COEF
 	fi
-        if [[ "$SCFCALCPROG" != "Crystal14" ]]; then
+        if [[ "$SCFCALCPROG" != "Crystal14" && "$SCFCALCPROG" != "CP2K" ]]; then
          	CHARGE_MULT
         fi
 	if [[ $J == 0 && "$IAMTONTO" == "true" ]]; then 
@@ -2090,8 +2772,16 @@ SCF_TO_TONTO(){
         	if [[ "$USEBECKE" == "true" ]]; then 
         		BECKE_GRID
         	fi
-        	if [[ "$SCFCALCPROG" != "Tonto" ]]; then 
-        		SCF_BLOCK_NOT_TONTO
+        	if [[ "$SCFCALCPROG" != "Tonto" && "$SCFCALCPROG" != "CP2K" ]]; then
+        	    SCF_BLOCK_NOT_TONTO
+        	elif [ "$SCFCALCPROG" = "CP2K" ]; then
+        	    # BEGIN LAMAGOET CP2K INTEGRATION: periodic Hirshfeld fit
+		CP2K_TONTO_SCFDATA || return 1
+        	    echo "   ! Make Hirshfeld structure factors from the periodic CP2K density" >> stdin
+        	    echo "   ha_fit" >> stdin
+        	    echo "   write_xtal23_xyz_file" >> stdin
+        	    echo "" >> stdin
+        	    # END LAMAGOET CP2K INTEGRATION: periodic Hirshfeld fit
         	fi
         fi
        	if [[ "$SCFCALCPROG" == "Tonto" ]]; then
@@ -3221,6 +3911,12 @@ REDUCECELLCLUSTER(){
 
 run_script(){
 	SECONDS=0
+	# BEGIN LAMAGOET CP2K INTEGRATION: mode validation
+	if [ "$SCFCALCPROG" = "CP2K" ]; then
+		CP2K_VALIDATE_LAMAGOET_MODE || exit 1
+	fi
+	# END LAMAGOET CP2K INTEGRATION: mode validation
+
 	if [ "$POWDER_HAR" = "true" ]; then
                 NSA2_COUNTER=$"1"
                 JANA_COUNTER=$"0" ###counter for powder HAR
@@ -3374,7 +4070,7 @@ run_script(){
 		echo "			  $(cat DISP_inst.txt)" >> $JOBNAME.lst
 	fi
 	
-	if [[ "$SCFCALCPROG" != "Tonto" && "$SCFCALCPROG" != "elmodb" ]]; then 
+	if [[ "$SCFCALCPROG" != "Tonto" && "$SCFCALCPROG" != "elmodb" && "$SCFCALCPROG" != "CP2K" ]]; then 
 		echo "Only for Gaussian/Orca/OCC job	" >> $JOBNAME.lst
 		echo "Number of processor 	: $NUMPROC" >> $JOBNAME.lst
 		echo "Memory		 	: $MEM" >> $JOBNAME.lst
@@ -3918,6 +4614,12 @@ run_script(){
 		echo "Job ended, elapsed time:" | tee -a $JOBNAME.lst
 		echo "$(($DURATION / 86400 )) days,  $((($DURATION / 3600) % 24 )) hours, $((($DURATION / 60) % 60 ))minutes and $(($DURATION % 60 )) seconds elapsed." | tee -a $JOBNAME.lst
 		exit
+
+	# BEGIN LAMAGOET CP2K SINGLE-FILE: dispatch
+	elif [[ "$SCFCALCPROG" == "CP2K" ]]; then
+		CP2K_RUN_HAR || exit 1
+		exit 0
+	# END LAMAGOET CP2K SINGLE-FILE: dispatch
 	elif [[ "$SCFCALCPROG" == "Tonto" ]]; then
 
                 if [[  "$SCFCALCPROG" == "Tonto" && "$POWDER_HAR" == "true" ]]; then
@@ -4289,6 +4991,47 @@ export MAIN_DIALOG='
 	        <action>if true disable:DEFRAGNETW</action>
 	        <action>if false enable:DEFRAGNETW</action>
 	      </radiobutton>
+
+      <radiobutton space-fill="True" space-expand="True" visible="true">
+        <label>CP2K periodic (all-electron GAPW)</label>
+        <default>false</default>
+        <action>if true echo 'SCFCALCPROG="CP2K"'</action>
+        <action>if true enable:CP2K_BIN</action>
+        <action>if false disable:CP2K_BIN</action>
+        <action>if true enable:CP2K_BASIS_SET_FILE</action>
+        <action>if false disable:CP2K_BASIS_SET_FILE</action>
+        <action>if true enable:CP2K_BASIS_SET</action>
+        <action>if false disable:CP2K_BASIS_SET</action>
+        <action>if true enable:CP2K_XC_FUNCTIONAL</action>
+        <action>if false disable:CP2K_XC_FUNCTIONAL</action>
+        <action>if true enable:CP2K_KPOINT_GRID</action>
+        <action>if false disable:CP2K_KPOINT_GRID</action>
+        <action>if true enable:CP2K_CELL_CHARGE</action>
+        <action>if false disable:CP2K_CELL_CHARGE</action>
+        <action>if true enable:CP2K_CELL_MULTIPLICITY</action>
+        <action>if false disable:CP2K_CELL_MULTIPLICITY</action>
+        <action>if true enable:CP2K_CUTOFF</action>
+        <action>if false disable:CP2K_CUTOFF</action>
+        <action>if true enable:CP2K_REL_CUTOFF</action>
+        <action>if false disable:CP2K_REL_CUTOFF</action>
+        <action>if true enable:CP2K_MAX_SCF</action>
+        <action>if false disable:CP2K_MAX_SCF</action>
+        <action>if true enable:CP2K_EPS_SCF</action>
+        <action>if false disable:CP2K_EPS_SCF</action>
+        <action>if true enable:CP2K_ADDED_MOS</action>
+        <action>if false disable:CP2K_ADDED_MOS</action>
+        <action>if true enable:NUMPROC</action>
+        <action>if true enable:NUMPROCTONTO</action>
+        <action>if true disable:SCFCALC_BIN</action>
+        <action>if true disable:BASISSETDIR</action>
+        <action>if true disable:BASISSETT</action>
+        <action>if true disable:SCCHARGES</action>
+        <action>if true disable:COMPLETESTRUCT</action>
+        <action>if true disable:EXPLICITMOL</action>
+        <action>if true disable:DEFRAGNETW</action>
+        <action>if true disable:POWDER_HAR</action>
+        <action>if true disable:USEGAMESS</action>
+      </radiobutton>
 	      <radiobutton space-fill="True"  space-expand="True" visible="true">
 	        <label>Crystal23</label>
 	        <default>false</default>
@@ -4558,6 +5301,55 @@ export MAIN_DIALOG='
 	     <action type="fileselect">SCFCALC_BIN</action>
 	    </button>
 	   </hbox>
+   <hseparator></hseparator>
+   <frame>
+    <text use-markup="true"><label>"<b>CP2K periodic all-electron settings</b>"</label></text>
+    <vbox>
+     <hbox>
+      <text label="CP2K executable"></text>
+      <entry sensitive="false" fs-action="file" fs-folder="./">
+       <input>if [ ! -z $CP2K_BIN ]; then echo "$CP2K_BIN"; else echo "$HOME/cp2k-master/install/bin/cp2k.ssmp"; fi</input>
+       <variable>CP2K_BIN</variable>
+      </entry>
+      <button><input file stock="gtk-open"></input><action type="fileselect">CP2K_BIN</action></button>
+     </hbox>
+     <hbox>
+      <text label="All-electron CP2K basis file"></text>
+      <entry sensitive="false" fs-action="file" fs-folder="./">
+       <input>if [ ! -z $CP2K_BASIS_SET_FILE ]; then echo "$CP2K_BASIS_SET_FILE"; else echo "$HOME/cp2k-master/install/share/cp2k/data/BASIS_AUG_MOLOPT"; fi</input>
+       <variable>CP2K_BASIS_SET_FILE</variable>
+      </entry>
+      <button><input file stock="gtk-open"></input><action type="fileselect">CP2K_BASIS_SET_FILE</action></button>
+     </hbox>
+     <hbox>
+      <text label="Basis name"></text>
+      <entry sensitive="false"><input>if [ ! -z $CP2K_BASIS_SET ]; then echo "$CP2K_BASIS_SET"; else echo "aug-SZV-MOLOPT-ae-SR"; fi</input><variable>CP2K_BASIS_SET</variable></entry>
+      <text label="XC functional"></text>
+      <entry sensitive="false"><input>if [ ! -z $CP2K_XC_FUNCTIONAL ]; then echo "$CP2K_XC_FUNCTIONAL"; else echo "BLYP"; fi</input><variable>CP2K_XC_FUNCTIONAL</variable></entry>
+      <text label="k-point grid"></text>
+      <entry sensitive="false"><input>if [ ! -z "$CP2K_KPOINT_GRID" ]; then echo "$CP2K_KPOINT_GRID"; else echo "2 2 2"; fi</input><variable>CP2K_KPOINT_GRID</variable></entry>
+     </hbox>
+     <hbox>
+      <text label="Cell charge"></text>
+      <entry sensitive="false"><input>if [ ! -z $CP2K_CELL_CHARGE ]; then echo "$CP2K_CELL_CHARGE"; else echo "0"; fi</input><variable>CP2K_CELL_CHARGE</variable></entry>
+      <text label="Cell multiplicity"></text>
+      <entry sensitive="false"><input>if [ ! -z $CP2K_CELL_MULTIPLICITY ]; then echo "$CP2K_CELL_MULTIPLICITY"; else echo "1"; fi</input><variable>CP2K_CELL_MULTIPLICITY</variable></entry>
+     </hbox>
+     <hbox>
+      <text label="Cutoff"></text>
+      <entry sensitive="false"><input>if [ ! -z $CP2K_CUTOFF ]; then echo "$CP2K_CUTOFF"; else echo "1200"; fi</input><variable>CP2K_CUTOFF</variable></entry>
+      <text label="Relative cutoff"></text>
+      <entry sensitive="false"><input>if [ ! -z $CP2K_REL_CUTOFF ]; then echo "$CP2K_REL_CUTOFF"; else echo "80"; fi</input><variable>CP2K_REL_CUTOFF</variable></entry>
+      <text label="Maximum SCF cycles"></text>
+      <entry sensitive="false"><input>if [ ! -z $CP2K_MAX_SCF ]; then echo "$CP2K_MAX_SCF"; else echo "100"; fi</input><variable>CP2K_MAX_SCF</variable></entry>
+      <text label="SCF tolerance"></text>
+      <entry sensitive="false"><input>if [ ! -z $CP2K_EPS_SCF ]; then echo "$CP2K_EPS_SCF"; else echo "1.0E-8"; fi</input><variable>CP2K_EPS_SCF</variable></entry>
+      <text label="Added MOs"></text>
+      <entry sensitive="false"><input>if [ ! -z $CP2K_ADDED_MOS ]; then echo "$CP2K_ADDED_MOS"; else echo "20"; fi</input><variable>CP2K_ADDED_MOS</variable></entry>
+     </hbox>
+    </vbox>
+   </frame>
+
 	
 	   <hseparator></hseparator>
 	
@@ -5124,7 +5916,7 @@ export MAIN_DIALOG='
 	   <hseparator></hseparator>
 	
 	   <hbox> 
-	    <text xalign="0" use-markup="true" wrap="false"justify="1"><label>Number of processors available for the Gaussian or Orca job</label></text>
+	    <text xalign="0" use-markup="true" wrap="false"justify="1"><label>Number of processors/threads available for Gaussian, Orca or CP2K</label></text>
 	    <spinbutton  range-min="1"  range-max="100" space-fill="True"  space-expand="True">
              <input>if [ ! -z $NUMPROC ]; then echo "$NUMPROC"; else (echo "1"); fi</input>
 		<variable>NUMPROC</variable>
