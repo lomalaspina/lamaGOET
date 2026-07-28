@@ -613,11 +613,14 @@ CP2K_CHECK_ENERGY() {
     fi
 }
 
-# LAMAGOET CP2K LST FIT SUMMARY v1
-# Write one compact .lst row for the Tonto fit that used the current CP2K
-# wavefunction.  This is deliberately CP2K-specific: the Gaussian/Orca/OCC,
-# Crystal and cluster-charge code paths are not changed.
+# LAMAGOET CP2K LST FIT SUMMARY v1.1
+# Write one compact .lst row for a Tonto fit and bind it explicitly to the
+# CP2K wavefunction cycle that was passed into that fit.  Do not infer this
+# association from I == J: other lamaGOET workflows can contain preparation,
+# cluster-charge, structure-completion or final-residual program calls that do
+# not advance the two counters in lockstep.
 CP2K_WRITE_FIT_ROW() {
+    local wavefunction_cycle=${1:-${I:-0}}
     local fit_data fit_iter initial_chi final_chi r_factor rw_factor
     local max_shift max_atom max_param n_params n_eigs
     local energy rmsd delta table_cycle
@@ -626,11 +629,11 @@ CP2K_WRITE_FIT_ROW() {
         _cp2k_error "Tonto stdout is missing while preparing the CP2K fit summary"
         return 1
     }
+    [[ "$wavefunction_cycle" =~ ^[0-9]+$ ]] && [ "$wavefunction_cycle" -ge 1 ] || {
+        _cp2k_error "invalid CP2K wavefunction cycle '$wavefunction_cycle' for the fit summary"
+        return 1
+    }
 
-    # Definitions used in the table:
-    #   initial chi2 = chi2 in the first least-squares iteration;
-    #   final chi2/R/Rw/parameter counts = values in the last iteration;
-    #   maximum shift/esd = largest absolute shift/esd in the whole fit cycle.
     fit_data=$(awk '
         /^Begin rigid-atom fit/ { in_fit=1; next }
         in_fit && /^Rigid-atom fit results/ { in_fit=0 }
@@ -643,14 +646,10 @@ CP2K_WRITE_FIT_ROW() {
             rw_factor=$4
             n_params=$9
             n_eigs=$10
-
             shift=$5 + 0.0
             abs_shift=(shift < 0.0 ? -shift : shift)
             if (!have_max || abs_shift > max_shift) {
-                have_max=1
-                max_shift=abs_shift
-                max_atom=$7
-                max_param=$8
+                have_max=1; max_shift=abs_shift; max_atom=$7; max_param=$8
             }
         }
         END {
@@ -669,23 +668,24 @@ CP2K_WRITE_FIT_ROW() {
         max_shift max_atom max_param n_params n_eigs <<< "$fit_data"
 
     table_cycle=${J:-0}
-    if [[ "${I:-0}" -ne "$table_cycle" ]]; then
-        _cp2k_error "internal CP2K/Tonto cycle mismatch: CP2K I=${I:-unset}, Tonto J=${J:-unset}"
-        return 1
-    fi
-
-    # These values are from the CP2K calculation completed immediately before
-    # this Tonto ha_fit, i.e. the wavefunction actually used in this row.
     energy=${CP2K_LAST_ENERGY:-${ENERGIA2:-n/a}}
     rmsd=${CP2K_LAST_RMSD:-${RMSD2:-n/a}}
     delta=${DE:-0.000000000000}
     [[ -n "$rmsd" ]] || rmsd=n/a
+
+    if [ "$table_cycle" -eq 1 ] && [ "${CP2K_LST_MAPPING_NOTE_WRITTEN:-false}" != true ]; then
+        printf "# CP2K rows: Cycle = Tonto ha_fit cycle; Energy/RMSD = CP2K wavefunction used by that fit.\n" \
+            >> "${JOBNAME}.lst"
+        CP2K_LST_MAPPING_NOTE_WRITTEN=true
+    fi
 
     printf " %2d    %3s    %14s %14s %15s %15s %14s  %-6s %-6s %8s %9s %15s %12s %18s\n" \
         "$table_cycle" "$fit_iter" "$initial_chi" "$final_chi" \
         "$r_factor" "$rw_factor" "$max_shift" "$max_atom" "$max_param" \
         "$n_params" "$n_eigs" "$energy" "$rmsd" "$delta" \
         >> "${JOBNAME}.lst"
+
+    _cp2k_log "Recorded Tonto fit cycle $table_cycle with CP2K wavefunction cycle $wavefunction_cycle"
 }
 
 CP2K_ASSERT_TONTO_FIT() {
@@ -746,7 +746,7 @@ CP2K_FINAL_RESIDUALS() {
 }
 
 CP2K_RUN_HAR() {
-    local duration
+    local duration fit_wfn_cycle
     CP2K_VALIDATE_LAMAGOET_MODE || return 1
     _cp2k_log "Starting periodic CP2K Hirshfeld atom refinement"
 
@@ -754,17 +754,20 @@ CP2K_RUN_HAR() {
     TONTO_TO_CP2K || return 1
     CP2K_CHECK_ENERGY || return 1
 
-    # First Tonto Hirshfeld atom fit. This must occur before any convergence test.
+    # First Tonto Hirshfeld atom fit. Bind the row to the CP2K density
+    # that is about to be passed to Tonto; do not infer the mapping from I/J.
+    fit_wfn_cycle=$I
     SCF_TO_TONTO || return 1
     CP2K_ASSERT_TONTO_FIT || return 1
-    CP2K_WRITE_FIT_ROW || return 1
+    CP2K_WRITE_FIT_ROW "$fit_wfn_cycle" || return 1
 
     while _cp2k_float_gt "$MAXSHIFT" "${CONVTOL:-0.01}" && [ "$J" -lt "${MAXCYCLE:-20}" ]; do
         TONTO_TO_CP2K || return 1
         CP2K_CHECK_ENERGY || return 1
+        fit_wfn_cycle=$I
         SCF_TO_TONTO || return 1
         CP2K_ASSERT_TONTO_FIT || return 1
-        CP2K_WRITE_FIT_ROW || return 1
+        CP2K_WRITE_FIT_ROW "$fit_wfn_cycle" || return 1
     done
 
     if _cp2k_float_gt "$MAXSHIFT" "${CONVTOL:-0.01}"; then
