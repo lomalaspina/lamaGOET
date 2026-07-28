@@ -613,6 +613,81 @@ CP2K_CHECK_ENERGY() {
     fi
 }
 
+# LAMAGOET CP2K LST FIT SUMMARY v1
+# Write one compact .lst row for the Tonto fit that used the current CP2K
+# wavefunction.  This is deliberately CP2K-specific: the Gaussian/Orca/OCC,
+# Crystal and cluster-charge code paths are not changed.
+CP2K_WRITE_FIT_ROW() {
+    local fit_data fit_iter initial_chi final_chi r_factor rw_factor
+    local max_shift max_atom max_param n_params n_eigs
+    local energy rmsd delta table_cycle
+
+    [ -f stdout ] || {
+        _cp2k_error "Tonto stdout is missing while preparing the CP2K fit summary"
+        return 1
+    }
+
+    # Definitions used in the table:
+    #   initial chi2 = chi2 in the first least-squares iteration;
+    #   final chi2/R/Rw/parameter counts = values in the last iteration;
+    #   maximum shift/esd = largest absolute shift/esd in the whole fit cycle.
+    fit_data=$(awk '
+        /^Begin rigid-atom fit/ { in_fit=1; next }
+        in_fit && /^Rigid-atom fit results/ { in_fit=0 }
+        in_fit && $1 ~ /^[0-9]+$/ && NF >= 10 {
+            count++
+            if (count == 1) initial_chi=$2
+            fit_iter=$1
+            final_chi=$2
+            r_factor=$3
+            rw_factor=$4
+            n_params=$9
+            n_eigs=$10
+
+            shift=$5 + 0.0
+            abs_shift=(shift < 0.0 ? -shift : shift)
+            if (!have_max || abs_shift > max_shift) {
+                have_max=1
+                max_shift=abs_shift
+                max_atom=$7
+                max_param=$8
+            }
+        }
+        END {
+            if (count == 0) exit 2
+            printf "%s\t%s\t%s\t%s\t%s\t%.6f\t%s\t%s\t%s\t%s\n", \
+                   fit_iter, initial_chi, final_chi, r_factor, rw_factor, \
+                   max_shift, max_atom, max_param, n_params, n_eigs
+        }
+    ' stdout) || {
+        _cp2k_error "could not parse the rigid-atom fit table from Tonto stdout"
+        return 1
+    }
+
+    IFS=$'\t' read -r \
+        fit_iter initial_chi final_chi r_factor rw_factor \
+        max_shift max_atom max_param n_params n_eigs <<< "$fit_data"
+
+    table_cycle=${J:-0}
+    if [[ "${I:-0}" -ne "$table_cycle" ]]; then
+        _cp2k_error "internal CP2K/Tonto cycle mismatch: CP2K I=${I:-unset}, Tonto J=${J:-unset}"
+        return 1
+    fi
+
+    # These values are from the CP2K calculation completed immediately before
+    # this Tonto ha_fit, i.e. the wavefunction actually used in this row.
+    energy=${CP2K_LAST_ENERGY:-${ENERGIA2:-n/a}}
+    rmsd=${CP2K_LAST_RMSD:-${RMSD2:-n/a}}
+    delta=${DE:-0.000000000000}
+    [[ -n "$rmsd" ]] || rmsd=n/a
+
+    printf " %2d    %3s    %14s %14s %15s %15s %14s  %-6s %-6s %8s %9s %15s %12s %18s\n" \
+        "$table_cycle" "$fit_iter" "$initial_chi" "$final_chi" \
+        "$r_factor" "$rw_factor" "$max_shift" "$max_atom" "$max_param" \
+        "$n_params" "$n_eigs" "$energy" "$rmsd" "$delta" \
+        >> "${JOBNAME}.lst"
+}
+
 CP2K_ASSERT_TONTO_FIT() {
     if ! grep -q '^Begin rigid-atom fit' stdout || ! grep -q '^Rigid-atom fit results' stdout; then
         _cp2k_error "Tonto did not perform a Hirshfeld atom fit; inspect stdin and stdout"
@@ -682,12 +757,14 @@ CP2K_RUN_HAR() {
     # First Tonto Hirshfeld atom fit. This must occur before any convergence test.
     SCF_TO_TONTO || return 1
     CP2K_ASSERT_TONTO_FIT || return 1
+    CP2K_WRITE_FIT_ROW || return 1
 
     while _cp2k_float_gt "$MAXSHIFT" "${CONVTOL:-0.01}" && [ "$J" -lt "${MAXCYCLE:-20}" ]; do
         TONTO_TO_CP2K || return 1
         CP2K_CHECK_ENERGY || return 1
         SCF_TO_TONTO || return 1
         CP2K_ASSERT_TONTO_FIT || return 1
+        CP2K_WRITE_FIT_ROW || return 1
     done
 
     if _cp2k_float_gt "$MAXSHIFT" "${CONVTOL:-0.01}"; then
