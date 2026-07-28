@@ -571,22 +571,33 @@ CP2K_FINAL_RESIDUALS() {
         echo "   put_minmax_residual_density"
         echo ""
         echo "   put_fitting_plots"
+        echo "   ! CLEANUP FIX V1: persist CP2K residual statistics in CIF"
+        echo "   put_cif"
         echo ""
         echo "}"
     } >> stdin
 
+    rm -f stdout stderr
+    local tonto_status=0
     if [[ "${NUMPROCTONTO:-1}" != "1" ]]; then
-        mpirun -n "$NUMPROCTONTO" "$TONTO"
+        mpirun -n "$NUMPROCTONTO" "$TONTO" || tonto_status=$?
     else
-        "$TONTO"
+        "$TONTO" || tonto_status=$?
     fi
-    if ! grep -q 'Wall-clock time taken' stdout; then
+    # CLEANUP FIX V1: validate CP2K residual section, not merely normal shutdown.
+    if [[ "$tonto_status" -ne 0 ]] || ! grep -q '^Unit cell residual density:' stdout 2>/dev/null; then
         _cp2k_error "final Tonto residual calculation failed; inspect stdin and stdout"
         return 1
     fi
     mkdir -p "final.CP2K.residuals.${JOBNAME}"
     cp stdin "final.CP2K.residuals.${JOBNAME}/stdin"
     cp stdout "final.CP2K.residuals.${JOBNAME}/stdout"
+    # CLEANUP FIX V1: archive final CP2K residual products.
+    for artifact in "${JOBNAME}.fractional.cif1" "${JOBNAME}.cartesian.cif2" "${JOBNAME}.residual_density,cell.cube"; do
+        if [[ -f "$artifact" ]]; then
+            cp "$artifact" "final.CP2K.residuals.${JOBNAME}/$artifact"
+        fi
+    done
     awk '{a[NR]=$0}/^Residual density data/{b=NR}/^Wall-clock time taken for job/{c=NR}END{for(d=b-2;d<c-1;++d)print a[d]}' stdout \
         | tee -a "${JOBNAME}.lst"
 }
@@ -2559,7 +2570,7 @@ SCF_BLOCK_NOT_TONTO(){
 	                if [[ "$POWDERHAR" != "true" ]]; then
 			        echo "   ! Make Hirshfeld structure factors" >> stdin
 #			        echo "   fit_hirshfeld_atoms" >> stdin
-                                if [[ "$SCFCALCPROG" == "Crystal14" && "$DEFRAGNETW"=="true" ]]; then
+                                if [[ "$SCFCALCPROG" == "Crystal14" && "$DEFRAGNETW" == "true" ]]; then
                                         echo "   phar_defragment" >> stdin
                                 fi
 			        echo "   ha_fit" >> stdin
@@ -2594,7 +2605,7 @@ SCF_BLOCK_NOT_TONTO(){
 			                echo "   make_fock_matrix" >> stdin
 				fi
 #       			echo "   fit_hirshfeld_atoms" >> stdin
-                                if [[ "$SCFCALCPROG" == "Crystal14" && "$DEFRAGNETW"=="true" ]]; then
+                                if [[ "$SCFCALCPROG" == "Crystal14" && "$DEFRAGNETW" == "true" ]]; then
                                         echo "   phar_defragment" >> stdin
                                 fi
 			        echo "   ha_fit" >> stdin
@@ -3428,6 +3439,12 @@ GET_RESIDUALS(){
 		CRYSTAL_BLOCK
 		DEFINE_JOB_NAME
 	fi
+	# CLEANUP FIX V1: rebuild reflection/xray data for final residuals.
+	# The refined CIF carries cell/geometry metadata but not the reflection list.
+	# Crystal14 already did this immediately above.
+	if [[ "$SCFCALCPROG" != "Crystal14" ]]; then
+		CRYSTAL_BLOCK
+	fi
 	if [[ "$SCFCALCPROG" != "Crystal14" ]]; then
 		echo "   scfdata= {" >> stdin
 		if [[ "$METHOD" != "rks" && "$METHOD" != "rhf" && "$METHOD" != "uhf" && "$METHOD" != "uks" && "$METHOD" != "HF" ]]; then
@@ -3475,6 +3492,8 @@ GET_RESIDUALS(){
 	echo "   put_minmax_residual_density" >> stdin
 	echo "" >> stdin
         echo "   put_fitting_plots" >> stdin
+        echo "   ! CLEANUP FIX V1: persist residual statistics in CIF" >> stdin
+        echo "   put_cif" >> stdin
 #       echo "   plot_grid= {                           " >> stdin
 #       echo "" >> stdin
 #       echo "      kind= residual_density_map" >> stdin
@@ -3490,11 +3509,18 @@ GET_RESIDUALS(){
 	echo "}" >> stdin 
 	echo "Calculating residual density at final geometry" 
 	J=$[ $J + 1 ]
+        rm -f stdout stderr
+        local tonto_status=0
         if [[ "$NUMPROCTONTO" != "1" ]]; then
-		mpirun -n $NUMPROCTONTO $TONTO	
+		mpirun -n "$NUMPROCTONTO" "$TONTO" || tonto_status=$?
 	else
-		$TONTO
+		"$TONTO" || tonto_status=$?
 	fi
+        # CLEANUP FIX V1: validate final residual calculation.
+        if [[ "$tonto_status" -ne 0 ]] || ! grep -q '^Unit cell residual density:' stdout 2>/dev/null; then
+                echo "ERROR: final Tonto residual-density calculation failed; inspect stdin and stdout" | tee -a "$JOBNAME.lst" >&2
+                return 1
+        fi
 	if [[ "$USE_NOSPHERA2" == "true" ]]; then
                 LABELS_IN_XYZ
         fi
