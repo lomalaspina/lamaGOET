@@ -16,6 +16,13 @@ _cp2k_log() {
     fi
 }
 
+_cp2k_log_detail() {
+    local message="$*"
+    if [ -n "${JOBNAME:-}" ]; then
+        printf '%s\n' "$message" >> "${JOBNAME}.lst"
+    fi
+}
+
 _cp2k_error() {
     local message="lamaGOET/CP2K: ERROR: $*"
     printf '%s\n' "$message" >&2
@@ -219,38 +226,76 @@ $restart_line
 EOF_CP2K
 }
 
+# LAMAGOET CP2K SUMMARY OUTPUT v1
+# Complete CP2K output is retained in each per-cycle *.cp2k.out file.
+# The terminal shows only lamaGOET cycle summaries by default.
+# Set CP2K_TERMINAL_VERBOSE=true to restore the full live CP2K stream.
 _cp2k_run() {
-    local cp2k_bin=$1 input=$2 output=$3 main_log=$4
-    local executable_name ranks threads rc
+    local cp2k_bin=$1 input=$2 output=$3 main_log=${4:-}
+    local executable_name ranks threads rc output_name verbose
     executable_name=$(basename "$cp2k_bin")
+    output_name=$(basename "$output")
     ranks=${CP2K_MPI_RANKS:-${NUMPROC:-1}}
     threads=${CP2K_NUM_THREADS:-${NUMPROC:-1}}
+    verbose=${CP2K_TERMINAL_VERBOSE:-false}
 
     _cp2k_prepare_runtime "$cp2k_bin" || return 1
-    set -o pipefail
+
     if [ -n "${CP2K_RUN_COMMAND:-}" ]; then
-        CP2K_INPUT=$(basename "$input") \
-        CP2K_OUTPUT=$(basename "$output") \
-        CP2K_EXECUTABLE="$cp2k_bin" \
-        bash -lc "$CP2K_RUN_COMMAND" 2>&1 | tee "$(basename "$output")" -a "$main_log"
-        rc=${PIPESTATUS[0]}
+        if [[ "${verbose,,}" == "true" ]]; then
+            set -o pipefail
+            CP2K_INPUT=$(basename "$input") \
+            CP2K_OUTPUT="$output_name" \
+            CP2K_EXECUTABLE="$cp2k_bin" \
+            bash -lc "$CP2K_RUN_COMMAND" 2>&1 | tee "$output_name"
+            rc=${PIPESTATUS[0]}
+            set +o pipefail
+        else
+            CP2K_INPUT=$(basename "$input") \
+            CP2K_OUTPUT="$output_name" \
+            CP2K_EXECUTABLE="$cp2k_bin" \
+            bash -lc "$CP2K_RUN_COMMAND" > "$output_name" 2>&1
+            rc=$?
+        fi
     elif [[ "$executable_name" == *.psmp || "$executable_name" == cp2k.psmp ]]; then
         _cp2k_require_command mpirun || return 1
-        OMP_NUM_THREADS=${CP2K_NUM_THREADS:-1} \
-        OMP_PROC_BIND=${OMP_PROC_BIND:-spread} \
-        OMP_PLACES=${OMP_PLACES:-cores} \
-        mpirun -n "$ranks" "$cp2k_bin" -i "$(basename "$input")" 2>&1 \
-            | tee "$(basename "$output")" -a "$main_log"
-        rc=${PIPESTATUS[0]}
+        if [[ "${verbose,,}" == "true" ]]; then
+            set -o pipefail
+            OMP_NUM_THREADS=${CP2K_NUM_THREADS:-1} \
+            OMP_PROC_BIND=${OMP_PROC_BIND:-spread} \
+            OMP_PLACES=${OMP_PLACES:-cores} \
+            mpirun -n "$ranks" "$cp2k_bin" -i "$(basename "$input")" 2>&1 \
+                | tee "$output_name"
+            rc=${PIPESTATUS[0]}
+            set +o pipefail
+        else
+            OMP_NUM_THREADS=${CP2K_NUM_THREADS:-1} \
+            OMP_PROC_BIND=${OMP_PROC_BIND:-spread} \
+            OMP_PLACES=${OMP_PLACES:-cores} \
+            mpirun -n "$ranks" "$cp2k_bin" -i "$(basename "$input")" \
+                > "$output_name" 2>&1
+            rc=$?
+        fi
     else
-        OMP_NUM_THREADS="$threads" \
-        OMP_PROC_BIND=${OMP_PROC_BIND:-spread} \
-        OMP_PLACES=${OMP_PLACES:-cores} \
-        "$cp2k_bin" -i "$(basename "$input")" 2>&1 \
-            | tee "$(basename "$output")" -a "$main_log"
-        rc=${PIPESTATUS[0]}
+        if [[ "${verbose,,}" == "true" ]]; then
+            set -o pipefail
+            OMP_NUM_THREADS="$threads" \
+            OMP_PROC_BIND=${OMP_PROC_BIND:-spread} \
+            OMP_PLACES=${OMP_PLACES:-cores} \
+            "$cp2k_bin" -i "$(basename "$input")" 2>&1 \
+                | tee "$output_name"
+            rc=${PIPESTATUS[0]}
+            set +o pipefail
+        else
+            OMP_NUM_THREADS="$threads" \
+            OMP_PROC_BIND=${OMP_PROC_BIND:-spread} \
+            OMP_PLACES=${OMP_PLACES:-cores} \
+            "$cp2k_bin" -i "$(basename "$input")" \
+                > "$output_name" 2>&1
+            rc=$?
+        fi
     fi
-    set +o pipefail
+
     return "$rc"
 }
 
@@ -258,7 +303,7 @@ _cp2k_run() {
 TONTO_TO_CP2K() {
     local cp2k_bin bridge cif_converter basis_file basis_label functional geometry
     local cycle_dir previous_dir subsys input output scf_guess restart_file=""
-    local kp_file mokp_file basis_mapping main_log
+    local kp_file mokp_file basis_mapping main_log converter_log bridge_log next_cycle
     local basis_args=()
 
     _cp2k_require_command python3 || return 1
@@ -291,7 +336,11 @@ TONTO_TO_CP2K() {
     functional=$(_cp2k_functional) || return 1
     main_log=$(_cp2k_abspath "${JOBNAME}.lst") || return 1
 
-    I=$((${I:-0} + 1))
+    next_cycle=$((${I:-0} + 1))
+    if [ "$next_cycle" -gt 1 ]; then
+        _cp2k_log "Preparing periodic geometry for CP2K cycle number $next_cycle"
+    fi
+    I=$next_cycle
     cycle_dir="${I}.CP2K.cycle.${JOBNAME}"
     mkdir -p "$cycle_dir" || return 1
     cycle_dir=$(_cp2k_abspath "$cycle_dir") || return 1
@@ -302,12 +351,17 @@ TONTO_TO_CP2K() {
     for basis_mapping in ${CP2K_BASIS_MAP:-}; do
         basis_args+=(--basis-map "$basis_mapping")
     done
-    python3 "$cif_converter" \
+    converter_log="$cycle_dir/${I}.${JOBNAME}.cif-to-cp2k.log"
+    if ! python3 "$cif_converter" \
         --cif "$geometry" \
         --output "$subsys" \
         --basis "$basis_label" \
         --potential ALL \
-        "${basis_args[@]}" || return 1
+        "${basis_args[@]}" > "$converter_log" 2>&1; then
+        tail -n 20 "$converter_log" >&2
+        _cp2k_error "periodic-geometry preparation failed; inspect $converter_log"
+        return 1
+    fi
 
     scf_guess=ATOMIC
     if [ "$I" -gt 1 ]; then
@@ -335,18 +389,22 @@ TONTO_TO_CP2K() {
         return 0
     fi
 
-    _cp2k_log "========== CP2K density cycle $I =========="
-    _cp2k_log "Periodic geometry: $geometry"
-    _cp2k_log "CP2K input: $input"
-    (
+    _cp2k_log "Running CP2K, cycle number $I"
+    _cp2k_log_detail "Periodic geometry: $geometry"
+    _cp2k_log_detail "CP2K input: $input"
+    if ! (
         cd "$cycle_dir" || exit 1
         _cp2k_run "$cp2k_bin" "$input" "$output" "$main_log"
-    ) || return 1
-
-    if ! grep -q 'PROGRAM ENDED AT' "$output"; then
-        _cp2k_error "CP2K did not terminate normally; inspect $output"
+    ); then
+        _cp2k_error "CP2K cycle number $I finished with error; inspect $output"
         return 1
     fi
+
+    if ! grep -q 'PROGRAM ENDED AT' "$output"; then
+        _cp2k_error "CP2K cycle number $I did not terminate normally; inspect $output"
+        return 1
+    fi
+    _cp2k_log "CP2K cycle number $I ended"
 
     kp_file=$(find "$cycle_dir" -maxdepth 1 -type f -name '*RESTART*.kp' -print | sort | tail -1)
     mokp_file=$(find "$cycle_dir" -maxdepth 1 -type f -name '*.mokp' -print | sort | tail -1)
@@ -366,13 +424,18 @@ TONTO_TO_CP2K() {
     CP2K_PERIODIC_MANIFEST="$cycle_dir/${I}.${JOBNAME}.cp2k-tonto.json"
     CP2K_LAST_OUTPUT=$output
 
-    python3 "$bridge" \
+    bridge_log="$cycle_dir/${I}.${JOBNAME}.cp2k-tonto-bridge.log"
+    if ! python3 "$bridge" \
         --kp "$kp_file" \
         --mokp "$mokp_file" \
         --xml "$CP2K_PERIODIC_XML" \
         --basis "$CP2K_TONTO_BASIS_FILE" \
         --basis-name "$CP2K_TONTO_BASIS_NAME" \
-        --manifest "$CP2K_PERIODIC_MANIFEST" || return 1
+        --manifest "$CP2K_PERIODIC_MANIFEST" > "$bridge_log" 2>&1; then
+        tail -n 20 "$bridge_log" >&2
+        _cp2k_error "CP2K-to-Tonto conversion failed; inspect $bridge_log"
+        return 1
+    fi
 
     CP2K_LAST_ENERGY=$(awk '/ENERGY\| Total FORCE_EVAL/{value=$NF} END{print value}' "$output")
     CP2K_LAST_RMSD=$(awk '/RMS.*density|RMS.*Density/{value=$NF} END{print value}' "$output")
@@ -384,7 +447,6 @@ TONTO_TO_CP2K() {
     export CP2K_PERIODIC_XML CP2K_TONTO_BASIS_DIR CP2K_TONTO_BASIS_NAME
     export CP2K_TONTO_BASIS_FILE CP2K_PERIODIC_MANIFEST CP2K_LAST_OUTPUT
     export CP2K_LAST_ENERGY CP2K_LAST_RMSD
-    _cp2k_log "CP2K cycle $I complete: E = $CP2K_LAST_ENERGY Ha"
 }
 
 CP2K_TONTO_PERIODIC_SETUP() {
@@ -481,8 +543,8 @@ CP2K_TONTO_PERIODIC_SETUP() {
         echo ""
     } >> stdin
 
-    _cp2k_log "Tonto Gaussian basis: $CP2K_TONTO_BASIS_FILE"
-    _cp2k_log "Tonto Slater basis: $CP2K_TONTO_SLATER_BASIS_FILE"
+    _cp2k_log_detail "Tonto Gaussian basis: $CP2K_TONTO_BASIS_FILE"
+    _cp2k_log_detail "Tonto Slater basis: $CP2K_TONTO_SLATER_BASIS_FILE"
 }
 
 CP2K_TONTO_SCFDATA() {
@@ -524,11 +586,12 @@ CP2K_TONTO_SCFDATA() {
 }
 
 CP2K_CHECK_ENERGY() {
-    local previous
+    local previous previous_cycle
     [ -n "${CP2K_LAST_ENERGY:-}" ] || {
         _cp2k_error "CP2K_LAST_ENERGY is unset"
         return 1
     }
+
     if [ -z "${ENERGIA:-}" ]; then
         ENERGIA=$CP2K_LAST_ENERGY
         RMSD=${CP2K_LAST_RMSD:-0.0}
@@ -539,10 +602,15 @@ CP2K_CHECK_ENERGY() {
         previous=${ENERGIA2:-$ENERGIA}
         ENERGIA2=$CP2K_LAST_ENERGY
         RMSD2=${CP2K_LAST_RMSD:-0.0}
-        DE=$(awk -v a="$ENERGIA2" -v b="$previous" 'BEGIN { printf "%.16g", a-b }')
+        DE=$(awk -v a="$ENERGIA2" -v b="$previous" 'BEGIN { printf "%.12f", a-b }')
     fi
+
     export ENERGIA ENERGIA2 RMSD RMSD2 DE
-    _cp2k_log "CP2K energy: $ENERGIA2 Ha; delta = $DE Ha"
+    _cp2k_log "CP2K cycle number $I, final energy is: $ENERGIA2, RMSD is: $RMSD2"
+    if [ "$I" -gt 1 ]; then
+        previous_cycle=$((I - 1))
+        _cp2k_log "Delta E (cycle  $I - $previous_cycle): $DE"
+    fi
 }
 
 CP2K_ASSERT_TONTO_FIT() {
@@ -558,7 +626,7 @@ CP2K_ASSERT_TONTO_FIT() {
 }
 
 CP2K_FINAL_RESIDUALS() {
-    _cp2k_log "Calculating residual density at final geometry after $J completed HAR cycle(s)"
+    _cp2k_log "Calculating residual density at final geometry"
     TONTO_HEADER
     PROCESS_CIF
     DEFINE_JOB_NAME
@@ -605,9 +673,7 @@ CP2K_FINAL_RESIDUALS() {
 CP2K_RUN_HAR() {
     local duration
     CP2K_VALIDATE_LAMAGOET_MODE || return 1
-    _cp2k_log "###############################################################################################"
-    _cp2k_log "                         Starting periodic CP2K Hirshfeld Atom Refinement"
-    _cp2k_log "###############################################################################################"
+    _cp2k_log "Starting periodic CP2K Hirshfeld atom refinement"
 
     # Initial periodic wavefunction/density at the CIF geometry.
     TONTO_TO_CP2K || return 1
@@ -625,9 +691,9 @@ CP2K_RUN_HAR() {
     done
 
     if _cp2k_float_gt "$MAXSHIFT" "${CONVTOL:-0.01}"; then
-        _cp2k_log "WARNING: maximum HAR cycles reached before shift/esd convergence"
+        _cp2k_log "Refinement ended after the maximum number of cycles without convergence."
     else
-        _cp2k_log "HAR geometry converged: maximum shift/esd $MAXSHIFT <= ${CONVTOL:-0.01}"
+        _cp2k_log "Refinement ended. The geometry has converged."
     fi
 
     # Recalculate the periodic density at the final refined geometry, then compute
@@ -636,9 +702,7 @@ CP2K_RUN_HAR() {
     CP2K_CHECK_ENERGY || return 1
     CP2K_FINAL_RESIDUALS || return 1
 
-    _cp2k_log "###############################################################################################"
-    _cp2k_log "                         Periodic CP2K HAR finished"
-    _cp2k_log "###############################################################################################"
+    _cp2k_log "Periodic CP2K HAR finished"
     _cp2k_log "Final CP2K energy: ${ENERGIA2:-unknown} Ha"
     _cp2k_log "Final maximum shift/esd: ${MAXSHIFT:-unknown}"
     duration=$SECONDS
