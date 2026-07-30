@@ -1,0 +1,3 @@
+SCFCALCPROG="Gaussian"
+METHOD="BLYP"
+BASISSETG="MyCustomGaussianBasis"

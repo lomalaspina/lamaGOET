@@ -1,0 +1,9 @@
+# Minimal CP2K basis-file fixture for GUI-list parsing.
+H  aug-SZV-MOLOPT-ae-SR aug-SZV-MOLOPT-ae-SR-q1
+1
+2 0 0 1 1
+  1.0 1.0
+C  DZVP-MOLOPT-GTH DZVP-MOLOPT-GTH-q4
+1
+2 0 0 1 1
+  2.0 1.0

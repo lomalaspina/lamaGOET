@@ -1,6 +1,30 @@
 #!/bin/bash
 export LC_NUMERIC="en_US.UTF-8"
 
+# The periodic CP2K implementation is maintained in the monolithic launcher.
+# A cluster-side RUN_lamaGOET invocation delegates only CP2K jobs to it, while
+# all legacy backends continue through this runner unchanged.
+if [[ -f job_options.txt ]]; then
+	source ./job_options.txt
+	if [[ -z "${COMPLETESTRUCT:-}" && -n "${COMPLETECIF:-}" ]]; then
+		COMPLETESTRUCT=$COMPLETECIF
+	fi
+	if [[ "${SCFCALCPROG:-}" == "CP2K" ]]; then
+		LAMAGOET_MONOLITHIC=${LAMAGOET_MONOLITHIC:-}
+		if [[ -z "$LAMAGOET_MONOLITHIC" ]]; then
+			if command -v lamaGOET >/dev/null 2>&1; then
+				LAMAGOET_MONOLITHIC=$(command -v lamaGOET)
+			else
+				LAMAGOET_MONOLITHIC="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lamaGOET.sh"
+			fi
+		fi
+		if [[ ! -f "$LAMAGOET_MONOLITHIC" ]]; then
+			echo "RUN_lamaGOET: CP2K requires the monolithic lamaGOET.sh; set LAMAGOET_MONOLITHIC to its path." >&2
+			exit 1
+		fi
+		exec bash "$LAMAGOET_MONOLITHIC" --run-job-options "$PWD/job_options.txt"
+	fi
+fi
 
 RUN_NOSPHERA2(){
 
@@ -1935,6 +1959,72 @@ GET_FREQ_ORCA(){
 	fi
 }
 
+_har_abs_diff_le() {
+	local first=$1
+	local second=$2
+	local tolerance=$3
+	awk -v a="$first" -v b="$second" -v tol="$tolerance" '
+		BEGIN {
+			d = a - b
+			if (d < 0) d = -d
+			exit !(d <= tol)
+		}
+	'
+}
+
+_har_abs_value_le() {
+	local value=$1
+	local tolerance=$2
+	awk -v value="$value" -v tol="$tolerance" '
+		BEGIN {
+			if (value < 0) value = -value
+			exit !(value <= tol)
+		}
+	'
+}
+
+CHECK_WAVEFUNCTION_STALL(){
+	local current_energy=$1
+	local current_rmsd=$2
+	local energy_tolerance=${HAR_ENERGY_REPEAT_TOL:-${CONVTOLE:-0.000001}}
+	local rmsd_tolerance=${HAR_SCF_RMSD_TOL:-1.0e-7}
+	local reason=""
+
+	HAR_WAVEFUNCTION_STALLED=false
+	if [[ -z "$current_energy" || -z "$current_rmsd" ]]; then
+		return 0
+	fi
+	if ! _har_abs_value_le "$current_rmsd" "$rmsd_tolerance"; then
+		HAR_DIRECT_REPEAT_COUNT=0
+		HAR_PERIOD2_REPEAT_COUNT=0
+	elif [[ -n "${HAR_ENERGY_LAST:-}" ]] \
+		&& _har_abs_diff_le "$current_energy" "$HAR_ENERGY_LAST" "$energy_tolerance"; then
+		HAR_DIRECT_REPEAT_COUNT=$(( ${HAR_DIRECT_REPEAT_COUNT:-0} + 1 ))
+		HAR_PERIOD2_REPEAT_COUNT=0
+		if (( HAR_DIRECT_REPEAT_COUNT >= 2 )); then
+			reason="the SCF energy repeated in consecutive cycles"
+		fi
+	elif [[ -n "${HAR_ENERGY_PREV2:-}" ]] \
+		&& _har_abs_diff_le "$current_energy" "$HAR_ENERGY_PREV2" "$energy_tolerance"; then
+		HAR_PERIOD2_REPEAT_COUNT=$(( ${HAR_PERIOD2_REPEAT_COUNT:-0} + 1 ))
+		HAR_DIRECT_REPEAT_COUNT=0
+		if (( HAR_PERIOD2_REPEAT_COUNT >= 2 )); then
+			reason="the SCF energy entered a stable two-cycle oscillation"
+		fi
+	else
+		HAR_DIRECT_REPEAT_COUNT=0
+		HAR_PERIOD2_REPEAT_COUNT=0
+	fi
+
+	HAR_ENERGY_PREV2=${HAR_ENERGY_LAST:-}
+	HAR_ENERGY_LAST=$current_energy
+	if [[ -n "$reason" ]]; then
+		HAR_WAVEFUNCTION_STALLED=true
+		echo "Refinement wavefunction is stationary: $reason (energy tolerance $energy_tolerance, RMSD $current_rmsd)."
+		echo "The HAR loop will stop and the final residual density will be calculated."
+	fi
+}
+
 CHECK_ENERGY(){
 	if [[ "$SCFCALCPROG" == "Gaussian" || "$SCFCALCPROG" == "optgaussian" ]]; then 
 		ENERGIA3=$ENERGIA
@@ -1959,6 +2049,10 @@ CHECK_ENERGY(){
 	ABSDE2=$(awk "function abs(x){return (( x < 0.0) ? -x : x)} BEGIN {print abs($ENERGIA2) - abs($ENERGIA3)}")
 	DE=$(printf '%.12f' $DE)
 	echo -e " $J\t$(awk '{a[NR]=$0}/^Rigid-atom fit results/{b=NR}END {print a[b-4]}' stdout | awk '{print $1}' )\t$INITIALCHI\t$(awk '{a[NR]=$0}/^Rigid-atom fit results/{b=NR}END {print a[b-4]}' stdout | awk '{print  $2"\t"$3"\t"$4"\t"}') $MAXSHIFT\t$MAXSHIFTATOM $MAXSHIFTPARAM $(awk '{a[NR]=$0}/^Rigid-atom fit results/{b=NR}END {print a[b-4]}' stdout | awk '{print  "    "$9" \t"$10 }' )  $ENERGIA2   $RMSD2   \t$DE"   >> $JOBNAME.lst  
+	if [[ -z "${HAR_ENERGY_LAST:-}" && -n "${ENERGIA:-}" ]]; then
+		HAR_ENERGY_LAST=$ENERGIA
+	fi
+	CHECK_WAVEFUNCTION_STALL "$ENERGIA2" "$RMSD2"
 	ENERGIA=$ENERGIA2
 	RMSD=$RMSD2
 	echo "Delta E (cycle  $I - $[ I - 1 ]): $DE "
@@ -3063,16 +3157,9 @@ run_script(){
                                 if [[ "$SCFCALCPROG" != "Crystal14" ]]; then  
  		        	        while (( $(echo "$MAXSHIFT > $CONVTOL" | bc -l) && $( echo "$J <= $MAXCYCLE" | bc -l )  )); do
 # 		        	        while (( $(echo "$MAXSHIFT > $CONVTOL" | bc -l) || $(echo "$(echo ${DE#-}) > $CONVTOLE" | bc -l) || $( echo "$J <= $MAXCYCLE" | bc -l ) )); do
-                                                if [[ $J > 1 ]]; then
-#                                                       echo J is $J I am in
-                                                        awk '{a[NR]=$0}/^# Precise fractional system coordinates/{b=NR}/^# Reflections/{c=NR}END{for (d=b-1;d<c-1;++d) print a[d]}' $JOBNAME.archive.cif > temp1
-                                                        awk '{a[NR]=$0}/^# Precise fractional system coordinates/{b=NR}/^# Reflections/{c=NR}END{for (d=b-1;d<c-1;++d) print a[d]}' $[ $J - 1 ].tonto_cycle.$JOBNAME/$[ $J - 1 ].$JOBNAME.archive.cif > temp2
-                                                        SAME=$(diff temp1 temp2)
-                                                        rm temp1 temp2
-                                                        if [[ "($(echo ${ABSDE#-}) == 0 | bc -l)" && ("$SAME" == "") ]]; then
-        	        			        	echo "Refinement ended. The geometry has converged."
-        		        		        	break
-                                                        fi
+                                                if [[ "${HAR_WAVEFUNCTION_STALLED:-false}" == "true" ]]; then
+                                                        echo "Refinement ended because the wavefunction stopped changing."
+                                                        break
                                                 fi
 				                if [[ $J -ge $MAXCYCLE ]]; then
 				                	CHECK_ENERGY
@@ -3096,22 +3183,15 @@ run_script(){
 #					echo DE $DE
 #					echo convtoleee $CONVTOLE
  		        	        while (( $(echo "$MAXSHIFT > $CONVTOL" | bc -l) || $(echo "$(echo ${DE#-}) > $CONVTOLE" | bc -l) )); do
+                                                if [[ "${HAR_WAVEFUNCTION_STALLED:-false}" == "true" ]]; then
+                                                        echo "Refinement ended because the wavefunction stopped changing."
+                                                        break
+                                                fi
 				                if [[ $J -ge $MAXCYCLE ]]; then
 				                	CHECK_ENERGY
         				        	echo "ERROR: Refinement ended. Too many fit cycles. Check if result is reasonable and/or change your convergency criteira."
         				        	break
         				        fi
-                                                if [[ $J > 1 ]]; then
-                                                        awk '{a[NR]=$0}/^# Precise fractional system coordinates/{b=NR}/^# Reflections/{c=NR}END{for (d=b-1;d<c-1;++d) print a[d]}' $JOBNAME.archive.cif > temp1
-                                                        awk '{a[NR]=$0}/^# Precise fractional system coordinates/{b=NR}/^# Reflections/{c=NR}END{for (d=b-1;d<c-1;++d) print a[d]}' $[ $J - 1 ].tonto_cycle.$JOBNAME/$[ $J - 1 ].$JOBNAME.archive.cif > temp2
-                                                        SAME=$(diff temp1 temp2)
-                                                        rm temp1 temp2
-                                                        if [[ "($(echo ${ABSDE#-}) == 0 | bc -l)" && ("$SAME" == "") ]]; then
-        	        			        	echo "Refinement ended. The geometry has converged."
-        		        		        	break
-                                                        fi
-#						echo "I AM IN THE WHILE LOOP BEFORE TESTING ENERGYXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
-                                                fi
         				        SCF_TO_TONTO
         			        	TONTO_TO_CRYSTAL
         			        	CHECK_ENERGY

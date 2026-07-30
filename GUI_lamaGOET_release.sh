@@ -1,6 +1,13 @@
 #!/bin/bash
 Encoding=UTF-8
 
+LAMAGOET_GUI_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+LAMAGOET_MONOLITHIC=${LAMAGOET_MONOLITHIC:-$LAMAGOET_GUI_DIR/lamaGOET.sh}
+if [[ ! -f "$LAMAGOET_MONOLITHIC" ]] && command -v lamaGOET >/dev/null 2>&1; then
+	LAMAGOET_MONOLITHIC=$(command -v lamaGOET)
+fi
+export LAMAGOET_MONOLITHIC
+
 SPACEGROUPMENU(){
 	SPACEGROUPARRAY=(
         "1        = p 1          =  p 1            "
@@ -720,6 +727,67 @@ qsub lamaGOET.pbs
 ############################################################################################################################
 }
 
+# Initialise widget state before gtkdialog constructs the window.
+if [[ -f job_options.txt ]]; then
+	source ./job_options.txt
+fi
+if [[ -z "${COMPLETESTRUCT:-}" && -n "${COMPLETECIF:-}" ]]; then
+	COMPLETESTRUCT=$COMPLETECIF
+fi
+if [[ -z "${SCFCALCPROG:-}" ]]; then
+	SCFCALCPROG="Gaussian"
+fi
+export SCFCALCPROG
+if [[ "$SCFCALCPROG" == "CP2K" ]]; then
+	CP2K_SETTINGS_VISIBLE=true
+else
+	CP2K_SETTINGS_VISIBLE=false
+fi
+if [[ "$SCFCALCPROG" == "CP2K" && -z "${CP2K_BASIS_SET:-}" ]]; then
+	CP2K_BASIS_SET=${CP2K_BASIS:-${BASISSETG:-}}
+fi
+if [[ "$SCFCALCPROG" == "CP2K" || "$SCFCALCPROG" == "Crystal14" ]]; then
+	LEGACY_SCF_OPTIONS_VISIBLE=false
+else
+	LEGACY_SCF_OPTIONS_VISIBLE=true
+fi
+if [[ "$SCFCALCPROG" == "CP2K" ]]; then
+	METHOD_OPTIONS_VISIBLE=false
+else
+	METHOD_OPTIONS_VISIBLE=true
+fi
+if [[ "$SCFCALCPROG" == "Tonto" ]]; then
+	TONTO_BASIS_OPTIONS_VISIBLE=true
+	EXTERNAL_BASIS_OPTIONS_VISIBLE=false
+else
+	TONTO_BASIS_OPTIONS_VISIBLE=false
+	[[ "$SCFCALCPROG" == "CP2K" ]] \
+		&& EXTERNAL_BASIS_OPTIONS_VISIBLE=false \
+		|| EXTERNAL_BASIS_OPTIONS_VISIBLE=true
+fi
+[[ "$SCFCALCPROG" == "elmodb" ]] \
+	&& ELMODB_OPTIONS_VISIBLE=true \
+	|| ELMODB_OPTIONS_VISIBLE=false
+[[ "$SCFCALCPROG" == "Tonto" || "$SCFCALCPROG" == "elmodb" ]] \
+	&& BASIS_DIRECTORY_VISIBLE=true \
+	|| BASIS_DIRECTORY_VISIBLE=false
+: "${CP2K_BASIS_SET_FILE:=$HOME/cp2k-master/install/share/cp2k/data/BASIS_AUG_MOLOPT}"
+: "${CP2K_BASIS_SET:=aug-SZV-MOLOPT-ae-SR}"
+: "${CP2K_XC_FUNCTIONAL:=BLYP}"
+: "${METHOD:=rhf}"
+: "${BASISSETG:=STO-3G}"
+export CP2K_BASIS_SET_FILE CP2K_BASIS_SET CP2K_XC_FUNCTIONAL
+CP2K_FUNCTIONAL_ITEMS=$(
+	bash "$LAMAGOET_MONOLITHIC" --list-cp2k-functionals "$CP2K_XC_FUNCTIONAL" |
+		awk '{ print "       <item>" $0 "</item>" }'
+)
+export CP2K_FUNCTIONAL_ITEMS
+LAMAGOET_CIF_SELECTION_FILE="${TMPDIR:-/tmp}/lamagoet-cif-selection-${USER:-user}-$$"
+LAMAGOET_SCF_SELECTION_FILE="${TMPDIR:-/tmp}/lamagoet-scf-selection-${USER:-user}-$$"
+printf '%s\n' "$SCFCALCPROG" > "$LAMAGOET_SCF_SELECTION_FILE"
+export LAMAGOET_CIF_SELECTION_FILE LAMAGOET_SCF_SELECTION_FILE
+trap 'rm -f -- "$LAMAGOET_CIF_SELECTION_FILE" "$LAMAGOET_SCF_SELECTION_FILE"' EXIT
+
 export MAIN_DIALOG='
 
 	<window window_position="1" title="lamaGOET: An interface for quantum crystallography">
@@ -754,8 +822,19 @@ export MAIN_DIALOG='
 	    <text xalign="0" use-markup="true" wrap="false" space-fill="True"  space-expand="True"><label>Software for SCF calculation</label></text>
 	      <radiobutton space-fill="True"  space-expand="True">
 	        <label>Gaussian</label>
-	        <default>true</default>
+	        <input>if [ "$SCFCALCPROG" = "Gaussian" ]; then echo true; else echo false; fi</input>
 	        <action>if true echo 'SCFCALCPROG="Gaussian"'</action>  
+	        <action>if true echo Gaussian > "$LAMAGOET_SCF_SELECTION_FILE"</action>
+	        <action>if true refresh:METHOD</action>
+	        <action>if true refresh:BASISSETG</action>
+	        <action>if true show:METHOD_OPTIONS</action>
+	        <action>if true show:EXTERNAL_BASIS_OPTIONS</action>
+	        <action>if true hide:TONTO_BASIS_OPTIONS</action>
+	        <action>if true show:LEGACY_SCF_OPTIONS</action>
+	        <action>if true hide:ELMODB_OPTIONS</action>
+	        <action>if true hide:BASIS_DIRECTORY_OPTIONS</action>
+	        <action>if true hide:INITADP_OPTIONS</action>
+	        <action>if true hide:CP2K_SETTINGS_FRAME</action>
 	        <action>if true enable:MEM</action>
 	        <action>if true enable:NUMPROC</action>
 	        <action>if true disable:BASISSETDIR</action>
@@ -800,8 +879,19 @@ export MAIN_DIALOG='
 	      </radiobutton>
 	      <radiobutton space-fill="True"  space-expand="True">
 	        <label>Orca</label>
-	        <default>false</default>
+	        <input>if [ "$SCFCALCPROG" = "Orca" ]; then echo true; else echo false; fi</input>
 	        <action>if true echo 'SCFCALCPROG="Orca"'</action>
+	        <action>if true echo Orca > "$LAMAGOET_SCF_SELECTION_FILE"</action>
+	        <action>if true refresh:METHOD</action>
+	        <action>if true refresh:BASISSETG</action>
+	        <action>if true show:METHOD_OPTIONS</action>
+	        <action>if true show:EXTERNAL_BASIS_OPTIONS</action>
+	        <action>if true hide:TONTO_BASIS_OPTIONS</action>
+	        <action>if true show:LEGACY_SCF_OPTIONS</action>
+	        <action>if true hide:ELMODB_OPTIONS</action>
+	        <action>if true hide:BASIS_DIRECTORY_OPTIONS</action>
+	        <action>if true hide:INITADP_OPTIONS</action>
+	        <action>if true hide:CP2K_SETTINGS_FRAME</action>
 	        <action>if true enable:MEM</action>
 	        <action>if true enable:NUMPROC</action>
 	        <action>if true enable:SCFCALC_BIN</action>
@@ -846,8 +936,19 @@ export MAIN_DIALOG='
 	      </radiobutton>
 	      <radiobutton space-fill="True"  space-expand="True">
 	        <label>OCC</label>
-	        <default>false</default>
+	        <input>if [ "$SCFCALCPROG" = "OCC" ]; then echo true; else echo false; fi</input>
 	        <action>if true echo 'SCFCALCPROG="OCC"'</action>
+	        <action>if true echo OCC > "$LAMAGOET_SCF_SELECTION_FILE"</action>
+	        <action>if true refresh:METHOD</action>
+	        <action>if true refresh:BASISSETG</action>
+	        <action>if true show:METHOD_OPTIONS</action>
+	        <action>if true show:EXTERNAL_BASIS_OPTIONS</action>
+	        <action>if true hide:TONTO_BASIS_OPTIONS</action>
+	        <action>if true show:LEGACY_SCF_OPTIONS</action>
+	        <action>if true hide:ELMODB_OPTIONS</action>
+	        <action>if true hide:BASIS_DIRECTORY_OPTIONS</action>
+	        <action>if true hide:INITADP_OPTIONS</action>
+	        <action>if true hide:CP2K_SETTINGS_FRAME</action>
 	        <action>if true enable:MEM</action>
 	        <action>if true enable:NUMPROC</action>
 	        <action>if true enable:SCFCALC_BIN</action>
@@ -892,8 +993,19 @@ export MAIN_DIALOG='
 	      </radiobutton>
 	      <radiobutton space-fill="True"  space-expand="True">
 	        <label>Tonto</label>
-	        <default>false</default>
+	        <input>if [ "$SCFCALCPROG" = "Tonto" ]; then echo true; else echo false; fi</input>
 	        <action>if true echo 'SCFCALCPROG="Tonto"'</action>
+	        <action>if true echo Tonto > "$LAMAGOET_SCF_SELECTION_FILE"</action>
+	        <action>if true refresh:METHOD</action>
+	        <action>if true refresh:BASISSETG</action>
+	        <action>if true show:METHOD_OPTIONS</action>
+	        <action>if true hide:EXTERNAL_BASIS_OPTIONS</action>
+	        <action>if true show:TONTO_BASIS_OPTIONS</action>
+	        <action>if true show:LEGACY_SCF_OPTIONS</action>
+	        <action>if true hide:ELMODB_OPTIONS</action>
+	        <action>if true show:BASIS_DIRECTORY_OPTIONS</action>
+	        <action>if true hide:INITADP_OPTIONS</action>
+	        <action>if true hide:CP2K_SETTINGS_FRAME</action>
 	        <action>if true enable:BASISSETDIR</action>
 	        <action>if false disable:BASISSETDIR</action>
 	        <action>if true enable:USEBECKE</action>
@@ -940,8 +1052,19 @@ export MAIN_DIALOG='
 	      </radiobutton>
 	      <radiobutton space-fill="True"  space-expand="True">
 	        <label>elmodb</label>
-	        <default>false</default>
+	        <input>if [ "$SCFCALCPROG" = "elmodb" ]; then echo true; else echo false; fi</input>
 	        <action>if true echo 'SCFCALCPROG="elmodb"'</action>
+	        <action>if true echo elmodb > "$LAMAGOET_SCF_SELECTION_FILE"</action>
+	        <action>if true refresh:METHOD</action>
+	        <action>if true refresh:BASISSETG</action>
+	        <action>if true show:METHOD_OPTIONS</action>
+	        <action>if true show:EXTERNAL_BASIS_OPTIONS</action>
+	        <action>if true hide:TONTO_BASIS_OPTIONS</action>
+	        <action>if true show:LEGACY_SCF_OPTIONS</action>
+	        <action>if true show:ELMODB_OPTIONS</action>
+	        <action>if true show:BASIS_DIRECTORY_OPTIONS</action>
+	        <action>if true show:INITADP_OPTIONS</action>
+	        <action>if true hide:CP2K_SETTINGS_FRAME</action>
 	        <action>if true enable:NTAIL</action>
 	        <action>if false disable:NTAIL</action>
 	        <action>if true disable:EXPLICITMOL</action>
@@ -985,10 +1108,70 @@ export MAIN_DIALOG='
 	        <action>if true disable:DEFRAGNETW</action>
 	        <action>if false enable:DEFRAGNETW</action>
 	      </radiobutton>
+	      <radiobutton space-fill="True" space-expand="True" visible="true">
+	        <label>CP2K periodic (all-electron GAPW)</label>
+	        <input>if [ "$SCFCALCPROG" = "CP2K" ]; then echo true; else echo false; fi</input>
+	        <action>if true echo 'SCFCALCPROG="CP2K"'</action>
+	        <action>if true echo CP2K > "$LAMAGOET_SCF_SELECTION_FILE"</action>
+	        <action>if true hide:METHOD_OPTIONS</action>
+	        <action>if true hide:EXTERNAL_BASIS_OPTIONS</action>
+	        <action>if true hide:TONTO_BASIS_OPTIONS</action>
+	        <action>if true hide:LEGACY_SCF_OPTIONS</action>
+	        <action>if true hide:ELMODB_OPTIONS</action>
+	        <action>if true hide:BASIS_DIRECTORY_OPTIONS</action>
+	        <action>if true hide:INITADP_OPTIONS</action>
+	        <action>if true show:CP2K_SETTINGS_FRAME</action>
+	        <action>if true enable:CP2K_BIN</action>
+	        <action>if false disable:CP2K_BIN</action>
+	        <action>if true enable:CP2K_BASIS_SET_FILE</action>
+	        <action>if false disable:CP2K_BASIS_SET_FILE</action>
+	        <action>if true enable:CP2K_BASIS_SET</action>
+	        <action>if false disable:CP2K_BASIS_SET</action>
+	        <action>if true enable:CP2K_XC_FUNCTIONAL</action>
+	        <action>if false disable:CP2K_XC_FUNCTIONAL</action>
+	        <action>if true enable:CP2K_KPOINT_GRID</action>
+	        <action>if false disable:CP2K_KPOINT_GRID</action>
+	        <action>if true enable:CP2K_CELL_CHARGE</action>
+	        <action>if false disable:CP2K_CELL_CHARGE</action>
+	        <action>if true enable:CP2K_CELL_MULTIPLICITY</action>
+	        <action>if false disable:CP2K_CELL_MULTIPLICITY</action>
+	        <action>if true enable:CP2K_CUTOFF</action>
+	        <action>if false disable:CP2K_CUTOFF</action>
+	        <action>if true enable:CP2K_REL_CUTOFF</action>
+	        <action>if false disable:CP2K_REL_CUTOFF</action>
+	        <action>if true enable:CP2K_MAX_SCF</action>
+	        <action>if false disable:CP2K_MAX_SCF</action>
+	        <action>if true enable:CP2K_EPS_SCF</action>
+	        <action>if false disable:CP2K_EPS_SCF</action>
+	        <action>if true enable:CP2K_ADDED_MOS</action>
+	        <action>if false disable:CP2K_ADDED_MOS</action>
+	        <action>if true enable:NUMPROC</action>
+	        <action>if true enable:NUMPROCTONTO</action>
+	        <action>if true disable:SCFCALC_BIN</action>
+	        <action>if true disable:BASISSETDIR</action>
+	        <action>if true disable:BASISSETT</action>
+	        <action>if true disable:SCCHARGES</action>
+	        <action>if true disable:COMPLETESTRUCT</action>
+	        <action>if true disable:EXPLICITMOL</action>
+	        <action>if true disable:DEFRAGNETW</action>
+	        <action>if true disable:POWDER_HAR</action>
+	        <action>if true disable:USEGAMESS</action>
+	      </radiobutton>
 	      <radiobutton space-fill="True"  space-expand="True" visible="true">
 	        <label>Crystal23</label>
-	        <default>false</default>
+	        <input>if [ "$SCFCALCPROG" = "Crystal14" ]; then echo true; else echo false; fi</input>
 	        <action>if true echo 'SCFCALCPROG="Crystal14"'</action>
+	        <action>if true echo Crystal14 > "$LAMAGOET_SCF_SELECTION_FILE"</action>
+	        <action>if true refresh:METHOD</action>
+	        <action>if true refresh:BASISSETG</action>
+	        <action>if true show:METHOD_OPTIONS</action>
+	        <action>if true show:EXTERNAL_BASIS_OPTIONS</action>
+	        <action>if true hide:TONTO_BASIS_OPTIONS</action>
+	        <action>if true hide:LEGACY_SCF_OPTIONS</action>
+	        <action>if true hide:ELMODB_OPTIONS</action>
+	        <action>if true hide:BASIS_DIRECTORY_OPTIONS</action>
+	        <action>if true hide:INITADP_OPTIONS</action>
+	        <action>if true hide:CP2K_SETTINGS_FRAME</action>
 	        <action>if true disable:NTAIL</action>
 	        <action>if true enable:MEM</action>
 	        <action>if true enable:USEHMSYM</action>
@@ -1027,8 +1210,19 @@ export MAIN_DIALOG='
 	      </radiobutton>
 	      <radiobutton space-fill="True"  space-expand="True">
 	        <label>SC CC opt with Gaussian and Tonto</label>
-	        <default>false</default>
+	        <input>if [ "$SCFCALCPROG" = "optgaussian" ]; then echo true; else echo false; fi</input>
 	        <action>if true echo 'SCFCALCPROG="optgaussian"'</action>  
+	        <action>if true echo optgaussian > "$LAMAGOET_SCF_SELECTION_FILE"</action>
+	        <action>if true refresh:METHOD</action>
+	        <action>if true refresh:BASISSETG</action>
+	        <action>if true show:METHOD_OPTIONS</action>
+	        <action>if true show:EXTERNAL_BASIS_OPTIONS</action>
+	        <action>if true hide:TONTO_BASIS_OPTIONS</action>
+	        <action>if true show:LEGACY_SCF_OPTIONS</action>
+	        <action>if true hide:ELMODB_OPTIONS</action>
+	        <action>if true hide:BASIS_DIRECTORY_OPTIONS</action>
+	        <action>if true hide:INITADP_OPTIONS</action>
+	        <action>if true hide:CP2K_SETTINGS_FRAME</action>
 	        <action>if true enable:MEM</action>
 	        <action>if true enable:NUMPROC</action>
 	        <action>if true disable:BASISSETDIR</action>
@@ -1101,8 +1295,19 @@ export MAIN_DIALOG='
 	      </radiobutton>
 	      <radiobutton space-fill="True"  space-expand="True">
 	        <label>SC CC opt with Orca and Tonto</label>
-	        <default>false</default>
+	        <input>if [ "$SCFCALCPROG" = "optorca" ]; then echo true; else echo false; fi</input>
 	        <action>if true echo 'SCFCALCPROG="optorca"'</action>  
+	        <action>if true echo optorca > "$LAMAGOET_SCF_SELECTION_FILE"</action>
+	        <action>if true refresh:METHOD</action>
+	        <action>if true refresh:BASISSETG</action>
+	        <action>if true show:METHOD_OPTIONS</action>
+	        <action>if true show:EXTERNAL_BASIS_OPTIONS</action>
+	        <action>if true hide:TONTO_BASIS_OPTIONS</action>
+	        <action>if true show:LEGACY_SCF_OPTIONS</action>
+	        <action>if true hide:ELMODB_OPTIONS</action>
+	        <action>if true hide:BASIS_DIRECTORY_OPTIONS</action>
+	        <action>if true hide:INITADP_OPTIONS</action>
+	        <action>if true hide:CP2K_SETTINGS_FRAME</action>
 	        <action>if true enable:MEM</action>
 	        <action>if true enable:NUMPROC</action>
 	        <action>if true disable:BASISSETDIR</action>
@@ -1226,6 +1431,68 @@ export MAIN_DIALOG='
 	   </hbox>
 	
 	   <hseparator></hseparator>
+	   <vbox visible="'"$CP2K_SETTINGS_VISIBLE"'">
+	   <frame>
+	    <text use-markup="true"><label>"<b>CP2K periodic all-electron settings</b>"</label></text>
+	    <vbox>
+	     <hbox>
+	      <text label="CP2K executable"></text>
+	      <entry sensitive="'"$CP2K_SETTINGS_VISIBLE"'" fs-action="file" fs-folder="./">
+	       <input>if [ ! -z $CP2K_BIN ]; then echo "$CP2K_BIN"; else echo "$HOME/cp2k-master/install/bin/cp2k.ssmp"; fi</input>
+	       <variable>CP2K_BIN</variable>
+	      </entry>
+	      <button><input file stock="gtk-open"></input><action type="fileselect">CP2K_BIN</action></button>
+	     </hbox>
+	     <hbox>
+	      <text label="All-electron CP2K basis file"></text>
+	      <entry sensitive="'"$CP2K_SETTINGS_VISIBLE"'" fs-action="file" fs-folder="./">
+	       <input>echo "$CP2K_BASIS_SET_FILE"</input>
+	       <variable>CP2K_BASIS_SET_FILE</variable>
+	      </entry>
+	      <button>
+	       <input file stock="gtk-open"></input>
+	       <action type="fileselect">CP2K_BASIS_SET_FILE</action>
+	       <action>refresh:CP2K_BASIS_SET</action>
+	      </button>
+	     </hbox>
+	     <hbox>
+	      <text label="Basis name"></text>
+	      <comboboxentry sensitive="'"$CP2K_SETTINGS_VISIBLE"'" has-tooltip="true" tooltip-markup="Basis aliases read from the selected CP2K basis file.">
+	       <variable>CP2K_BASIS_SET</variable>
+	       <input>bash "$LAMAGOET_MONOLITHIC" --list-cp2k-basis-sets "$CP2K_BASIS_SET_FILE" "$CP2K_BASIS_SET"</input>
+	      </comboboxentry>
+	      <text label="XC functional"></text>
+	      <combobox sensitive="'"$CP2K_SETTINGS_VISIBLE"'" has-tooltip="true" tooltip-markup="Non-hybrid CP2K XC shortcuts supported by the input generator. Tonto partitions the imported periodic density with functional-independent Thakkar pro-atoms.">
+	       <variable>CP2K_XC_FUNCTIONAL</variable>
+'"$CP2K_FUNCTIONAL_ITEMS"'
+	      </combobox>
+	      <text label="k-point grid"></text>
+	      <entry sensitive="'"$CP2K_SETTINGS_VISIBLE"'"><input>if [ ! -z "$CP2K_KPOINT_GRID" ]; then echo "$CP2K_KPOINT_GRID"; else echo "2 2 2"; fi</input><variable>CP2K_KPOINT_GRID</variable></entry>
+	     </hbox>
+	     <hbox>
+	      <text label="Cell charge"></text>
+	      <entry sensitive="'"$CP2K_SETTINGS_VISIBLE"'"><input>if [ ! -z $CP2K_CELL_CHARGE ]; then echo "$CP2K_CELL_CHARGE"; else echo "0"; fi</input><variable>CP2K_CELL_CHARGE</variable></entry>
+	      <text label="Cell multiplicity"></text>
+	      <entry sensitive="'"$CP2K_SETTINGS_VISIBLE"'"><input>if [ ! -z $CP2K_CELL_MULTIPLICITY ]; then echo "$CP2K_CELL_MULTIPLICITY"; else echo "1"; fi</input><variable>CP2K_CELL_MULTIPLICITY</variable></entry>
+	     </hbox>
+	     <hbox>
+	      <text label="Cutoff"></text>
+	      <entry sensitive="'"$CP2K_SETTINGS_VISIBLE"'"><input>if [ ! -z $CP2K_CUTOFF ]; then echo "$CP2K_CUTOFF"; else echo "1200"; fi</input><variable>CP2K_CUTOFF</variable></entry>
+	      <text label="Relative cutoff"></text>
+	      <entry sensitive="'"$CP2K_SETTINGS_VISIBLE"'"><input>if [ ! -z $CP2K_REL_CUTOFF ]; then echo "$CP2K_REL_CUTOFF"; else echo "80"; fi</input><variable>CP2K_REL_CUTOFF</variable></entry>
+	      <text label="Maximum SCF cycles"></text>
+	      <entry sensitive="'"$CP2K_SETTINGS_VISIBLE"'"><input>if [ ! -z $CP2K_MAX_SCF ]; then echo "$CP2K_MAX_SCF"; else echo "100"; fi</input><variable>CP2K_MAX_SCF</variable></entry>
+	      <text label="SCF tolerance"></text>
+	      <entry sensitive="'"$CP2K_SETTINGS_VISIBLE"'"><input>if [ ! -z $CP2K_EPS_SCF ]; then echo "$CP2K_EPS_SCF"; else echo "1.0E-8"; fi</input><variable>CP2K_EPS_SCF</variable></entry>
+	      <text label="Added MOs"></text>
+	      <entry sensitive="'"$CP2K_SETTINGS_VISIBLE"'"><input>if [ ! -z $CP2K_ADDED_MOS ]; then echo "$CP2K_ADDED_MOS"; else echo "20"; fi</input><variable>CP2K_ADDED_MOS</variable></entry>
+	     </hbox>
+	    </vbox>
+	   </frame>
+	   <variable>CP2K_SETTINGS_FRAME</variable>
+	   </vbox>
+
+	   <hseparator></hseparator>
 	
 	   <hbox>
 	    <text label="Jana2006 executable" has-tooltip="true" tooltip-markup="This can be a full path" ></text>
@@ -1273,6 +1540,7 @@ export MAIN_DIALOG='
 	
 	   <hseparator></hseparator>
 	
+	   <vbox visible="'"$ELMODB_OPTIONS_VISIBLE"'">
 	   <hbox>
 	    <text label="ELMO libraries folder" has-tooltip="true" tooltip-markup="This can be a full path" ></text>
 	    <entry sensitive="false" fs-action="folder" fs-folder="./"
@@ -1285,10 +1553,13 @@ export MAIN_DIALOG='
 	     <action type="fileselect">ELMOLIB</action>
 	    </button>
 	   </hbox>
+	   <variable>ELMODB_OPTIONS</variable>
+	   </vbox>
 	
 	
 	   <hseparator></hseparator>
 	
+	   <vbox visible="'"$BASIS_DIRECTORY_VISIBLE"'">
 	   <hbox>
 	    <text label="basis sets directory" ></text>
 	    <entry sensitive="false" fs-action="folder" fs-folder="/usr/local/bin/"
@@ -1301,6 +1572,8 @@ export MAIN_DIALOG='
 	     <action type="fileselect">BASISSETDIR</action>
 	    </button>
 	   </hbox>
+	   <variable>BASIS_DIRECTORY_OPTIONS</variable>
+	   </vbox>
 	
 	   <hseparator></hseparator>
 	
@@ -1319,12 +1592,17 @@ export MAIN_DIALOG='
 	    <entry fs-action="file" fs-folder="./"
 	           fs-filters="*.cif|*.pdb"
 	           fs-title="Select a cif or pdb file">
-             <input>if [ ! -z $CIF ]; then echo "$CIF"; fi</input>
+             <input>if [ -s "$LAMAGOET_CIF_SELECTION_FILE" ]; then cat "$LAMAGOET_CIF_SELECTION_FILE"; elif [ ! -z "$CIF" ]; then echo "$CIF"; fi</input>
 	     <variable>CIF</variable>
 	    </entry>
 	    <button>
 	     <input file stock="gtk-open"></input>
 	     <action type="fileselect">CIF</action>
+	    </button>
+	    <button has-tooltip="true" tooltip-markup="Create a new CIF, open it in a crystallographic viewer, grow and save the structure, then use that new CIF as the submitted job input. Close the viewer before clicking OK.">
+	     <label>Manually grow to new CIF</label>
+	     <action>bash "$LAMAGOET_MONOLITHIC" --grow-cif "$CIF" > "$LAMAGOET_CIF_SELECTION_FILE"</action>
+	     <action>refresh:CIF</action>
 	    </button>
 	
 	    <checkbox active="false" has-tooltip="true" tooltip-markup="Make sure you will enter the correct charge and multiplicity" space-fill="True"  space-expand="True" sensitive="true">
@@ -1347,6 +1625,7 @@ export MAIN_DIALOG='
 	
 	   <hseparator></hseparator>
 
+	   <vbox visible="'"$ELMODB_OPTIONS_VISIBLE"'">
 	   <hbox>
 
 	    <checkbox active="false" has-tooltip="true" tooltip-markup="Make sure you will enter the correct charge and multiplicity" space-fill="True"  space-expand="True" sensitive="false">
@@ -1369,6 +1648,8 @@ export MAIN_DIALOG='
 	
 	
 	   </hbox>
+	   <variable>INITADP_OPTIONS</variable>
+	   </vbox>
 
 	   <hseparator></hseparator>
 	
@@ -1447,24 +1728,23 @@ export MAIN_DIALOG='
 	   </hbox>
 	
 	   <hseparator></hseparator>
+
+	   <vbox visible="'"$METHOD_OPTIONS_VISIBLE"'">
 	
 	   <hbox>
 	    <text xalign="0" use-markup="true" wrap="false" > <label>Method: </label></text>
-	    <combobox allow-empty="true" has-tooltip="true" tooltip-markup="'"'rhf'"' - Restricted Hartree-Fock, 
-	'"'rks'"' - Restricted Kohn-Sham, 
-	'"'rohf'"' - Restricted open shell Hartree-Fock, 
-	'"'uhf'"' - Unrestricted Hartree-Fock, 
-	'"'uks'"' - Unrestricted Kohn-Sham" space-fill="True"  space-expand="True" >
+	    <comboboxentry allow-empty="true" has-tooltip="true" tooltip-markup="The suggestions follow the selected SCF program. The field remains editable for another supported method." space-fill="True" space-expand="True">
 	     <variable>METHOD</variable>
-	     <item>rhf</item>
-	     <item>rks</item>
-	     <item>rohf</item>
-	     <item>uhf</item>
-	     <item>uks</item>
-	     <item>b3lyp</item>
-	    </combobox>
-	
-	
+	     <input>bash "$LAMAGOET_MONOLITHIC" --list-scf-methods "$LAMAGOET_SCF_SELECTION_FILE" "$METHOD"</input>
+	    </comboboxentry>
+	   </hbox>
+	   <variable>METHOD_OPTIONS</variable>
+	   </vbox>
+
+	   <hseparator></hseparator>
+
+	   <vbox visible="'"$TONTO_BASIS_OPTIONS_VISIBLE"'">
+	   <hbox>
 	    <text xalign="1" use-markup="true" wrap="false"><label>Basis set</label></text>
 	    <combobox has-tooltip="true" tooltip-markup="List of Basis sets available on Tonto. Please check if the basis set you want to use contains all the elements of your structure." sensitive="false" space-fill="True"  space-expand="True">
 	     <variable>BASISSETT</variable>
@@ -1501,21 +1781,27 @@ export MAIN_DIALOG='
 	    </combobox>
 	
 	   </hbox>
+	   <variable>TONTO_BASIS_OPTIONS</variable>
+	   </vbox>
 
 	   <hseparator></hseparator>
 	
+	   <vbox visible="'"$EXTERNAL_BASIS_OPTIONS_VISIBLE"'">
 	   <hbox>
 	
-	    <text><label>Enter manually for Gaussian, Orca or elmodb!</label> </text>
-	    <entry tooltip-text="Use the correct Gaussian or Orca or Tonto format" sensitive="true">
-             <input>if [ ! -z $BASISSETG ]; then echo "$BASISSETG"; else (echo "STO-3G"); fi</input>
+	    <text><label>Basis set</label> </text>
+	    <comboboxentry tooltip-text="Suggestions follow the selected SCF program. Type another keyword for a custom or externally supplied basis set." sensitive="true">
 	     <variable>BASISSETG</variable>
-	    </entry>
+	     <input>bash "$LAMAGOET_MONOLITHIC" --list-scf-basis-sets "$LAMAGOET_SCF_SELECTION_FILE" "$BASISSETG"</input>
+	    </comboboxentry>
 	
 	   </hbox>
+	   <variable>EXTERNAL_BASIS_OPTIONS</variable>
+	   </vbox>
 
 	   <hseparator></hseparator>
 
+	   <vbox visible="'"$LEGACY_SCF_OPTIONS_VISIBLE"'">
 	   <hbox>
 
 	    <checkbox active="false" space-fill="True"  space-expand="True">
@@ -1619,6 +1905,9 @@ export MAIN_DIALOG='
 	   </hbox>
 
 	   <hseparator></hseparator>
+
+	   <variable>LEGACY_SCF_OPTIONS</variable>
+	   </vbox>
 		
 	   <hbox>
 	    <text xalign="0" use-markup="true" wrap="false" space-fill="True"  space-expand="True"><label>Refinement options (all atom types): </label></text>
@@ -2537,6 +2826,10 @@ export MAIN_DIALOG='
 
 	</window>
 '
+if [[ "${LAMAGOET_DUMP_GUI_XML:-false}" == "true" ]]; then
+	printf '%s\n' "$MAIN_DIALOG"
+	exit 0
+fi
 gtkdialog --program=MAIN_DIALOG > job_options.txt
 
 source ./job_options.txt
@@ -2686,7 +2979,5 @@ if [ "$EXIT" = "OK" ]; then
 	QUEUE
 else
 	unset MAIN_DIALOG
- 	clear
 	exit 0
 fi
-

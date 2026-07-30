@@ -24,6 +24,7 @@ permutation implemented here is the one used by CP2K's own Molden writer.
 from __future__ import annotations
 
 import argparse
+from collections import Counter
 import dataclasses
 import json
 import math
@@ -36,7 +37,7 @@ from typing import BinaryIO, Iterable, Iterator, Sequence
 
 import numpy as np
 
-BRIDGE_VERSION = "4.3.0"
+BRIDGE_VERSION = "4.4.0"
 BOHR_PER_ANGSTROM = 1.8897261254578281
 
 # For each angular momentum l, this gives CP2K's 1-based internal AO indices
@@ -789,6 +790,211 @@ def validate_kp_mokp(kp: KPData, mokp: MOKPMetadata) -> None:
         )
 
 
+def _periodic_atom_matching(
+    source_elements: Sequence[str],
+    source_fractional: np.ndarray,
+    reference_elements: Sequence[str],
+    reference_fractional: np.ndarray,
+    cell_bohr: np.ndarray,
+    shift_fractional: np.ndarray,
+    tolerance_bohr: float,
+) -> tuple[bool, float]:
+    """Return whether a unique element-aware periodic atom matching exists."""
+
+    adjacency: list[list[tuple[int, float]]] = []
+    max_distance = 0.0
+    for element, position in zip(source_elements, source_fractional, strict=True):
+        candidates: list[tuple[int, float]] = []
+        for index, (reference_element, reference_position) in enumerate(
+            zip(reference_elements, reference_fractional, strict=True)
+        ):
+            if element != reference_element:
+                continue
+            difference = position + shift_fractional - reference_position
+            difference -= np.rint(difference)
+            distance = float(np.linalg.norm(difference @ cell_bohr))
+            if distance <= tolerance_bohr:
+                candidates.append((index, distance))
+        if not candidates:
+            return False, math.inf
+        candidates.sort(key=lambda item: item[1])
+        adjacency.append(candidates)
+
+    reference_for_source = [-1] * len(source_elements)
+    source_for_reference = [-1] * len(reference_elements)
+
+    def assign(source: int, visited: set[int]) -> bool:
+        for reference, _distance in adjacency[source]:
+            if reference in visited:
+                continue
+            visited.add(reference)
+            previous = source_for_reference[reference]
+            if previous == -1 or assign(previous, visited):
+                source_for_reference[reference] = source
+                reference_for_source[source] = reference
+                return True
+        return False
+
+    for source in range(len(source_elements)):
+        if not assign(source, set()):
+            return False, math.inf
+
+    for source, reference in enumerate(reference_for_source):
+        difference = (
+            source_fractional[source]
+            + shift_fractional
+            - reference_fractional[reference]
+        )
+        difference -= np.rint(difference)
+        max_distance = max(
+            max_distance, float(np.linalg.norm(difference @ cell_bohr))
+        )
+    return True, max_distance
+
+
+def align_mokp_origin_to_cif(
+    mokp: MOKPMetadata,
+    reference_cif: Path,
+    *,
+    tolerance_bohr: float = 0.1,
+) -> dict[str, float | int | list[float]]:
+    """Align a CP2K periodic atom list to the CIF by one global translation.
+
+    CP2K and the CIF may use origin-equivalent periodic coordinates.  Tonto's
+    CIF/XML importer requires the same origin, so test the direct atom mapping
+    first and then, only if necessary, find a single element-aware translation
+    that maps the complete cell.  Any non-translational geometry difference is
+    rejected rather than silently changing the CP2K density.
+    """
+
+    try:
+        from cif_to_cp2k import CIFError, read_expanded_structure
+    except ImportError as exc:
+        raise BridgeError(
+            "cif_to_cp2k.py is required for CIF/XML atom alignment"
+        ) from exc
+
+    try:
+        cell_angstrom, reference_atoms, _asymmetric_count, _operation_count = (
+            read_expanded_structure(reference_cif)
+        )
+    except (CIFError, OSError, ValueError, np.linalg.LinAlgError) as exc:
+        raise BridgeError(f"could not read reference CIF {reference_cif}: {exc}") from exc
+
+    reference_cell_bohr = cell_angstrom * BOHR_PER_ANGSTROM
+    cell_difference = float(np.max(np.abs(mokp.cell_bohr - reference_cell_bohr)))
+    if not np.allclose(
+        mokp.cell_bohr,
+        reference_cell_bohr,
+        rtol=2.0e-7,
+        atol=2.0e-6,
+    ):
+        raise BridgeError(
+            "CP2K MOKP cell does not match the CIF cell "
+            f"(maximum vector-component difference {cell_difference:.6g} bohr)"
+        )
+
+    source_elements = [atom.element for atom in mokp.atoms]
+    reference_elements = [element for element, _position in reference_atoms]
+    if Counter(source_elements) != Counter(reference_elements):
+        raise BridgeError(
+            "CP2K MOKP atoms do not match the CIF full-cell composition: "
+            f"CP2K={dict(Counter(source_elements))}, "
+            f"CIF={dict(Counter(reference_elements))}"
+        )
+
+    source_cartesian = np.asarray(
+        [atom.position_bohr for atom in mokp.atoms], dtype=np.float64
+    )
+    source_fractional = source_cartesian @ np.linalg.inv(mokp.cell_bohr)
+    reference_fractional = np.asarray(
+        [position for _element, position in reference_atoms], dtype=np.float64
+    )
+
+    zero_shift = np.zeros(3, dtype=np.float64)
+    matched, max_distance = _periodic_atom_matching(
+        source_elements,
+        source_fractional,
+        reference_elements,
+        reference_fractional,
+        mokp.cell_bohr,
+        zero_shift,
+        tolerance_bohr,
+    )
+    best_shift = zero_shift
+    origin_aligned = 0
+
+    if not matched:
+        candidates: list[np.ndarray] = []
+        first_element = source_elements[0]
+        first_position = source_fractional[0]
+        for reference_element, reference_position in zip(
+            reference_elements, reference_fractional, strict=True
+        ):
+            if reference_element != first_element:
+                continue
+            candidate = reference_position - first_position
+            candidate -= np.rint(candidate)
+            if not any(
+                np.allclose(candidate, previous, rtol=0.0, atol=1.0e-10)
+                for previous in candidates
+            ):
+                candidates.append(candidate)
+
+        matches: list[tuple[float, float, np.ndarray]] = []
+        for candidate in candidates:
+            candidate_matched, candidate_distance = _periodic_atom_matching(
+                source_elements,
+                source_fractional,
+                reference_elements,
+                reference_fractional,
+                mokp.cell_bohr,
+                candidate,
+                tolerance_bohr,
+            )
+            if candidate_matched:
+                shift_cartesian = candidate @ mokp.cell_bohr
+                matches.append(
+                    (
+                        candidate_distance,
+                        float(np.linalg.norm(shift_cartesian)),
+                        candidate,
+                    )
+                )
+        if not matches:
+            raise BridgeError(
+                "CP2K MOKP atoms cannot be matched to the CIF atoms by one "
+                "periodic origin translation; refusing to pass inconsistent "
+                "geometry and density to Tonto"
+            )
+        max_distance, _shift_norm, best_shift = min(
+            matches, key=lambda item: (item[0], item[1])
+        )
+        shift_cartesian = best_shift @ mokp.cell_bohr
+        mokp.atoms = [
+            dataclasses.replace(
+                atom,
+                position_bohr=tuple(
+                    float(value)
+                    for value in (
+                        np.asarray(atom.position_bohr, dtype=np.float64)
+                        + shift_cartesian
+                    )
+                ),
+            )
+            for atom in mokp.atoms
+        ]
+        origin_aligned = 1
+
+    return {
+        "cif_atom_match": 1,
+        "cif_origin_aligned": origin_aligned,
+        "cif_atom_match_max_distance_bohr": max_distance,
+        "cif_cell_max_difference_bohr": cell_difference,
+        "cif_origin_shift_fractional": [float(value) for value in best_shift],
+    }
+
+
 def complete_translation_cells(
     cells: Sequence[tuple[int, int, int]],
 ) -> tuple[list[tuple[int, int, int]], int]:
@@ -1038,15 +1244,20 @@ def build_manifest(
     basis_name: str,
     kp: KPData,
     mokp: MOKPMetadata,
-    validation: dict[str, float | int],
+    validation: dict[str, float | int | list[float]],
     invert_lattice_vectors: bool,
     pseudopotential_allowed: bool,
+    reference_cif: Path | None,
 ) -> dict:
     return {
         "format": "cp2k-tonto-periodic-bridge",
-        "format_version": 3,
+        "format_version": 4,
         "bridge_version": BRIDGE_VERSION,
-        "inputs": {"kp": str(kp_path), "mokp": str(mokp_path)},
+        "inputs": {
+            "kp": str(kp_path),
+            "mokp": str(mokp_path),
+            "reference_cif": str(reference_cif) if reference_cif is not None else None,
+        },
         "outputs": {
             "periodic_density_xml": str(xml_path),
             "tonto_basis_library": str(basis_path),
@@ -1084,6 +1295,8 @@ def convert(
     allow_pseudopotential: bool,
     invert_lattice_vectors: bool,
     skip_pair_check: bool,
+    reference_cif: Path | None = None,
+    atom_match_tolerance_bohr: float = 0.1,
 ) -> dict:
     kp = read_kp(kp_path)
     mokp = read_mokp(mokp_path)
@@ -1102,12 +1315,20 @@ def convert(
             "explicit experimental/diagnostic work."
         )
 
+    atom_alignment: dict[str, float | int | list[float]] = {}
+    if reference_cif is not None:
+        atom_alignment = align_mokp_origin_to_cif(
+            mokp,
+            reference_cif,
+            tolerance_bohr=atom_match_tolerance_bohr,
+        )
+
     output_cells, synthesized_inverse_cells = complete_translation_cells(kp.cells)
     physical_density, storage_validation = reconstruct_density_from_mokp(output_cells, mokp)
     reference_validation = validate_reference_cell_against_kp(kp, output_cells, physical_density)
     perm = kp.header.cp2k_to_molden_permutation()
     density = [matrix[np.ix_(perm, perm)] for matrix in physical_density]
-    validation: dict[str, float | int] = {
+    validation: dict[str, float | int | list[float]] = {
         "natom_match": 1,
         "nao_match": 1,
         "shell_order_match": 1,
@@ -1117,6 +1338,7 @@ def convert(
     }
     validation.update(storage_validation)
     validation.update(reference_validation)
+    validation.update(atom_alignment)
     if not skip_pair_check:
         validation.update(validate_density_translation_pairs(output_cells, density))
 
@@ -1142,6 +1364,7 @@ def convert(
         validation=validation,
         invert_lattice_vectors=invert_lattice_vectors,
         pseudopotential_allowed=allow_pseudopotential,
+        reference_cif=reference_cif,
     )
     if manifest_path is not None:
         manifest_path.parent.mkdir(parents=True, exist_ok=True)
@@ -1163,6 +1386,20 @@ def make_parser() -> argparse.ArgumentParser:
         help="basis name used inside the generated Tonto basis library",
     )
     parser.add_argument("--manifest", type=Path, help="optional JSON conversion manifest")
+    parser.add_argument(
+        "--reference-cif",
+        type=Path,
+        help=(
+            "CIF used to generate the CP2K geometry; validates the full-cell "
+            "atom list and aligns an origin-equivalent global translation"
+        ),
+    )
+    parser.add_argument(
+        "--atom-match-tolerance-bohr",
+        type=float,
+        default=0.1,
+        help="maximum periodic atom-matching distance after origin alignment (default: 0.1 bohr)",
+    )
     parser.add_argument(
         "--allow-pseudopotential",
         action="store_true",
@@ -1195,6 +1432,8 @@ def main(argv: Sequence[str] | None = None) -> int:
             allow_pseudopotential=args.allow_pseudopotential,
             invert_lattice_vectors=args.invert_lattice_vectors,
             skip_pair_check=args.skip_pair_check,
+            reference_cif=args.reference_cif,
+            atom_match_tolerance_bohr=args.atom_match_tolerance_bohr,
         )
     except (BridgeError, OSError, ValueError) as exc:
         parser.exit(2, f"cp2k_tonto_bridge: error: {exc}\n")
