@@ -53,6 +53,7 @@ class JobOptionsTest(unittest.TestCase):
         self.assertEqual(values["SCFCALC_BIN"], "g09")
         self.assertEqual(values["TONTO"], "tonto")
         self.assertEqual(values["PLOT_TONTO"], "false")
+        self.assertEqual(values["STOCKHOLDER_MODEL"], "cluster")
 
     def test_schema_contains_every_original_gtkdialog_variable(self):
         self.assertFalse(ORIGINAL_GUI_VARIABLES - set(OPTION_DEFAULTS))

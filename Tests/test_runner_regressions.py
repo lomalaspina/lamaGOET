@@ -51,6 +51,9 @@ class RunnerRegressionTest(unittest.TestCase):
                 )
                 self.assertIsNotNone(partition)
                 self.assertNotIn("dft_exchange_functional", partition.group(0))
+                self.assertIn(
+                    'stockholder_model= ${STOCKHOLDER_MODEL:-cluster}', body
+                )
 
     def test_orca_inputs_request_the_selected_processor_count(self):
         for name, text in self.runner_text.items():

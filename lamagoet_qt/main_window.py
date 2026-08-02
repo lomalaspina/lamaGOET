@@ -446,6 +446,22 @@ class MainWindow(QMainWindow):
         crystal_layout.addWidget(self.crystal_setting)
         layout.addWidget(self.crystal_group)
 
+        self.stockholder_group = QGroupBox("Periodic Hirshfeld partition")
+        stockholder_form = QFormLayout(self.stockholder_group)
+        self.stockholder_model = QComboBox()
+        self.stockholder_model.addItem(
+            "Finite HS atom cluster (existing model)", "cluster"
+        )
+        self.stockholder_model.addItem(
+            "Periodic unit-cell procrystal", "periodic"
+        )
+        self.stockholder_model.setToolTip(
+            "Selects only the Hirshfeld stockholder denominator. The density "
+            "remains the imported Crystal23 or CP2K density."
+        )
+        stockholder_form.addRow("Stockholder model", self.stockholder_model)
+        layout.addWidget(self.stockholder_group)
+
         self.cluster_group = QGroupBox("Molecular cluster environment")
         cluster_form = QFormLayout(self.cluster_group)
         sc_charge_row = QWidget()
@@ -1066,6 +1082,10 @@ class MainWindow(QMainWindow):
             self._option("CRYSTAL_SETTING", "auto")
         )
         self.crystal_setting.setCurrentIndex(max(0, setting_index))
+        stockholder_index = self.stockholder_model.findData(
+            self._option("STOCKHOLDER_MODEL", "cluster")
+        )
+        self.stockholder_model.setCurrentIndex(max(0, stockholder_index))
         self.sc_charges.setChecked(self._bool_option("SCCHARGES"))
         self.sc_radius.setText(self._option("SCCRADIUS", "8"))
         self.complete_charge_molecules.setChecked(self._bool_option("DEFRAG"))
@@ -1354,6 +1374,7 @@ class MainWindow(QMainWindow):
             program not in {"elmodb", "Crystal14", "CP2K"}
         )
         self.crystal_group.setVisible(program == "Crystal14")
+        self.stockholder_group.setVisible(program in {"Crystal14", "CP2K"})
         has_reflections = program not in {"optgaussian", "optorca"}
         self.hkl_label.setVisible(has_reflections)
         self.hkl_row.setVisible(has_reflections)
@@ -1596,6 +1617,7 @@ class MainWindow(QMainWindow):
             "DEFRAGNETW": _bool_text(self.network_compound.isChecked()),
             "USEGUESS": _bool_text(self.use_previous_crystal_guess.isChecked()),
             "CRYSTAL_SETTING": self.crystal_setting.currentData(),
+            "STOCKHOLDER_MODEL": self.stockholder_model.currentData(),
             "SCCHARGES": _bool_text(self.sc_charges.isChecked()),
             "SCCRADIUS": self.sc_radius.text().strip(),
             "DEFRAG": _bool_text(self.complete_charge_molecules.isChecked()),

@@ -225,13 +225,20 @@ def main() -> int:
         assert cp2k_window.cp2k_basis.currentText() == "DZVP-MOLOPT-GTH-q4"
         assert cp2k_window.cp2k_basis.count() == 4
         assert cp2k_window.cp2k_functional.currentText() == "PBE"
+        assert not cp2k_window.stockholder_group.isHidden()
+        assert cp2k_window.stockholder_model.currentData() == "cluster"
+        cp2k_window.stockholder_model.setCurrentIndex(
+            cp2k_window.stockholder_model.findData("periodic")
+        )
+        assert cp2k_window._current_values()["STOCKHOLDER_MODEL"] == "periodic"
         cp2k_window.close()
 
         crystal_options = Path(directory) / "crystal_options.txt"
         crystal_options.write_text(
             'SCFCALCPROG="Crystal14"\n'
             'METHOD="HSE06"\n'
-            'BASISSETG="POB-TZVP-REV2"\n',
+            'BASISSETG="POB-TZVP-REV2"\n'
+            'STOCKHOLDER_MODEL="periodic"\n',
             encoding="utf-8",
         )
         crystal_window = MainWindow(crystal_options)
@@ -240,6 +247,8 @@ def main() -> int:
         assert not crystal_window.basis.isHidden()
         assert crystal_window.cp2k_group.isHidden()
         assert not crystal_window.crystal_group.isHidden()
+        assert not crystal_window.stockholder_group.isHidden()
+        assert crystal_window.stockholder_model.currentData() == "periodic"
         assert crystal_window.cluster_group.isHidden()
         assert crystal_window.method.currentText() == "HSE06"
         assert crystal_window.basis.currentText() == "POB-TZVP-REV2"

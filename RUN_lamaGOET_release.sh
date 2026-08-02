@@ -1004,6 +1004,7 @@ CRYSTAL_BLOCK(){
         		echo "         thermal_smearing_model= atom-based" >> stdin
                         if [ "$SCFCALCPROG" = "Crystal14" ]; then
                                 echo "         partition_model= oc-crystal23" >> stdin
+                                echo "         stockholder_model= ${STOCKHOLDER_MODEL:-cluster}" >> stdin
                         else
                                 echo "         partition_model= oc-hirshfeld" >> stdin
                         fi

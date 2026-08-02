@@ -146,6 +146,7 @@ OPTION_DEFAULTS: dict[str, str] = {
     "SHRINKA": "2",
     "SHRINKB": "2",
     "SSBONDATOMS": "",
+    "STOCKHOLDER_MODEL": "cluster",
     "SUPERCON": "false",
     "THIRDORD": "false",
     "TONTO": "tonto",
