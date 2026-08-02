@@ -9,6 +9,28 @@ export LC_NUMERIC="en_US.UTF-8"
 LAMAGOET_SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 export LAMAGOET_SCRIPT_DIR
 
+_lamagoet_publish_latest_cif() {
+    local server=${LAMAGOET_LIVE_CIF_SERVER:-}
+    local directory=${LAMAGOET_LIVE_CIF_DIRECTORY:-}
+    local port=${LAMAGOET_LIVE_CIF_PORT:-2244}
+    local candidate
+
+    [[ -n "$server" && -n "$directory" ]] || return 0
+    command -v scp >/dev/null 2>&1 || return 0
+    for candidate in \
+        "${JOBNAME}.cartesian.cif2" \
+        "${JOBNAME}.fractional.cif1" \
+        "${JOBNAME}.archive.cif"
+    do
+        [[ -s "$candidate" ]] || continue
+        scp -q -o BatchMode=yes -o ConnectTimeout=10 -P "$port" "$candidate" \
+            "${server}:${directory}/${JOBNAME}.latest_tonto.cif" || {
+            printf 'lamaGOET: warning: could not publish the latest Tonto CIF to the submitting computer\n' >&2
+        }
+        return 0
+    done
+}
+
 _cp2k_list_basis_sets() {
     local basis_file=${1:-}
     local current=${2:-}
@@ -1072,8 +1094,6 @@ CP2K_FINAL_RESIDUALS() {
         echo "   put_minmax_residual_density"
         echo ""
         echo "   put_fitting_plots"
-        echo "   ! CLEANUP FIX V1: persist CP2K residual statistics in CIF"
-        echo "   put_cif"
         echo ""
         echo "}"
     } >> stdin
@@ -1105,12 +1125,14 @@ CP2K_FINAL_RESIDUALS() {
 
 CP2K_RUN_HAR() {
     local duration fit_wfn_cycle
+    local final_density_current=false
     CP2K_VALIDATE_LAMAGOET_MODE || return 1
     _cp2k_log "Starting periodic CP2K Hirshfeld atom refinement"
 
     # Initial periodic wavefunction/density at the CIF geometry.
     TONTO_TO_CP2K || return 1
     CP2K_CHECK_ENERGY || return 1
+    CHECK_WAVEFUNCTION_STALL "$ENERGIA2" "$RMSD2"
 
     # First Tonto Hirshfeld atom fit. Bind the row to the CP2K density
     # that is about to be passed to Tonto; do not infer the mapping from I/J.
@@ -1122,13 +1144,21 @@ CP2K_RUN_HAR() {
     while _cp2k_float_gt "$MAXSHIFT" "${CONVTOL:-0.01}" && [ "$J" -lt "${MAXCYCLE:-20}" ]; do
         TONTO_TO_CP2K || return 1
         CP2K_CHECK_ENERGY || return 1
+        CHECK_WAVEFUNCTION_STALL "$ENERGIA2" "$RMSD2"
+        if [[ "${HAR_WAVEFUNCTION_STALLED:-false}" == "true" ]]; then
+            final_density_current=true
+            _cp2k_log "Refinement ended because the periodic SCF energy is stationary."
+            break
+        fi
         fit_wfn_cycle=$I
         SCF_TO_TONTO || return 1
         CP2K_ASSERT_TONTO_FIT || return 1
         CP2K_WRITE_FIT_ROW "$fit_wfn_cycle" || return 1
     done
 
-    if _cp2k_float_gt "$MAXSHIFT" "${CONVTOL:-0.01}"; then
+    if [[ "${HAR_WAVEFUNCTION_STALLED:-false}" == "true" ]]; then
+        _cp2k_log "The last CP2K density already corresponds to the final refined geometry."
+    elif _cp2k_float_gt "$MAXSHIFT" "${CONVTOL:-0.01}"; then
         _cp2k_log "Refinement ended after the maximum number of cycles without convergence."
     else
         _cp2k_log "Refinement ended. The geometry has converged."
@@ -1136,8 +1166,12 @@ CP2K_RUN_HAR() {
 
     # Recalculate the periodic density at the final refined geometry, then compute
     # residuals. Therefore the residual-density message can only appear after HAR.
-    TONTO_TO_CP2K || return 1
-    CP2K_CHECK_ENERGY || return 1
+    if [[ "$final_density_current" != "true" ]]; then
+        TONTO_TO_CP2K || return 1
+        CP2K_CHECK_ENERGY || return 1
+    else
+        _cp2k_log "Reusing the current converged CP2K density for final residuals."
+    fi
     CP2K_FINAL_RESIDUALS || return 1
 
     _cp2k_log "Periodic CP2K HAR finished"
@@ -1795,7 +1829,9 @@ SPACEGROUPMENU(){
         	   --add-entry="gamma= " > crystal_data.txt
         fi
 	
-	zenity --entry --title "Window title" --text "${SPACEGROUPARRAY[@]}" --text "Select the space group (number = IT symbol = Hall Symbol):" > spacegroup.txt
+	zenity --list --title="Select the space group" --width=980 --height=720 \
+		--column="Number = IT symbol = Hall symbol" \
+		"${SPACEGROUPARRAY[@]}" > spacegroup.txt
 	
 }
 
@@ -2063,6 +2099,8 @@ else
 	echo "! $METHOD $BASISSETG" > $JOBNAME.inp
 fi
 echo "" >> $JOBNAME.inp 
+echo "%pal nprocs $NUMPROC end" >> $JOBNAME.inp
+echo "" >> $JOBNAME.inp
 echo "%output" >> $JOBNAME.inp 
 echo "   PrintLevel=Normal" >> $JOBNAME.inp 
 echo "   Print[ P_Basis       ] 2" >> $JOBNAME.inp 
@@ -2075,6 +2113,10 @@ echo "" >> $JOBNAME.inp
 echo "* xyz $CHARGE $MULTIPLICITY" >> $JOBNAME.inp 
 awk 'NR>2' $JOBNAME.xyz >> $JOBNAME.inp 
 echo "*" >> $JOBNAME.inp 
+if [[ "$GAUSGEN" == "true" ]]; then
+	cat basis_gen.txt >> $JOBNAME.inp
+	echo "" >> $JOBNAME.inp
+fi
 #I=$"1"
 #echo "Running Orca, cycle number $I" 
 if [ -f $JOBNAME.gbw ]; then
@@ -2467,6 +2509,8 @@ TONTO_TO_ORCA(){
 		fi
 	fi
 	echo "" >> $JOBNAME.inp
+	echo "%pal nprocs $NUMPROC end" >> $JOBNAME.inp
+	echo "" >> $JOBNAME.inp
 	echo "%output"  >> $JOBNAME.inp
 	echo "   PrintLevel=Normal"  >> $JOBNAME.inp
 	echo "   Print[ P_Basis       ] 2"  >> $JOBNAME.inp
@@ -2497,6 +2541,10 @@ TONTO_TO_ORCA(){
 	echo "* xyz $CHARGE $MULTIPLICITY"  >> $JOBNAME.inp
 	awk 'NR>2' $JOBNAME.xyz  >> $JOBNAME.inp
 	echo "*"  >> $JOBNAME.inp
+	if [[ "$GAUSGEN" == "true" ]]; then
+		cat basis_gen.txt >> $JOBNAME.inp
+		echo "" >> $JOBNAME.inp
+	fi
 	echo "Running Orca, cycle number $I" 
         if [ -f $JOBNAME.gbw ]; then
                 rm $JOBNAME.gbw
@@ -2871,10 +2919,10 @@ CRYSTAL_BLOCK(){
 	        if [[ "$POWDER_HAR" != "true" ]]; then 
         		echo "         thermal_smearing_model= atom-based" >> stdin
                         if [[ "$SCFCALCPROG" == "Crystal14" || "$SCFCALCPROG" == "CP2K" ]]; then
-        		        echo "         partition_model= oc-crystal23" >> stdin
+                                echo "         partition_model= oc-crystal23" >> stdin
                         else
-        		        echo "         partition_model= oc-hirshfeld" >> stdin
-        		fi
+                                echo "         partition_model= oc-hirshfeld" >> stdin
+                        fi
                         if [[ "$PLOT_TONTO" == "false" ]]; then
         			echo "         optimise_extinction= false" >> stdin
         			echo "         correct_dispersion= $DISP" >> stdin
@@ -3069,7 +3117,7 @@ SCF_BLOCK_NOT_TONTO(){
 		echo "   }" >> stdin
 		echo "" >> stdin
 		if [[ "$SCFCALCPROG" != "optgaussian" && "$SCFCALCPROG" != "optorca" && "$J" != "0" ]]; then 
-	                if [[ "$POWDERHAR" != "true" ]]; then
+	                if [[ "$POWDER_HAR" != "true" ]]; then
 			        echo "   ! Make Hirshfeld structure factors" >> stdin
 #			        echo "   fit_hirshfeld_atoms" >> stdin
                                 if [[ "$SCFCALCPROG" == "Crystal14" && "$DEFRAGNETW" == "true" ]]; then
@@ -3098,7 +3146,7 @@ SCF_BLOCK_NOT_TONTO(){
 ########	fi
 	else
 		if [[ "$SCFCALCPROG" != "optgaussian" && "$SCFCALCPROG" != "optorca" ]]; then 
-	                if [[ "$POWDERHAR" != "true" ]]; then
+	                if [[ "$POWDER_HAR" != "true" ]]; then
 			        echo "   ! Make Hirshfeld structure factors" >> stdin
 				if [[ "$SCFCALCPROG" == "Orca" ]]; then
 			                echo "   make_scf_density_matrix" >> stdin
@@ -3158,11 +3206,16 @@ SCF_BLOCK_REST_TONTO(){
 	echo "   ! SC cluster charge SCF" >> stdin
 	echo "   scfdata= {" >> stdin
 	echo "      initial_MOs= restricted" >> stdin
-	if [[ "$METHOD" == "b3lyp" || "$METHOD" == "rks" ]]; then
+	if [[ "$METHOD" == "b3lyp" || "$METHOD" == "B3LYP" || "$METHOD" == "rks" || "$METHOD" == "RKS" ]]; then
 		echo "      kind= rks" >> stdin
 	        echo "      output= true " >> stdin
 		echo "      dft_exchange_functional= b3lypgx" >> stdin
 		echo "      dft_correlation_functional= b3lypgc" >> stdin
+	elif [[ "$METHOD" == "blyp" || "$METHOD" == "BLYP" ]]; then
+		echo "      kind= rks" >> stdin
+	        echo "      output= true " >> stdin
+		echo "      dft_exchange_functional= becke88" >> stdin
+		echo "      dft_correlation_functional= lyp" >> stdin
 	else 
 		echo "      kind= $METHOD" >> stdin
 	        echo "      output= true " >> stdin
@@ -3205,7 +3258,7 @@ SCF_TO_TONTO(){
 	if [ "$SCFCALCPROG" = "elmodb" ]; then
 		READ_ELMO_FCHK
 	fi
-	if [[ "$SCFCALCPROG" != "elmodb" && "$SCFCALCPROG" != "optgaussian" && $"$POWDER_HAR" == "true" ]]; then
+	if [[ "$SCFCALCPROG" != "elmodb" && "$SCFCALCPROG" != "optgaussian" && "$POWDER_HAR" == "true" ]]; then
 		PROCESS_CIF
 		DEFINE_JOB_NAME
 	fi
@@ -3219,7 +3272,7 @@ SCF_TO_TONTO(){
 		DEFINE_JOB_NAME
 	fi
 	echo "" >> stdin
-	if [[ "$SCFCALCPROG" != "elmodb" && "$SCFCALCPROG" != "optgaussian" && "$SCFCALCPROG" != "optorca" && $"$POWDER_HAR" != "true" ]]; then
+	if [[ "$SCFCALCPROG" != "elmodb" && "$SCFCALCPROG" != "optgaussian" && "$SCFCALCPROG" != "optorca" && "$POWDER_HAR" != "true" ]]; then
 		PROCESS_CIF
 		DEFINE_JOB_NAME
                if [[ "$SCFCALCPROG" == "Crystal14" ]]; then
@@ -3281,7 +3334,7 @@ SCF_TO_TONTO(){
 ########	fi
 ########fi
        	PUT_GEOM
-	if [[ "POWDER_HAR" != "true" ]]; then 
+	if [[ "$POWDER_HAR" != "true" ]]; then
         	if [[ "$USEBECKE" == "true" ]]; then 
         		BECKE_GRID
         	fi
@@ -3290,8 +3343,12 @@ SCF_TO_TONTO(){
         	elif [ "$SCFCALCPROG" = "CP2K" ]; then
         	    # BEGIN LAMAGOET CP2K INTEGRATION: periodic Hirshfeld fit
 		CP2K_TONTO_SCFDATA || return 1
-        	    echo "   ! Make Hirshfeld structure factors from the periodic CP2K density" >> stdin
-        	    echo "   ha_fit" >> stdin
+                    echo "   ! Make Hirshfeld structure factors from the periodic CP2K density" >> stdin
+                    # Rebuild the pHAR atom mapping for this newly imported density
+                    # and refined geometry. This runs on every cycle; atomic form
+                    # factors are never reused across HAR cycles.
+                    echo "   phar_defragment" >> stdin
+                    echo "   ha_fit" >> stdin
         	    echo "   write_xtal23_xyz_file" >> stdin
         	    echo "" >> stdin
         	    # END LAMAGOET CP2K INTEGRATION: periodic Hirshfeld fit
@@ -3310,7 +3367,7 @@ SCF_TO_TONTO(){
 	else
 		$TONTO
 	fi
-	if [[ "$USE_NOSPHERA2" == "true" ]]; then
+	if [[ "$USENOSPHERA2" == "true" ]]; then
                 LABELS_IN_XYZ
         fi
 	if [[ "$SCFCALCPROG" == "Tonto" ]]; then
@@ -3410,6 +3467,7 @@ SCF_TO_TONTO(){
 #			cp gaussian-point-charges $J.tonto_cycle.$JOBNAME/$J.gaussian-point-charges
 		fi
 	fi
+	_lamagoet_publish_latest_cif
 }
 
 TONTO_TO_GAUSSIAN(){
@@ -3724,7 +3782,7 @@ GET_FREQ(){
 #                	awk '{a[NR]=$0}{b=11}/^------------------------------------------------------------------------/{c=NR}END{for(d=b;d<=c-1;++d)print a[d]}' gaussian-point-charges | awk '{printf "%s\t %s\t %s\t %s\t \n", $1, $2, $3, $4 }' >> $JOBNAME.com
 #                        echo "" >> $JOBNAME.com
 #                else
-                	awk '{a[NR]=$0}{b=12}/^------------------------------------------------------------------------/{c=NR}END{for(d=b;d<=c-1;++d)print a[d]}' gaussian-point-charges | awk '{printf "%s\t %s\t %s\t %s\t \n", $1, $2, $3, $4 }' >> $JOBNAME.com
+					awk '{a[NR]=$0}{b=13}/^------------------------------------------------------------------------/{c=NR}END{for(d=b;d<=c-1;++d)print a[d]}' cluster_charges | awk '{printf "%s\t %s\t %s\t %s\t \n", $1, $2, $3, $4 }' >> $JOBNAME.com
                         echo "" >> $JOBNAME.com
 #                fi
 #                rm gaussian-point-charges
@@ -3795,6 +3853,8 @@ GET_FREQ_ORCA(){
 		fi
 	fi
 	echo "" >> $JOBNAME.inp
+	echo "%pal nprocs $NUMPROC end" >> $JOBNAME.inp
+	echo "" >> $JOBNAME.inp
 	echo "%output"  >> $JOBNAME.inp
 	echo "   PrintLevel=Normal"  >> $JOBNAME.inp
 	echo "   Print[ P_Basis       ] 2"  >> $JOBNAME.inp
@@ -3827,6 +3887,10 @@ GET_FREQ_ORCA(){
 		echo ""  >> $JOBNAME.inp
 	fi
 	echo "*"  >> $JOBNAME.inp
+	if [[ "$GAUSGEN" == "true" ]]; then
+		cat basis_gen.txt >> $JOBNAME.inp
+		echo "" >> $JOBNAME.inp
+	fi
 	echo "Running Orca, cycle number $I" 
         if [ -f $JOBNAME.gbw ]; then
                 rm $JOBNAME.gbw
@@ -3907,13 +3971,10 @@ CHECK_WAVEFUNCTION_STALL(){
 	local reason=""
 
 	HAR_WAVEFUNCTION_STALLED=false
-	if [[ -z "$current_energy" || -z "$current_rmsd" ]]; then
+	if [[ -z "$current_energy" ]]; then
 		return 0
 	fi
-	if ! _har_abs_value_le "$current_rmsd" "$rmsd_tolerance"; then
-		HAR_DIRECT_REPEAT_COUNT=0
-		HAR_PERIOD2_REPEAT_COUNT=0
-	elif [[ -n "${HAR_ENERGY_LAST:-}" ]] \
+	if [[ -n "${HAR_ENERGY_LAST:-}" ]] \
 		&& _har_abs_diff_le "$current_energy" "$HAR_ENERGY_LAST" "$energy_tolerance"; then
 		HAR_DIRECT_REPEAT_COUNT=$(( ${HAR_DIRECT_REPEAT_COUNT:-0} + 1 ))
 		HAR_PERIOD2_REPEAT_COUNT=0
@@ -3936,7 +3997,10 @@ CHECK_WAVEFUNCTION_STALL(){
 	HAR_ENERGY_LAST=$current_energy
 	if [[ -n "$reason" ]]; then
 		HAR_WAVEFUNCTION_STALLED=true
-		echo "Refinement wavefunction is stationary: $reason (energy tolerance $energy_tolerance, RMSD $current_rmsd)."
+		if [[ -n "$current_rmsd" ]] && ! _har_abs_value_le "$current_rmsd" "$rmsd_tolerance"; then
+			echo "SCF RMSD $current_rmsd is above the diagnostic tolerance $rmsd_tolerance, but the SCF program terminated normally."
+		fi
+		echo "Refinement wavefunction is stationary: $reason (energy tolerance $energy_tolerance, RMSD ${current_rmsd:-unavailable})."
 		echo "The HAR loop will stop and the final residual density will be calculated."
 	fi
 }
@@ -4064,8 +4128,6 @@ GET_RESIDUALS(){
 	echo "   put_minmax_residual_density" >> stdin
 	echo "" >> stdin
         echo "   put_fitting_plots" >> stdin
-        echo "   ! CLEANUP FIX V1: persist residual statistics in CIF" >> stdin
-        echo "   put_cif" >> stdin
 #       echo "   plot_grid= {                           " >> stdin
 #       echo "" >> stdin
 #       echo "      kind= residual_density_map" >> stdin
@@ -4093,7 +4155,7 @@ GET_RESIDUALS(){
                 echo "ERROR: final Tonto residual-density calculation failed; inspect stdin and stdout" | tee -a "$JOBNAME.lst" >&2
                 return 1
         fi
-	if [[ "$USE_NOSPHERA2" == "true" ]]; then
+	if [[ "$USENOSPHERA2" == "true" ]]; then
                 LABELS_IN_XYZ
         fi
         if [ ! -d "$J.tonto_cycle.$JOBNAME" ]; then
@@ -4603,7 +4665,7 @@ run_script(){
 		exit 0
 		exit
 	fi
-	if [[ ("$SCFCALCPROG" == "Gaussian" || "$SCFCALCPROG" == "ORCA" || "$SCFCALCPROG" == "OCC") && "$SCCHARGES" == "true" ]]; then
+	if [[ ("$SCFCALCPROG" == "Gaussian" || "$SCFCALCPROG" == "Orca" || "$SCFCALCPROG" == "OCC") && "$SCCHARGES" == "true" ]]; then
 		DOUBLE_SCF="true"
 	fi 
 	if [[ ("$SCFCALCPROG" == "Tonto" && "$POWDER_HAR" == "true") && "$SCCHARGES" == "true" ]]; then
@@ -4748,7 +4810,7 @@ run_script(){
 			$TONTO
 		fi
 		NUMBEROFATOMS=$(awk '/No. of atoms ............../ {print $5}' stdout )
-	        if [[ "$USE_NOSPHERA2" == "true" ]]; then
+	        if [[ "$USENOSPHERA2" == "true" ]]; then
                         LABELS_IN_XYZ
                 fi
                 #there is no refinement here yet!!!!!!
@@ -4923,6 +4985,8 @@ run_script(){
 				echo "! $METHOD $BASISSETG " >> $JOBNAME.lst
 			fi
 			echo "" | tee -a $JOBNAME.inp $JOBNAME.lst
+			echo "%pal nprocs $NUMPROC end" | tee -a $JOBNAME.inp $JOBNAME.lst
+			echo "" | tee -a $JOBNAME.inp $JOBNAME.lst
 			echo "%output" | tee -a $JOBNAME.inp $JOBNAME.lst
 	 		echo "   PrintLevel=Normal" | tee -a $JOBNAME.inp $JOBNAME.lst
 	 		echo "   Print[ P_Basis       ] 2" | tee -a $JOBNAME.inp $JOBNAME.lst
@@ -4935,6 +4999,10 @@ run_script(){
 			echo "* xyz $CHARGE $MULTIPLICITY" | tee -a $JOBNAME.inp $JOBNAME.lst
 			awk 'NR>2' $JOBNAME.xyz | tee -a $JOBNAME.inp $JOBNAME.lst
 			echo "*" | tee -a $JOBNAME.inp $JOBNAME.lst
+			if [[ "$GAUSGEN" == "true" ]]; then
+				cat basis_gen.txt | tee -a $JOBNAME.inp $JOBNAME.lst
+				echo "" | tee -a $JOBNAME.inp $JOBNAME.lst
+			fi
 			I=$"1"
 			echo "Running Orca, cycle number $I" 
                         if [ -f $JOBNAME.gbw ]; then
@@ -7503,6 +7571,12 @@ if [[ "$GAUSGEN" = "true" && ! -f basis_gen.txt ]]; then
     BASISSETG="gen"
     zenity --entry --title="New basis set" --text="Enter or paste the basis set in the gaussian format as: \n !!NO EMPTY LINE!! \n C 0 \n S 5 \n exponent1 coefficient1 \n exponent2 coefficient2 \n exponent3 coefficient3 \n exponent4 coefficient4 \n exponent5 coefficient5 \n **** \n !!NO EMPTY LINE!! \n (Repeat this for all shells and all elements) " > basis_gen.txt
     sed -i '/BASISSETG=/c\BASISSETG=\"'$BASISSETG'"' job_options.txt
+fi
+
+# ORCA reads an external BSE/manual definition from the $DATA block appended
+# to its input. Do not also place a named built-in basis on the route line.
+if [[ "$GAUSGEN" == "true" && ( "$SCFCALCPROG" == "Orca" || "$SCFCALCPROG" == "optorca" ) ]]; then
+    BASISSETG=""
 fi
 
 if [ "$GAUSSEMPDISP" = "true" ]; then

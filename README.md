@@ -65,9 +65,51 @@ workflow. The viewer must save the grown model as CIF before it is closed. Set
 `LAMAGOET_STRUCTURE_VIEWER=/path/to/viewer` to choose a specific executable.
 
 gtkdialog cannot embed those external programs or reproduce Olex2's full
-crystallographic growing model. A native Windows/Linux/macOS Qt/PySide GUI
-with an embedded crystallographic scene is being developed as a separate
-front end while retaining `job_options.txt` and the existing shell runners.
+crystallographic growing model.
+
+An additive native Qt/PySide preview is now available as
+`GUI_lamaGOET_qt.py`. It runs on Windows, Linux, and macOS, retains the same
+`job_options.txt` and existing shell runners, and embeds a rotatable structure
+view. Its manual modes show the asymmetric unit, complete unit cell, connected
+molecules across cell boundaries, short contacts, van der Waals contacts, a
+radius around a selected atom, or a 3x3x3 neighbouring-cell pack. The displayed
+coordinates can be written to a new starting-geometry CIF while retaining the
+original unit cell and symmetry operations; the source CIF is protected from
+overwrite.
+
+The Qt Settings tab retains separate executable paths for Tonto, Gaussian,
+ORCA, OCC, Crystal23, ELMOdb, GAMESS-US, Jana and CP2K. Every save emits the
+complete option schema in alphabetical order—even values for controls hidden
+for the selected backend—so runner conditionals always receive explicit
+values. `SCFCALC_BIN` is derived from the selected backend while the individual
+program paths remain available when switching back.
+
+Basis Set Exchange integration offers per-element, all-electron-only choices
+for Gaussian, ORCA, Crystal23 and CP2K. Tonto/ELMOdb and OCC keep editable
+native basis controls because their installed/native basis formats are not
+direct Basis Set Exchange targets.
+
+The Qt view converts CIF Uij values to their physical Cartesian displacement
+tensors and draws probability ellipsoids which rotate with the structure.
+The probability can be changed from 1–99%. After the user opens the starting
+CIF, the viewer follows only that job's newly created or updated Tonto
+cartesian/fractional/archive CIFs; unrelated CIFs already in the directory are
+ignored. A PBS file generated in cluster mode exports the submitting
+host/directory to the runner, which publishes
+`JOBNAME.latest_tonto.cif` after each completed Tonto fit. If the cluster's
+non-interactive SSH policy blocks that intermediate copy, the calculation
+continues with a warning and the ordinary final stage-out remains available.
+
+The two Qt launchers deliberately have different roles:
+
+- `lamaGOET_qt.sh` is local mode. **OK** writes `job_options.txt` and starts
+  `lamaGOET.sh --run-job-options`; it never creates PBS input or calls `qsub`.
+- `GUI_lamaGOET_qt.sh` is cluster mode. **OK** writes `job_options.txt`,
+  creates `lamaGOET.pbs` with the established `RUN_lamaGOET` node command, and
+  submits it with `qsub`.
+
+See `QT_GUI_TESTING.md` for installation, testing, and the current
+model-editing limitations.
 
 ## Saved options and refinement stopping
 
@@ -75,12 +117,14 @@ front end while retaining `job_options.txt` and the existing shell runners.
 read by both runners. Existing option files containing the former
 `COMPLETECIF` name are still accepted for compatibility.
 
-For Gaussian/ORCA/Tonto HAR, the runner also detects a stationary SCF
-wavefunction when the SCF RMSD is small and the energy either repeats directly
-or enters a stable two-cycle oscillation. This handles precision-limited CIF
-coordinate cycles. It stops the HAR loop and continues to the normal final
-residual-density calculation. The thresholds can be overridden with
-`HAR_ENERGY_REPEAT_TOL` and `HAR_SCF_RMSD_TOL`.
+For Gaussian/ORCA/OCC and CP2K HAR, the runner also detects a stationary SCF
+wavefunction when the energy either repeats directly or enters a stable
+two-cycle oscillation. This handles precision-limited CIF coordinate cycles.
+The selected SCF program must still terminate normally; its reported density
+RMSD is retained as a diagnostic, but does not veto a confirmed repeated
+energy. The runner stops the HAR loop and continues to the normal final
+residual-density calculation. The energy threshold can be overridden with
+`HAR_ENERGY_REPEAT_TOL`; `HAR_SCF_RMSD_TOL` controls the diagnostic warning.
 
 ## Tonto `oc-crystal23` Fourier kernel
 
