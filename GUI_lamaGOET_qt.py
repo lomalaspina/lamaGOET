@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Launch the cross-platform lamaGOET Qt preview."""
+"""Launch the cross-platform lamaGOET Qt interface."""
 
 from __future__ import annotations
 
@@ -20,20 +20,40 @@ def main() -> int:
         ),
     )
     parser.add_argument(
+        "--setup-only",
+        action="store_true",
+        help="create/update the private Qt environment, then exit",
+    )
+    parser.add_argument(
         "job_options",
         nargs="?",
         default="job_options.txt",
         help="job_options file to load or create (default: ./job_options.txt)",
     )
     args = parser.parse_args()
+    project_root = Path(__file__).resolve().parent
+    try:
+        from lamagoet_qt.bootstrap import BootstrapError, ensure_qt_environment
+
+        python = ensure_qt_environment(
+            project_root,
+            Path(__file__).resolve(),
+            sys.argv[1:],
+        )
+    except BootstrapError as exc:
+        print(f"lamaGOET Qt setup failed:\n{exc}", file=sys.stderr)
+        return 2
+    if args.setup_only:
+        print(f"lamaGOET Qt environment is ready: {python}")
+        return 0
     try:
         from lamagoet_qt.main_window import run
     except ImportError as exc:
         if exc.name and exc.name.startswith("PySide6"):
             print(
-                "lamaGOET Qt requires PySide6.\n\n"
-                "Create a Python environment, then install the Qt requirements:\n"
-                "  python -m pip install -r requirements-qt.txt\n\n"
+                "lamaGOET Qt could not import PySide6 after automatic setup.\n"
+                "Run this launcher again with LAMAGOET_QT_REINSTALL=true, or "
+                "review the preceding pip output.\n\n"
                 "The existing GUI_lamaGOET_release.sh remains available.",
                 file=sys.stderr,
             )

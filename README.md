@@ -105,6 +105,14 @@ coordinates can be written to a new starting-geometry CIF while retaining the
 original unit cell and symmetry operations; the source CIF is protected from
 overwrite.
 
+The Qt launchers automatically create a private `.venv-qt` and install or
+update `requirements-qt.txt` on first use. No environment activation or
+manual pip command is required. Use `lamaGOET_qt.sh`/`.command`/`.cmd` for a
+local job and `GUI_lamaGOET_qt.sh`/`.command`/`.cmd` for cluster submission.
+Python 3.10 or newer remains the only Python prerequisite; chemistry programs
+and platform-level display/runtime libraries must still be installed by the
+operating system or site administrator.
+
 The Qt Settings tab retains separate executable paths for Tonto, Gaussian,
 ORCA, OCC, Crystal23, ELMOdb, GAMESS-US, Jana and CP2K. Every save emits the
 complete option schema in alphabetical order—even values for controls hidden

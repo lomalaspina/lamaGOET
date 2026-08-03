@@ -7,26 +7,35 @@ established `GUI_lamaGOET_release.sh`, `RUN_lamaGOET_release.sh`, or
 save, including controls hidden for the selected program. The assignments are
 alphabetical, and unknown site-specific assignments are retained unchanged.
 
-## Install once
+## Automatic first-run setup
 
-Use Python 3.10 or newer. From the lamaGOET directory:
+Use Python 3.10 or newer. The launchers now create `.venv-qt` and install
+`requirements-qt.txt` automatically on first use. They update that private
+environment whenever the requirements file changes, so users do not activate
+the environment or run pip manually.
+
+Only the system Python is a prerequisite:
+
+- **WSL/Debian/Ubuntu:** `python3` and `python3-venv`. The repository's
+  `install.sh` installs both, along with the common Qt/XCB runtime libraries.
+- **Windows:** Python 3.10 or newer from python.org, with the `py` launcher and
+  pip/venv options enabled.
+- **macOS:** Python 3.10 or newer from python.org or Homebrew.
+
+The first launch downloads PySide6, Basis Set Exchange, and NumPy and can take
+a few minutes. Later launches use the existing environment immediately. A
+checkout shared between Windows and WSL keeps separate platform-specific
+environments instead of overwriting an incompatible `.venv-qt`.
+
+For an installation-only check without opening the GUI:
 
 ```bash
-python3 -m venv .venv-qt
-source .venv-qt/bin/activate
-python -m pip install -r requirements-qt.txt
+python3 GUI_lamaGOET_qt.py --setup-only
 ```
 
-On Windows PowerShell, activation is:
-
-```powershell
-py -m venv .venv-qt
-.\.venv-qt\Scripts\Activate.ps1
-python -m pip install -r requirements-qt.txt
-```
-
-On macOS, the first Linux-style sequence works with a Python installed from
-python.org or Homebrew.
+Set `LAMAGOET_QT_VENV=/custom/path` to put the private environment elsewhere,
+`LAMAGOET_QT_REINSTALL=true` to repair/reinstall it, or
+`LAMAGOET_QT_NO_BOOTSTRAP=true` for an administrator-managed Python setup.
 
 ## Start it
 
@@ -37,6 +46,10 @@ so the interface finds that directory's `job_options.txt`:
 bash /path/to/lamaGOET/lamaGOET_qt.sh
 ```
 
+On native Windows, double-click `lamaGOET_qt.cmd` or run it from Command
+Prompt. On macOS, double-click `lamaGOET_qt.command` (or use the `.sh`
+launcher from Terminal).
+
 Local **OK** saves `job_options.txt` and starts the existing monolithic
 `lamaGOET.sh --run-job-options` path. It does not create `lamaGOET.pbs`, does
 not call `qsub`, and does not show the cluster-only email field.
@@ -46,6 +59,9 @@ For the submitting computer connected to the PBS cluster, use:
 ```bash
 bash /path/to/lamaGOET/GUI_lamaGOET_qt.sh
 ```
+
+The corresponding native launchers are `GUI_lamaGOET_qt.cmd` on Windows and
+`GUI_lamaGOET_qt.command` on macOS.
 
 Or name an options file and mode explicitly:
 
@@ -176,10 +192,12 @@ The CIF growth and options round-trip tests do not require Qt:
 
 ```bash
 python -m unittest \
+  Tests.test_qt_bootstrap \
   Tests.test_qt_crystal_grow \
   Tests.test_qt_job_options \
   Tests.test_qt_cluster \
   Tests.test_qt_basis_exchange \
+  Tests.test_cp2k_cif_alignment \
   Tests.test_runner_regressions
 bash Tests/test_live_cif_publish.sh
 ```

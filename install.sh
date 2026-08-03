@@ -6,11 +6,10 @@ sudo apt-get install libgtk2.0-dev -y
 sudo apt-get install gtkdialog -y
 sudo apt-get install gawk -y
 sudo apt-get install zenity -y
-sudo apt-get install python -y
-sudo apt-get install python-pip -y
-sudo apt-get install python-numpy -y
-pip install numpy -y
-pip install -r requirements-qt.txt
+sudo apt-get install python3 -y
+sudo apt-get install python3-venv -y
+sudo apt-get install python3-pip -y
+sudo apt-get install libxcb-cursor0 libxkbcommon-x11-0 libegl1 -y
 sudo apt-get install language-pack-en-base -y
 wget https://storage.googleapis.com/google-code-archive-downloads/v2/code.google.com/gtkdialog/gtkdialog-0.8.3.tar.gz
 tar -xvf gtkdialog-0.8.3.tar.gz
@@ -34,3 +33,4 @@ sudo ln -s $LOCALDIR/GUI_lamaGOET_release.sh GUI_lamaGOET
 #sudo ln -s $LOCALDIR/powderHARstart.py powderHARstart.py
 #sudo ln -s $LOCALDIR/powderHARcifrewrite.py powderHARcifrewrite.py
 cd $LOCALDIR
+python3 "$LOCALDIR/GUI_lamaGOET_qt.py" --setup-only

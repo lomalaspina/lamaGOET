@@ -6,6 +6,11 @@ for review on the `cleanup` branch; no release tag is implied by this file.
 
 ## Included behavior
 
+- The Qt launchers now create and maintain their own private Python
+  environment on first use. PySide6, Basis Set Exchange, and NumPy are
+  installed from `requirements-qt.txt`; later launches reuse the environment
+  without requiring activation or another `pip` command. Native `.cmd` and
+  macOS `.command` launchers accompany the Linux/WSL shell launchers.
 - `lamaGOET_qt.sh` runs locally, writes `job_options.txt`, and starts the
   monolithic `lamaGOET.sh`. It never writes PBS input or invokes `qsub`.
 - `GUI_lamaGOET_qt.sh` is the submitting-computer launcher. It writes the full
