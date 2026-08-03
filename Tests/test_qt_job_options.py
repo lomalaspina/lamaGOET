@@ -53,7 +53,7 @@ class JobOptionsTest(unittest.TestCase):
         self.assertEqual(values["SCFCALC_BIN"], "g09")
         self.assertEqual(values["TONTO"], "tonto")
         self.assertEqual(values["PLOT_TONTO"], "false")
-        self.assertEqual(values["PARTITION_MODEL"], "oc-crystal23")
+        self.assertEqual(values["PARTITION_MODEL"], "oc-hirshfeld")
         self.assertEqual(values["STOCKHOLDER_MODEL"], "cluster")
         self.assertEqual(values["OBSERVED_DENSITY_SHRINKAGE"], "0.5")
         self.assertEqual(values["OBSERVED_DENSITY_MIN_TF"], "0.1")

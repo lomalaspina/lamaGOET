@@ -226,28 +226,40 @@ def main() -> int:
         assert cp2k_window.cp2k_basis.count() == 4
         assert cp2k_window.cp2k_functional.currentText() == "PBE"
         assert not cp2k_window.stockholder_group.isHidden()
-        assert cp2k_window.partition_model.currentData() == "oc-crystal23"
+        assert cp2k_window.partition_model.isHidden()
+        assert cp2k_window.observed_shrinkage.isHidden()
+        assert not cp2k_window.stockholder_model.isHidden()
         assert cp2k_window.stockholder_model.currentData() == "cluster"
         cp2k_window.stockholder_model.setCurrentIndex(
             cp2k_window.stockholder_model.findData("periodic")
         )
         assert cp2k_window._current_values()["STOCKHOLDER_MODEL"] == "periodic"
-        cp2k_window.partition_model.setCurrentIndex(
-            cp2k_window.partition_model.findData("oc-observed")
-        )
-        assert cp2k_window.stockholder_model.isHidden()
-        assert not cp2k_window.observed_shrinkage.isHidden()
-        cp2k_window.observed_shrinkage.setValue(0.35)
-        cp2k_window.observed_min_tf.setValue(0.025)
-        cp2k_window.observed_zero_phase_sign.setCurrentIndex(
-            cp2k_window.observed_zero_phase_sign.findData(-1)
-        )
         cp2k_values = cp2k_window._current_values()
-        assert cp2k_values["PARTITION_MODEL"] == "oc-observed"
-        assert cp2k_values["OBSERVED_DENSITY_SHRINKAGE"] == 0.35
-        assert cp2k_values["OBSERVED_DENSITY_MIN_TF"] == 0.025
-        assert cp2k_values["OBSERVED_ZERO_PHASE_SIGN"] == -1
+        assert cp2k_values["PARTITION_MODEL"] == "oc-crystal23"
         cp2k_window.close()
+
+        tonto_options = Path(directory) / "tonto_observed_options.txt"
+        tonto_options.write_text(
+            'SCFCALCPROG="Tonto"\n'
+            'PARTITION_MODEL="oc-observed"\n'
+            'OBSERVED_DENSITY_SHRINKAGE="0.35"\n'
+            'OBSERVED_DENSITY_MIN_TF="0.025"\n'
+            'OBSERVED_ZERO_PHASE_SIGN="-1"\n',
+            encoding="utf-8",
+        )
+        tonto_window = MainWindow(tonto_options)
+        assert tonto_window.program.currentData() == "Tonto"
+        assert not tonto_window.stockholder_group.isHidden()
+        assert not tonto_window.partition_model.isHidden()
+        assert tonto_window.partition_model.currentData() == "oc-observed"
+        assert tonto_window.stockholder_model.isHidden()
+        assert not tonto_window.observed_shrinkage.isHidden()
+        assert tonto_window.observed_shrinkage.value() == 0.35
+        assert tonto_window.observed_min_tf.value() == 0.025
+        assert tonto_window.observed_zero_phase_sign.currentData() == -1
+        tonto_values = tonto_window._current_values()
+        assert tonto_values["PARTITION_MODEL"] == "oc-observed"
+        tonto_window.close()
 
         crystal_options = Path(directory) / "crystal_options.txt"
         crystal_options.write_text(
@@ -268,13 +280,11 @@ def main() -> int:
         assert crystal_window.cp2k_group.isHidden()
         assert not crystal_window.crystal_group.isHidden()
         assert not crystal_window.stockholder_group.isHidden()
-        assert crystal_window.partition_model.currentData() == "oc-observed"
-        assert crystal_window.stockholder_model.isHidden()
-        assert not crystal_window.observed_shrinkage.isHidden()
-        assert crystal_window.observed_shrinkage.value() == 0.4
-        assert crystal_window.observed_min_tf.value() == 0.05
-        assert crystal_window.observed_zero_phase_sign.currentData() == 1
+        assert crystal_window.partition_model.isHidden()
+        assert not crystal_window.stockholder_model.isHidden()
+        assert crystal_window.observed_shrinkage.isHidden()
         assert crystal_window.stockholder_model.currentData() == "periodic"
+        assert crystal_window._current_values()["PARTITION_MODEL"] == "oc-crystal23"
         assert crystal_window.cluster_group.isHidden()
         assert crystal_window.method.currentText() == "HSE06"
         assert crystal_window.basis.currentText() == "POB-TZVP-REV2"

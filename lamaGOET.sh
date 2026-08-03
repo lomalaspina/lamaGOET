@@ -2899,11 +2899,15 @@ TONTO_IAM_BLOCK(){
         fi
 }
 
-WRITE_PERIODIC_PARTITION_MODEL(){
-	case "${PARTITION_MODEL:-oc-crystal23}" in
-		auto|crystal23|oc-crystal23|"")
-			echo "         partition_model= oc-crystal23" >> stdin
-			echo "         stockholder_model= ${STOCKHOLDER_MODEL:-cluster}" >> stdin
+WRITE_DENSITY_PARTITION_MODEL(){
+	if [[ "$SCFCALCPROG" != "Tonto" ]]; then
+		echo "         partition_model= oc-crystal23" >> stdin
+		echo "         stockholder_model= ${STOCKHOLDER_MODEL:-cluster}" >> stdin
+		return 0
+	fi
+	case "${PARTITION_MODEL:-oc-hirshfeld}" in
+		auto|tonto|oc-hirshfeld|crystal23|oc-crystal23|"")
+			echo "         partition_model= oc-hirshfeld" >> stdin
 			;;
 		observed|oc-observed)
 			echo "         partition_model= oc-observed" >> stdin
@@ -2912,7 +2916,7 @@ WRITE_PERIODIC_PARTITION_MODEL(){
 			echo "         observed_zero_phase_sign= ${OBSERVED_ZERO_PHASE_SIGN:-0}" >> stdin
 			;;
 		*)
-			echo "ERROR: Unsupported PARTITION_MODEL '${PARTITION_MODEL}'. Use oc-crystal23 or oc-observed." | tee -a "$JOBNAME.lst" >&2
+			echo "ERROR: Unsupported Tonto PARTITION_MODEL '${PARTITION_MODEL}'. Use oc-hirshfeld or oc-observed." | tee -a "$JOBNAME.lst" >&2
 			return 1
 			;;
 	esac
@@ -2937,8 +2941,8 @@ CRYSTAL_BLOCK(){
 		echo "      xray_data= {   " >> stdin
 	        if [[ "$POWDER_HAR" != "true" ]]; then 
         		echo "         thermal_smearing_model= atom-based" >> stdin
-                        if [[ "$SCFCALCPROG" == "Crystal14" || "$SCFCALCPROG" == "CP2K" ]]; then
-                                WRITE_PERIODIC_PARTITION_MODEL || return 1
+                        if [[ "$SCFCALCPROG" == "Crystal14" || "$SCFCALCPROG" == "CP2K" || "$SCFCALCPROG" == "Tonto" ]]; then
+				WRITE_DENSITY_PARTITION_MODEL || return 1
                         else
                                 echo "         partition_model= oc-hirshfeld" >> stdin
                         fi

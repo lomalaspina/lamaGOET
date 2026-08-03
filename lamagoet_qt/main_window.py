@@ -446,24 +446,25 @@ class MainWindow(QMainWindow):
         crystal_layout.addWidget(self.crystal_setting)
         layout.addWidget(self.crystal_group)
 
-        self.stockholder_group = QGroupBox("Periodic/observed density partition")
+        self.stockholder_group = QGroupBox("Density partition")
         stockholder_form = QFormLayout(self.stockholder_group)
         self.partition_model = QComboBox()
         self.partition_model.addItem(
-            "Imported CP2K/Crystal23 density", "oc-crystal23"
+            "Tonto SCF density (standard)", "oc-hirshfeld"
         )
         self.partition_model.addItem(
             "Regularized observed density (experimental)", "oc-observed"
         )
         self.partition_model.setToolTip(
-            "oc-crystal23 partitions the selected program's imported periodic "
-            "density. oc-observed instead constructs atomic form factors from "
-            "an IAM prior plus regularized, phased experimental residual density."
+            "Available for Tonto SCF jobs only. oc-hirshfeld uses the Tonto SCF "
+            "density; oc-observed constructs atomic form factors from an IAM "
+            "prior plus regularized, phased experimental residual density."
         )
         self.partition_model.currentIndexChanged.connect(
             self._partition_model_changed
         )
-        stockholder_form.addRow("Density model", self.partition_model)
+        self.partition_model_label = QLabel("Density model")
+        stockholder_form.addRow(self.partition_model_label, self.partition_model)
 
         self.stockholder_model = QComboBox()
         self.stockholder_model.addItem(
@@ -1150,9 +1151,15 @@ class MainWindow(QMainWindow):
             self._option("STOCKHOLDER_MODEL", "cluster")
         )
         self.stockholder_model.setCurrentIndex(max(0, stockholder_index))
-        partition_model = self._option("PARTITION_MODEL", "oc-crystal23")
-        if partition_model in {"auto", "crystal23"}:
-            partition_model = "oc-crystal23"
+        partition_model = self._option("PARTITION_MODEL", "oc-hirshfeld")
+        if partition_model in {
+            "auto",
+            "tonto",
+            "oc-hirshfeld",
+            "crystal23",
+            "oc-crystal23",
+        }:
+            partition_model = "oc-hirshfeld"
         elif partition_model == "observed":
             partition_model = "oc-observed"
         partition_index = self.partition_model.findData(partition_model)
@@ -1462,7 +1469,9 @@ class MainWindow(QMainWindow):
             program not in {"elmodb", "Crystal14", "CP2K"}
         )
         self.crystal_group.setVisible(program == "Crystal14")
-        self.stockholder_group.setVisible(program in {"Crystal14", "CP2K"})
+        self.stockholder_group.setVisible(
+            program in {"Tonto", "Crystal14", "CP2K"}
+        )
         has_reflections = program not in {"optgaussian", "optorca"}
         self.hkl_label.setVisible(has_reflections)
         self.hkl_row.setVisible(has_reflections)
@@ -1470,15 +1479,24 @@ class MainWindow(QMainWindow):
         self.initial_adp_group.setVisible(program == "elmodb")
         self.nuclear_interaction.setVisible(program in {"Orca", "optorca"})
         self.cp2k_group.setVisible(program == "CP2K")
+        self._partition_model_changed()
         self._cluster_controls_changed()
         # Some Linux Qt themes leave this popup visible while the dependent
         # controls are being rebuilt. Explicitly close it after selection.
         QTimer.singleShot(0, self.program.hidePopup)
 
     def _partition_model_changed(self, *_args) -> None:
-        observed = self.partition_model.currentData() == "oc-observed"
-        self.stockholder_model_label.setVisible(not observed)
-        self.stockholder_model.setVisible(not observed)
+        program = self.program.currentData() or "Gaussian"
+        tonto = program == "Tonto"
+        periodic = program in {"Crystal14", "CP2K"}
+        observed = tonto and self.partition_model.currentData() == "oc-observed"
+        self.stockholder_group.setTitle(
+            "Tonto density partition" if tonto else "Periodic stockholder model"
+        )
+        self.partition_model_label.setVisible(tonto)
+        self.partition_model.setVisible(tonto)
+        self.stockholder_model_label.setVisible(periodic)
+        self.stockholder_model.setVisible(periodic)
         for widget in (
             self.observed_shrinkage_label,
             self.observed_shrinkage,
@@ -1686,6 +1704,12 @@ class MainWindow(QMainWindow):
 
     def _current_values(self) -> dict[str, object]:
         program = self.program.currentData() or "Gaussian"
+        if program == "Tonto":
+            partition_model = self.partition_model.currentData()
+        elif program in {"Crystal14", "CP2K"}:
+            partition_model = "oc-crystal23"
+        else:
+            partition_model = "oc-hirshfeld"
         result: dict[str, object] = {
             "SCFCALCPROG": program,
             "JOBNAME": self.job_name.text().strip() or "my_job",
@@ -1719,7 +1743,7 @@ class MainWindow(QMainWindow):
             "DEFRAGNETW": _bool_text(self.network_compound.isChecked()),
             "USEGUESS": _bool_text(self.use_previous_crystal_guess.isChecked()),
             "CRYSTAL_SETTING": self.crystal_setting.currentData(),
-            "PARTITION_MODEL": self.partition_model.currentData(),
+            "PARTITION_MODEL": partition_model,
             "STOCKHOLDER_MODEL": self.stockholder_model.currentData(),
             "OBSERVED_DENSITY_SHRINKAGE": self.observed_shrinkage.value(),
             "OBSERVED_DENSITY_MIN_TF": self.observed_min_tf.value(),

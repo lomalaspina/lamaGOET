@@ -45,18 +45,20 @@ For CP2K:
   retained in the per-cycle output file. Set
   `CP2K_TERMINAL_VERBOSE=false` only when compact output is wanted.
 
-### Imported versus observed density
+### Density partition models
 
-The Qt GUI shows a **Periodic/observed density partition** panel for CP2K and
-Crystal23. The default **Imported CP2K/Crystal23 density** choice retains the
-existing `partition_model=oc-crystal23` path and enables the finite-cluster or
-periodic stockholder denominator selector.
+CP2K and Crystal23 always use their imported theoretical density through
+`partition_model=oc-crystal23`. For those programs, the Qt GUI displays only
+the finite-cluster versus periodic stockholder-denominator selector. It does
+not offer the observed-density model.
 
-The alternative **Regularized observed density (experimental)** choice writes
-`partition_model=oc-observed`. This replaces the CP2K/Crystal23 density as the
-source of the atomic form factors; it does not mix the observed density with
-the imported theoretical density. The selected periodic program still
-provides the established lamaGOET job setup and cycle path.
+The **Regularized observed density (experimental)** model is available only
+when Tonto is selected as the SCF program. The Tonto density panel selects
+between its standard `partition_model=oc-hirshfeld` path and
+`partition_model=oc-observed`, which constructs the atomic form factors from
+the observed diffraction data instead of a CP2K or Crystal23 density. Saved
+legacy CP2K/Crystal23 options requesting `oc-observed` are safely normalized
+back to `oc-crystal23` when the GUI saves or the runner generates Tonto input.
 
 The observed-density controls correspond directly to Tonto input:
 
@@ -70,7 +72,7 @@ The observed-density controls correspond directly to Tonto input:
   a coefficient whose model structure factor has no phase. Expert tests may
   select +1 or -1 for a symmetry-allowed sign hypothesis.
 
-This experimental path requires a Tonto `Lolo_CP2K` build containing commit
+The experimental Tonto path requires a `Lolo_CP2K` build containing commit
 `6f7fa8cf` or later. Older Tonto executables will reject these keywords.
 
 ## Manually grown starting geometry

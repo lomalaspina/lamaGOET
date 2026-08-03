@@ -8,7 +8,11 @@ failures before expensive external programs are started.
 """
 
 from pathlib import Path
+import os
 import re
+import shutil
+import subprocess
+import tempfile
 import unittest
 
 
@@ -45,10 +49,10 @@ class RunnerRegressionTest(unittest.TestCase):
         for name, text in self.runner_text.items():
             with self.subTest(runner=name):
                 body = function_body(text, "CRYSTAL_BLOCK")
-                self.assertIn("WRITE_PERIODIC_PARTITION_MODEL", body)
+                self.assertIn("WRITE_DENSITY_PARTITION_MODEL", body)
                 self.assertIn("partition_model= oc-hirshfeld", body)
                 partition = function_body(
-                    text, "WRITE_PERIODIC_PARTITION_MODEL"
+                    text, "WRITE_DENSITY_PARTITION_MODEL"
                 )
                 self.assertNotIn("dft_exchange_functional", partition)
                 self.assertIn(
@@ -56,10 +60,18 @@ class RunnerRegressionTest(unittest.TestCase):
                     partition,
                 )
 
-    def test_observed_density_controls_are_written_for_periodic_jobs(self):
+    def test_observed_density_controls_are_tonto_only(self):
         for name, text in self.runner_text.items():
             with self.subTest(runner=name):
-                body = function_body(text, "WRITE_PERIODIC_PARTITION_MODEL")
+                body = function_body(text, "WRITE_DENSITY_PARTITION_MODEL")
+                periodic_guard = body.index(
+                    'if [[ "$SCFCALCPROG" != "Tonto" ]]'
+                )
+                periodic_return = body.index("return 0", periodic_guard)
+                observed = body.index("partition_model= oc-observed")
+                self.assertLess(periodic_return, observed)
+                self.assertIn("partition_model= oc-crystal23", body)
+                self.assertIn("partition_model= oc-hirshfeld", body)
                 self.assertIn("partition_model= oc-observed", body)
                 self.assertIn(
                     "observed_density_shrinkage= "
@@ -74,6 +86,59 @@ class RunnerRegressionTest(unittest.TestCase):
                     "observed_zero_phase_sign= ${OBSERVED_ZERO_PHASE_SIGN:-0}",
                     body,
                 )
+                crystal = function_body(text, "CRYSTAL_BLOCK")
+                self.assertRegex(
+                    crystal,
+                    r'if \[\[[^\n]*SCFCALCPROG[^\n]*"Tonto"[^\n]*\]\]; then\s+'
+                    r'WRITE_DENSITY_PARTITION_MODEL',
+                )
+
+    @unittest.skipUnless(
+        os.name == "posix" and shutil.which("bash"),
+        "generated partition input test requires bash",
+    )
+    def test_generated_partition_input_respects_scf_program(self):
+        cases = (
+            ("Tonto", "oc-observed", "partition_model= oc-observed"),
+            ("Tonto", "oc-crystal23", "partition_model= oc-hirshfeld"),
+            ("Crystal14", "oc-observed", "partition_model= oc-crystal23"),
+            ("CP2K", "oc-observed", "partition_model= oc-crystal23"),
+        )
+        for runner, text in self.runner_text.items():
+            definition = (
+                "WRITE_DENSITY_PARTITION_MODEL(){\n"
+                + function_body(text, "WRITE_DENSITY_PARTITION_MODEL")
+            )
+            for program, selected, expected in cases:
+                with self.subTest(
+                    runner=runner, program=program, partition_model=selected
+                ), tempfile.TemporaryDirectory() as directory:
+                    script = (
+                        definition
+                        + f'\nSCFCALCPROG="{program}"\n'
+                        + f'PARTITION_MODEL="{selected}"\n'
+                        + 'STOCKHOLDER_MODEL="periodic"\n'
+                        + 'OBSERVED_DENSITY_SHRINKAGE="0.35"\n'
+                        + 'OBSERVED_DENSITY_MIN_TF="0.025"\n'
+                        + 'OBSERVED_ZERO_PHASE_SIGN="-1"\n'
+                        + "WRITE_DENSITY_PARTITION_MODEL\n"
+                        + "cat stdin\n"
+                    )
+                    result = subprocess.run(
+                        ["bash", "-c", script],
+                        cwd=directory,
+                        text=True,
+                        capture_output=True,
+                        check=True,
+                    )
+                self.assertIn(expected, result.stdout)
+                if program == "Tonto" and selected == "oc-observed":
+                    self.assertIn("observed_density_shrinkage= 0.35", result.stdout)
+                    self.assertNotIn("partition_model= oc-crystal23", result.stdout)
+                elif program != "Tonto":
+                    self.assertIn("stockholder_model= periodic", result.stdout)
+                    self.assertNotIn("partition_model= oc-observed", result.stdout)
+                    self.assertNotIn("observed_density_shrinkage", result.stdout)
 
     def test_orca_inputs_request_the_selected_processor_count(self):
         for name, text in self.runner_text.items():

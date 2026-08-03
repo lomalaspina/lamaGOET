@@ -123,7 +123,7 @@ OPTION_DEFAULTS: dict[str, str] = {
     "ONF2": "false",
     "ONLYIAMTONTO": "false",
     "ORCA_BIN": "orca",
-    "PARTITION_MODEL": "oc-crystal23",
+    "PARTITION_MODEL": "oc-hirshfeld",
     "PLOT_ANGS": "false",
     "PLOT_TONTO": "false",
     "POSADP": "true",
