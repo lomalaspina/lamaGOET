@@ -53,7 +53,11 @@ class JobOptionsTest(unittest.TestCase):
         self.assertEqual(values["SCFCALC_BIN"], "g09")
         self.assertEqual(values["TONTO"], "tonto")
         self.assertEqual(values["PLOT_TONTO"], "false")
+        self.assertEqual(values["PARTITION_MODEL"], "oc-crystal23")
         self.assertEqual(values["STOCKHOLDER_MODEL"], "cluster")
+        self.assertEqual(values["OBSERVED_DENSITY_SHRINKAGE"], "0.5")
+        self.assertEqual(values["OBSERVED_DENSITY_MIN_TF"], "0.1")
+        self.assertEqual(values["OBSERVED_ZERO_PHASE_SIGN"], "0")
 
     def test_schema_contains_every_original_gtkdialog_variable(self):
         self.assertFalse(ORIGINAL_GUI_VARIABLES - set(OPTION_DEFAULTS))
@@ -131,6 +135,24 @@ class JobOptionsTest(unittest.TestCase):
             save_job_options(path, {"CIF": value})
             result = load_job_options(path)
         self.assertEqual(result["CIF"], value)
+
+    def test_observed_density_options_round_trip(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "job_options.txt"
+            save_job_options(
+                path,
+                {
+                    "PARTITION_MODEL": "oc-observed",
+                    "OBSERVED_DENSITY_SHRINKAGE": "0.35",
+                    "OBSERVED_DENSITY_MIN_TF": "0.025",
+                    "OBSERVED_ZERO_PHASE_SIGN": "-1",
+                },
+            )
+            result = load_job_options(path)
+        self.assertEqual(result["PARTITION_MODEL"], "oc-observed")
+        self.assertEqual(result["OBSERVED_DENSITY_SHRINKAGE"], "0.35")
+        self.assertEqual(result["OBSERVED_DENSITY_MIN_TF"], "0.025")
+        self.assertEqual(result["OBSERVED_ZERO_PHASE_SIGN"], "-1")
 
 
 if __name__ == "__main__":

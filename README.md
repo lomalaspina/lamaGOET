@@ -45,6 +45,34 @@ For CP2K:
   retained in the per-cycle output file. Set
   `CP2K_TERMINAL_VERBOSE=false` only when compact output is wanted.
 
+### Imported versus observed density
+
+The Qt GUI shows a **Periodic/observed density partition** panel for CP2K and
+Crystal23. The default **Imported CP2K/Crystal23 density** choice retains the
+existing `partition_model=oc-crystal23` path and enables the finite-cluster or
+periodic stockholder denominator selector.
+
+The alternative **Regularized observed density (experimental)** choice writes
+`partition_model=oc-observed`. This replaces the CP2K/Crystal23 density as the
+source of the atomic form factors; it does not mix the observed density with
+the imported theoretical density. The selected periodic program still
+provides the established lamaGOET job setup and cycle path.
+
+The observed-density controls correspond directly to Tonto input:
+
+- **Residual-density shrinkage** (`observed_density_shrinkage`, default 0.5)
+  is the fraction of reliability-weighted experimental residual density added
+  to the IAM prior. It must be at least zero and smaller than one.
+- **Minimum thermal factor** (`observed_density_min_TF`, default 0.1) limits
+  the deconvolution of thermal motion when producing static atomic form
+  factors.
+- **Zero-model phase** (`observed_zero_phase_sign`, default 0) normally omits
+  a coefficient whose model structure factor has no phase. Expert tests may
+  select +1 or -1 for a symmetry-allowed sign hypothesis.
+
+This experimental path requires a Tonto `Lolo_CP2K` build containing commit
+`6f7fa8cf` or later. Older Tonto executables will reject these keywords.
+
 ## Manually grown starting geometry
 
 gtkdialog 0.8.3 cannot embed an OpenGL/WebGL crystallographic scene. The

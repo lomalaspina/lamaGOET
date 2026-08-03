@@ -24,6 +24,11 @@ for review on the `cleanup` branch; no release tag is implied by this file.
   kept running solely because its printed RMSD exceeds the warning threshold.
 - CP2K retains visible terminal output, imports a fresh periodic density, and
   recalculates atomic form factors in every Tonto refinement cycle.
+- CP2K and Crystal23 now offer an explicit choice between their imported
+  theoretical density and Tonto's experimental `oc-observed` prototype. The
+  GUI exposes shrinkage, minimum thermal-factor, and zero-phase controls only
+  for the observed-density choice, while the stockholder selector remains
+  specific to imported periodic density.
 
 ## Scientific comparison note
 

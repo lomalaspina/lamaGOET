@@ -446,8 +446,25 @@ class MainWindow(QMainWindow):
         crystal_layout.addWidget(self.crystal_setting)
         layout.addWidget(self.crystal_group)
 
-        self.stockholder_group = QGroupBox("Periodic Hirshfeld partition")
+        self.stockholder_group = QGroupBox("Periodic/observed density partition")
         stockholder_form = QFormLayout(self.stockholder_group)
+        self.partition_model = QComboBox()
+        self.partition_model.addItem(
+            "Imported CP2K/Crystal23 density", "oc-crystal23"
+        )
+        self.partition_model.addItem(
+            "Regularized observed density (experimental)", "oc-observed"
+        )
+        self.partition_model.setToolTip(
+            "oc-crystal23 partitions the selected program's imported periodic "
+            "density. oc-observed instead constructs atomic form factors from "
+            "an IAM prior plus regularized, phased experimental residual density."
+        )
+        self.partition_model.currentIndexChanged.connect(
+            self._partition_model_changed
+        )
+        stockholder_form.addRow("Density model", self.partition_model)
+
         self.stockholder_model = QComboBox()
         self.stockholder_model.addItem(
             "Finite HS atom cluster (existing model)", "cluster"
@@ -459,7 +476,54 @@ class MainWindow(QMainWindow):
             "Selects only the Hirshfeld stockholder denominator. The density "
             "remains the imported Crystal23 or CP2K density."
         )
-        stockholder_form.addRow("Stockholder model", self.stockholder_model)
+        self.stockholder_model_label = QLabel("Stockholder model")
+        stockholder_form.addRow(
+            self.stockholder_model_label, self.stockholder_model
+        )
+
+        self.observed_shrinkage = QDoubleSpinBox()
+        self.observed_shrinkage.setRange(0.0, 0.999999)
+        self.observed_shrinkage.setDecimals(6)
+        self.observed_shrinkage.setSingleStep(0.05)
+        self.observed_shrinkage.setValue(0.5)
+        self.observed_shrinkage.setToolTip(
+            "Fraction of the reliability-weighted observed residual density "
+            "added to the IAM prior. It must be smaller than one."
+        )
+        self.observed_shrinkage_label = QLabel("Residual-density shrinkage")
+        stockholder_form.addRow(
+            self.observed_shrinkage_label, self.observed_shrinkage
+        )
+
+        self.observed_min_tf = QDoubleSpinBox()
+        self.observed_min_tf.setRange(0.000000000001, 1.0)
+        self.observed_min_tf.setDecimals(12)
+        self.observed_min_tf.setSingleStep(0.01)
+        self.observed_min_tf.setValue(0.1)
+        self.observed_min_tf.setToolTip(
+            "Smallest harmonic temperature factor used while converting the "
+            "dynamic residual density to static atomic form factors."
+        )
+        self.observed_min_tf_label = QLabel("Minimum thermal factor")
+        stockholder_form.addRow(
+            self.observed_min_tf_label, self.observed_min_tf
+        )
+
+        self.observed_zero_phase_sign = QComboBox()
+        self.observed_zero_phase_sign.addItem(
+            "Omit zero-model coefficient (recommended)", 0
+        )
+        self.observed_zero_phase_sign.addItem("Use positive phase sign", 1)
+        self.observed_zero_phase_sign.addItem("Use negative phase sign", -1)
+        self.observed_zero_phase_sign.setToolTip(
+            "Sign hypothesis used only for a symmetry-allowed phase when the "
+            "model structure factor is exactly zero."
+        )
+        self.observed_zero_phase_sign_label = QLabel("Zero-model phase")
+        stockholder_form.addRow(
+            self.observed_zero_phase_sign_label,
+            self.observed_zero_phase_sign,
+        )
         layout.addWidget(self.stockholder_group)
 
         self.cluster_group = QGroupBox("Molecular cluster environment")
@@ -1086,6 +1150,24 @@ class MainWindow(QMainWindow):
             self._option("STOCKHOLDER_MODEL", "cluster")
         )
         self.stockholder_model.setCurrentIndex(max(0, stockholder_index))
+        partition_model = self._option("PARTITION_MODEL", "oc-crystal23")
+        if partition_model in {"auto", "crystal23"}:
+            partition_model = "oc-crystal23"
+        elif partition_model == "observed":
+            partition_model = "oc-observed"
+        partition_index = self.partition_model.findData(partition_model)
+        self.partition_model.setCurrentIndex(max(0, partition_index))
+        self.observed_shrinkage.setValue(
+            self._float_option("OBSERVED_DENSITY_SHRINKAGE", 0.5)
+        )
+        self.observed_min_tf.setValue(
+            self._float_option("OBSERVED_DENSITY_MIN_TF", 0.1)
+        )
+        zero_phase_index = self.observed_zero_phase_sign.findData(
+            self._int_option("OBSERVED_ZERO_PHASE_SIGN", 0)
+        )
+        self.observed_zero_phase_sign.setCurrentIndex(max(0, zero_phase_index))
+        self._partition_model_changed()
         self.sc_charges.setChecked(self._bool_option("SCCHARGES"))
         self.sc_radius.setText(self._option("SCCRADIUS", "8"))
         self.complete_charge_molecules.setChecked(self._bool_option("DEFRAG"))
@@ -1249,6 +1331,12 @@ class MainWindow(QMainWindow):
         except ValueError:
             return default
 
+    def _float_option(self, name: str, default: float) -> float:
+        try:
+            return float(self._option(name, str(default)))
+        except ValueError:
+            return default
+
     def _bool_option(self, name: str, default: bool = False) -> bool:
         value = self._option(name)
         if not value:
@@ -1386,6 +1474,20 @@ class MainWindow(QMainWindow):
         # Some Linux Qt themes leave this popup visible while the dependent
         # controls are being rebuilt. Explicitly close it after selection.
         QTimer.singleShot(0, self.program.hidePopup)
+
+    def _partition_model_changed(self, *_args) -> None:
+        observed = self.partition_model.currentData() == "oc-observed"
+        self.stockholder_model_label.setVisible(not observed)
+        self.stockholder_model.setVisible(not observed)
+        for widget in (
+            self.observed_shrinkage_label,
+            self.observed_shrinkage,
+            self.observed_min_tf_label,
+            self.observed_min_tf,
+            self.observed_zero_phase_sign_label,
+            self.observed_zero_phase_sign,
+        ):
+            widget.setVisible(observed)
 
     def _program_activated(self, *_args) -> None:
         self.program.hidePopup()
@@ -1617,7 +1719,11 @@ class MainWindow(QMainWindow):
             "DEFRAGNETW": _bool_text(self.network_compound.isChecked()),
             "USEGUESS": _bool_text(self.use_previous_crystal_guess.isChecked()),
             "CRYSTAL_SETTING": self.crystal_setting.currentData(),
+            "PARTITION_MODEL": self.partition_model.currentData(),
             "STOCKHOLDER_MODEL": self.stockholder_model.currentData(),
+            "OBSERVED_DENSITY_SHRINKAGE": self.observed_shrinkage.value(),
+            "OBSERVED_DENSITY_MIN_TF": self.observed_min_tf.value(),
+            "OBSERVED_ZERO_PHASE_SIGN": self.observed_zero_phase_sign.currentData(),
             "SCCHARGES": _bool_text(self.sc_charges.isChecked()),
             "SCCRADIUS": self.sc_radius.text().strip(),
             "DEFRAG": _bool_text(self.complete_charge_molecules.isChecked()),

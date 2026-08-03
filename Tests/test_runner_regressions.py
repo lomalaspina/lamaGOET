@@ -45,14 +45,34 @@ class RunnerRegressionTest(unittest.TestCase):
         for name, text in self.runner_text.items():
             with self.subTest(runner=name):
                 body = function_body(text, "CRYSTAL_BLOCK")
-                partition = re.search(
-                    r"(?s)partition_model= oc-crystal23.*?partition_model= oc-hirshfeld",
+                self.assertIn("WRITE_PERIODIC_PARTITION_MODEL", body)
+                self.assertIn("partition_model= oc-hirshfeld", body)
+                partition = function_body(
+                    text, "WRITE_PERIODIC_PARTITION_MODEL"
+                )
+                self.assertNotIn("dft_exchange_functional", partition)
+                self.assertIn(
+                    'stockholder_model= ${STOCKHOLDER_MODEL:-cluster}',
+                    partition,
+                )
+
+    def test_observed_density_controls_are_written_for_periodic_jobs(self):
+        for name, text in self.runner_text.items():
+            with self.subTest(runner=name):
+                body = function_body(text, "WRITE_PERIODIC_PARTITION_MODEL")
+                self.assertIn("partition_model= oc-observed", body)
+                self.assertIn(
+                    "observed_density_shrinkage= "
+                    "${OBSERVED_DENSITY_SHRINKAGE:-0.5}",
                     body,
                 )
-                self.assertIsNotNone(partition)
-                self.assertNotIn("dft_exchange_functional", partition.group(0))
                 self.assertIn(
-                    'stockholder_model= ${STOCKHOLDER_MODEL:-cluster}', body
+                    "observed_density_min_TF= ${OBSERVED_DENSITY_MIN_TF:-0.1}",
+                    body,
+                )
+                self.assertIn(
+                    "observed_zero_phase_sign= ${OBSERVED_ZERO_PHASE_SIGN:-0}",
+                    body,
                 )
 
     def test_orca_inputs_request_the_selected_processor_count(self):
