@@ -319,3 +319,74 @@ Run the same on Linux (or WSL) to confirm both platforms agree.
   screenshots show the gtkdialog GUI and will not match Qt after this work.
   Replacing them is a separate documentation project; the numbers stay valid
   meanwhile. Worth doing eventually, out of scope here.
+
+---
+
+# Revision, after review
+
+The plan above was written before a detailed check of the code. Four things
+changed. This section wins where the two disagree.
+
+## What changed
+
+**1. Only the gtk GUI gets deleted.** Nothing else is removed for tidiness.
+The CP2K and Crystal23 code stays, including the parts that can never run on
+the cluster, because `RUN_lamaGOET_release.sh` hands CP2K jobs straight to
+`lamaGOET.sh`. Those parts get a comment explaining why they are unreachable,
+not a deletion.
+
+**2. The two runner scripts stay separate.** Merging them into one shared file
+was the earlier recommendation. It is dropped. The two files are 97.8% the
+same, and merging them would be correct, but the resulting change would be too
+large for the original author to review. The five bugs listed below are fixed
+in place instead.
+
+**3. The change must stay reviewable.** This branch is intended to become a
+pull request to `lomalaspina/lamaGOET`. Commits are ordered so the useful
+fixes come first and stand on their own: if the author wants the Mac fixes but
+not the GUI deletion, they can take just those.
+
+**4. GNU tools are supplied by redirection, not by editing call sites.** The
+runners call `sed` and `awk` about 500 times. Rather than edit every one, a
+small file redirects `sed` to `gsed` and `awk` to `gawk` on macOS only. On
+Linux it does nothing at all, so Linux behaviour cannot change.
+
+## Five bugs that produce wrong results on the cluster
+
+All five are already fixed in `lamaGOET.sh` and were never copied across.
+They only affect cluster runs.
+
+| Where | What goes wrong |
+|---|---|
+| `RUN_lamaGOET_release.sh:1874` | Reads `gaussian-point-charges`, a file that is never created. `lamaGOET.sh:3800` reads `cluster_charges`. **Every cluster Gaussian job using self-consistent cluster charges has been silently dropping its point charges.** |
+| `:1180`, `:1215` | A missing space makes `"$DEFRAGNETW"=="true"` always true, so Crystal jobs always emit `phar_defragment`. |
+| `:2113` | The reflection data is not rebuilt before the final residual map, so that map can be wrong. |
+| `:2176-2183` | No check that the final Tonto run succeeded, so a failed run reports success. |
+| `:255-256` | Edits `$JOBNAME.xyz` without checking it exists. |
+
+## Other findings
+
+- Periodic CP2K refinement cannot run on macOS at all: 8 of the 11 bash-4
+  constructs are in that path, not in GUI helpers.
+- `lamaGOET.sh --list-cp2k-functionals PBE` fails on macOS but **exits 0 with
+  empty output**, so nothing downstream can tell it failed.
+- Two shell tests fail on macOS because bash 3.2 does not support
+  `source <(...)`. Not an awk problem.
+- `Tests/` is not a Python package, so `python -m unittest discover` does not
+  work. Run test files directly with `PYTHONPATH` set to the repo root.
+- `gawk` is absent on this Mac; `realpath` on PATH is already GNU via
+  Homebrew. The check must test for GNU-ness, not for presence.
+
+## Revised order
+
+1. Make the test suite run and tell the truth on both platforms.
+2. Make the shell work on macOS (redirection file + the 11 bash-4 sites).
+3. Fix the five cluster bugs above.
+4. Fix the Qt GUI's macOS problems (file dialogs, paths, process cleanup).
+5. Delete the gtk GUI.
+6. Remove functions nobody calls; flag what is unreachable.
+7. Windows via WSL.
+8. Rewrite the documentation; add CLAUDE.md.
+9. Add the worked examples.
+
+Steps 1-4 are independently useful and mergeable on their own.
