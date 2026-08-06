@@ -2158,6 +2158,33 @@ CHECKCONV(){
 FINALPARAMESD=$(awk '{a[NR]=$0}/^Begin rigid-atom fit/{b=NR}END {print a[b+10]}' stdout | awk '{print $5}')
 }
 
+APPEND_IAM_RESULTS(){
+	# Copy the starting IAM refinement into $JOBNAME.lst.
+	#
+	# Tonto heads the independent-atom-model refinement "IAM refinement" and
+	# the Hirshfeld atom refinement "Structure refinement results". Only the
+	# latter was ever copied into the summary, so a job started from a Tonto
+	# IAM lost precisely the numbers it was started for: without the IAM there
+	# is nothing to compare the HAR against, which is the entire reason for
+	# running one. The results were in stdout all along, just not in the file
+	# users are told holds the results.
+	#
+	# lamaGOET also looked for a "Rigid-atom fit results" heading. Current
+	# Tonto does not emit that string at all, so those extractions were dead.
+	[ -f stdout ] || return 0
+	grep -q '^IAM refinement' stdout || return 0
+	{
+		echo ""
+		echo "###############################################################################################"
+		echo "                        Independent Atom Model (IAM) refinement                                 "
+		echo "###############################################################################################"
+		echo ""
+		awk '/^IAM refinement/{copy=1}
+		     copy && /^Final asymmetric unit parameter values:/{exit}
+		     copy' stdout
+	} >> $JOBNAME.lst
+}
+
 GET_RESIDUALS(){
 	TONTO_HEADER
 	DEFINE_JOB_NAME
@@ -3337,12 +3364,13 @@ run_script(){
 		fi
 		echo "__________________________________________________________________________________________________________________________________________________________________" >> $JOBNAME.lst
 		echo "" >> $JOBNAME.lst
+		APPEND_IAM_RESULTS
 		echo "###############################################################################################" >> $JOBNAME.lst
 		echo "                                     Final Geometry                                         " >> $JOBNAME.lst
 		echo "###############################################################################################" >> $JOBNAME.lst
 		echo "" >> $JOBNAME.lst
 		echo "Energy= $ENERGIA2, RMSD= $RMSD2" >> $JOBNAME.lst
-		echo " $(awk '{a[NR]=$0}/^Rigid-atom fit results/{b=NR}/^Wall-clock time taken for job /{c=NR}END{for (d=b-2;d<c-1;++d) print a[d]}' stdout)"  >> $JOBNAME.lst
+		echo " $(awk '{a[NR]=$0}/^Structure refinement results/ && !b {b=NR}/^Wall-clock time taken for job /{c=NR}END{for (d=b-2;d<c-1;++d) print a[d]}' stdout)"  >> $JOBNAME.lst
 		if [[ "$SCFCALCPROG" != "optgaussian" && "$SCFCALCPROG" != "optorca" ]]; then  
 		        if [[ "$POWDER_HAR" != "true" && "$SCFCALCPROG" != "Crystal14" ]]; then  
 			        GET_RESIDUALS
@@ -3386,11 +3414,18 @@ run_script(){
                 fi
 		echo "__________________________________________________________________________________________________________________________________________________________________" >> $JOBNAME.lst
 		echo "" >> $JOBNAME.lst
+		APPEND_IAM_RESULTS
 		echo "###############################################################################################" >> $JOBNAME.lst
 		echo "                                     Final Geometry                                         " >> $JOBNAME.lst
 		echo "###############################################################################################" >> $JOBNAME.lst
 		echo "" >> $JOBNAME.lst
-		echo " $(awk '{a[NR]=$0}/^Structure refinement results/{b=NR}/^Wall-clock time taken for job /{c=NR}END{for (d=b-2;d<c-1;++d) print a[d]}' stdout)"  >> $JOBNAME.lst
+		# Tonto emits one "Structure refinement results" block per refinement,
+		# so a job that starts from a Tonto IAM produces two: the IAM first,
+		# then the Hirshfeld atom refinement. Record the FIRST match, not the
+		# last, or the IAM block is dropped and the summary shows only the HAR
+		# under lamaGOET's own "Begin rigid-atom fit" heading. Comparing the
+		# two is the whole point of starting from an IAM.
+		echo " $(awk '{a[NR]=$0}/^Structure refinement results/ && !b {b=NR}/^Wall-clock time taken for job /{c=NR}END{for (d=b-2;d<c-1;++d) print a[d]}' stdout)"  >> $JOBNAME.lst
 		if [[ "$XWR" == "true" ]]; then
 			RUN_XWR
 		fi
@@ -3413,11 +3448,12 @@ run_script(){
 			done
 			echo "__________________________________________________________________________________________________________________________________________________________________" >> $JOBNAME.lst
 			echo "" >> $JOBNAME.lst
+			APPEND_IAM_RESULTS
 			echo "###############################################################################################" >> $JOBNAME.lst
 			echo "                                     Final Geometry                                         " >> $JOBNAME.lst
 				echo "###############################################################################################" >> $JOBNAME.lst
 			echo "" >> $JOBNAME.lst
-			echo " $(awk '{a[NR]=$0}/^Rigid-atom fit results/{b=NR}/^Wall-clock time taken for job /{c=NR}END{for (d=b-2;d<c-1;++d) print a[d]}' stdout)"  >> $JOBNAME.lst
+			echo " $(awk '{a[NR]=$0}/^Structure refinement results/ && !b {b=NR}/^Wall-clock time taken for job /{c=NR}END{for (d=b-2;d<c-1;++d) print a[d]}' stdout)"  >> $JOBNAME.lst
 		        if [[ "$POWDER_HAR" != "true" ]]; then  
 			        GET_RESIDUALS
 			        echo " $(awk '{a[NR]=$0}/^Reflections pruned/{b=NR}/^Atom coordinates/{c=NR}END{for (d=b-2;d<c-1;++d) print a[d]}' stdout)"  >> $JOBNAME.lst
@@ -3448,11 +3484,12 @@ run_script(){
 			done
 			echo "__________________________________________________________________________________________________________________________________________________________________" >> $JOBNAME.lst
 			echo "" >> $JOBNAME.lst
+			APPEND_IAM_RESULTS
 			echo "###############################################################################################" >> $JOBNAME.lst
 			echo "                                     Final Geometry                                         " >> $JOBNAME.lst
 				echo "###############################################################################################" >> $JOBNAME.lst
 			echo "" >> $JOBNAME.lst
-			echo " $(awk '{a[NR]=$0}/^Rigid-atom fit results/{b=NR}/^Wall-clock time taken for job /{c=NR}END{for (d=b-2;d<c-1;++d) print a[d]}' stdout)"  >> $JOBNAME.lst
+			echo " $(awk '{a[NR]=$0}/^Structure refinement results/ && !b {b=NR}/^Wall-clock time taken for job /{c=NR}END{for (d=b-2;d<c-1;++d) print a[d]}' stdout)"  >> $JOBNAME.lst
 		        if [[ "$POWDER_HAR" != "true" ]]; then  
 			        GET_RESIDUALS
 			        echo " $(awk '{a[NR]=$0}/^Reflections pruned/{b=NR}/^Atom coordinates/{c=NR}END{for (d=b-2;d<c-1;++d) print a[d]}' stdout)"  >> $JOBNAME.lst
