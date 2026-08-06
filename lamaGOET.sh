@@ -3278,10 +3278,11 @@ SCF_TO_TONTO(){
 # in the geometry, this is an implicit way of checking that the
 # convergency is also in the energy level. 
 # correct
-	MAXSHIFT=$(awk '{a[NR]=$0}/^Begin rigid-atom fit/{b=NR+10}/^Rigid-atom fit results/{c=NR-4}END {for(d=b;d<=c;++d)print a[d]}' stdout | awk '{ gsub("-","",$0); print $0 }' | awk -v max=0 '{if($5>max){shift=$5; atom=$7; param=$8; max=$5}}END{print shift}')
-        MAXSHIFT=$( echo ${MAXSHIFT#-} ) #this is to get the absolute value 
-	MAXSHIFTATOM=$(awk '{a[NR]=$0}/^Begin rigid-atom fit/{b=NR+10}/^Rigid-atom fit results/{c=NR-4}END {for(d=b;d<=c;++d)print a[d]}' stdout | awk '{ gsub("-","",$0); print $0 }' | awk -v max=0 '{if($5>max){shift=$5; atom=$7; param=$8; max=$5}}END{print atom}')
-	MAXSHIFTPARAM=$(awk '{a[NR]=$0}/^Begin rigid-atom fit/{b=NR+10}/^Rigid-atom fit results/{c=NR-4}END {for(d=b;d<=c;++d)print a[d]}' stdout | awk '{ gsub("-","",$0); print $0 }'| awk -v max=0 '{if($5>max){shift=$5; atom=$7; param=$8; max=$5}}END{print param}')
+	# One pass over the last fit table, normalised for either layout.
+	_fit_summary=$(FIT_TABLE_SUMMARY)
+	MAXSHIFT=$(printf '%s' "$_fit_summary" | cut -f6)
+	MAXSHIFTATOM=$(printf '%s' "$_fit_summary" | cut -f7)
+	MAXSHIFTPARAM=$(printf '%s' "$_fit_summary" | cut -f8)
 	if [[ "$SCFCALCPROG" != "Tonto" && "$SCFCALCPROG" != "elmodb" ]]; then
 		sed -i 's/(//g' $JOBNAME.xyz
 		sed -i 's/)//g' $JOBNAME.xyz
@@ -3291,7 +3292,22 @@ SCF_TO_TONTO(){
 		echo "ERROR: problems in fit cycle, please check the $J.th stdout file for more details" | tee -a $JOBNAME.lst
 		exit 1
 	fi
-	if [ $J = 1 ]; then 
+	if [ $J = 1 ] && [[ "$SCFCALCPROG" == "Tonto" ]]; then
+		# Tonto runs the whole refinement loop itself, so there are no
+		# lamaGOET cycles to tabulate and the per-cycle table below would be
+		# headers with nothing under them. Say where the numbers are instead.
+		{
+			echo "===================="
+			echo "Refinement progress"
+			echo "===================="
+			echo ""
+			echo "Tonto performs the refinement cycles internally, so there is no"
+			echo "per-cycle table here. Its own least-squares iterations, and the"
+			echo "results of each refinement, are in the sections below and in"
+			echo "full in stdout."
+			echo ""
+		} >> $JOBNAME.lst
+	elif [ $J = 1 ]; then
 		echo "====================" >> $JOBNAME.lst
 		echo "Begin rigid-atom fit" >> $JOBNAME.lst
 		echo "====================" >> $JOBNAME.lst
@@ -3872,7 +3888,19 @@ CHECK_ENERGY(){
 	ABSDE=$(awk "function abs(x){return (( x < 0.0) ? -x : x)} BEGIN {print abs($ENERGIA2) - abs($ENERGIA)}")
 	ABSDE2=$(awk "function abs(x){return (( x < 0.0) ? -x : x)} BEGIN {print abs($ENERGIA2) - abs($ENERGIA3)}")
 	DE=$(printf '%.12f' $DE)
-	echo -e " $J\t$(awk '{a[NR]=$0}/^Rigid-atom fit results/{b=NR}END {print a[b-4]}' stdout | awk '{print $1}' )\t$INITIALCHI\t$(awk '{a[NR]=$0}/^Rigid-atom fit results/{b=NR}END {print a[b-4]}' stdout | awk '{print  $2"\t"$3"\t"$4"\t"}') $MAXSHIFT\t$MAXSHIFTATOM $MAXSHIFTPARAM $(awk '{a[NR]=$0}/^Rigid-atom fit results/{b=NR}END {print a[b-4]}' stdout | awk '{print  "    "$9" \t"$10 }' )  $ENERGIA2   $RMSD2   \t$DE"   >> $JOBNAME.lst  
+	# Cycle, fit iterations, chi2 before and after, R, R_w, largest
+	# shift and where it was, parameter and eigenvalue counts.
+	printf ' %s\t%s\t%s\t%s\t%s\t%s\t%s\t%s %s\t%s\t%s\t%s\t%s\t%s\n' \
+		"$J" \
+		"$(printf '%s' "$_fit_summary" | cut -f1)" \
+		"$(printf '%s' "$_fit_summary" | cut -f2)" \
+		"$(printf '%s' "$_fit_summary" | cut -f3)" \
+		"$(printf '%s' "$_fit_summary" | cut -f4)" \
+		"$(printf '%s' "$_fit_summary" | cut -f5)" \
+		"$MAXSHIFT" "$MAXSHIFTATOM" "$MAXSHIFTPARAM" \
+		"$(printf '%s' "$_fit_summary" | cut -f9)" \
+		"$(printf '%s' "$_fit_summary" | cut -f10)" \
+		"$ENERGIA2" "$RMSD2" "$DE" >> $JOBNAME.lst
 	if [[ -z "${HAR_ENERGY_LAST:-}" && -n "${ENERGIA:-}" ]]; then
 		HAR_ENERGY_LAST=$ENERGIA
 	fi
@@ -3908,6 +3936,53 @@ APPEND_IAM_RESULTS(){
 		     copy && /^Final asymmetric unit parameter values:/{exit}
 		     copy' stdout
 	} >> $JOBNAME.lst
+}
+
+FIT_TABLE_SUMMARY(){
+	# Emit one normalised, tab-separated record describing the last
+	# least-squares fit in stdout:
+	#
+	#   iter  chi2_initial  chi2_final  R  R_w  max_shift  atom  param  N_p  N_eig
+	#
+	# Tonto prints one row per least-squares iteration and then a heading:
+	# "IAM refinement" for the starting model, "Structure refinement results"
+	# for a Hirshfeld atom refinement. It used to print "Rigid-atom fit
+	# results", which lamaGOET looked for; that string no longer appears, so
+	# every field below came out empty and the per-cycle table in the summary
+	# had headers and no rows.
+	#
+	# The two tables also differ in shape. The IAM has ten columns and one
+	# chi2; the HAR has twelve, leading with a cycle number and carrying both
+	# an initial and a final chi2. Normalise here so the caller does not care.
+	awk '
+		/^IAM refinement$/ || /^Structure refinement results$/ { heading = NR }
+		{ line[NR] = $0 }
+		END {
+			if (!heading) exit
+			for (i = heading - 1; i > 0; i--)
+				if (line[i] ~ /^[ \t]*[0-9]+[ \t]/) { last = i; break }
+			if (!last) exit
+			for (i = last; i > 0; i--)
+				if (line[i] !~ /^[ \t]*[0-9]+[ \t]/) { first = i + 1; break }
+
+			maxshift = 0
+			for (i = first; i <= last; i++) {
+				n = split(line[i], f)
+				if (n >= 12) { s = f[7]; a = f[9];  p = f[10] }
+				else         { s = f[5]; a = f[7];  p = f[8]  }
+				if (s < 0) s = -s
+				if (s > maxshift) { maxshift = s; maxatom = a; maxparam = p }
+			}
+
+			n = split(line[last], f)
+			if (n >= 12) { iter = f[2]; ci = f[3]; cf = f[4]; r = f[5]; rw = f[6] }
+			else         { iter = f[1]; ci = f[2]; cf = f[2]; r = f[3]; rw = f[4] }
+
+			printf "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
+			       iter, ci, cf, r, rw, maxshift, maxatom, maxparam,
+			       f[n-1], f[n]
+		}
+	' stdout
 }
 
 GET_RESIDUALS(){

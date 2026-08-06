@@ -73,21 +73,34 @@ Structure refinement results   <- the Hirshfeld atom refinement
 
 ## Still outstanding
 
-### The per-cycle convergence table is blank
+Nothing known. The per-cycle convergence table, previously listed here as
+broken, is fixed — see below.
 
-`<my_job>.lst` prints the header
+## The per-cycle convergence table
+
+`<my_job>.lst` used to print
 
 ```
 Cycle   Fit      initial        final            R              R_w   ...
 ```
 
-and then no rows. `MAXSHIFT`, `MAXSHIFTATOM`, `MAXSHIFTPARAM` and the row
-written for each cycle all key on the dead `Rigid-atom fit results` heading, so
-they come out empty.
+and then no rows at all. Two separate causes:
 
-This is not a one-line fix: the correct heading differs by phase — `IAM
-refinement` bounds the starting model's iteration table, `Structure refinement
-results` bounds the HAR's — and a run may have one or both.
+**For Gaussian, ORCA, OCC and Crystal**, every field was extracted by finding
+a `Rigid-atom fit results` heading, which current Tonto does not write.
+`FIT_TABLE_SUMMARY` now locates the last fit table by the headings Tonto does
+write, and normalises the two shapes it comes in: the IAM table has ten columns
+and a single chi², the Hirshfeld one has twelve, leading with a cycle number
+and carrying both an initial and a final chi².
+
+**For Tonto**, the table was empty for a different reason: Tonto runs the
+refinement cycles internally, so there are no lamaGOET cycles to tabulate.
+`CHECK_ENERGY`, which writes the rows, is only called for external programs.
+A Tonto run now says that in place of the empty table, and points at the two
+refinement blocks, which do carry the numbers.
+
+The Tonto case is verified against the epoxide example. The external-program
+case is not: no Gaussian, ORCA, OCC or Crystal was available here.
 
 ## Which Tonto to build
 
