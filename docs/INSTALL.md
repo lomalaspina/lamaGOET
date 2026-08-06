@@ -107,13 +107,28 @@ people have.
 
 ## The other programs
 
-Gaussian, ORCA, OCC, CP2K, Crystal23, ELMOdb and GAMESS-US are all optional and
-all installed separately; several need a licence. Give lamaGOET the path to
-each on the **Settings** tab. You only need the one you intend to use — the
-examples in [../examples/](../examples/) need Tonto alone.
+These are all optional and all installed separately; several need a licence.
+Give lamaGOET the path to each on the **Settings** tab. You only need the one
+you intend to use — the examples in [../examples/](../examples/) need Tonto
+alone.
+
+| | | |
+|---|---|---|
+| ORCA | free, registration required | [orcaforum.kofo.mpg.de](https://orcaforum.kofo.mpg.de/) |
+| Gaussian | commercial licence | [gaussian.com](https://gaussian.com/products/) |
+| CP2K | free; periodic | [cp2k.org](https://www.cp2k.org/) |
+| CRYSTAL | commercial licence; periodic | [crystal.unito.it](https://www.crystal.unito.it/) |
+| OCC | free | [github.com/peterspackman/occ](https://github.com/peterspackman/occ) |
+| GAMESS-US | free; overlap integrals for ELMOdb | [msg.chem.iastate.edu/gamess](https://www.msg.chem.iastate.edu/gamess/) |
+| ELMOdb | no public download — contact Alessandro Genoni | — |
 
 For viewing results, [VESTA](https://jp-minerals.org/vesta/en/download.html)
-reads the residual-density cube lamaGOET writes.
+reads the Gaussian cube file of the residual density that lamaGOET writes, and
+is the recommended viewer.
+[CrystalExplorer](https://crystalexplorer.net/download/) and
+[Olex2](https://www.olexsys.org/olex2/) are also useful.
+
+[WORKSHOP.md](WORKSHOP.md) has the full list with a note on what each is for.
 
 ## Checking it works
 

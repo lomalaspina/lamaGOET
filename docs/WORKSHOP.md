@@ -170,8 +170,10 @@ the first is the starting model, the second the HAR.
 Every **?** is for you to fill in from your own run. **Watch the C–H
 distances** — that is where HAR earns its keep.
 
-Tonto also writes a residual-density grid over the unit cell, which
-[VESTA](https://jp-minerals.org/vesta/en/download.html) will open.
+Tonto also writes the residual density over the whole unit cell as a Gaussian
+cube file. [VESTA](https://jp-minerals.org/vesta/en/download.html) is the
+recommended viewer — the cube covers the unit cell, so it is not necessarily
+orthogonal.
 
 ### Now add the crystal environment
 
@@ -263,7 +265,7 @@ Everything is written into the directory you started lamaGOET from:
 | `stdout` | Tonto's full output, if `.lst` is not enough |
 | `stdin` | the Tonto input lamaGOET generated |
 | `<my_job>.archive.cif` | the refined structure |
-| `<my_job>.residual_density,cell.cube` | for VESTA |
+| `<my_job>.residual_density,cell.cube` | the residual density, as a Gaussian cube file; [VESTA](https://jp-minerals.org/vesta/en/download.html) is recommended for viewing it |
 | `<N>.tonto_cycle.<my_job>/` | folder with a snapshot of each cycle |
 
 `<my_job>` is whatever you put in the **Job name** box; `my_job` is the
@@ -282,6 +284,49 @@ more than one cycle, since Tonto produces a surrounding cluster of charges
 simulating the crystal environment in each new iteration.
 
 ---
+
+## Where to get the software
+
+lamaGOET drives these; it does not install any of them. You only need the one
+you intend to use — both examples above need Tonto alone.
+
+### Needed
+
+| | | |
+|---|---|---|
+| **Tonto** | the refinement and the Hirshfeld partitioning | [github.com/dylan-jayatilaka/tonto](https://github.com/dylan-jayatilaka/tonto) |
+
+See [INSTALL.md](INSTALL.md) for which branch to build, and
+[TONTO_COMPATIBILITY.md](TONTO_COMPATIBILITY.md) for why it matters.
+
+### For viewing results
+
+| | | |
+|---|---|---|
+| **VESTA** | Gaussian cube files, for the residual density. Recommended. | [jp-minerals.org/vesta](https://jp-minerals.org/vesta/en/download.html) |
+| **CrystalExplorer** | Hirshfeld surfaces and interaction analysis | [crystalexplorer.net](https://crystalexplorer.net/download/) |
+| **Olex2** | structure solution, refinement and display | [olexsys.org/olex2](https://www.olexsys.org/olex2/) |
+
+### Wavefunctions — pick one
+
+| | | |
+|---|---|---|
+| **Tonto** | already installed; enough for everything here | — |
+| **ORCA** | free, registration required | [orcaforum.kofo.mpg.de](https://orcaforum.kofo.mpg.de/) |
+| **Gaussian** | commercial licence | [gaussian.com](https://gaussian.com/products/) |
+| **CP2K** | free; periodic, for the all-electron periodic path | [cp2k.org](https://www.cp2k.org/) |
+| **CRYSTAL** | commercial licence; periodic | [crystal.unito.it](https://www.crystal.unito.it/) |
+| **OCC** | free | [github.com/peterspackman/occ](https://github.com/peterspackman/occ) |
+| **GAMESS-US** | free; used here only for overlap integrals with ELMOdb | [msg.chem.iastate.edu/gamess](https://www.msg.chem.iastate.edu/gamess/) |
+| **ELMOdb** | no public download — contact Alessandro Genoni | — |
+
+### Related, not required
+
+| | | |
+|---|---|---|
+| **SHELX** | conventional refinement, for the IAM starting model | [shelx.uni-goettingen.de](https://shelx.uni-goettingen.de/) |
+| **NoSpherA2** | writes `.tsc` scattering factors; ships inside Olex2 | [olexsys.org/olex2](https://www.olexsys.org/olex2/) |
+| **Jana** | powder refinement. **Not supported by lamaGOET** — the scripts it needs have never been distributed. | [jana.fzu.cz](http://jana.fzu.cz/) |
 
 ## References
 
