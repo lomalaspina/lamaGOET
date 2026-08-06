@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections import OrderedDict
 import os
+import platform
 from pathlib import Path
 import re
 import signal
@@ -175,6 +176,23 @@ def re_is_cif_path(path: Path) -> bool:
 
 def _bool_text(value: bool) -> str:
     return "true" if value else "false"
+
+
+def _dialog_options() -> QFileDialog.Option:
+    """File-dialog options appropriate to this platform.
+
+    macOS draws the native panel through Finder, which hides /usr/local/bin,
+    /opt and every dotted directory.  Quantum-chemistry executables and basis
+    directories usually live in exactly those places, so the native panel
+    makes them unreachable: the user can see no way to select their Tonto
+    binary.  Qt's own dialog shows them, so ask for it on macOS only.
+
+    Linux and Windows keep the native dialog, which behaves correctly there.
+    """
+
+    if platform.system() == "Darwin":
+        return QFileDialog.Option.DontUseNativeDialog
+    return QFileDialog.Option(0)
 
 
 class MainWindow(QMainWindow):
@@ -1678,7 +1696,8 @@ class MainWindow(QMainWindow):
             source = self.option_path.parent / source
         suggested = source.with_name(source.stem + "_lamagoet_grown.cif")
         filename, _ = QFileDialog.getSaveFileName(
-            self, "Export grown structure", str(suggested), "CIF files (*.cif)"
+            self, "Export grown structure", str(suggested), "CIF files (*.cif)",
+            options=_dialog_options(),
         )
         if not filename:
             return
@@ -2099,6 +2118,7 @@ class MainWindow(QMainWindow):
             "Save lamaGOET options",
             str(self.option_path),
             "lamaGOET options (*.txt);;All files (*)",
+            options=_dialog_options(),
         )
         if filename:
             self.option_path = Path(filename).resolve()
@@ -2110,6 +2130,7 @@ class MainWindow(QMainWindow):
             "Load external basis definition",
             str(self.option_path.parent),
             "Basis definition files (*.txt *.gbs);;All files (*)",
+            options=_dialog_options(),
         )
         if filename:
             self.basis_definition_path.setText(filename)
@@ -2260,7 +2281,8 @@ class MainWindow(QMainWindow):
 
     def choose_options(self) -> None:
         filename, _ = QFileDialog.getOpenFileName(
-            self, "Open lamaGOET options", str(self.option_path.parent), "Text files (*.txt)"
+            self, "Open lamaGOET options", str(self.option_path.parent), "Text files (*.txt)",
+            options=_dialog_options(),
         )
         if filename:
             self.load_options(filename)
@@ -2271,6 +2293,7 @@ class MainWindow(QMainWindow):
             "Open structure",
             str(Path(self.cif_path.text()).parent if self.cif_path.text() else Path.cwd()),
             "Crystallographic files (*.cif *.pdb);;CIF files (*.cif);;All files (*)",
+            options=_dialog_options(),
         )
         if filename:
             self.cif_path.setText(filename)
@@ -2278,7 +2301,8 @@ class MainWindow(QMainWindow):
 
     def choose_hkl(self) -> None:
         filename, _ = QFileDialog.getOpenFileName(
-            self, "Open reflection file", str(Path.cwd()), "Reflection files (*.hkl);;All files (*)"
+            self, "Open reflection file", str(Path.cwd()), "Reflection files (*.hkl);;All files (*)",
+            options=_dialog_options(),
         )
         if filename:
             self.hkl_path.setText(filename)
@@ -2289,6 +2313,7 @@ class MainWindow(QMainWindow):
             "Open precise-coordinate/ADP CIF",
             str(Path.cwd()),
             "CIF files (*.cif);;All files (*)",
+            options=_dialog_options(),
         )
         if filename:
             self.initial_adp_path.setText(filename)
@@ -2296,7 +2321,8 @@ class MainWindow(QMainWindow):
 
     def choose_cp2k_basis(self) -> None:
         filename, _ = QFileDialog.getOpenFileName(
-            self, "Open CP2K basis file", str(Path.cwd()), "CP2K basis files (*)"
+            self, "Open CP2K basis file", str(Path.cwd()), "CP2K basis files (*)",
+            options=_dialog_options(),
         )
         if filename:
             self.cp2k_basis_file.setText(filename)
@@ -2308,6 +2334,7 @@ class MainWindow(QMainWindow):
             "Select executable",
             str(Path(widget.text()).expanduser().parent if widget.text() else Path.cwd()),
             "All files (*)",
+            options=_dialog_options(),
         )
         if filename:
             widget.setText(filename)
@@ -2317,6 +2344,7 @@ class MainWindow(QMainWindow):
             self,
             "Select directory",
             str(Path(widget.text()).expanduser() if widget.text() else Path.cwd()),
+            options=_dialog_options(),
         )
         if directory:
             widget.setText(directory)
