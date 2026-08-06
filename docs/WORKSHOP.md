@@ -259,15 +259,27 @@ Everything is written into the directory you started lamaGOET from:
 
 | | |
 |---|---|
-| `<job>.lst` | the results — always look here first |
+| `<my_job>.lst` | the results — always look here first |
 | `stdout` | Tonto's full output, if `.lst` is not enough |
 | `stdin` | the Tonto input lamaGOET generated |
-| `<job>.archive.cif` | the refined structure |
-| `<job>.residual_density,cell.cube` | for VESTA |
-| `<N>.tonto_cycle.<job>/` | a snapshot of each cycle |
+| `<my_job>.archive.cif` | the refined structure |
+| `<my_job>.residual_density,cell.cube` | for VESTA |
+| `<N>.tonto_cycle.<my_job>/` | folder with a snapshot of each cycle |
 
-With Tonto as the SCF program you get one cycle directory, because Tonto
-iterates internally. With Gaussian or ORCA you get one per cycle.
+`<my_job>` is whatever you put in the **Job name** box; `my_job` is the
+default.
+
+The `stdout` and `stdin` in the working directory are **from the last Tonto
+run only**, because each run overwrites them. That last run is the final
+residual-density calculation, not the last refinement cycle. Every cycle's own
+copy is kept, numbered, inside its `<N>.tonto_cycle.<my_job>/` folder — so look
+there, not at the top level, when you want to see what happened during a
+particular cycle.
+
+With Tonto as the SCF program you get one cycle directory, `N=1`, because Tonto
+runs the whole refinement loop internally. With Gaussian or ORCA you may get
+more than one cycle, since Tonto produces a surrounding cluster of charges
+simulating the crystal environment in each new iteration.
 
 ---
 

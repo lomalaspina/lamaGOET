@@ -4,7 +4,7 @@ lamaGOET talks to Tonto in two directions, and both are fragile:
 
 1. It **writes keywords** into the `stdin` file Tonto reads.
 2. It **reads headings** out of the `stdout` file Tonto writes, to build the
-   `<job>.lst` summary.
+   `<my_job>.lst` summary.
 
 Neither is a stable interface. When Tonto renames a keyword, lamaGOET's job
 dies at the first cycle. When Tonto renames an output heading, lamaGOET keeps
@@ -56,7 +56,7 @@ write.
 ### The IAM result never reached the summary
 
 **Symptom:** a job started from a Tonto IAM showed only the HAR numbers in
-`<job>.lst`, under a heading that said `Begin rigid-atom fit`. The IAM figures
+`<my_job>.lst`, under a heading that said `Begin rigid-atom fit`. The IAM figures
 were in `stdout` but not in the file the lab notes call "always the file that
 contains all the results" — so the IAM-versus-HAR comparison the notes ask for
 could not be made from it.
@@ -75,7 +75,7 @@ Structure refinement results   <- the Hirshfeld atom refinement
 
 ### The per-cycle convergence table is blank
 
-`<job>.lst` prints the header
+`<my_job>.lst` prints the header
 
 ```
 Cycle   Fit      initial        final            R              R_w   ...

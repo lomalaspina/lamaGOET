@@ -125,7 +125,7 @@ and documentation.
 
 3. **`d4a0656` — the summary file.** A job started from a Tonto IAM was not
    recording the IAM result, so the IAM-versus-HAR comparison could not be made
-   from `<job>.lst`.
+   from `<my_job>.lst`.
 
 ## What is not covered
 
@@ -133,6 +133,6 @@ and documentation.
   intact, not that the numbers are right.
 - Nothing was tested on a cluster; there was no `qsub` available.
 - Windows is unverified beyond file encodings and path handling.
-- The per-cycle convergence table in `<job>.lst` is still blank. The cause is
+- The per-cycle convergence table in `<my_job>.lst` is still blank. The cause is
   known and recorded in `docs/TONTO_COMPATIBILITY.md`; the fix needs a
   different heading per refinement phase and was left alone.

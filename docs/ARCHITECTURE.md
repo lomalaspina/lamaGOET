@@ -106,7 +106,7 @@ deleting them would enlarge the diff for no gain.
 
 With **Tonto** as the SCF program, Tonto performs the whole loop internally and
 lamaGOET invokes it once. With **Gaussian, ORCA or CP2K**, lamaGOET alternates
-between programs itself, one directory per cycle: `1.tonto_cycle.<job>`,
+between programs itself, one directory per cycle: `1.tonto_cycle.<my_job>`,
 `2.…`. A single cycle directory is normal for Tonto and does not mean the loop
 stopped early.
 
@@ -116,12 +116,12 @@ stopped early.
 |---|---|
 | `stdin` | the Tonto input lamaGOET generated |
 | `stdout` | Tonto's full output — everything is in here |
-| `<job>.lst` | lamaGOET's summary, assembled from `stdout` |
-| `<job>.archive.cif` | the refined structure |
-| `<job>.residual_density,cell.cube` | for VESTA |
-| `<N>.tonto_cycle.<job>/` | a snapshot of each cycle |
+| `<my_job>.lst` | lamaGOET's summary, assembled from `stdout` |
+| `<my_job>.archive.cif` | the refined structure |
+| `<my_job>.residual_density,cell.cube` | for VESTA |
+| `<N>.tonto_cycle.<my_job>/` | a snapshot of each cycle |
 
-`<job>.lst` is built by copying blocks out of `stdout`, matched by heading. That
+`<my_job>.lst` is built by copying blocks out of `stdout`, matched by heading. That
 makes it fragile: when Tonto renames a heading, lamaGOET keeps running and
 quietly produces an incomplete summary. See
 [TONTO_COMPATIBILITY.md](TONTO_COMPATIBILITY.md).
