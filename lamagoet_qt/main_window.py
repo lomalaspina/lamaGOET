@@ -12,13 +12,14 @@ import shutil
 import subprocess
 
 from PySide6.QtCore import QTimer, Qt
-from PySide6.QtGui import QAction, QGuiApplication
+from PySide6.QtGui import QAction, QGuiApplication, QIcon, QPixmap
 from PySide6.QtWidgets import (
     QApplication,
     QButtonGroup,
     QCheckBox,
     QAbstractSpinBox,
     QComboBox,
+    QSplashScreen,
     QDialog,
     QDialogButtonBox,
     QDoubleSpinBox,
@@ -209,6 +210,7 @@ class MainWindow(QMainWindow):
             raise ValueError(f"unknown submission mode: {submission_mode}")
         self.submission_mode = submission_mode
         self.setWindowTitle("lamaGOET Qt — HAR setup and structure grow")
+        self.setWindowIcon(_application_icon())
         self._resize_to_screen()
         self.option_path = Path(option_path).resolve()
         self.saved_options: "OrderedDict[str, str]" = OrderedDict()
@@ -353,7 +355,21 @@ class MainWindow(QMainWindow):
         layout = QVBoxLayout(content)
 
         job_group = QGroupBox("Job and input")
-        job_form = QFormLayout(job_group)
+        # The logo sits to the left of the first fields, about three rows tall,
+        # so the interface is recognisable without taking space from the form.
+        job_row = QHBoxLayout(job_group)
+        logo = QLabel()
+        badge = QPixmap(str(Path(__file__).resolve().parents[1] / LOGO_IMAGE))
+        if not badge.isNull():
+            height = 3 * QLineEdit().sizeHint().height()
+            logo.setPixmap(
+                badge.scaledToHeight(height, Qt.TransformationMode.SmoothTransformation)
+            )
+            logo.setToolTip("lamaGOET")
+        job_row.addWidget(logo, 0, Qt.AlignmentFlag.AlignTop)
+        job_row.addSpacing(8)
+        job_form = QFormLayout()
+        job_row.addLayout(job_form, 1)
         self.job_name = QLineEdit("my_job")
         self.job_name.editingFinished.connect(self._reset_cif_watch_baseline)
         job_form.addRow("Job name", self.job_name)
@@ -2541,6 +2557,65 @@ class MainWindow(QMainWindow):
         self.viewer.update()
 
 
+#: Drawn by Lorraine Andrade Malaspina for the 2024 workshop notes: lamaGOET
+#: takes wavefunctions from any of the quantum-chemistry programs and feeds
+#: them to Tonto.
+SPLASH_IMAGE = "lamaGOET_splash.png"
+
+#: The lamaGOET logo, used as the window and application icon.
+LOGO_IMAGE = "llama.png"
+
+
+def _application_icon() -> QIcon:
+    """The lamaGOET logo, or an empty icon if it is missing.
+
+    Without this the interface appears as a generic Python process in the
+    macOS Dock and in the task switcher, which makes it hard to find among
+    other windows.
+    """
+
+    image = Path(__file__).resolve().parents[1] / LOGO_IMAGE
+    return QIcon(str(image)) if image.is_file() else QIcon()
+
+
+def _show_splash() -> QSplashScreen | None:
+    """Put the lamaGOET drawing on screen while the window is built.
+
+    Startup is not instant: the interface hunts for Tonto and its basis sets,
+    then builds six tabs and roughly 170 controls. Returns None when there is
+    nothing to show it on, or when the caller has asked for no splash.
+    """
+
+    if os.environ.get("LAMAGOET_NO_SPLASH", "").strip().lower() in {"1", "true", "yes"}:
+        return None
+    if QApplication.platformName() == "offscreen":
+        return None
+
+    image = Path(__file__).resolve().parents[1] / SPLASH_IMAGE
+    if not image.is_file():
+        return None
+    pixmap = QPixmap(str(image))
+    if pixmap.isNull():
+        return None
+
+    screen = QGuiApplication.primaryScreen()
+    if screen is not None:
+        limit = int(screen.availableGeometry().width() * 0.45)
+        if pixmap.width() > limit:
+            pixmap = pixmap.scaledToWidth(
+                limit, Qt.TransformationMode.SmoothTransformation
+            )
+
+    splash = QSplashScreen(pixmap)
+    splash.showMessage(
+        "lamaGOET — Hirshfeld atom refinement",
+        Qt.AlignmentFlag.AlignBottom | Qt.AlignmentFlag.AlignHCenter,
+    )
+    splash.show()
+    QApplication.processEvents()
+    return splash
+
+
 def run(
     option_path: str | Path = "job_options.txt",
     *,
@@ -2548,6 +2623,10 @@ def run(
 ) -> int:
     app = QApplication.instance() or QApplication([])
     app.setApplicationName("lamaGOET")
+    app.setWindowIcon(_application_icon())
+    splash = _show_splash()
     window = MainWindow(option_path, submission_mode=submission_mode)
     window.show()
+    if splash is not None:
+        splash.finish(window)
     return app.exec()
