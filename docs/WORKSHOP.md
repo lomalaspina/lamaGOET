@@ -330,17 +330,29 @@ See [INSTALL.md](INSTALL.md) for which branch to build, and
 
 ## References
 
-1. S. C. Capelli, H.-B. Bürgi, B. Dittrich, S. Grabowsky, D. Jayatilaka,
-   *Hirshfeld atom refinement*. **IUCrJ** 2014, *1*, 361–379.
-2. D. Jayatilaka, B. Dittrich, *X-ray structure refinement using aspherical
+1. D. Jayatilaka, B. Dittrich, *X-ray structure refinement using aspherical
    atomic density functions obtained from quantum-mechanical calculations*.
    **Acta Cryst. A** 2008, *64*, 383–393.
-3. F. L. Hirshfeld, *Can X-ray data distinguish bonding effects from
-   vibrational smearing?* **Acta Cryst. A** 1976, *32*, 239–244.
-4. F. L. Hirshfeld, *Bonded-atom fragments for describing molecular
-   charge densities*. **Theor. Chim. Acta** 1977, *44*, 129–138.
-5. M. Fugel *et al.*, *Probing the accuracy and precision of Hirshfeld atom
-   refinement with HARt interfaced with Olex2*. **IUCrJ** 2018, *5*, 32–44.
-6. M. Woinska, S. Grabowsky, P. M. Dominiak, K. Wozniak, D. Jayatilaka,
-   *Hydrogen atoms can be located accurately and precisely by x-ray
+2. S. C. Capelli, H.-B. Bürgi, B. Dittrich, S. Grabowsky, D. Jayatilaka,
+   *Hirshfeld atom refinement*. **IUCrJ** 2014, *1*, 361–379.
+3. M. Woinska, S. Grabowsky, P. M. Dominiak, K. Wozniak, D. Jayatilaka,
+   *Hydrogen atoms can be located accurately and precisely by X-ray
    crystallography*. **Sci. Adv.** 2016, *2*, e1600192.
+4. M. Fugel, D. Jayatilaka, E. Hupf, J. Overgaard, V. R. Hathwar, P. Macchi,
+   M. J. Turner, J. A. K. Howard, O. V. Dolomanov, H. Puschmann, B. B. Iversen,
+   H.-B. Bürgi, S. Grabowsky, *Probing the accuracy and precision of Hirshfeld
+   atom refinement with HARt interfaced with Olex2*. **IUCrJ** 2018, *5*,
+   32–44.
+5. M. L. Davidson, S. Grabowsky, D. Jayatilaka, *X-ray constrained
+   wavefunctions based on Hirshfeld atoms. I. Method and review*.
+   **Acta Cryst. B** 2022, *78*, 312–332.
+   [10.1107/S2052520622004097](https://doi.org/10.1107/S2052520622004097)
+6. M. L. Davidson, S. Grabowsky, D. Jayatilaka, *X-ray constrained
+   wavefunctions based on Hirshfeld atoms. II. Reproducibility of electron
+   densities in crystals of α-oxalic acid dihydrate*. **Acta Cryst. B** 2022,
+   *78*, 397–415.
+   [10.1107/S2052520622004103](https://doi.org/10.1107/S2052520622004103)
+7. F. L. Hirshfeld, *Can X-ray data distinguish bonding effects from
+   vibrational smearing?* **Acta Cryst. A** 1976, *32*, 239–244.
+8. F. L. Hirshfeld, *Bonded-atom fragments for describing molecular charge
+   densities*. **Theor. Chim. Acta** 1977, *44*, 129–138.
