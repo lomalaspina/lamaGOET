@@ -1,4 +1,32 @@
+# Generated Python / Qt environment
 __pycache__/
 *.py[cod]
 .venv-qt*/
 qt_smoke.png
+
+# macOS
+.DS_Store
+
+# Per-calculation inputs and outputs (written into the working directory)
+job_options.txt
+*.pbs
+*.lst
+.lst
+TAILORED
+DISSBONDS
+SYMMETRY
+ATOMS
+ATOMS_NEW
+cluster_charges
+stdin
+stdout
+stde
+
+# Tonto-generated structures
+*.archive.cif
+*.cartesian.cif2
+*.fractional.cif1
+*.latest_tonto.cif
+
+# Extracted build artefacts
+gtkdialog-0.8.3*
