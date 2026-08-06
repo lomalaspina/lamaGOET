@@ -34,3 +34,7 @@ gtkdialog-0.8.3*
 # Downloaded example archives and stray installers
 examples/*.zip
 examples/**/*.exe
+
+# Download staging area (large archives, not part of the repository)
+ex/
+*.zip
