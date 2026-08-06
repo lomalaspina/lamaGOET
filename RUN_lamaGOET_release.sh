@@ -321,8 +321,10 @@ else
 fi
 echo "Updating geometry done"
 if [[ "$SCFCALCPROG" != "Tonto" && "$SCFCALCPROG" != "elmodb" ]]; then
-        sed -i 's/(//g' $JOBNAME.xyz
-	sed -i 's/)//g' $JOBNAME.xyz
+	if [ -f "$JOBNAME.xyz" ]; then
+		sed -i 's/(//g' $JOBNAME.xyz
+		sed -i 's/)//g' $JOBNAME.xyz
+	fi
 fi
 #if [[ -f $JOBNAME.cartesian.cif2 ]]; then
 if [[ -f $JOBNAME.fractional.cif1 ]]; then
@@ -1206,7 +1208,7 @@ SCF_BLOCK_NOT_TONTO(){
 	                if [[ "$POWDER_HAR" != "true" ]]; then
 			        echo "   ! Make Hirshfeld structure factors" >> stdin
 #			        echo "   fit_hirshfeld_atoms" >> stdin
-                                if [[ "$SCFCALCPROG" == "Crystal14" && "$DEFRAGNETW"=="true" ]]; then
+                                if [[ "$SCFCALCPROG" == "Crystal14" && "$DEFRAGNETW" == "true" ]]; then
                                         echo "   phar_defragment" >> stdin
                                 fi
 			        echo "   ha_fit" >> stdin
@@ -1237,7 +1239,7 @@ SCF_BLOCK_NOT_TONTO(){
 			                echo "   make_fock_matrix" >> stdin
 				fi
 #       			echo "   fit_hirshfeld_atoms" >> stdin
-                                if [[ "$SCFCALCPROG" == "Crystal14" && "$DEFRAGNETW"=="true" ]]; then
+                                if [[ "$SCFCALCPROG" == "Crystal14" && "$DEFRAGNETW" == "true" ]]; then
                                         echo "   phar_defragment" >> stdin
                                 fi
 			        echo "   ha_fit" >> stdin
@@ -1813,7 +1815,7 @@ GET_FREQ(){
 #                	awk '{a[NR]=$0}{b=11}/^------------------------------------------------------------------------/{c=NR}END{for(d=b;d<=c-1;++d)print a[d]}' gaussian-point-charges | awk '{printf "%s\t %s\t %s\t %s\t \n", $1, $2, $3, $4 }' >> $JOBNAME.com
 #                        echo "" >> $JOBNAME.com
 #                else
-                	awk '{a[NR]=$0}{b=12}/^------------------------------------------------------------------------/{c=NR}END{for(d=b;d<=c-1;++d)print a[d]}' gaussian-point-charges | awk '{printf "%s\t %s\t %s\t %s\t \n", $1, $2, $3, $4 }' >> $JOBNAME.com
+                	awk '{a[NR]=$0}{b=13}/^------------------------------------------------------------------------/{c=NR}END{for(d=b;d<=c-1;++d)print a[d]}' cluster_charges | awk '{printf "%s\t %s\t %s\t %s\t \n", $1, $2, $3, $4 }' >> $JOBNAME.com
                         echo "" >> $JOBNAME.com
 #                fi
 #                rm gaussian-point-charges
@@ -2117,6 +2119,13 @@ GET_RESIDUALS(){
 		CRYSTAL_BLOCK
 		DEFINE_JOB_NAME
 	fi
+	# Rebuild the reflection/xray data before the final residual map. The
+	# refined CIF carries the cell and geometry but not the reflection list,
+	# so without this the map is calculated from incomplete data. Crystal14
+	# has already done it immediately above.
+	if [[ "$SCFCALCPROG" != "Crystal14" ]]; then
+		CRYSTAL_BLOCK
+	fi
 	if [[ "$SCFCALCPROG" != "Crystal14" ]]; then
 		echo "   scfdata= {" >> stdin
 		if [[ "$METHOD" != "rks" && "$METHOD" != "rhf" && "$METHOD" != "uhf" && "$METHOD" != "uks" && "$METHOD" != "HF" ]]; then
@@ -2179,11 +2188,19 @@ GET_RESIDUALS(){
 	echo "}" >> stdin 
 	echo "Calculating residual density at final geometry" 
 	J=$[ $J + 1 ]
+        rm -f stdout stde
+        local tonto_status=0
         if [[ "$NUMPROCTONTO" != "1" ]]; then
-		mpirun -n $NUMPROCTONTO $TONTO	
+		mpirun -n "$NUMPROCTONTO" "$TONTO" || tonto_status=$?
 	else
-		$TONTO
+		"$TONTO" || tonto_status=$?
 	fi
+        # Validate the final residual calculation. Without this a failed run is
+        # reported as a completed refinement.
+        if [[ "$tonto_status" -ne 0 ]] || ! grep -q '^Unit cell residual density:' stdout 2>/dev/null; then
+                echo "ERROR: final Tonto residual-density calculation failed; inspect stdin and stdout" | tee -a "$JOBNAME.lst" >&2
+                return 1
+        fi
 	if [[ "$USENOSPHERA2" == "true" ]]; then
                 LABELS_IN_XYZ
         fi
