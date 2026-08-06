@@ -2155,6 +2155,22 @@ class MainWindow(QMainWindow):
                 return
             if self.local_process and self.local_process.poll() is None:
                 raise SubmissionError("A local lamaGOET calculation is already running.")
+            if os.name == "nt":
+                # On native Windows the only bash on PATH is normally WSL's
+                # launcher. Handing it a Windows path (C:\...) and a Windows
+                # working directory does not work: WSL sees a different
+                # filesystem, so the run fails somewhere inside lamaGOET.sh
+                # with a message about a missing file. Say so up front.
+                raise SubmissionError(
+                    "Running a calculation on this computer needs a Unix "
+                    "shell, which native Windows does not provide.\n\n"
+                    "Start lamaGOET from inside WSL instead, where everything "
+                    "behaves as it does on Linux:\n\n"
+                    "    bash /path/to/lamaGOET/lamaGOET_qt.sh\n\n"
+                    "Cluster submission works from native Windows: use "
+                    "GUI_lamaGOET_qt.cmd, which writes job_options.txt and "
+                    "lamaGOET.pbs without needing a shell here."
+                )
             bash = shutil.which("bash")
             if not bash:
                 raise SubmissionError(
