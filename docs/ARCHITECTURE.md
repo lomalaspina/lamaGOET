@@ -3,14 +3,33 @@
 ## The shape of it
 
 ```
-   Qt interface                job_options.txt              shell runners
-  (lamagoet_qt/)      ───────▶  ~170 shell        ───────▶  lamaGOET.sh
-   Python + PySide6             assignments                 RUN_lamaGOET_release.sh
-                                                                   │
-                                                                   ▼
-                                                        Tonto  +  Gaussian / ORCA /
-                                                                  CP2K / Crystal23 /
-                                                                  ELMOdb / OCC / GAMESS
+      ┌───────────────────────────────┐
+      │  Qt interface                 │
+      │  lamagoet_qt/                 │
+      │  Python and PySide6           │
+      └───────────────┬───────────────┘
+                      │  writes
+                      ▼
+      ┌───────────────────────────────┐
+      │  job_options.txt              │
+      │  ~170 shell assignments       │
+      └───────────────┬───────────────┘
+                      │  read by
+                      ▼
+      ┌───────────────────────────────┐
+      │  shell runners                │
+      │  lamaGOET.sh                  │
+      │  RUN_lamaGOET_release.sh      │
+      └───────────────┬───────────────┘
+                      │  drive
+                      ▼
+      ┌───────────────────────────────┐
+      │  Tonto                        │
+      │  with one of:                 │
+      │    Gaussian   ORCA   OCC      │
+      │    CP2K       Crystal23       │
+      │    ELMOdb     GAMESS-US       │
+      └───────────────────────────────┘
 ```
 
 The interface never computes anything. It writes `job_options.txt` and starts a

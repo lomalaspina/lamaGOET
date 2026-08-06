@@ -259,7 +259,7 @@ end-to-end check rather than a smoke test.
 cd ~/lamaGOET
 bash -n lamaGOET.sh RUN_lamaGOET_release.sh install.sh    # bash 3.2 parse
 python3 -m unittest discover -s Tests -p 'test_*.py' -v
-bash Tests/test_gui_cp2k_helpers.sh                        # currently fails on macOS
+bash Tests/test_gui_cp2k_helpers.sh    # currently fails on macOS
 bash Tests/test_har_stall_detection.sh
 bash Tests/test_live_cif_publish.sh
 ```
