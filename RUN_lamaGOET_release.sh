@@ -41,6 +41,14 @@ _lamagoet_publish_latest_cif() {
 # all legacy backends continue through this runner unchanged.
 if [[ -f job_options.txt ]]; then
 	source ./job_options.txt
+
+# Processor counts are used unquoted as `mpirun -n $NUMPROCTONTO`, so an option
+# file that predates them expands to `mpirun -n <binary>`: the -n flag consumes
+# the executable path and MPI reports "No executable was specified", which says
+# nothing about the real cause. Supply the defaults the schema promises.
+NUMPROC=${NUMPROC:-1}
+NUMPROCTONTO=${NUMPROCTONTO:-1}
+
 	if [[ -z "${COMPLETESTRUCT:-}" && -n "${COMPLETECIF:-}" ]]; then
 		COMPLETESTRUCT=$COMPLETECIF
 	fi
@@ -119,7 +127,7 @@ NoSphera2.exe -cif $JOBNAME.archive.cif -asym_cif $JOBNAME.fractional.cif1 -wfn 
 if ! grep -q 'Time Breakdown:' "NoSpherA2.log"; then
 	echo "ERROR: NoSpherA2 finished with error, please check the $I.th NoSpherA2.log file for more details" | tee -a $JOBNAME.lst
 	unset MAIN_DIALOG
-       	exit 0
+       	exit 1
 else
         mv experimental.tsc $JOBNAME.tsc
        	echo "NoSpherA2 job finish correctly."
@@ -185,7 +193,7 @@ echo "Updating wave at gas phase done"
 if ! grep -q 'Normal termination of Gaussian' "$JOBNAME.log"; then
 	echo "ERROR: Gaussian job finished with error, please check the $I.th log file for more details" | tee -a $JOBNAME.lst
 	unset MAIN_DIALOG
-	exit 0
+	exit 1
 fi
 }
 
@@ -245,7 +253,7 @@ fi
 if ! grep -q '****ORCA TERMINATED NORMALLY****' "$JOBNAME.out"; then
 	echo "ERROR: Orca job finished with error, please check the $I.th out file for more details" | tee -a $JOBNAME.lst
 	unset MAIN_DIALOG
-	exit 0
+	exit 1
 fi
 }
 
@@ -436,7 +444,7 @@ GAMESS_ELMODB_OLD_PDB(){
 	if ! grep -q 'OVERLAP INTEGRALS WRITTEN ON FILE sao' "$JOBNAME.gamess.out"; then
 		echo "ERROR: Calculation of overlap integrals with gamessus finished with error, please check the $I.th gamess.out file for more details" | tee -a $JOBNAME.lst
 		unset MAIN_DIALOG
-		exit 0
+		exit 1
 	else 
 		echo "Calculation of overlap integrals with gamess done, writing elmodb input files"
 		if [[ ! -f "$( echo $SCFCALC_BIN | awk -F "/" '{print $NF}' )" ]]; then
@@ -480,7 +488,7 @@ GAMESS_ELMODB_OLD_PDB(){
 		if ! grep -q 'CONGRATULATIONS: THE ELMO-TRANSFERs ENDED GRACEFULLY!!!' "$JOBNAME.elmodb.out"; then
 			echo "ERROR: elmodb finished with error, please check the $I.th elmodb.out file for more details" | tee -a $JOBNAME.lst
 			unset MAIN_DIALOG
-			exit 0
+			exit 1
 		else
 			echo "elmodb job finish correctly."
 			cp $JOBNAME.elmodb.out  $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.elmodb.out
@@ -557,7 +565,7 @@ ELMODB(){
 	if ! grep -q 'CONGRATULATIONS: THE ELMO-TRANSFERs ENDED GRACEFULLY!!!' "$JOBNAME.elmodb.out"; then
 		echo "ERROR: elmodb finished with error, please check the $I.th elmodb.out file for more details" | tee -a $JOBNAME.lst
 		unset MAIN_DIALOG
-		exit 0
+		exit 1
 	else
 		echo "elmodb job finish correctly."
                 if [ ! -d "$I.$SCFCALCPROG.cycle.$JOBNAME" ]; then
@@ -651,7 +659,7 @@ TONTO_TO_ORCA(){
 	if ! grep -q '****ORCA TERMINATED NORMALLY****' "$JOBNAME.out"; then
 		echo "ERROR: Orca job finished with error, please check the $I.th out file for more details" | tee -a $JOBNAME.lst
 		unset MAIN_DIALOG
-		exit 0
+		exit 1
 	fi
 	echo "Generation of molden file for Orca cycle number $I"
 	if [[ "$(which orca_2mkl.exe)" == "" ]]; then
@@ -735,7 +743,7 @@ TONTO_TO_OCC(){
 	if ! grep -q 'A job well done' "$JOBNAME.out"; then
 		echo "ERROR: OCC job finished with error, please check the $I.th out file for more details" | tee -a $JOBNAME.lst
 		unset MAIN_DIALOG
-		exit 0
+		exit 1
 	fi
         if [ ! -d "$I.$SCFCALCPROG.cycle.$JOBNAME" ]; then
                 mkdir $I.$SCFCALCPROG.cycle.$JOBNAME
@@ -949,7 +957,7 @@ TONTO_IAM_BLOCK(){
 		else 
 			echo "ERROR: Please select at least one of the anharmonic terms to refine" | tee -a $JOBNAME.lst
 			unset MAIN_DIALOG
-			exit 0
+			exit 1
 		fi
 	fi
 	if [[ "$ISFCF" != "true" ]]; then
@@ -1061,7 +1069,7 @@ CRYSTAL_BLOCK(){
 			else 
 				echo "ERROR: Please select at least one of the anharmonic terms to refine" | tee -a $JOBNAME.lst
 				unset MAIN_DIALOG
-				exit 0
+				exit 1
 			fi
 		fi
 	        if [[ "$POWDER_HAR" != "true" ]]; then 
@@ -1520,7 +1528,7 @@ SCF_TO_TONTO(){
 	if ! grep -q 'Wall-clock time taken' "stdout"; then
 		echo "ERROR: problems in fit cycle, please check the $J.th stdout file for more details" | tee -a $JOBNAME.lst
 		unset MAIN_DIALOG
-		exit 0
+		exit 1
 	fi
 	if [ $J = 1 ]; then 
 		echo "====================" >> $JOBNAME.lst
@@ -1642,7 +1650,7 @@ TONTO_TO_GAUSSIAN(){
 	if ! grep -q 'Normal termination of Gaussian' "$JOBNAME.log"; then
 		echo "ERROR: Gaussian job finished with error, please check the $I.th log file for more details" | tee -a $JOBNAME.lst
 		unset MAIN_DIALOG
-		exit 0
+		exit 1
 	fi
 	if [[ "$USENOSPHERA2" == "true" && "$I" != "1" ]]; then
 	        echo "Generation fcheck file for Gaussian cycle number $I"
@@ -1694,7 +1702,7 @@ TONTO_TO_CRYSTAL(){
 	        if [[ "$SPACEGROUPITNUMBER" == "" ]]; then
 		        echo "ERROR: Space group number not found. Please enter the space group number in your cif with the keyword _symmetry_Int_Tables_number or _space_group_IT_number and restart your job" | tee -a $JOBNAME.lst
 		        unset MAIN_DIALOG
-		        exit 0
+		        exit 1
                 fi 
 	fi
         if [[ "$USEHMSYM" == "true" ]];then 
@@ -1811,7 +1819,7 @@ TONTO_TO_CRYSTAL(){
 	if ! grep -q 'SCF ENDED - CONVERGENCE ON ENERGY' "$JOBNAME.out"; then
 		echo "ERROR: Crystal job finished with error, please check the $I.th out file for more details" | tee -a $JOBNAME.lst
 		unset MAIN_DIALOG
-		exit 0
+		exit 1
 	fi
         if [[ "$I" == "1" ]]; then
                 ENERGIA=$(grep "TOTAL ENERGY" $JOBNAME.out | tail -n1 | awk '{print $4}')
@@ -1903,7 +1911,7 @@ GET_FREQ(){
 	if ! grep -q 'Normal termination of Gaussian' "$JOBNAME.log"; then
 		echo "ERROR: Gaussian job finished with error, please check the $I.th log file for more details" | tee -a $JOBNAME.lst
 		unset MAIN_DIALOG
-		exit 0
+		exit 1
 	fi
 	echo "Generation fcheck file for Gaussian cycle number $I"
 	if [[ "$USENOSPHERA2" == "true" ]]; then
@@ -2002,7 +2010,7 @@ GET_FREQ_ORCA(){
 	if ! grep -q '****ORCA TERMINATED NORMALLY****' "$JOBNAME.out"; then
 		echo "ERROR: Orca job finished with error, please check the $I.th out file for more details" | tee -a $JOBNAME.lst
 		unset MAIN_DIALOG
-		exit 0
+		exit 1
 	fi
 	echo "Generation of molden file for Orca cycle number $I"
 	if [[ "$(which orca_2mkl.exe)" == "" ]]; then
@@ -2364,7 +2372,7 @@ XCW(){
 	if ! grep -q 'Wall-clock time taken' "stdout"; then
 		echo "ERROR: problems in fit cycle, please check the $J.th stdout file for more details" | tee -a $JOBNAME.lst
 		unset MAIN_DIALOG
-		exit 0
+		exit 1
 	fi
 #for f in *,restricted; do cp $f "$J.fit_cycle.$JOBNAME/$J.${f%}"; done
 }
@@ -2387,7 +2395,7 @@ BOTTOM_PLOT(){
 	else
 		echo "ERROR: Please enter cube size information" | tee -a $JOBNAME.lst
 		unset MAIN_DIALOG
-		exit 0
+		exit 1
 	fi
 	echo "      plot_format= cell.cube" >> stdin
 	if [ "$PLOT_ANGS" = "true" ]; then
@@ -2468,7 +2476,7 @@ PLOTS(){
 	if ! grep -q 'Wall-clock time taken' "stdout"; then
 		echo "ERROR: problems in fit cycle, please check the $J.th stdout file for more details" | tee -a $JOBNAME.lst
 		unset MAIN_DIALOG
-		exit 0
+		exit 1
 	fi
 }
 
@@ -2722,7 +2730,7 @@ run_script(){
 					else
 						echo "ERROR: Please select the format of the hkl file for header (F or F^2)" | tee -a $JOBNAME.lst
 						unset MAIN_DIALOG
-						exit 0
+						exit 1
 					fi
 					sed -i '1 i\ reflection_data= {' $HKL 
 					sed -i '$ a\   }' $HKL
@@ -2908,7 +2916,7 @@ run_script(){
 		if ! grep -q 'Wall-clock time taken' "stdout"; then
 			echo "ERROR: something wrong with your input cif file, please check the stdout file for more details" | tee -a $JOBNAME.lst
 			unset MAIN_DIALOG
-			exit 0
+			exit 1
 		fi
                 if [ ! -d "$J.tonto_cycle.$JOBNAME" ]; then
 	        	mkdir $J.tonto_cycle.$JOBNAME
@@ -3000,7 +3008,7 @@ run_script(){
 			if ! grep -q 'Normal termination of Gaussian' "$JOBNAME.log"; then
 				echo "ERROR: Gaussian job finished with error, please check the $I.th log file for more details" | tee -a $JOBNAME.lst
 				unset MAIN_DIALOG
-				exit 0
+				exit 1
 			fi
                         ENERGIA=$(sed -n '/Population analysis/,/Writing a WFN file/p' $JOBNAME.log |  sed 's/^ //' |  sed ':begin;$!N;s/\n//;tbegin' | awk '!f && sub(/.*HF=/,""){f=1} f' | awk -F '\' '{ print $1}' | tr -d '\r')
                         RMSD=$(sed -n '/Population analysis/,/Writing a WFN file/p' $JOBNAME.log |  sed 's/^ //' |  sed ':begin;$!N;s/\n//;tbegin' | awk '!f && sub(/.*RMSD=/,""){f=1} f' | awk -F '\' '{ print $1}' | tr -d '\r')
@@ -3096,7 +3104,7 @@ run_script(){
 			if ! grep -q '****ORCA TERMINATED NORMALLY****' "$JOBNAME.out"; then
 				echo "ERROR: Orca job finished with error, please check the $I.th out file for more details" | tee -a $JOBNAME.lst
 				unset MAIN_DIALOG
-				exit 0
+				exit 1
 			fi
 			ENERGIA=$(sed -n '/FINAL SINGLE POINT ENERGY/p' $JOBNAME.out | tail -1 | awk '{print $5}' | tr -d '\r')
 			RMSD=$(sed -n '/Last RMS-Density change/p' $JOBNAME.out | tail -1 | awk '{print $5}' | tr -d '\r')
@@ -3177,7 +3185,7 @@ run_script(){
 			if ! grep -q 'A job well done' "$JOBNAME.out"; then
 				echo "ERROR: OCC job finished with error, please check the $I.th out file for more details" | tee -a $JOBNAME.lst
 				unset MAIN_DIALOG
-				exit 0
+				exit 1
 			fi
 			ENERGIA=$(sed -n '/^total/p' $JOBNAME.out | awk '{print $2}' | tr -d '\r')
 			RMSD=$( awk '{a[NR]=$0}/restricted spinorbital SCF energy converged after/ {print a[NR-1]}' $JOBNAME.out | awk '{print $3}'| tr -d '\r')
