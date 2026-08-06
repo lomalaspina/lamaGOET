@@ -2953,7 +2953,13 @@ CRYSTAL_BLOCK(){
 	if [[ "$SCFCALCPROG" != "optgaussian" && "$SCFCALCPROG" != "optorca" ]]; then 
 		echo "      xray_data= {   " >> stdin
 	        if [[ "$POWDER_HAR" != "true" ]]; then 
-        		echo "         thermal_smearing_model= atom-based" >> stdin
+                        # Tonto's thermal_smearing_model= keyword is gone. Its job -- choosing
+                        # how the density is partitioned before thermal smearing -- now belongs
+                        # to partition_model=, written immediately below. The old value
+                        # "atom-based" meant one-centre partitioning, which is what the "oc-"
+                        # prefix of every current value denotes, so oc-hirshfeld and friends
+                        # already carry it. Emitting both would set an invalid value and then
+                        # repeat the key.
                         if [[ "$SCFCALCPROG" == "Crystal14" || "$SCFCALCPROG" == "CP2K" || "$SCFCALCPROG" == "Tonto" ]]; then
 				WRITE_DENSITY_PARTITION_MODEL || return 1
                         else
