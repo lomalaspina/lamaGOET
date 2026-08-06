@@ -87,8 +87,23 @@ Allow about half an hour. Two failures are common:
 - `gfortran: unrecognized command line option '-fallow-invalid-boz'` — delete
   that flag from line 30 of `cmake/SetFortranFlags.cmake`.
 
-Point lamaGOET at the resulting binary and at Tonto's `basis_sets` directory on
-the **Settings** tab.
+lamaGOET finds Tonto by itself in the usual places, so the **Settings** tab is
+normally already filled in when you open it. It looks for a build tree
+(`~/tonto/release/tonto` and similar) and for an installed copy, and derives
+the basis-set directory from wherever it found the binary — beside it, one
+level up, or under `share/tonto`. Anything you type yourself is never
+overwritten.
+
+If it does not find yours, set both on the **Settings** tab. The two layouts
+are:
+
+| | binary | basis sets |
+|---|---|---|
+| built in place, the usual case | `<tonto>/release/tonto` | `<tonto>/basis_sets` |
+| after `make install` | `<prefix>/bin/tonto` | `<prefix>/share/tonto/basis_sets` |
+
+Tonto's README does not mention `make install`, so the first row is what most
+people have.
 
 ## The other programs
 

@@ -52,6 +52,7 @@ from .basis_exchange import (
     render_mixed_basis,
 )
 from .cluster import SubmissionError, write_pbs_script
+from . import discovery
 from .crystal import (
     CifError,
     CrystalStructure,
@@ -263,6 +264,40 @@ class MainWindow(QMainWindow):
                 continue
             line_edit.setToolTip(line_edit.text())
             line_edit.textChanged.connect(line_edit.setToolTip)
+
+    #: The schema defaults, which mean "nobody has set this".
+    _PLACEHOLDER_TONTO = {"", "tonto"}
+    _PLACEHOLDER_BASIS = {"", "/usr/local/bin/basis_sets"}
+
+    def _fill_in_tonto_paths(self) -> None:
+        """Point at the local Tonto, if the user has not chosen one.
+
+        job_options.txt always contains every key, so an untouched file still
+        carries TONTO="tonto" and BASISSETDIR="/usr/local/bin/basis_sets".
+        Neither is useful: Tonto is normally run from its build tree and is not
+        on PATH, and no Tonto has ever created /usr/local/bin/basis_sets -
+        built in place it keeps the basis sets beside the source, installed it
+        puts them under share/tonto. So both fields had to be filled in by hand
+        before anything would run.
+
+        Only placeholder values are replaced. Anything the user typed, or that
+        came from a saved job, is left alone.
+        """
+
+        if self.tonto_bin.text().strip() in self._PLACEHOLDER_TONTO:
+            if not shutil.which(self.tonto_bin.text().strip() or "tonto"):
+                found = discovery.find_tonto_executable()
+                if found:
+                    self.tonto_bin.setText(str(found))
+
+        basis = discovery.find_basis_sets(self.tonto_bin.text().strip())
+        if basis:
+            for widget in (self.basis_directory, self.xcw_basis_directory):
+                # Only replace a placeholder. A path the user typed is left
+                # alone even if it does not exist yet: they may be preparing a
+                # job for a cluster, where it will.
+                if widget.text().strip() in self._PLACEHOLDER_BASIS:
+                    widget.setText(str(basis))
 
     def _build_ui(self) -> None:
         toolbar = QToolBar("Job")
@@ -1358,6 +1393,7 @@ class MainWindow(QMainWindow):
         )
         self.tonto_basis_directory.setText(self._option("TONTO_BASIS_DIR"))
         self.cp2k_bin.setText(self._option("CP2K_BIN"))
+        self._fill_in_tonto_paths()
         self.cp2k_basis_file.setText(
             self._option("CP2K_BASIS_SET_FILE") or self._guess_cp2k_basis_file()
         )
