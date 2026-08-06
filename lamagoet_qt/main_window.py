@@ -12,11 +12,12 @@ import shutil
 import subprocess
 
 from PySide6.QtCore import QTimer, Qt
-from PySide6.QtGui import QAction
+from PySide6.QtGui import QAction, QGuiApplication
 from PySide6.QtWidgets import (
     QApplication,
     QButtonGroup,
     QCheckBox,
+    QAbstractSpinBox,
     QComboBox,
     QDialog,
     QDialogButtonBox,
@@ -207,7 +208,7 @@ class MainWindow(QMainWindow):
             raise ValueError(f"unknown submission mode: {submission_mode}")
         self.submission_mode = submission_mode
         self.setWindowTitle("lamaGOET Qt — HAR setup and structure grow")
-        self.resize(1420, 860)
+        self._resize_to_screen()
         self.option_path = Path(option_path).resolve()
         self.saved_options: "OrderedDict[str, str]" = OrderedDict()
         self.structure: CrystalStructure | None = None
@@ -225,6 +226,43 @@ class MainWindow(QMainWindow):
         self.cif_timer.setInterval(2500)
         self.cif_timer.timeout.connect(self._refresh_latest_cif)
         self.cif_timer.start()
+
+    def _resize_to_screen(self) -> None:
+        """Open as large as the screen comfortably allows.
+
+        The setup form carries long filesystem paths, so a window sized for a
+        small laptop truncates them everywhere.  Prefer a generous size but
+        never exceed the available desktop area.
+        """
+
+        screen = QGuiApplication.primaryScreen()
+        if screen is None:
+            self.resize(1420, 860)
+            return
+        available = screen.availableGeometry()
+        width = min(1700, int(available.width() * 0.94))
+        height = min(1040, int(available.height() * 0.92))
+        self.resize(max(width, 1000), max(height, 700))
+
+    def _show_full_text_in_tooltips(self) -> None:
+        """Mirror each text box's contents into its tooltip.
+
+        Paths are routinely longer than the box that holds them.  Rather than
+        shrink the font, let the user hover to read the whole value.  Widgets
+        that already carry an explanatory tooltip keep it, and the editable
+        part of a combo box is left alone so its own help survives.
+        """
+
+        for line_edit in self.findChildren(QLineEdit):
+            # Combo boxes and spin boxes own an internal QLineEdit.  Leave both
+            # alone: the combo keeps its own help text, and the spin box's
+            # internal editor rejects the connection outright.
+            if isinstance(line_edit.parent(), (QComboBox, QAbstractSpinBox)):
+                continue
+            if line_edit.toolTip():
+                continue
+            line_edit.setToolTip(line_edit.text())
+            line_edit.textChanged.connect(line_edit.setToolTip)
 
     def _build_ui(self) -> None:
         toolbar = QToolBar("Job")
@@ -250,7 +288,10 @@ class MainWindow(QMainWindow):
         self.main_splitter = QSplitter(Qt.Orientation.Horizontal)
         self.main_splitter.addWidget(self._job_panel())
         self.main_splitter.addWidget(self._structure_panel())
-        self.main_splitter.setSizes([570, 850])
+        # The setup form holds long filesystem paths and needs the width more
+        # than the structure view does, so give it close to half the window.
+        total = max(self.width(), 1200)
+        self.main_splitter.setSizes([int(total * 0.46), int(total * 0.54)])
         self.main_splitter.setChildrenCollapsible(False)
         self.main_splitter.setOpaqueResize(True)
         self.main_splitter.setHandleWidth(14)
@@ -268,6 +309,7 @@ class MainWindow(QMainWindow):
         handle.setToolTip("Drag to resize the setup and structure panels")
         self.setCentralWidget(self.main_splitter)
         self.setStatusBar(QStatusBar())
+        self._show_full_text_in_tooltips()
 
     def _job_panel(self) -> QWidget:
         scroll = QScrollArea()
@@ -943,7 +985,10 @@ class MainWindow(QMainWindow):
         row = QWidget()
         layout = QHBoxLayout(row)
         layout.setContentsMargins(0, 0, 0, 0)
-        layout.addWidget(line_edit)
+        # A full executable path is easily 40 characters; without a floor the
+        # form squeezes these boxes down to a couple of directory names.
+        line_edit.setMinimumWidth(340)
+        layout.addWidget(line_edit, 1)
         button = QPushButton("Browse…")
         if directory:
             button.clicked.connect(lambda: self._choose_directory(line_edit))
