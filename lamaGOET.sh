@@ -2,6 +2,19 @@
 Encoding=UTF-8
 export LC_NUMERIC="en_US.UTF-8"
 
+# Make GNU sed/awk/coreutils available under their plain names, and provide
+# the _upper/_lower helpers, so this script behaves the same on Linux and
+# macOS.  See lamagoet_shell_env.sh for why this is necessary.
+_lamagoet_env_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+if [ -r "$_lamagoet_env_dir/lamagoet_shell_env.sh" ]; then
+    source "$_lamagoet_env_dir/lamagoet_shell_env.sh"
+else
+    echo "lamaGOET: cannot find lamagoet_shell_env.sh next to $0" >&2
+    echo "If lamaGOET was installed with install.sh, make sure that file was" >&2
+    echo "symlinked into the same directory as this script." >&2
+    exit 2
+fi
+
 # BEGIN LAMAGOET CP2K SINGLE-FILE BACKEND
 # Periodic all-electron CP2K backend embedded directly in this monolithic
 # lamaGOET.sh. Only the CIF and binary-density parsers remain external Python
@@ -62,9 +75,9 @@ _cp2k_list_basis_sets() {
 
 _cp2k_list_functionals() {
     local current=${1:-BLYP}
-    case "${current^^}" in
+    case "$(_upper "$current")" in
         BLYP|BP|PADE|LDA|PBE|TPSS|HCTH120|OLYP|BEEFVDW)
-            current=${current^^}
+            current=$(_upper "$current")
             ;;
         *)
             current=BLYP
@@ -319,7 +332,7 @@ _lamagoet_grow_cif() {
         _lamagoet_view_cif "$source_cif"
         return 1
     fi
-    if [[ "${source_cif,,}" != *.cif ]]; then
+    if [[ "$(_lower "$source_cif")" != *.cif ]]; then
         message="Manual crystallographic growing requires a CIF input file."
         if command -v zenity >/dev/null 2>&1; then
             zenity --error --title="lamaGOET manual grow" --text="$message"
@@ -479,7 +492,7 @@ _cp2k_prepare_runtime() {
 _cp2k_functional() {
     local requested=${CP2K_XC_FUNCTIONAL:-}
     if [ -n "$requested" ]; then
-        case "${requested^^}" in
+        case "$(_upper "$requested")" in
             B3LYP|PBE0|HSE*|*HYB*)
                 _cp2k_error "hybrid functional '$requested' requires an explicit periodic CP2K &HF section"
                 return 1
@@ -488,7 +501,7 @@ _cp2k_functional() {
         printf '%s\n' "$requested"
         return 0
     fi
-    case "${METHOD,,}" in
+    case "$(_lower "$METHOD")" in
         rks|uks|blyp|ublyp) printf '%s\n' BLYP ;;
         pbe|upbe)           printf '%s\n' PBE ;;
         "")                  printf '%s\n' BLYP ;;
@@ -527,7 +540,7 @@ CP2K_VALIDATE_LAMAGOET_MODE() {
     local name value
     for name in POWDER_HAR SCCHARGES COMPLETESTRUCT EXPLICITMOL DEFRAGNETW XCWONLY PLOT_TONTO XWR; do
         eval "value=\${$name:-false}"
-        if [[ "${value,,}" == "true" ]]; then
+        if [[ "$(_lower "$value")" == "true" ]]; then
             _cp2k_error "$name=true is not supported by the periodic CP2K backend"
             return 1
         fi
@@ -540,7 +553,7 @@ _cp2k_write_input() {
     local functional=$6 subsys=$7 scf_guess=$8 restart_file=${9:-}
     local uks_line="" restart_line=""
 
-    if [ "$multiplicity" -gt 1 ] 2>/dev/null || [[ "${METHOD,,}" == u* ]]; then
+    if [ "$multiplicity" -gt 1 ] 2>/dev/null || [[ "$(_lower "$METHOD")" == u* ]]; then
         uks_line="    UKS T"
     fi
     if [ -n "$restart_file" ]; then
@@ -636,7 +649,7 @@ _cp2k_run() {
     _cp2k_prepare_runtime "$cp2k_bin" || return 1
 
     if [ -n "${CP2K_RUN_COMMAND:-}" ]; then
-        if [[ "${verbose,,}" == "true" ]]; then
+        if [[ "$(_lower "$verbose")" == "true" ]]; then
             set -o pipefail
             CP2K_INPUT=$(basename "$input") \
             CP2K_OUTPUT="$output_name" \
@@ -653,7 +666,7 @@ _cp2k_run() {
         fi
     elif [[ "$executable_name" == *.psmp || "$executable_name" == cp2k.psmp ]]; then
         _cp2k_require_command mpirun || return 1
-        if [[ "${verbose,,}" == "true" ]]; then
+        if [[ "$(_lower "$verbose")" == "true" ]]; then
             set -o pipefail
             OMP_NUM_THREADS=${CP2K_NUM_THREADS:-1} \
             OMP_PROC_BIND=${OMP_PROC_BIND:-spread} \
@@ -671,7 +684,7 @@ _cp2k_run() {
             rc=$?
         fi
     else
-        if [[ "${verbose,,}" == "true" ]]; then
+        if [[ "$(_lower "$verbose")" == "true" ]]; then
             set -o pipefail
             OMP_NUM_THREADS="$threads" \
             OMP_PROC_BIND=${OMP_PROC_BIND:-spread} \
@@ -945,7 +958,7 @@ CP2K_TONTO_PERIODIC_SETUP() {
 CP2K_TONTO_SCFDATA() {
     local periodic_functional
     periodic_functional=$(_cp2k_functional) || return 1
-    periodic_functional=${periodic_functional^^}
+    periodic_functional=$(_upper "$periodic_functional")
 
     {
         echo "   ! The periodic molecular density uses CP2K $periodic_functional."

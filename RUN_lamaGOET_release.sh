@@ -1,6 +1,19 @@
 #!/bin/bash
 export LC_NUMERIC="en_US.UTF-8"
 
+# Make GNU sed/awk/coreutils available under their plain names, and provide
+# the _upper/_lower helpers, so this script behaves the same on Linux and
+# macOS.  See lamagoet_shell_env.sh for why this is necessary.
+_lamagoet_env_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+if [ -r "$_lamagoet_env_dir/lamagoet_shell_env.sh" ]; then
+    source "$_lamagoet_env_dir/lamagoet_shell_env.sh"
+else
+    echo "lamaGOET: cannot find lamagoet_shell_env.sh next to $0" >&2
+    echo "If lamaGOET was installed with install.sh, make sure that file was" >&2
+    echo "symlinked into the same directory as this script." >&2
+    exit 2
+fi
+
 _lamagoet_publish_latest_cif() {
 	local server=${LAMAGOET_LIVE_CIF_SERVER:-}
 	local directory=${LAMAGOET_LIVE_CIF_DIRECTORY:-}

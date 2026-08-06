@@ -39,6 +39,8 @@ run_case() {
     mkdir -p "$case_dir"
     cp "$repo_dir/GUI_lamaGOET_release.sh" "$case_dir/"
     cp "$repo_dir/lamaGOET.sh" "$case_dir/"
+    # The runners refuse to start without their environment shim beside them.
+    cp "$repo_dir/lamagoet_shell_env.sh" "$case_dir/"
     if [[ -n "$options" ]]; then
         cp "$options" "$case_dir/job_options.txt"
     fi
