@@ -1874,132 +1874,6 @@ SPACEGROUPMENU(){
 	
 }
 
-ATOMIC_NUMBERS(){
-#declare -A matrix
-#num_rows=198
-#num_column=2
-
-col_size=2
- matrix=()
- matrix+=( 'Ac'	 '89   ')
- matrix+=( 'Al'	 '13   ')
- matrix+=( 'Am'	 '95   ')
- matrix+=( 'Sb'	 '51   ')
- matrix+=( 'Ar'	 '18   ')
- matrix+=( 'As'	 '33   ')
- matrix+=( 'At'	 '85   ')
- matrix+=( 'Ba'	 '56   ')
- matrix+=( 'Bk'	 '97   ')
- matrix+=( 'Be'	 '4    ')
- matrix+=( 'Bi'	 '83   ')
- matrix+=( 'Bh'	 '107  ')
- matrix+=( 'B '  '5    ')
- matrix+=( 'Br'	 '35   ')
- matrix+=( 'Cd'	 '48   ')
- matrix+=( 'Ca'	 '20   ')
- matrix+=( 'Cf'	 '98   ')
- matrix+=( 'C '  '6    ')
- matrix+=( 'Ce'	 '58   ')
- matrix+=( 'Cs'	 '55   ')
- matrix+=( 'Cl'	 '17   ')
- matrix+=( 'Cr'	 '24   ')
- matrix+=( 'Co'	 '27   ')
- matrix+=( 'Cn'	 '112  ')
- matrix+=( 'Cu'	 '29   ')
- matrix+=( 'Cm'	 '96   ')
- matrix+=( 'Ds'	 '110  ')
- matrix+=( 'Db'	 '105  ')
- matrix+=( 'Dy'	 '66   ')
- matrix+=( 'Es'	 '99   ')
- matrix+=( 'Er'	 '68   ')
- matrix+=( 'Eu'	 '63   ')
- matrix+=( 'Fm'	 '100  ')
- matrix+=( 'Fl'	 '114  ')
- matrix+=( 'F '  ' 9   ')
- matrix+=( 'Fr'	 '87   ')
- matrix+=( 'Gd'	 '64   ')
- matrix+=( 'Ga'	 '31   ')
- matrix+=( 'Ge'	 '32   ')
- matrix+=( 'Au'	 '79   ')
- matrix+=( 'Hf'	 '72   ')
- matrix+=( 'Hs'	 '108  ')
- matrix+=( 'He'	 '2    ')
- matrix+=( 'Ho'	 '67   ')
- matrix+=( 'H '  ' 1   ')
- matrix+=( 'In'	 '49   ')
- matrix+=( 'I '  ' 53  ')
- matrix+=( 'Ir'	 '77   ')
- matrix+=( 'Fe'	 '26   ')
- matrix+=( 'Kr'	 '36   ')
- matrix+=( 'La'	 '57   ')
- matrix+=( 'Lr'	 '103  ')
- matrix+=( 'Pb'	 '82   ')
- matrix+=( 'Li'	 '3    ')
- matrix+=( 'Lv'	 '116  ')
- matrix+=( 'Lu'	 '71   ')
- matrix+=( 'Mg'	 '12   ')
- matrix+=( 'Mn'	 '25   ')
- matrix+=( 'Mt'	 '109  ')
- matrix+=( 'Md'	 '101  ')
- matrix+=( 'Hg'	 '80   ')
- matrix+=( 'Mo'	 '42   ')
- matrix+=( 'Mc'	 '115  ')
- matrix+=( 'Nd'	 '60   ')
- matrix+=( 'Ne'	 '10   ')
- matrix+=( 'Np'	 '93   ')
- matrix+=( 'Ni'	 '28   ')
- matrix+=( 'Nh'	 '113  ')
- matrix+=( 'Nb'	 '41   ')
- matrix+=( 'N '  ' 7   ')
- matrix+=( 'No'	 '102  ')
- matrix+=( 'Og'	 '118  ')
- matrix+=( 'Os'	 '76   ')
- matrix+=( 'O '  ' 8   ')
- matrix+=( 'Pd'	 '46   ')
- matrix+=( 'P '  ' 15  ')
- matrix+=( 'Pt'	 '78   ')
- matrix+=( 'Pu'	 '94   ')
- matrix+=( 'Po'	 '84   ')
- matrix+=( 'K '  ' 19  ')
- matrix+=( 'Pr'	 '59   ')
- matrix+=( 'Pm'	 '61   ')
- matrix+=( 'Pa'	 '91   ')
- matrix+=( 'Ra'	 '88   ')
- matrix+=( 'Rn'	 '86   ')
- matrix+=( 'Re'	 '75   ')
- matrix+=( 'Rh'	 '45   ')
- matrix+=( 'Rg'	 '111  ')
- matrix+=( 'Rb'	 '37   ')
- matrix+=( 'Ru'	 '44   ')
- matrix+=( 'Rf'	 '104  ')
- matrix+=( 'Sm'	 '62   ')
- matrix+=( 'Sc'	 '21   ')
- matrix+=( 'Sg'	 '106  ')
- matrix+=( 'Se'	 '34   ')
- matrix+=( 'Si'	 '14   ')
- matrix+=( 'Ag'	 '47   ')
- matrix+=( 'Na'	 '11   ')
- matrix+=( 'Sr'	 '38   ')
- matrix+=( 'S '  ' 16  ')
- matrix+=( 'Ta'	 '73   ')
- matrix+=( 'Tc'	 '43   ')
- matrix+=( 'Te'	 '52   ')
- matrix+=( 'Ts'	 '117  ')
- matrix+=( 'Tb'	 '65   ')
- matrix+=( 'Tl'	 '81   ')
- matrix+=( 'Th'	 '90   ')
- matrix+=( 'Tm'	 '69   ')
- matrix+=( 'Sn'	 '50   ')
- matrix+=( 'Ti'	 '22   ')
- matrix+=( 'W '  ' 74  ')
- matrix+=( 'U '  ' 92  ')
- matrix+=( 'V '  ' 23  ')
- matrix+=( 'Xe'	 '54   ')
- matrix+=( 'Yb'	 '70   ')
- matrix+=( 'Y '  ' 39  ')
- matrix+=( 'Zn'	 '30   ')
- matrix+=( 'Zr'	 '40   ')
-}
 
 RUN_NOSPHERA2(){
 
@@ -2433,17 +2307,6 @@ GAMESS_ELMODB_OLD_PDB(){
 	                echo "Generation of .tsc file with NoSpherA2 for cycle number $NSA2_COUNTER in progress"
        		        RUN_NOSPHERA2
         	        echo "Generation of .tsc file with NoSpherA2 for cycle number $NSA2_COUNTER ended"
-########		if ! grep -q 'Time Breakdown:' "NoSpherA2.log"; then
-########			echo "ERROR: NoSpherA2 finished with error, please check the $I.th NoSpherA2.log file for more details" | tee -a $JOBNAME.lst
-########			unset MAIN_DIALOG
-########			exit 0
-########		else
-########			echo "NoSpherA2 job finish correctly."
-########			mv experimental.tsc $JOBNAME.tsc
-########			cp $JOBNAME.wfn  $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.elmodb.wfn
-########			cp $JOBNAME.tsc $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.tsc
-########			cp NoSpherA2.log $I.$SCFCALCPROG.cycle.$JOBNAME/$I.NoSpherA2.log
-########		fi
 		fi
 	fi
 }
@@ -2512,17 +2375,6 @@ ELMODB(){
                 echo "Generation of .tsc file with NoSpherA2 for cycle number $NSA2_COUNTER in progress"
 	        RUN_NOSPHERA2
                 echo "Generation of .tsc file with NoSpherA2 for cycle number $NSA2_COUNTER ended"
-########	if ! grep -q 'Time Breakdown:' "NoSpherA2.log"; then
-########		echo "ERROR: NoSpherA2 finished with error, please check the $I.th NoSpherA2.log file for more details" | tee -a $JOBNAME.lst
-########		unset MAIN_DIALOG
-########		exit 0
-########	else
-########		mv experimental.tsc $JOBNAME.tsc
-########		echo "NoSpherA2 job finish correctly."
-########		cp $JOBNAME.wfn  $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.elmodb.wfn
-########		cp $JOBNAME.tsc $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.tsc
-########		cp NoSpherA2.log $I.$SCFCALCPROG.cycle.$JOBNAME/$I.NoSpherA2.log
-########	fi
 	fi
 }
 
@@ -2620,17 +2472,6 @@ TONTO_TO_ORCA(){
 		echo "Generation of .tsc file with NoSpherA2 for cycle number $I in progress"
 		RUN_NOSPHERA2
 		echo "Generation of .tsc file with NoSpherA2 for cycle number $I ended"
-########	if ! grep -q 'Time Breakdown:' "NoSpherA2.log"; then
-########		echo "ERROR: NoSpherA2 finished with error, please check the $I.th NoSpherA2.log file for more details" | tee -a $JOBNAME.lst
-########		unset MAIN_DIALOG
-########		exit 0
-########	else
-########		mv experimental.tsc $JOBNAME.tsc
-########		echo "NoSpherA2 job finish correctly."
-########		cp $JOBNAME.wfn  $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.wfn
-########		cp $JOBNAME.tsc $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.tsc
-########		cp NoSpherA2.log $I.$SCFCALCPROG.cycle.$JOBNAME/$I.NoSpherA2.log
-########	fi
 	fi
         if [ ! -d "$I.$SCFCALCPROG.cycle.$JOBNAME" ]; then
                 mkdir $I.$SCFCALCPROG.cycle.$JOBNAME
@@ -3066,10 +2907,6 @@ CRYSTAL_BLOCK(){
 	echo "" >> stdin
 }
 
-SET_H_ISO(){ 
-	echo "	 set_isotropic_h_adps"  >> stdin
-	echo "" >> stdin
-}
 
 PUT_GEOM(){
         if [[ "$SCFCALCPROG" != "Crystal14" && "$SCFCALCPROG" != "CP2K" && "$DEFRAGNETW" != "true" ]]; then
@@ -3197,10 +3034,6 @@ SCF_BLOCK_NOT_TONTO(){
                 else 
                         echo "   write_xtal23_xyz_file" >> stdin
                 fi
-########	if [[ "$SCFCALCPROG" == "optgaussian" ]]; then
-########		echo "" >> stdin
-########		echo "   put_grown_cif" >> stdin
-########	fi
 	else
 		if [[ "$SCFCALCPROG" != "optgaussian" && "$SCFCALCPROG" != "optorca" ]]; then 
 	                if [[ "$POWDER_HAR" != "true" ]]; then
@@ -3234,10 +3067,6 @@ SCF_BLOCK_NOT_TONTO(){
                 else 
                         echo "   write_xtal23_xyz_file" >> stdin
                 fi
-########	if [[ "$SCFCALCPROG" == "optgaussian" ]]; then
-########		echo "" >> stdin
-########		echo "   put_grown_cif" >> stdin
-########	fi
 	fi
 }
 
@@ -3333,7 +3162,6 @@ SCF_TO_TONTO(){
 		PROCESS_CIF
 		DEFINE_JOB_NAME
                if [[ "$SCFCALCPROG" == "Crystal14" ]]; then
-#                       COMPLETECELLBLOCK
                         TONTO_BASIS_SET
         	        CHARGE_MULT
         	        READ_CRYSTAL_WFN
@@ -3366,11 +3194,6 @@ SCF_TO_TONTO(){
 			COMPLETECIFBLOCK
 		fi
 	fi
-########if [[ "$SCFCALCPROG" == "Gaussian" || "$SCFCALCPROG" == "Orca" ]]; then 
-########	if [[ "$COMPLETESTRUCT" == "true" || "$EXPLICITMOL" == "true" ]]; then
-########		COMPLETECIFBLOCK
-########	fi
-########fi
 #       if [[ "$SCFCALCPROG" == "Crystal14" ]]; then
 #       	echo "   use_spherical_basis= TRUE" >> stdin
 #               TONTO_BASIS_SET
@@ -3385,11 +3208,6 @@ SCF_TO_TONTO(){
 		TONTO_IAM_BLOCK
 	fi
 	CRYSTAL_BLOCK
-########if [[ "POWDER_HAR" != "true" ]]; then 
-########        if [[ "$HADP" == "yes" ]]; then 
-########        	SET_H_ISO
-########	fi
-########fi
        	PUT_GEOM
 	if [[ "$POWDER_HAR" != "true" ]]; then
         	if [[ "$USEBECKE" == "true" ]]; then 
@@ -3460,9 +3278,6 @@ SCF_TO_TONTO(){
 # in the geometry, this is an implicit way of checking that the
 # convergency is also in the energy level. 
 # correct
-########MAXSHIFT=$(awk '{a[NR]=$0}/^Begin rigid-atom fit/{b=NR+10}/^Rigid-atom fit results/{c=NR-4}END {for(d=b;d<=c;++d)print a[d]}' stdout | awk '{ gsub("-","",$0); print $0 }' | tail -1 | awk -v max=0 '{if($5>max){shift=$5; atom=$7; param=$8; max=$5}}END{print shift}')
-########MAXSHIFTATOM=$(awk '{a[NR]=$0}/^Begin rigid-atom fit/{b=NR+10}/^Rigid-atom fit results/{c=NR-4}END {for(d=b;d<=c;++d)print a[d]}' stdout | awk '{ gsub("-","",$0); print $0 }' | tail -1 | awk -v max=0 '{if($5>max){shift=$5; atom=$7; param=$8; max=$5}}END{print atom}')
-########MAXSHIFTPARAM=$(awk '{a[NR]=$0}/^Begin rigid-atom fit/{b=NR+10}/^Rigid-atom fit results/{c=NR-4}END {for(d=b;d<=c;++d)print a[d]}' stdout | awk '{ gsub("-","",$0); print $0 }' | tail -1 | awk -v max=0 '{if($5>max){shift=$5; atom=$7; param=$8; max=$5}}END{print param}')
 	MAXSHIFT=$(awk '{a[NR]=$0}/^Begin rigid-atom fit/{b=NR+10}/^Rigid-atom fit results/{c=NR-4}END {for(d=b;d<=c;++d)print a[d]}' stdout | awk '{ gsub("-","",$0); print $0 }' | awk -v max=0 '{if($5>max){shift=$5; atom=$7; param=$8; max=$5}}END{print shift}')
         MAXSHIFT=$( echo ${MAXSHIFT#-} ) #this is to get the absolute value 
 	MAXSHIFTATOM=$(awk '{a[NR]=$0}/^Begin rigid-atom fit/{b=NR+10}/^Rigid-atom fit results/{c=NR-4}END {for(d=b;d<=c;++d)print a[d]}' stdout | awk '{ gsub("-","",$0); print $0 }' | awk -v max=0 '{if($5>max){shift=$5; atom=$7; param=$8; max=$5}}END{print atom}')
@@ -3604,17 +3419,6 @@ TONTO_TO_GAUSSIAN(){
 		echo "Generation of .tsc file with NoSpherA2 for cycle number $I in progress"
 		RUN_NOSPHERA2
 		echo "Generation of .tsc file with NoSpherA2 for cycle number $I ended"
-########	if ! grep -q 'Time Breakdown:' "NoSpherA2.log"; then
-########		echo "ERROR: NoSpherA2 finished with error, please check the $I.th NoSpherA2.log file for more details" | tee -a $JOBNAME.lst
-########		unset MAIN_DIALOG
-########		exit 0
-########	else
-########		mv experimental.tsc $JOBNAME.tsc
-########		echo "NoSpherA2 job finish correctly."
-########		cp $JOBNAME.wfn  $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.wfn
-########		cp $JOBNAME.tsc $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.tsc
-########		cp NoSpherA2.log $I.$SCFCALCPROG.cycle.$JOBNAME/$I.NoSpherA2.log
-########	fi
 	fi
         if [ ! -d "$I.$SCFCALCPROG.cycle.$JOBNAME" ]; then
                 mkdir $I.$SCFCALCPROG.cycle.$JOBNAME
@@ -3862,17 +3666,6 @@ GET_FREQ(){
 		echo "Generation of .tsc file with NoSpherA2 for cycle number $I in progress"
 		RUN_NOSPHERA2
 		echo "Generation of .tsc file with NoSpherA2 for cycle number $I ended"
-########	if ! grep -q 'Time Breakdown:' "NoSpherA2.log"; then
-########		echo "ERROR: NoSpherA2 finished with error, please check the $I.th NoSpherA2.log file for more details" | tee -a $JOBNAME.lst
-########		unset MAIN_DIALOG
-########		exit 0
-########	else
-########		mv experimental.tsc $JOBNAME.tsc
-########		echo "NoSpherA2 job finish correctly."
-########		cp $JOBNAME.wfn  $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.wfn
-########		cp $JOBNAME.tsc $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.tsc
-########		cp NoSpherA2.log $I.$SCFCALCPROG.cycle.$JOBNAME/$I.NoSpherA2.log
-########	fi
 	fi
         if [ ! -d "$I.$SCFCALCPROG.cycle.$JOBNAME" ]; then
 	        mkdir $I.$SCFCALCPROG.cycle.$JOBNAME
@@ -4089,9 +3882,6 @@ CHECK_ENERGY(){
 	echo "Delta E (cycle  $I - $[ I - 1 ]): $DE "
 }
 
-CHECKCONV(){
-FINALPARAMESD=$(awk '{a[NR]=$0}/^Begin rigid-atom fit/{b=NR}END {print a[b+10]}' stdout | awk '{print $5}')
-}
 
 APPEND_IAM_RESULTS(){
 	# Copy the starting IAM refinement into $JOBNAME.lst.
@@ -4620,29 +4410,7 @@ COMPLETECIFBLOCK(){
 	fi
 }
 
-COMPLETECELLBLOCK(){
-        echo "   cluster= {" >> stdin
-        echo "      generation_method= unit_cell" >> stdin
-	echo "      make_info" >> stdin
-	echo "   }" >> stdin
-	echo "" >> stdin
-	echo "   create_cluster" >> stdin
-	echo "" >> stdin
-	echo "   name= $JOBNAME" >> stdin		
-	echo "" >> stdin
-}
 
-REDUCECELLCLUSTER(){
-        echo "   cluster= {" >> stdin
-        echo "      generation_method= assymetric_unit" >> stdin
-        echo "      make_info" >> stdin
-        echo "   }" >> stdin
-        echo "" >> stdin
-        echo "   create_cluster" >> stdin
-        echo "" >> stdin
-        echo "   name= $JOBNAME" >> stdin
-        echo "" >> stdin
-}
 
 run_script(){
 	SECONDS=0
@@ -4847,7 +4615,6 @@ run_script(){
 		echo "   name= $JOBNAME" >> stdin
 		echo "" >> stdin
 #               if [[ "$SCFCALCPROG" == "Crystal14" ]]; then
-#                       COMPLETECELLBLOCK
 #               fi
 		COMPLETECIFBLOCK
 		echo "   put" >> stdin 
@@ -4863,7 +4630,6 @@ run_script(){
                                 echo "   write_xyz_file" >> stdin
                         fi
                 else
-#                       REDUCECELLCLUSTER
                         echo "   write_xtal23_xyz_file" >> stdin
                 fi
 		echo "   put_cif" >> stdin
@@ -4888,10 +4654,6 @@ run_script(){
                         LABELS_IN_XYZ
                 fi
                 #there is no refinement here yet!!!!!!
-########	INITIALCHI=$(awk '{a[NR]=$0}/^Begin rigid-atom fit/{b=NR}END {print a[b+10]}' stdout | awk '{print $2}')
-########	MAXSHIFT=$(awk '{a[NR]=$0}/^Begin rigid-atom fit/{b=NR+10}/^Rigid-atom fit results/{c=NR-4}END {for(d=b;d<=c;++d)print a[d]}' stdout | awk '{ gsub("-","",$0); print $0 }' | awk -v max=0 '{if($5>max){shift=$5; atom=$7; param=$8; max=$5}}END{print shift}')
-########	MAXSHIFTATOM=$(awk '{a[NR]=$0}/^Begin rigid-atom fit/{b=NR+10}/^Rigid-atom fit results/{c=NR-4}END {for(d=b;d<=c;++d)print a[d]}' stdout | awk '{ gsub("-","",$0); print $0 }' | awk -v max=0 '{if($5>max){shift=$5; atom=$7; param=$8; max=$5}}END{print atom}')
-########	MAXSHIFTPARAM=$(awk '{a[NR]=$0}/^Begin rigid-atom fit/{b=NR+10}/^Rigid-atom fit results/{c=NR-4}END {for(d=b;d<=c;++d)print a[d]}' stdout | awk '{ gsub("-","",$0); print $0 }' |awk -v max=0 '{if($5>max){shift=$5; atom=$7; param=$8; max=$5}}END{print param}')
 		if [[ "$SCFCALCPROG" != "Tonto" && "$SCFCALCPROG" != "elmodb" ]]; then
 			sed -i 's/(//g' $JOBNAME.xyz
 			sed -i 's/)//g' $JOBNAME.xyz
@@ -5009,17 +4771,6 @@ run_script(){
 				        echo "Generation of .tsc file with NoSpherA2 for cycle number $NSA2_COUNTER in progress"
 				        RUN_NOSPHERA2
 				        echo "Generation of .tsc file with NoSpherA2 for cycle number $NSA2_COUNTER ended"
-########		        	if ! grep -q 'Time Breakdown:' "NoSpherA2.log"; then
-########		        		echo "ERROR: NoSpherA2 finished with error, please check the $I.th NoSpherA2.log file for more details" | tee -a $JOBNAME.lst
-########		        		unset MAIN_DIALOG
-########		        		exit 0
-########		        	else
-########		        		mv experimental.tsc $JOBNAME.tsc
-########		        		echo "NoSpherA2 job finish correctly."
-########		        		cp $JOBNAME.wfn  $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.wfn
-########		        		cp $JOBNAME.tsc $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.tsc
-########		        		cp NoSpherA2.log $I.$SCFCALCPROG.cycle.$JOBNAME/$I.NoSpherA2.log
-########		        	fi
                                 fi
 			fi
                         if [ ! -d "$I.$SCFCALCPROG.cycle.$JOBNAME" ]; then
@@ -5122,17 +4873,6 @@ run_script(){
 				        echo "Generation of .tsc file with NoSpherA2 for cycle number $NSA2_COUNTER in progress"
 				        RUN_NOSPHERA2
 				        echo "Generation of .tsc file with NoSpherA2 for cycle number $NSA2_COUNTER ended"
-########        			if ! grep -q 'Time Breakdown:' "NoSpherA2.log"; then
-########        				echo "ERROR: NoSpherA2 finished with error, please check the $I.th NoSpherA2.log file for more details" | tee -a $JOBNAME.lst
-########        				unset MAIN_DIALOG
-########        				exit 0
-########        			else
-########        				mv experimental.tsc $JOBNAME.tsc
-########        				echo "NoSpherA2 job finish correctly."
-########        				cp $JOBNAME.wfn  $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.wfn
-########        				cp $JOBNAME.tsc $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.tsc
-########        				cp NoSpherA2.log $I.$SCFCALCPROG.cycle.$JOBNAME/$I.NoSpherA2.log
-########        			fi
                                 fi
 			fi
                         if [ ! -d "$I.$SCFCALCPROG.cycle.$JOBNAME" ]; then
