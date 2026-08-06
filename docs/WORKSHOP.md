@@ -154,18 +154,21 @@ Press **OK**. Results collect in `my_job.lst`.
 Search `my_job.lst` for `IAM refinement` and `Structure refinement results` —
 the first is the starting model, the second the HAR.
 
-| | SHELX IAM | Tonto IAM | HAR | HAR + cluster charges |
-|---|---|---|---|---|
-| R(F) | 0.0353 | 0.0355 | | |
-| wR(F²) | 0.0964 | 0.0725 | | |
-| ρ<sub>max</sub> | 0.205 | 0.220 | | |
-| ρ<sub>min</sub> | −0.213 | −0.225 | | |
-| reflections | 1308 | 1308 | | |
-| parameters | 44 | 44 | | |
-| C–H distances | 0.997(10) 0.993(10) 0.945(11) 0.947(11) | 1.003(9) 0.974(8) 0.971(10) 0.958(9) | | |
+| Epoxide          | SHELX IAM  | Tonto IAM  | HAR   | HAR + charges |
+|:-----------------|:----------:|:----------:|:-----:|:-------------:|
+| R(F)             |   0.0353   |   0.0355   |   ?   |       ?       |
+| wR(F²)           |   0.0964   |   0.0725   |   ?   |       ?       |
+| ρ<sub>max</sub>  |   0.205    |   0.220    |   ?   |       ?       |
+| ρ<sub>min</sub>  |  −0.213    |  −0.225    |   ?   |       ?       |
+| reflections      |   1308     |   1308     |   ?   |       ?       |
+| parameters       |   44       |   44       |   ?   |       ?       |
+| C–H distances    | 0.997(10)  | 1.003(9)   |   ?   |       ?       |
+|                  | 0.993(10)  | 0.974(8)   |   ?   |       ?       |
+|                  | 0.945(11)  | 0.971(10)  |   ?   |       ?       |
+|                  | 0.947(11)  | 0.958(9)   |   ?   |       ?       |
 
-Fill in the blank columns as you go. **Watch the C–H distances** — that is
-where HAR earns its keep.
+Every **?** is for you to fill in from your own run. **Watch the C–H
+distances** — that is where HAR earns its keep.
 
 Tonto also writes a residual-density grid over the unit cell, which
 [VESTA](https://jp-minerals.org/vesta/en/download.html) will open.
@@ -206,25 +209,26 @@ Working in `examples/2-NH3` or `examples/3-Urea`, set up as for epoxide, but:
 Run it twice, in separate directories: once plain, once with cluster charges to
 8 Å.
 
-| Urea | SHELX IAM | Tonto IAM | HAR | HAR + charges |
-|---|---|---|---|---|
-| R(F) | 0.0253 | | | |
-| wR(F²) | 0.0680 | | | |
-| ρ<sub>max</sub> | 0.352 | | | |
-| ρ<sub>min</sub> | −0.214 | | | |
-| reflections | 817 | | | |
-| parameters | 21 | | | |
-| N–H distances | 0.964(17) 0.900(12) | | | |
+| Urea             | SHELX IAM  | Tonto IAM  | HAR   | HAR + charges |
+|:-----------------|:----------:|:----------:|:-----:|:-------------:|
+| R(F)             |   0.0253   |     ?      |   ?   |       ?       |
+| wR(F²)           |   0.0680   |     ?      |   ?   |       ?       |
+| ρ<sub>max</sub>  |   0.352    |     ?      |   ?   |       ?       |
+| ρ<sub>min</sub>  |  −0.214    |     ?      |   ?   |       ?       |
+| reflections      |   817      |     ?      |   ?   |       ?       |
+| parameters       |   21       |     ?      |   ?   |       ?       |
+| N–H distances    | 0.964(17)  |     ?      |   ?   |       ?       |
+|                  | 0.900(12)  |     ?      |   ?   |       ?       |
 
-| NH₃ | SHELX IAM | Tonto IAM | HAR | HAR + charges |
-|---|---|---|---|---|
-| R(F) | 0.0071 | | | |
-| wR(F²) | 0.0191 | | | |
-| ρ<sub>max</sub> | 0.014 | | | |
-| ρ<sub>min</sub> | −0.013 | | | |
-| reflections | 98 | | | |
-| parameters | 8 | | | |
-| N–H distance | 0.842(7) | | | |
+| NH₃              | SHELX IAM  | Tonto IAM  | HAR   | HAR + charges |
+|:-----------------|:----------:|:----------:|:-----:|:-------------:|
+| R(F)             |   0.0071   |     ?      |   ?   |       ?       |
+| wR(F²)           |   0.0191   |     ?      |   ?   |       ?       |
+| ρ<sub>max</sub>  |   0.014    |     ?      |   ?   |       ?       |
+| ρ<sub>min</sub>  |  −0.013    |     ?      |   ?   |       ?       |
+| reflections      |   98       |     ?      |   ?   |       ?       |
+| parameters       |   8        |     ?      |   ?   |       ?       |
+| N–H distance     | 0.842(7)   |     ?      |   ?   |       ?       |
 
 Compare the two structures. The crystal environment matters far more for urea
 than for epoxide — worth working out why before reading on. (Urea is held
