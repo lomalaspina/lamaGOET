@@ -1,173 +1,102 @@
 # lamaGOET
 
-lamaGOET interfaces quantum-chemistry programs with iterative Tonto
-Hirshfeld atom refinement. The root `lamaGOET.sh` is the monolithic launcher
-and contains the periodic all-electron CP2K backend.
+lamaGOET runs **Hirshfeld Atom Refinement** (HAR): a crystal structure
+refinement in which the atomic scattering factors are computed from a quantum
+chemical calculation on the actual molecule, rather than looked up in a table
+for isolated spherical atoms.
 
-## GUI startup and CP2K fields
+That difference matters most for hydrogen. A table-based refinement puts H
+atoms at the maximum of their electron density, which sits inside the bond, so
+X–H distances come out systematically too short. HAR places them where the
+nucleus actually is, close to what neutron diffraction gives.
 
-The current GUI uses gtkdialog. If `job_options.txt` is absent, Gaussian is
-selected before the window is constructed and only Gaussian-relevant controls
-are shown. If a saved options file exists, its `SCFCALCPROG` value is used for
-the initial state.
+lamaGOET is the piece that drives the loop: it prepares input for a
+quantum-chemistry program, feeds the resulting density to
+[Tonto](https://github.com/dylan-jayatilaka/tonto) for the partitioning and the
+least-squares refinement, and repeats until the geometry stops changing.
 
-The method and basis-set controls are editable dropdowns. Gaussian, ORCA,
-OCC, and Crystal23 show program-specific suggestions; a saved or manually
-typed value is kept as the first item, so custom basis files and less common
-keywords remain usable. Elmodb keeps the fields editable without inventing a
-predefined basis list. CP2K uses its own periodic method/basis panel.
+## What you need
 
-Crystal23 keeps its method and basis fields visible while Gaussian-specific
-keywords and molecular cluster-charge controls remain hidden. The ELMO
-library and initial-ADP fields are visible only for elmodb; the Tonto basis
-directory is visible only for Tonto or elmodb.
+**Always:** Tonto, and Python 3.10 or newer for the interface.
 
-For CP2K:
+**One of these** for the wavefunction, depending on what you are doing:
+Tonto itself, Gaussian, ORCA, OCC, CP2K, Crystal23, ELMOdb or GAMESS-US.
 
-- Select an all-electron CP2K basis file first.
-- The **Basis name** dropdown is populated from every basis alias declared in
-  that selected file. It remains editable for unusual/custom aliases. It does
-  not show aliases from unrelated CP2K basis files, because the generated CP2K
-  input names one basis file and an alias from another file would be invalid.
-- The **XC functional** dropdown contains the non-hybrid shortcut values
-  accepted by the current CP2K input generator. PBE and the other listed
-  non-hybrid choices are valid for periodic HAR: Tonto imports the CP2K
-  molecular density and uses its functional-independent Thakkar spherical
-  pro-atoms for the stockholder weights. The legacy BLYP `scfdata` block only
-  satisfies Tonto's common setup path and does not replace or mix the CP2K
-  density.
-- Before writing the Tonto XML, the bridge compares the complete CP2K atom
-  list and cell with the CIF. If they differ only by one periodic origin
-  translation, the XML atom coordinates are aligned to the CIF origin. Any
-  composition, cell, or non-translational geometry mismatch stops before
-  Tonto with a specific error.
-- Full CP2K output is streamed to the terminal/cluster log with `tee` and also
-  retained in the per-cycle output file. Set
-  `CP2K_TERMINAL_VERBOSE=false` only when compact output is wanted.
+lamaGOET does not install these; see [docs/INSTALL.md](docs/INSTALL.md).
 
-### Density partition models
+## Getting started
 
-CP2K and Crystal23 always use their imported theoretical density through
-`partition_model=oc-crystal23`. For those programs, the Qt GUI displays only
-the finite-cluster versus periodic stockholder-denominator selector. It does
-not offer the observed-density model.
+```bash
+cd /the/directory/holding/your/cif/and/hkl
+bash /path/to/lamaGOET/lamaGOET_qt.sh
+```
 
-The **Regularized observed density (experimental)** model is available only
-when Tonto is selected as the SCF program. The Tonto density panel selects
-between its standard `partition_model=oc-hirshfeld` path and
-`partition_model=oc-observed`, which constructs the atomic form factors from
-the observed diffraction data instead of a CP2K or Crystal23 density. Saved
-legacy CP2K/Crystal23 options requesting `oc-observed` are safely normalized
-back to `oc-crystal23` when the GUI saves or the runner generates Tonto input.
+Fill in the form, press **OK**, and the refinement runs in that directory.
+Results collect in `<job name>.lst`.
 
-The observed-density controls correspond directly to Tonto input:
+There are worked examples with published reference numbers in
+[examples/](examples/) — start with `1-epoxide`, which needs only Tonto and
+takes about ten seconds.
 
-- **Residual-density shrinkage** (`observed_density_shrinkage`, default 0.5)
-  is the fraction of reliability-weighted experimental residual density added
-  to the IAM prior. It must be at least zero and smaller than one.
-- **Minimum thermal factor** (`observed_density_min_TF`, default 0.1) limits
-  the deconvolution of thermal motion when producing static atomic form
-  factors.
-- **Zero-model phase** (`observed_zero_phase_sign`, default 0) normally omits
-  a coefficient whose model structure factor has no phase. Expert tests may
-  select +1 or -1 for a symmetry-allowed sign hypothesis.
+## The four commands
 
-The experimental Tonto path requires a `Lolo_CP2K` build containing commit
-`6f7fa8cf` or later. Older Tonto executables will reject these keywords.
+| Command | What it does |
+|---|---|
+| `lamaGOET_qt.sh` | set a job up and run it on this computer |
+| `GUI_lamaGOET_qt.sh` | set a job up and submit it to a PBS cluster |
+| `lamaGOET` | run the `job_options.txt` in the current directory |
+| `RUN_lamaGOET` | what a cluster node runs; you do not call this yourself |
 
-## Manually grown starting geometry
+On Windows use the `.cmd` files; on macOS you can double-click the `.command`
+files from Finder.
 
-gtkdialog 0.8.3 cannot embed an OpenGL/WebGL crystallographic scene. The
-**Manually grow to new CIF** button therefore uses this workflow:
+The interface and the runners communicate through a single plain-text file,
+`job_options.txt`. You can edit it by hand and run `lamaGOET` without opening
+the interface at all, which is what the examples and the tests do.
 
-1. Choose a new output CIF filename. The original CIF is never overwritten.
-2. lamaGOET copies the original structure to the new CIF.
-3. lamaGOET asks whether to use Olex2, Mercury, VESTA, Avogadro, Jmol, or
-   another executable. If the program is not on `PATH`, locate it in the file
-   selector.
-4. Grow the structure manually, save the new CIF, and close the viewer.
-5. lamaGOET replaces the GUI's CIF field with the new file, so that geometry is
-   the starting structure written to `job_options.txt`.
+## Supported platforms
 
-All provide interactive rotation. Symmetry expansion or molecule/crystal
-growing depends on the selected viewer; Olex2 and Mercury provide the closest
-workflow. The viewer must save the grown model as CIF before it is closed. Set
-`LAMAGOET_STRUCTURE_VIEWER=/path/to/viewer` to choose a specific executable.
+| | Set up a job | Run it here | Submit to a cluster |
+|---|---|---|---|
+| **Linux** | yes | yes | yes |
+| **macOS** | yes | yes, with GNU tools from Homebrew | yes |
+| **WSL** | yes | yes | yes |
+| **Windows, natively** | yes | no — use WSL | yes |
 
-gtkdialog cannot embed those external programs or reproduce Olex2's full
-crystallographic growing model.
+Native Windows cannot run a refinement locally because the runners need a Unix
+shell. Everything else works. The Windows paths are not routinely tested.
 
-An additive native Qt/PySide preview is now available as
-`GUI_lamaGOET_qt.py`. It runs on Windows, Linux, and macOS, retains the same
-`job_options.txt` and existing shell runners, and embeds a rotatable structure
-view. Its manual modes show the asymmetric unit, complete unit cell, connected
-molecules across cell boundaries, short contacts, van der Waals contacts, a
-radius around a selected atom, or a 3x3x3 neighbouring-cell pack. The displayed
-coordinates can be written to a new starting-geometry CIF while retaining the
-original unit cell and symmetry operations; the source CIF is protected from
-overwrite.
+## Growing the structure first
 
-The Qt launchers automatically create a private `.venv-qt` and install or
-update `requirements-qt.txt` on first use. No environment activation or
-manual pip command is required. Use `lamaGOET_qt.sh`/`.command`/`.cmd` for a
-local job and `GUI_lamaGOET_qt.sh`/`.command`/`.cmd` for cluster submission.
-Python 3.10 or newer remains the only Python prerequisite; chemistry programs
-and platform-level display/runtime libraries must still be installed by the
-operating system or site administrator.
+HAR runs a quantum chemical calculation on the molecule, so it needs a
+chemically complete one. If your asymmetric unit holds only part of a molecule
+— a third of NH₃, a quarter of urea — you must complete it first, or the
+calculation is meaningless.
 
-The Qt Settings tab retains separate executable paths for Tonto, Gaussian,
-ORCA, OCC, Crystal23, ELMOdb, GAMESS-US, Jana and CP2K. Every save emits the
-complete option schema in alphabetical order—even values for controls hidden
-for the selected backend—so runner conditionals always receive explicit
-values. `SCFCALC_BIN` is derived from the selected backend while the individual
-program paths remain available when switching back.
+Two ways, and they are not the same thing:
 
-Basis Set Exchange integration offers per-element, all-electron-only choices
-for Gaussian, ORCA, Crystal23 and CP2K. Tonto/ELMOdb and OCC keep editable
-native basis controls because their installed/native basis formats are not
-direct Basis Set Exchange targets.
+- **Tick "Complete molecule(s) in the CIF with Tonto".** Tonto does the
+  completion during the run. This is the one that affects the refinement.
+- **Choose a grow mode beside the structure view and press Apply.** The
+  interface does the completion itself, for the picture and for exporting a
+  starting geometry. Pressing *Export* without pressing *Apply* first writes
+  the structure out unchanged; the interface warns you if you try.
 
-The Qt view converts CIF Uij values to their physical Cartesian displacement
-tensors and draws probability ellipsoids which rotate with the structure.
-The probability can be changed from 1–99%. After the user opens the starting
-CIF, the viewer follows only that job's newly created or updated Tonto
-cartesian/fractional/archive CIFs; unrelated CIFs already in the directory are
-ignored. A PBS file generated in cluster mode exports the submitting
-host/directory to the runner, which publishes
-`JOBNAME.latest_tonto.cif` after each completed Tonto fit. If the cluster's
-non-interactive SSH policy blocks that intermediate copy, the calculation
-continues with a warning and the ordinary final stage-out remains available.
+## Documentation
 
-The two Qt launchers deliberately have different roles:
+| | |
+|---|---|
+| [docs/INSTALL.md](docs/INSTALL.md) | prerequisites and installation, per platform |
+| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | how the pieces fit together |
+| [docs/TESTING.md](docs/TESTING.md) | running the tests |
+| [docs/TONTO_COMPATIBILITY.md](docs/TONTO_COMPATIBILITY.md) | which Tonto to build, and what has changed |
+| [CLAUDE.md](CLAUDE.md) | what to know before changing the code |
+| [examples/](examples/) | worked examples with published numbers |
 
-- `lamaGOET_qt.sh` is local mode. **OK** writes `job_options.txt` and starts
-  `lamaGOET.sh --run-job-options`; it never creates PBS input or calls `qsub`.
-- `GUI_lamaGOET_qt.sh` is cluster mode. **OK** writes `job_options.txt`,
-  creates `lamaGOET.pbs` with the established `RUN_lamaGOET` node command, and
-  submits it with `qsub`.
+## Credit and licence
 
-See `QT_GUI_TESTING.md` for installation, testing, and the current
-model-editing limitations.
+lamaGOET was written by Lorraine Andrade Malaspina. The method is described in
+Capelli, Bürgi, Dittrich, Grabowsky and Jayatilaka, *IUCrJ* **2014**, *1*,
+361–379.
 
-## Saved options and refinement stopping
-
-`COMPLETESTRUCT` is the canonical complete-CIF option written by the GUI and
-read by both runners. Existing option files containing the former
-`COMPLETECIF` name are still accepted for compatibility.
-
-For Gaussian/ORCA/OCC and CP2K HAR, the runner also detects a stationary SCF
-wavefunction when the energy either repeats directly or enters a stable
-two-cycle oscillation. This handles precision-limited CIF coordinate cycles.
-The selected SCF program must still terminate normally; its reported density
-RMSD is retained as a diagnostic, but does not veto a confirmed repeated
-energy. The runner stops the HAR loop and continues to the normal final
-residual-density calculation. The energy threshold can be overridden with
-`HAR_ENERGY_REPEAT_TOL`; `HAR_SCF_RMSD_TOL` controls the diagnostic warning.
-
-## Tonto `oc-crystal23` Fourier kernel
-
-The companion Tonto `Lolo_CP2K` change preserves a fresh density and fresh
-atomic form-factor calculation at every refinement step. It only evaluates
-the Fourier identity `exp(i k.r) = cos(k.r) + i sin(k.r)` with separate real
-accumulators, avoiding a general complex exponential and complex multiply in
-the innermost grid-point/reflection loop.
+Licensed under the terms in [LICENSE](LICENSE).
