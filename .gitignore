@@ -30,3 +30,7 @@ stde
 
 # Extracted build artefacts
 gtkdialog-0.8.3*
+
+# Downloaded example archives and stray installers
+examples/*.zip
+examples/**/*.exe
