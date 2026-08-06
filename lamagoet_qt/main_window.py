@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections import OrderedDict
 import os
+import platform
 from pathlib import Path
 import re
 import signal
@@ -11,12 +12,14 @@ import shutil
 import subprocess
 
 from PySide6.QtCore import QTimer, Qt
-from PySide6.QtGui import QAction
+from PySide6.QtGui import QAction, QGuiApplication, QIcon, QPixmap
 from PySide6.QtWidgets import (
     QApplication,
     QButtonGroup,
     QCheckBox,
+    QAbstractSpinBox,
     QComboBox,
+    QSplashScreen,
     QDialog,
     QDialogButtonBox,
     QDoubleSpinBox,
@@ -50,6 +53,7 @@ from .basis_exchange import (
     render_mixed_basis,
 )
 from .cluster import SubmissionError, write_pbs_script
+from . import discovery
 from .crystal import (
     CifError,
     CrystalStructure,
@@ -177,6 +181,23 @@ def _bool_text(value: bool) -> str:
     return "true" if value else "false"
 
 
+def _dialog_options() -> QFileDialog.Option:
+    """File-dialog options appropriate to this platform.
+
+    macOS draws the native panel through Finder, which hides /usr/local/bin,
+    /opt and every dotted directory.  Quantum-chemistry executables and basis
+    directories usually live in exactly those places, so the native panel
+    makes them unreachable: the user can see no way to select their Tonto
+    binary.  Qt's own dialog shows them, so ask for it on macOS only.
+
+    Linux and Windows keep the native dialog, which behaves correctly there.
+    """
+
+    if platform.system() == "Darwin":
+        return QFileDialog.Option.DontUseNativeDialog
+    return QFileDialog.Option(0)
+
+
 class MainWindow(QMainWindow):
     def __init__(
         self,
@@ -189,7 +210,8 @@ class MainWindow(QMainWindow):
             raise ValueError(f"unknown submission mode: {submission_mode}")
         self.submission_mode = submission_mode
         self.setWindowTitle("lamaGOET Qt — HAR setup and structure grow")
-        self.resize(1420, 860)
+        self.setWindowIcon(_application_icon())
+        self._resize_to_screen()
         self.option_path = Path(option_path).resolve()
         self.saved_options: "OrderedDict[str, str]" = OrderedDict()
         self.structure: CrystalStructure | None = None
@@ -207,6 +229,77 @@ class MainWindow(QMainWindow):
         self.cif_timer.setInterval(2500)
         self.cif_timer.timeout.connect(self._refresh_latest_cif)
         self.cif_timer.start()
+
+    def _resize_to_screen(self) -> None:
+        """Open as large as the screen comfortably allows.
+
+        The setup form carries long filesystem paths, so a window sized for a
+        small laptop truncates them everywhere.  Prefer a generous size but
+        never exceed the available desktop area.
+        """
+
+        screen = QGuiApplication.primaryScreen()
+        if screen is None:
+            self.resize(1420, 860)
+            return
+        available = screen.availableGeometry()
+        width = min(1700, int(available.width() * 0.94))
+        height = min(1040, int(available.height() * 0.92))
+        self.resize(max(width, 1000), max(height, 700))
+
+    def _show_full_text_in_tooltips(self) -> None:
+        """Mirror each text box's contents into its tooltip.
+
+        Paths are routinely longer than the box that holds them.  Rather than
+        shrink the font, let the user hover to read the whole value.  Widgets
+        that already carry an explanatory tooltip keep it, and the editable
+        part of a combo box is left alone so its own help survives.
+        """
+
+        for line_edit in self.findChildren(QLineEdit):
+            # Combo boxes and spin boxes own an internal QLineEdit.  Leave both
+            # alone: the combo keeps its own help text, and the spin box's
+            # internal editor rejects the connection outright.
+            if isinstance(line_edit.parent(), (QComboBox, QAbstractSpinBox)):
+                continue
+            if line_edit.toolTip():
+                continue
+            line_edit.setToolTip(line_edit.text())
+            line_edit.textChanged.connect(line_edit.setToolTip)
+
+    #: The schema defaults, which mean "nobody has set this".
+    _PLACEHOLDER_TONTO = {"", "tonto"}
+    _PLACEHOLDER_BASIS = {"", "/usr/local/bin/basis_sets"}
+
+    def _fill_in_tonto_paths(self) -> None:
+        """Point at the local Tonto, if the user has not chosen one.
+
+        job_options.txt always contains every key, so an untouched file still
+        carries TONTO="tonto" and BASISSETDIR="/usr/local/bin/basis_sets".
+        Neither is useful: Tonto is normally run from its build tree and is not
+        on PATH, and no Tonto has ever created /usr/local/bin/basis_sets -
+        built in place it keeps the basis sets beside the source, installed it
+        puts them under share/tonto. So both fields had to be filled in by hand
+        before anything would run.
+
+        Only placeholder values are replaced. Anything the user typed, or that
+        came from a saved job, is left alone.
+        """
+
+        if self.tonto_bin.text().strip() in self._PLACEHOLDER_TONTO:
+            if not shutil.which(self.tonto_bin.text().strip() or "tonto"):
+                found = discovery.find_tonto_executable()
+                if found:
+                    self.tonto_bin.setText(str(found))
+
+        basis = discovery.find_basis_sets(self.tonto_bin.text().strip())
+        if basis:
+            for widget in (self.basis_directory, self.xcw_basis_directory):
+                # Only replace a placeholder. A path the user typed is left
+                # alone even if it does not exist yet: they may be preparing a
+                # job for a cluster, where it will.
+                if widget.text().strip() in self._PLACEHOLDER_BASIS:
+                    widget.setText(str(basis))
 
     def _build_ui(self) -> None:
         toolbar = QToolBar("Job")
@@ -232,7 +325,10 @@ class MainWindow(QMainWindow):
         self.main_splitter = QSplitter(Qt.Orientation.Horizontal)
         self.main_splitter.addWidget(self._job_panel())
         self.main_splitter.addWidget(self._structure_panel())
-        self.main_splitter.setSizes([570, 850])
+        # The setup form holds long filesystem paths and needs the width more
+        # than the structure view does, so give it close to half the window.
+        total = max(self.width(), 1200)
+        self.main_splitter.setSizes([int(total * 0.46), int(total * 0.54)])
         self.main_splitter.setChildrenCollapsible(False)
         self.main_splitter.setOpaqueResize(True)
         self.main_splitter.setHandleWidth(14)
@@ -250,6 +346,7 @@ class MainWindow(QMainWindow):
         handle.setToolTip("Drag to resize the setup and structure panels")
         self.setCentralWidget(self.main_splitter)
         self.setStatusBar(QStatusBar())
+        self._show_full_text_in_tooltips()
 
     def _job_panel(self) -> QWidget:
         scroll = QScrollArea()
@@ -258,7 +355,21 @@ class MainWindow(QMainWindow):
         layout = QVBoxLayout(content)
 
         job_group = QGroupBox("Job and input")
-        job_form = QFormLayout(job_group)
+        # The logo sits to the left of the first fields, about three rows tall,
+        # so the interface is recognisable without taking space from the form.
+        job_row = QHBoxLayout(job_group)
+        logo = QLabel()
+        badge = QPixmap(str(Path(__file__).resolve().parents[1] / LOGO_IMAGE))
+        if not badge.isNull():
+            height = 3 * QLineEdit().sizeHint().height()
+            logo.setPixmap(
+                badge.scaledToHeight(height, Qt.TransformationMode.SmoothTransformation)
+            )
+            logo.setToolTip("lamaGOET")
+        job_row.addWidget(logo, 0, Qt.AlignmentFlag.AlignTop)
+        job_row.addSpacing(8)
+        job_form = QFormLayout()
+        job_row.addLayout(job_form, 1)
         self.job_name = QLineEdit("my_job")
         self.job_name.editingFinished.connect(self._reset_cif_watch_baseline)
         job_form.addRow("Job name", self.job_name)
@@ -925,7 +1036,10 @@ class MainWindow(QMainWindow):
         row = QWidget()
         layout = QHBoxLayout(row)
         layout.setContentsMargins(0, 0, 0, 0)
-        layout.addWidget(line_edit)
+        # A full executable path is easily 40 characters; without a floor the
+        # form squeezes these boxes down to a couple of directory names.
+        line_edit.setMinimumWidth(340)
+        layout.addWidget(line_edit, 1)
         button = QPushButton("Browse…")
         if directory:
             button.clicked.connect(lambda: self._choose_directory(line_edit))
@@ -1295,6 +1409,7 @@ class MainWindow(QMainWindow):
         )
         self.tonto_basis_directory.setText(self._option("TONTO_BASIS_DIR"))
         self.cp2k_bin.setText(self._option("CP2K_BIN"))
+        self._fill_in_tonto_paths()
         self.cp2k_basis_file.setText(
             self._option("CP2K_BASIS_SET_FILE") or self._guess_cp2k_basis_file()
         )
@@ -1539,7 +1654,7 @@ class MainWindow(QMainWindow):
         atoms = structure.asymmetric_unit()
         self.structure = structure
         self.visible_atoms = atoms
-        self.current_grow_description = "asymmetric unit"
+        self.current_grow_description = self.UNGROWN_DESCRIPTION
         self._displayed_cif = path.resolve()
         if automatic:
             self._cif_watch_baseline[path.resolve()] = path.stat().st_mtime_ns
@@ -1669,16 +1784,45 @@ class MainWindow(QMainWindow):
         except (CifError, ValueError) as exc:
             QMessageBox.critical(self, "Could not grow structure", str(exc))
 
+    #: What ``current_grow_description`` says when nothing has been grown yet.
+    UNGROWN_DESCRIPTION = "asymmetric unit"
+
     def export_grown_cif(self) -> None:
         if not self.structure or not self.visible_atoms:
             QMessageBox.information(self, "No structure", "Open and grow a CIF first.")
             return
+
+        # Opening a CIF shows its asymmetric unit, and this button exports
+        # whatever is on screen.  A user who opens a file and exports straight
+        # away therefore gets their own structure back unchanged, with nothing
+        # to indicate that the grow step was skipped.  That matters: Hirshfeld
+        # Atom Refinement runs a quantum-chemistry calculation on the exported
+        # fragment, so an asymmetric unit holding a third of a molecule gives a
+        # chemically meaningless starting geometry rather than an error.
+        if self.current_grow_description == self.UNGROWN_DESCRIPTION:
+            answer = QMessageBox.warning(
+                self,
+                "Nothing has been grown yet",
+                f"The structure view is still showing the asymmetric unit "
+                f"({len(self.visible_atoms)} atoms), so exporting now would "
+                f"copy the original structure unchanged.\n\n"
+                "To grow it, choose a mode beside the structure view — "
+                "\"Complete fragment(s)/molecule(s)\" is usually what a "
+                "refinement needs — and press Apply.\n\n"
+                "Export the asymmetric unit anyway?",
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.Cancel,
+                QMessageBox.StandardButton.Cancel,
+            )
+            if answer != QMessageBox.StandardButton.Yes:
+                return
+
         source = Path(self.cif_path.text()).expanduser()
         if not source.is_absolute():
             source = self.option_path.parent / source
         suggested = source.with_name(source.stem + "_lamagoet_grown.cif")
         filename, _ = QFileDialog.getSaveFileName(
-            self, "Export grown structure", str(suggested), "CIF files (*.cif)"
+            self, "Export grown structure", str(suggested), "CIF files (*.cif)",
+            options=_dialog_options(),
         )
         if not filename:
             return
@@ -2063,6 +2207,22 @@ class MainWindow(QMainWindow):
                 return
             if self.local_process and self.local_process.poll() is None:
                 raise SubmissionError("A local lamaGOET calculation is already running.")
+            if os.name == "nt":
+                # On native Windows the only bash on PATH is normally WSL's
+                # launcher. Handing it a Windows path (C:\...) and a Windows
+                # working directory does not work: WSL sees a different
+                # filesystem, so the run fails somewhere inside lamaGOET.sh
+                # with a message about a missing file. Say so up front.
+                raise SubmissionError(
+                    "Running a calculation on this computer needs a Unix "
+                    "shell, which native Windows does not provide.\n\n"
+                    "Start lamaGOET from inside WSL instead, where everything "
+                    "behaves as it does on Linux:\n\n"
+                    "    bash /path/to/lamaGOET/lamaGOET_qt.sh\n\n"
+                    "Cluster submission works from native Windows: use "
+                    "GUI_lamaGOET_qt.cmd, which writes job_options.txt and "
+                    "lamaGOET.pbs without needing a shell here."
+                )
             bash = shutil.which("bash")
             if not bash:
                 raise SubmissionError(
@@ -2099,6 +2259,7 @@ class MainWindow(QMainWindow):
             "Save lamaGOET options",
             str(self.option_path),
             "lamaGOET options (*.txt);;All files (*)",
+            options=_dialog_options(),
         )
         if filename:
             self.option_path = Path(filename).resolve()
@@ -2110,6 +2271,7 @@ class MainWindow(QMainWindow):
             "Load external basis definition",
             str(self.option_path.parent),
             "Basis definition files (*.txt *.gbs);;All files (*)",
+            options=_dialog_options(),
         )
         if filename:
             self.basis_definition_path.setText(filename)
@@ -2260,7 +2422,8 @@ class MainWindow(QMainWindow):
 
     def choose_options(self) -> None:
         filename, _ = QFileDialog.getOpenFileName(
-            self, "Open lamaGOET options", str(self.option_path.parent), "Text files (*.txt)"
+            self, "Open lamaGOET options", str(self.option_path.parent), "Text files (*.txt)",
+            options=_dialog_options(),
         )
         if filename:
             self.load_options(filename)
@@ -2271,6 +2434,7 @@ class MainWindow(QMainWindow):
             "Open structure",
             str(Path(self.cif_path.text()).parent if self.cif_path.text() else Path.cwd()),
             "Crystallographic files (*.cif *.pdb);;CIF files (*.cif);;All files (*)",
+            options=_dialog_options(),
         )
         if filename:
             self.cif_path.setText(filename)
@@ -2278,7 +2442,8 @@ class MainWindow(QMainWindow):
 
     def choose_hkl(self) -> None:
         filename, _ = QFileDialog.getOpenFileName(
-            self, "Open reflection file", str(Path.cwd()), "Reflection files (*.hkl);;All files (*)"
+            self, "Open reflection file", str(Path.cwd()), "Reflection files (*.hkl);;All files (*)",
+            options=_dialog_options(),
         )
         if filename:
             self.hkl_path.setText(filename)
@@ -2289,6 +2454,7 @@ class MainWindow(QMainWindow):
             "Open precise-coordinate/ADP CIF",
             str(Path.cwd()),
             "CIF files (*.cif);;All files (*)",
+            options=_dialog_options(),
         )
         if filename:
             self.initial_adp_path.setText(filename)
@@ -2296,7 +2462,8 @@ class MainWindow(QMainWindow):
 
     def choose_cp2k_basis(self) -> None:
         filename, _ = QFileDialog.getOpenFileName(
-            self, "Open CP2K basis file", str(Path.cwd()), "CP2K basis files (*)"
+            self, "Open CP2K basis file", str(Path.cwd()), "CP2K basis files (*)",
+            options=_dialog_options(),
         )
         if filename:
             self.cp2k_basis_file.setText(filename)
@@ -2308,6 +2475,7 @@ class MainWindow(QMainWindow):
             "Select executable",
             str(Path(widget.text()).expanduser().parent if widget.text() else Path.cwd()),
             "All files (*)",
+            options=_dialog_options(),
         )
         if filename:
             widget.setText(filename)
@@ -2317,6 +2485,7 @@ class MainWindow(QMainWindow):
             self,
             "Select directory",
             str(Path(widget.text()).expanduser() if widget.text() else Path.cwd()),
+            options=_dialog_options(),
         )
         if directory:
             widget.setText(directory)
@@ -2388,6 +2557,65 @@ class MainWindow(QMainWindow):
         self.viewer.update()
 
 
+#: Drawn by Lorraine Andrade Malaspina for the 2024 workshop notes: lamaGOET
+#: takes wavefunctions from any of the quantum-chemistry programs and feeds
+#: them to Tonto.
+SPLASH_IMAGE = "lamaGOET_splash.png"
+
+#: The lamaGOET logo, used as the window and application icon.
+LOGO_IMAGE = "llama.png"
+
+
+def _application_icon() -> QIcon:
+    """The lamaGOET logo, or an empty icon if it is missing.
+
+    Without this the interface appears as a generic Python process in the
+    macOS Dock and in the task switcher, which makes it hard to find among
+    other windows.
+    """
+
+    image = Path(__file__).resolve().parents[1] / LOGO_IMAGE
+    return QIcon(str(image)) if image.is_file() else QIcon()
+
+
+def _show_splash() -> QSplashScreen | None:
+    """Put the lamaGOET drawing on screen while the window is built.
+
+    Startup is not instant: the interface hunts for Tonto and its basis sets,
+    then builds six tabs and roughly 170 controls. Returns None when there is
+    nothing to show it on, or when the caller has asked for no splash.
+    """
+
+    if os.environ.get("LAMAGOET_NO_SPLASH", "").strip().lower() in {"1", "true", "yes"}:
+        return None
+    if QApplication.platformName() == "offscreen":
+        return None
+
+    image = Path(__file__).resolve().parents[1] / SPLASH_IMAGE
+    if not image.is_file():
+        return None
+    pixmap = QPixmap(str(image))
+    if pixmap.isNull():
+        return None
+
+    screen = QGuiApplication.primaryScreen()
+    if screen is not None:
+        limit = int(screen.availableGeometry().width() * 0.45)
+        if pixmap.width() > limit:
+            pixmap = pixmap.scaledToWidth(
+                limit, Qt.TransformationMode.SmoothTransformation
+            )
+
+    splash = QSplashScreen(pixmap)
+    splash.showMessage(
+        "lamaGOET — Hirshfeld atom refinement",
+        Qt.AlignmentFlag.AlignBottom | Qt.AlignmentFlag.AlignHCenter,
+    )
+    splash.show()
+    QApplication.processEvents()
+    return splash
+
+
 def run(
     option_path: str | Path = "job_options.txt",
     *,
@@ -2395,6 +2623,10 @@ def run(
 ) -> int:
     app = QApplication.instance() or QApplication([])
     app.setApplicationName("lamaGOET")
+    app.setWindowIcon(_application_icon())
+    splash = _show_splash()
     window = MainWindow(option_path, submission_mode=submission_mode)
     window.show()
+    if splash is not None:
+        splash.finish(window)
     return app.exec()

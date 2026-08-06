@@ -2,16 +2,15 @@
 set -euo pipefail
 
 repo_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
+source "$repo_dir/Tests/lib/shell_test_helpers.sh"
 
 load_detector() {
     local script=$1
-    source <(
-        awk '
-            /^_har_abs_diff_le\(\)/ { copy = 1 }
-            /^CHECK_ENERGY\(\)/ { copy = 0 }
-            copy { print }
-        ' "$script"
-    )
+    extract_function "$script" '
+        /^_har_abs_diff_le\(\)/ { copy = 1 }
+        /^CHECK_ENERGY\(\)/ { copy = 0 }
+        copy { print }
+    ' "stall detector"
 }
 
 test_period_two_series() {
@@ -64,13 +63,11 @@ for script in "$repo_dir/lamaGOET.sh" "$repo_dir/RUN_lamaGOET_release.sh"; do
     fi
 done
 
-source <(
-    awk '
+extract_function "$repo_dir/lamaGOET.sh" '
         /^CP2K_RUN_HAR\(\)/ { copy = 1 }
         copy { print }
         copy && /^}$/ { exit }
-    ' "$repo_dir/lamaGOET.sh"
-)
+' "CP2K_RUN_HAR"
 
 test_cp2k_stationary_energy_stops_before_another_tonto_fit() {
     unset HAR_ENERGY_LAST HAR_ENERGY_PREV2

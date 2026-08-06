@@ -21,7 +21,12 @@ class QtBootstrapTest(unittest.TestCase):
             with mock.patch.dict(
                 "os.environ", {"LAMAGOET_QT_VENV": str(selected)}, clear=False
             ):
-                self.assertEqual(bootstrap.select_environment(project), selected)
+                # select_environment resolves the override, so compare against
+                # the resolved path: on macOS /var is a symlink to /private/var
+                # and tempfile hands out the unresolved form.
+                self.assertEqual(
+                    bootstrap.select_environment(project), selected.resolve()
+                )
 
     def test_shared_checkout_keeps_incompatible_environment(self):
         with tempfile.TemporaryDirectory() as directory:

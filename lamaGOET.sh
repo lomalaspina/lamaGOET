@@ -2,6 +2,19 @@
 Encoding=UTF-8
 export LC_NUMERIC="en_US.UTF-8"
 
+# Make GNU sed/awk/coreutils available under their plain names, and provide
+# the _upper/_lower helpers, so this script behaves the same on Linux and
+# macOS.  See lamagoet_shell_env.sh for why this is necessary.
+_lamagoet_env_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+if [ -r "$_lamagoet_env_dir/lamagoet_shell_env.sh" ]; then
+    source "$_lamagoet_env_dir/lamagoet_shell_env.sh"
+else
+    echo "lamaGOET: cannot find lamagoet_shell_env.sh next to $0" >&2
+    echo "If lamaGOET was installed with install.sh, make sure that file was" >&2
+    echo "symlinked into the same directory as this script." >&2
+    exit 2
+fi
+
 # BEGIN LAMAGOET CP2K SINGLE-FILE BACKEND
 # Periodic all-electron CP2K backend embedded directly in this monolithic
 # lamaGOET.sh. Only the CIF and binary-density parsers remain external Python
@@ -62,9 +75,9 @@ _cp2k_list_basis_sets() {
 
 _cp2k_list_functionals() {
     local current=${1:-BLYP}
-    case "${current^^}" in
+    case "$(_upper "$current")" in
         BLYP|BP|PADE|LDA|PBE|TPSS|HCTH120|OLYP|BEEFVDW)
-            current=${current^^}
+            current=$(_upper "$current")
             ;;
         *)
             current=BLYP
@@ -319,7 +332,7 @@ _lamagoet_grow_cif() {
         _lamagoet_view_cif "$source_cif"
         return 1
     fi
-    if [[ "${source_cif,,}" != *.cif ]]; then
+    if [[ "$(_lower "$source_cif")" != *.cif ]]; then
         message="Manual crystallographic growing requires a CIF input file."
         if command -v zenity >/dev/null 2>&1; then
             zenity --error --title="lamaGOET manual grow" --text="$message"
@@ -479,7 +492,7 @@ _cp2k_prepare_runtime() {
 _cp2k_functional() {
     local requested=${CP2K_XC_FUNCTIONAL:-}
     if [ -n "$requested" ]; then
-        case "${requested^^}" in
+        case "$(_upper "$requested")" in
             B3LYP|PBE0|HSE*|*HYB*)
                 _cp2k_error "hybrid functional '$requested' requires an explicit periodic CP2K &HF section"
                 return 1
@@ -488,7 +501,7 @@ _cp2k_functional() {
         printf '%s\n' "$requested"
         return 0
     fi
-    case "${METHOD,,}" in
+    case "$(_lower "$METHOD")" in
         rks|uks|blyp|ublyp) printf '%s\n' BLYP ;;
         pbe|upbe)           printf '%s\n' PBE ;;
         "")                  printf '%s\n' BLYP ;;
@@ -527,7 +540,7 @@ CP2K_VALIDATE_LAMAGOET_MODE() {
     local name value
     for name in POWDER_HAR SCCHARGES COMPLETESTRUCT EXPLICITMOL DEFRAGNETW XCWONLY PLOT_TONTO XWR; do
         eval "value=\${$name:-false}"
-        if [[ "${value,,}" == "true" ]]; then
+        if [[ "$(_lower "$value")" == "true" ]]; then
             _cp2k_error "$name=true is not supported by the periodic CP2K backend"
             return 1
         fi
@@ -540,7 +553,7 @@ _cp2k_write_input() {
     local functional=$6 subsys=$7 scf_guess=$8 restart_file=${9:-}
     local uks_line="" restart_line=""
 
-    if [ "$multiplicity" -gt 1 ] 2>/dev/null || [[ "${METHOD,,}" == u* ]]; then
+    if [ "$multiplicity" -gt 1 ] 2>/dev/null || [[ "$(_lower "$METHOD")" == u* ]]; then
         uks_line="    UKS T"
     fi
     if [ -n "$restart_file" ]; then
@@ -636,7 +649,7 @@ _cp2k_run() {
     _cp2k_prepare_runtime "$cp2k_bin" || return 1
 
     if [ -n "${CP2K_RUN_COMMAND:-}" ]; then
-        if [[ "${verbose,,}" == "true" ]]; then
+        if [[ "$(_lower "$verbose")" == "true" ]]; then
             set -o pipefail
             CP2K_INPUT=$(basename "$input") \
             CP2K_OUTPUT="$output_name" \
@@ -653,7 +666,7 @@ _cp2k_run() {
         fi
     elif [[ "$executable_name" == *.psmp || "$executable_name" == cp2k.psmp ]]; then
         _cp2k_require_command mpirun || return 1
-        if [[ "${verbose,,}" == "true" ]]; then
+        if [[ "$(_lower "$verbose")" == "true" ]]; then
             set -o pipefail
             OMP_NUM_THREADS=${CP2K_NUM_THREADS:-1} \
             OMP_PROC_BIND=${OMP_PROC_BIND:-spread} \
@@ -671,7 +684,7 @@ _cp2k_run() {
             rc=$?
         fi
     else
-        if [[ "${verbose,,}" == "true" ]]; then
+        if [[ "$(_lower "$verbose")" == "true" ]]; then
             set -o pipefail
             OMP_NUM_THREADS="$threads" \
             OMP_PROC_BIND=${OMP_PROC_BIND:-spread} \
@@ -945,7 +958,7 @@ CP2K_TONTO_PERIODIC_SETUP() {
 CP2K_TONTO_SCFDATA() {
     local periodic_functional
     periodic_functional=$(_cp2k_functional) || return 1
-    periodic_functional=${periodic_functional^^}
+    periodic_functional=$(_upper "$periodic_functional")
 
     {
         echo "   ! The periodic molecular density uses CP2K $periodic_functional."
@@ -1222,6 +1235,30 @@ if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
     esac
 fi
 # END LAMAGOET CP2K SINGLE-FILE BACKEND
+
+REQUIRE_ZENITY(){
+	# Some inputs are still collected with a zenity pop-up. zenity is part of
+	# the old GTK stack and is not present on macOS, so say plainly what is
+	# missing and how to supply it by hand rather than dying with
+	# "zenity: command not found" halfway through a run.
+	local what=$1 file=$2
+	command -v zenity >/dev/null 2>&1 && return 0
+	{
+		echo
+		echo "lamaGOET needs $what, and asks for it with a zenity window."
+		echo "zenity is not installed, so it cannot ask."
+		echo
+		echo "Either install it:"
+		case "$(uname -s)" in
+			Darwin) echo "    brew install zenity" ;;
+			*)      echo "    sudo apt-get install zenity" ;;
+		esac
+		echo
+		echo "or create $file in this directory yourself and run lamaGOET again."
+		echo
+	} >&2
+	return 1
+}
 
 SPACEGROUPMENU(){
 	SPACEGROUPARRAY=(
@@ -1820,6 +1857,7 @@ SPACEGROUPMENU(){
 	"230      = i a -3 d     =  -i 4bd 2c 3    ")
 	
         if [[ "$SCFCALCPROG" == "elmodb" ]]; then
+		REQUIRE_ZENITY "the unit cell parameters" "crystal_data.txt" || exit 2
         	zenity --forms --title="Crystal data" --text="Enter the unit cell parameters and space group:" \
 	           --add-entry="a= " \
         	   --add-entry="b= " \
@@ -1829,138 +1867,13 @@ SPACEGROUPMENU(){
         	   --add-entry="gamma= " > crystal_data.txt
         fi
 	
+	REQUIRE_ZENITY "the space group" "spacegroup.txt" || exit 2
 	zenity --list --title="Select the space group" --width=980 --height=720 \
 		--column="Number = IT symbol = Hall symbol" \
 		"${SPACEGROUPARRAY[@]}" > spacegroup.txt
 	
 }
 
-ATOMIC_NUMBERS(){
-#declare -A matrix
-#num_rows=198
-#num_column=2
-
-col_size=2
- matrix=()
- matrix+=( 'Ac'	 '89   ')
- matrix+=( 'Al'	 '13   ')
- matrix+=( 'Am'	 '95   ')
- matrix+=( 'Sb'	 '51   ')
- matrix+=( 'Ar'	 '18   ')
- matrix+=( 'As'	 '33   ')
- matrix+=( 'At'	 '85   ')
- matrix+=( 'Ba'	 '56   ')
- matrix+=( 'Bk'	 '97   ')
- matrix+=( 'Be'	 '4    ')
- matrix+=( 'Bi'	 '83   ')
- matrix+=( 'Bh'	 '107  ')
- matrix+=( 'B '  '5    ')
- matrix+=( 'Br'	 '35   ')
- matrix+=( 'Cd'	 '48   ')
- matrix+=( 'Ca'	 '20   ')
- matrix+=( 'Cf'	 '98   ')
- matrix+=( 'C '  '6    ')
- matrix+=( 'Ce'	 '58   ')
- matrix+=( 'Cs'	 '55   ')
- matrix+=( 'Cl'	 '17   ')
- matrix+=( 'Cr'	 '24   ')
- matrix+=( 'Co'	 '27   ')
- matrix+=( 'Cn'	 '112  ')
- matrix+=( 'Cu'	 '29   ')
- matrix+=( 'Cm'	 '96   ')
- matrix+=( 'Ds'	 '110  ')
- matrix+=( 'Db'	 '105  ')
- matrix+=( 'Dy'	 '66   ')
- matrix+=( 'Es'	 '99   ')
- matrix+=( 'Er'	 '68   ')
- matrix+=( 'Eu'	 '63   ')
- matrix+=( 'Fm'	 '100  ')
- matrix+=( 'Fl'	 '114  ')
- matrix+=( 'F '  ' 9   ')
- matrix+=( 'Fr'	 '87   ')
- matrix+=( 'Gd'	 '64   ')
- matrix+=( 'Ga'	 '31   ')
- matrix+=( 'Ge'	 '32   ')
- matrix+=( 'Au'	 '79   ')
- matrix+=( 'Hf'	 '72   ')
- matrix+=( 'Hs'	 '108  ')
- matrix+=( 'He'	 '2    ')
- matrix+=( 'Ho'	 '67   ')
- matrix+=( 'H '  ' 1   ')
- matrix+=( 'In'	 '49   ')
- matrix+=( 'I '  ' 53  ')
- matrix+=( 'Ir'	 '77   ')
- matrix+=( 'Fe'	 '26   ')
- matrix+=( 'Kr'	 '36   ')
- matrix+=( 'La'	 '57   ')
- matrix+=( 'Lr'	 '103  ')
- matrix+=( 'Pb'	 '82   ')
- matrix+=( 'Li'	 '3    ')
- matrix+=( 'Lv'	 '116  ')
- matrix+=( 'Lu'	 '71   ')
- matrix+=( 'Mg'	 '12   ')
- matrix+=( 'Mn'	 '25   ')
- matrix+=( 'Mt'	 '109  ')
- matrix+=( 'Md'	 '101  ')
- matrix+=( 'Hg'	 '80   ')
- matrix+=( 'Mo'	 '42   ')
- matrix+=( 'Mc'	 '115  ')
- matrix+=( 'Nd'	 '60   ')
- matrix+=( 'Ne'	 '10   ')
- matrix+=( 'Np'	 '93   ')
- matrix+=( 'Ni'	 '28   ')
- matrix+=( 'Nh'	 '113  ')
- matrix+=( 'Nb'	 '41   ')
- matrix+=( 'N '  ' 7   ')
- matrix+=( 'No'	 '102  ')
- matrix+=( 'Og'	 '118  ')
- matrix+=( 'Os'	 '76   ')
- matrix+=( 'O '  ' 8   ')
- matrix+=( 'Pd'	 '46   ')
- matrix+=( 'P '  ' 15  ')
- matrix+=( 'Pt'	 '78   ')
- matrix+=( 'Pu'	 '94   ')
- matrix+=( 'Po'	 '84   ')
- matrix+=( 'K '  ' 19  ')
- matrix+=( 'Pr'	 '59   ')
- matrix+=( 'Pm'	 '61   ')
- matrix+=( 'Pa'	 '91   ')
- matrix+=( 'Ra'	 '88   ')
- matrix+=( 'Rn'	 '86   ')
- matrix+=( 'Re'	 '75   ')
- matrix+=( 'Rh'	 '45   ')
- matrix+=( 'Rg'	 '111  ')
- matrix+=( 'Rb'	 '37   ')
- matrix+=( 'Ru'	 '44   ')
- matrix+=( 'Rf'	 '104  ')
- matrix+=( 'Sm'	 '62   ')
- matrix+=( 'Sc'	 '21   ')
- matrix+=( 'Sg'	 '106  ')
- matrix+=( 'Se'	 '34   ')
- matrix+=( 'Si'	 '14   ')
- matrix+=( 'Ag'	 '47   ')
- matrix+=( 'Na'	 '11   ')
- matrix+=( 'Sr'	 '38   ')
- matrix+=( 'S '  ' 16  ')
- matrix+=( 'Ta'	 '73   ')
- matrix+=( 'Tc'	 '43   ')
- matrix+=( 'Te'	 '52   ')
- matrix+=( 'Ts'	 '117  ')
- matrix+=( 'Tb'	 '65   ')
- matrix+=( 'Tl'	 '81   ')
- matrix+=( 'Th'	 '90   ')
- matrix+=( 'Tm'	 '69   ')
- matrix+=( 'Sn'	 '50   ')
- matrix+=( 'Ti'	 '22   ')
- matrix+=( 'W '  ' 74  ')
- matrix+=( 'U '  ' 92  ')
- matrix+=( 'V '  ' 23  ')
- matrix+=( 'Xe'	 '54   ')
- matrix+=( 'Yb'	 '70   ')
- matrix+=( 'Y '  ' 39  ')
- matrix+=( 'Zn'	 '30   ')
- matrix+=( 'Zr'	 '40   ')
-}
 
 RUN_NOSPHERA2(){
 
@@ -2019,8 +1932,7 @@ rm SYMMETRY
 NoSphera2.exe -cif $JOBNAME.archive.cif -asym_cif $JOBNAME.fractional.cif1 -wfn $JOBNAME.wfn -hkl $JOBNAME.hkl -acc $NSA2ACC -cpus $NUMPROC > /dev/null
 if ! grep -q 'Time Breakdown:' "NoSpherA2.log"; then
 	echo "ERROR: NoSpherA2 finished with error, please check the $I.th NoSpherA2.log file for more details" | tee -a $JOBNAME.lst
-	unset MAIN_DIALOG
-       	exit 0
+       	exit 1
 else
         mv experimental.tsc $JOBNAME.tsc
        	echo "NoSpherA2 job finish correctly."
@@ -2085,8 +1997,7 @@ echo "Updating wave at gas phase done"
 #echo "Gaussian cycle number $I ended"
 if ! grep -q 'Normal termination of Gaussian' "$JOBNAME.log"; then
 	echo "ERROR: Gaussian job finished with error, please check the $I.th log file for more details" | tee -a $JOBNAME.lst
-	unset MAIN_DIALOG
-	exit 0
+	exit 1
 fi
 }
 
@@ -2145,8 +2056,7 @@ fi
 #echo "Orca cycle number $I ended"
 if ! grep -q '****ORCA TERMINATED NORMALLY****' "$JOBNAME.out"; then
 	echo "ERROR: Orca job finished with error, please check the $I.th out file for more details" | tee -a $JOBNAME.lst
-	unset MAIN_DIALOG
-	exit 0
+	exit 1
 fi
 }
 
@@ -2338,8 +2248,7 @@ GAMESS_ELMODB_OLD_PDB(){
 	rm gamess_input*
 	if ! grep -q 'OVERLAP INTEGRALS WRITTEN ON FILE sao' "$JOBNAME.gamess.out"; then
 		echo "ERROR: Calculation of overlap integrals with gamessus finished with error, please check the $I.th gamess.out file for more details" | tee -a $JOBNAME.lst
-		unset MAIN_DIALOG
-		exit 0
+		exit 1
 	else 
 		echo "Calculation of overlap integrals with gamess done, writing elmodb input files"
 		if [[ ! -f "$( echo $SCFCALC_BIN | awk -F "/" '{print $NF}' )" ]]; then
@@ -2382,8 +2291,7 @@ GAMESS_ELMODB_OLD_PDB(){
 		./$( echo $SCFCALC_BIN | awk -F "/" '{print $NF}' ) < $JOBNAME.elmodb.inp > $JOBNAME.elmodb.out
 		if ! grep -q 'CONGRATULATIONS: THE ELMO-TRANSFERs ENDED GRACEFULLY!!!' "$JOBNAME.elmodb.out"; then
 			echo "ERROR: elmodb finished with error, please check the $I.th elmodb.out file for more details" | tee -a $JOBNAME.lst
-			unset MAIN_DIALOG
-			exit 0
+			exit 1
 		else
 			echo "elmodb job finish correctly."
 			cp $JOBNAME.elmodb.out  $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.elmodb.out
@@ -2399,17 +2307,6 @@ GAMESS_ELMODB_OLD_PDB(){
 	                echo "Generation of .tsc file with NoSpherA2 for cycle number $NSA2_COUNTER in progress"
        		        RUN_NOSPHERA2
         	        echo "Generation of .tsc file with NoSpherA2 for cycle number $NSA2_COUNTER ended"
-########		if ! grep -q 'Time Breakdown:' "NoSpherA2.log"; then
-########			echo "ERROR: NoSpherA2 finished with error, please check the $I.th NoSpherA2.log file for more details" | tee -a $JOBNAME.lst
-########			unset MAIN_DIALOG
-########			exit 0
-########		else
-########			echo "NoSpherA2 job finish correctly."
-########			mv experimental.tsc $JOBNAME.tsc
-########			cp $JOBNAME.wfn  $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.elmodb.wfn
-########			cp $JOBNAME.tsc $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.tsc
-########			cp NoSpherA2.log $I.$SCFCALCPROG.cycle.$JOBNAME/$I.NoSpherA2.log
-########		fi
 		fi
 	fi
 }
@@ -2459,8 +2356,7 @@ ELMODB(){
 	./$( echo $SCFCALC_BIN | awk -F "/" '{print $NF}' ) < $JOBNAME.elmodb.inp > $JOBNAME.elmodb.out
 	if ! grep -q 'CONGRATULATIONS: THE ELMO-TRANSFERs ENDED GRACEFULLY!!!' "$JOBNAME.elmodb.out"; then
 		echo "ERROR: elmodb finished with error, please check the $I.th elmodb.out file for more details" | tee -a $JOBNAME.lst
-		unset MAIN_DIALOG
-		exit 0
+		exit 1
 	else
 		echo "elmodb job finish correctly."
                 if [ ! -d "$I.$SCFCALCPROG.cycle.$JOBNAME" ]; then
@@ -2479,17 +2375,6 @@ ELMODB(){
                 echo "Generation of .tsc file with NoSpherA2 for cycle number $NSA2_COUNTER in progress"
 	        RUN_NOSPHERA2
                 echo "Generation of .tsc file with NoSpherA2 for cycle number $NSA2_COUNTER ended"
-########	if ! grep -q 'Time Breakdown:' "NoSpherA2.log"; then
-########		echo "ERROR: NoSpherA2 finished with error, please check the $I.th NoSpherA2.log file for more details" | tee -a $JOBNAME.lst
-########		unset MAIN_DIALOG
-########		exit 0
-########	else
-########		mv experimental.tsc $JOBNAME.tsc
-########		echo "NoSpherA2 job finish correctly."
-########		cp $JOBNAME.wfn  $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.elmodb.wfn
-########		cp $JOBNAME.tsc $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.tsc
-########		cp NoSpherA2.log $I.$SCFCALCPROG.cycle.$JOBNAME/$I.NoSpherA2.log
-########	fi
 	fi
 }
 
@@ -2553,8 +2438,7 @@ TONTO_TO_ORCA(){
 	echo "Orca cycle number $I ended"
 	if ! grep -q '****ORCA TERMINATED NORMALLY****' "$JOBNAME.out"; then
 		echo "ERROR: Orca job finished with error, please check the $I.th out file for more details" | tee -a $JOBNAME.lst
-		unset MAIN_DIALOG
-		exit 0
+		exit 1
 	fi
 	echo "Generation of molden file for Orca cycle number $I"
 	if [[ "$(which orca_2mkl.exe)" == "" ]]; then
@@ -2588,17 +2472,6 @@ TONTO_TO_ORCA(){
 		echo "Generation of .tsc file with NoSpherA2 for cycle number $I in progress"
 		RUN_NOSPHERA2
 		echo "Generation of .tsc file with NoSpherA2 for cycle number $I ended"
-########	if ! grep -q 'Time Breakdown:' "NoSpherA2.log"; then
-########		echo "ERROR: NoSpherA2 finished with error, please check the $I.th NoSpherA2.log file for more details" | tee -a $JOBNAME.lst
-########		unset MAIN_DIALOG
-########		exit 0
-########	else
-########		mv experimental.tsc $JOBNAME.tsc
-########		echo "NoSpherA2 job finish correctly."
-########		cp $JOBNAME.wfn  $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.wfn
-########		cp $JOBNAME.tsc $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.tsc
-########		cp NoSpherA2.log $I.$SCFCALCPROG.cycle.$JOBNAME/$I.NoSpherA2.log
-########	fi
 	fi
         if [ ! -d "$I.$SCFCALCPROG.cycle.$JOBNAME" ]; then
                 mkdir $I.$SCFCALCPROG.cycle.$JOBNAME
@@ -2637,8 +2510,7 @@ TONTO_TO_OCC(){
 	echo "OCC cycle number $I ended"
 	if ! grep -q 'A job well done' "$JOBNAME.out"; then
 		echo "ERROR: OCC job finished with error, please check the $I.th out file for more details" | tee -a $JOBNAME.lst
-		unset MAIN_DIALOG
-		exit 0
+		exit 1
 	fi
         if [ ! -d "$I.$SCFCALCPROG.cycle.$JOBNAME" ]; then
                 mkdir $I.$SCFCALCPROG.cycle.$JOBNAME
@@ -2851,8 +2723,7 @@ TONTO_IAM_BLOCK(){
 			echo "         refine_3rd_order_for_atoms= { $ANHARMATOMS } " >> stdin
 		else 
 			echo "ERROR: Please select at least one of the anharmonic terms to refine" | tee -a $JOBNAME.lst
-			unset MAIN_DIALOG
-			exit 0
+			exit 1
 		fi
 	fi
 	if [[ "$ISFCF" != "true" ]]; then
@@ -2894,7 +2765,6 @@ TONTO_IAM_BLOCK(){
                 $TONTO
 		echo "Job ended, elapsed time:" | tee -a $JOBNAME.lst
 		echo "$(($DURATION / 86400 )) days,  $((($DURATION / 3600) % 24 )) hours, $((($DURATION / 60) % 60 ))minutes and $(($DURATION % 60 )) seconds elapsed." | tee -a $JOBNAME.lst
-		unset MAIN_DIALOG
 		exit 0
         fi
 }
@@ -2940,7 +2810,13 @@ CRYSTAL_BLOCK(){
 	if [[ "$SCFCALCPROG" != "optgaussian" && "$SCFCALCPROG" != "optorca" ]]; then 
 		echo "      xray_data= {   " >> stdin
 	        if [[ "$POWDER_HAR" != "true" ]]; then 
-        		echo "         thermal_smearing_model= atom-based" >> stdin
+                        # Tonto's thermal_smearing_model= keyword is gone. Its job -- choosing
+                        # how the density is partitioned before thermal smearing -- now belongs
+                        # to partition_model=, written immediately below. The old value
+                        # "atom-based" meant one-centre partitioning, which is what the "oc-"
+                        # prefix of every current value denotes, so oc-hirshfeld and friends
+                        # already carry it. Emitting both would set an invalid value and then
+                        # repeat the key.
                         if [[ "$SCFCALCPROG" == "Crystal14" || "$SCFCALCPROG" == "CP2K" || "$SCFCALCPROG" == "Tonto" ]]; then
 				WRITE_DENSITY_PARTITION_MODEL || return 1
                         else
@@ -2963,8 +2839,7 @@ CRYSTAL_BLOCK(){
 				echo "         refine_3rd_order_for_atoms= { $ANHARMATOMS } " >> stdin
 			else 
 				echo "ERROR: Please select at least one of the anharmonic terms to refine" | tee -a $JOBNAME.lst
-				unset MAIN_DIALOG
-				exit 0
+				exit 1
 			fi
 		fi
 	        if [[ "$POWDER_HAR" != "true" ]]; then 
@@ -3032,10 +2907,6 @@ CRYSTAL_BLOCK(){
 	echo "" >> stdin
 }
 
-SET_H_ISO(){ 
-	echo "	 set_isotropic_h_adps"  >> stdin
-	echo "" >> stdin
-}
 
 PUT_GEOM(){
         if [[ "$SCFCALCPROG" != "Crystal14" && "$SCFCALCPROG" != "CP2K" && "$DEFRAGNETW" != "true" ]]; then
@@ -3163,10 +3034,6 @@ SCF_BLOCK_NOT_TONTO(){
                 else 
                         echo "   write_xtal23_xyz_file" >> stdin
                 fi
-########	if [[ "$SCFCALCPROG" == "optgaussian" ]]; then
-########		echo "" >> stdin
-########		echo "   put_grown_cif" >> stdin
-########	fi
 	else
 		if [[ "$SCFCALCPROG" != "optgaussian" && "$SCFCALCPROG" != "optorca" ]]; then 
 	                if [[ "$POWDER_HAR" != "true" ]]; then
@@ -3200,10 +3067,6 @@ SCF_BLOCK_NOT_TONTO(){
                 else 
                         echo "   write_xtal23_xyz_file" >> stdin
                 fi
-########	if [[ "$SCFCALCPROG" == "optgaussian" ]]; then
-########		echo "" >> stdin
-########		echo "   put_grown_cif" >> stdin
-########	fi
 	fi
 }
 
@@ -3299,7 +3162,6 @@ SCF_TO_TONTO(){
 		PROCESS_CIF
 		DEFINE_JOB_NAME
                if [[ "$SCFCALCPROG" == "Crystal14" ]]; then
-#                       COMPLETECELLBLOCK
                         TONTO_BASIS_SET
         	        CHARGE_MULT
         	        READ_CRYSTAL_WFN
@@ -3332,11 +3194,6 @@ SCF_TO_TONTO(){
 			COMPLETECIFBLOCK
 		fi
 	fi
-########if [[ "$SCFCALCPROG" == "Gaussian" || "$SCFCALCPROG" == "Orca" ]]; then 
-########	if [[ "$COMPLETESTRUCT" == "true" || "$EXPLICITMOL" == "true" ]]; then
-########		COMPLETECIFBLOCK
-########	fi
-########fi
 #       if [[ "$SCFCALCPROG" == "Crystal14" ]]; then
 #       	echo "   use_spherical_basis= TRUE" >> stdin
 #               TONTO_BASIS_SET
@@ -3351,11 +3208,6 @@ SCF_TO_TONTO(){
 		TONTO_IAM_BLOCK
 	fi
 	CRYSTAL_BLOCK
-########if [[ "POWDER_HAR" != "true" ]]; then 
-########        if [[ "$HADP" == "yes" ]]; then 
-########        	SET_H_ISO
-########	fi
-########fi
        	PUT_GEOM
 	if [[ "$POWDER_HAR" != "true" ]]; then
         	if [[ "$USEBECKE" == "true" ]]; then 
@@ -3426,13 +3278,11 @@ SCF_TO_TONTO(){
 # in the geometry, this is an implicit way of checking that the
 # convergency is also in the energy level. 
 # correct
-########MAXSHIFT=$(awk '{a[NR]=$0}/^Begin rigid-atom fit/{b=NR+10}/^Rigid-atom fit results/{c=NR-4}END {for(d=b;d<=c;++d)print a[d]}' stdout | awk '{ gsub("-","",$0); print $0 }' | tail -1 | awk -v max=0 '{if($5>max){shift=$5; atom=$7; param=$8; max=$5}}END{print shift}')
-########MAXSHIFTATOM=$(awk '{a[NR]=$0}/^Begin rigid-atom fit/{b=NR+10}/^Rigid-atom fit results/{c=NR-4}END {for(d=b;d<=c;++d)print a[d]}' stdout | awk '{ gsub("-","",$0); print $0 }' | tail -1 | awk -v max=0 '{if($5>max){shift=$5; atom=$7; param=$8; max=$5}}END{print atom}')
-########MAXSHIFTPARAM=$(awk '{a[NR]=$0}/^Begin rigid-atom fit/{b=NR+10}/^Rigid-atom fit results/{c=NR-4}END {for(d=b;d<=c;++d)print a[d]}' stdout | awk '{ gsub("-","",$0); print $0 }' | tail -1 | awk -v max=0 '{if($5>max){shift=$5; atom=$7; param=$8; max=$5}}END{print param}')
-	MAXSHIFT=$(awk '{a[NR]=$0}/^Begin rigid-atom fit/{b=NR+10}/^Rigid-atom fit results/{c=NR-4}END {for(d=b;d<=c;++d)print a[d]}' stdout | awk '{ gsub("-","",$0); print $0 }' | awk -v max=0 '{if($5>max){shift=$5; atom=$7; param=$8; max=$5}}END{print shift}')
-        MAXSHIFT=$( echo ${MAXSHIFT#-} ) #this is to get the absolute value 
-	MAXSHIFTATOM=$(awk '{a[NR]=$0}/^Begin rigid-atom fit/{b=NR+10}/^Rigid-atom fit results/{c=NR-4}END {for(d=b;d<=c;++d)print a[d]}' stdout | awk '{ gsub("-","",$0); print $0 }' | awk -v max=0 '{if($5>max){shift=$5; atom=$7; param=$8; max=$5}}END{print atom}')
-	MAXSHIFTPARAM=$(awk '{a[NR]=$0}/^Begin rigid-atom fit/{b=NR+10}/^Rigid-atom fit results/{c=NR-4}END {for(d=b;d<=c;++d)print a[d]}' stdout | awk '{ gsub("-","",$0); print $0 }'| awk -v max=0 '{if($5>max){shift=$5; atom=$7; param=$8; max=$5}}END{print param}')
+	# One pass over the last fit table, normalised for either layout.
+	_fit_summary=$(FIT_TABLE_SUMMARY)
+	MAXSHIFT=$(printf '%s' "$_fit_summary" | cut -f6)
+	MAXSHIFTATOM=$(printf '%s' "$_fit_summary" | cut -f7)
+	MAXSHIFTPARAM=$(printf '%s' "$_fit_summary" | cut -f8)
 	if [[ "$SCFCALCPROG" != "Tonto" && "$SCFCALCPROG" != "elmodb" ]]; then
 		sed -i 's/(//g' $JOBNAME.xyz
 		sed -i 's/)//g' $JOBNAME.xyz
@@ -3440,10 +3290,24 @@ SCF_TO_TONTO(){
 	echo "Tonto cycle number $J ended"
 	if ! grep -q 'Wall-clock time taken' "stdout"; then
 		echo "ERROR: problems in fit cycle, please check the $J.th stdout file for more details" | tee -a $JOBNAME.lst
-		unset MAIN_DIALOG
-		exit 0
+		exit 1
 	fi
-	if [ $J = 1 ]; then 
+	if [ $J = 1 ] && [[ "$SCFCALCPROG" == "Tonto" ]]; then
+		# Tonto runs the whole refinement loop itself, so there are no
+		# lamaGOET cycles to tabulate and the per-cycle table below would be
+		# headers with nothing under them. Say where the numbers are instead.
+		{
+			echo "===================="
+			echo "Refinement progress"
+			echo "===================="
+			echo ""
+			echo "Tonto performs the refinement cycles internally, so there is no"
+			echo "per-cycle table here. Its own least-squares iterations, and the"
+			echo "results of each refinement, are in the sections below and in"
+			echo "full in stdout."
+			echo ""
+		} >> $JOBNAME.lst
+	elif [ $J = 1 ]; then
 		echo "====================" >> $JOBNAME.lst
 		echo "Begin rigid-atom fit" >> $JOBNAME.lst
 		echo "====================" >> $JOBNAME.lst
@@ -3562,8 +3426,7 @@ TONTO_TO_GAUSSIAN(){
 	echo "Gaussian cycle number $I ended"
 	if ! grep -q 'Normal termination of Gaussian' "$JOBNAME.log"; then
 		echo "ERROR: Gaussian job finished with error, please check the $I.th log file for more details" | tee -a $JOBNAME.lst
-		unset MAIN_DIALOG
-		exit 0
+		exit 1
 	fi
 	if [[ "$USENOSPHERA2" == "true" && "$I" != "1" ]]; then
 	        echo "Generation fcheck file for Gaussian cycle number $I"
@@ -3572,17 +3435,6 @@ TONTO_TO_GAUSSIAN(){
 		echo "Generation of .tsc file with NoSpherA2 for cycle number $I in progress"
 		RUN_NOSPHERA2
 		echo "Generation of .tsc file with NoSpherA2 for cycle number $I ended"
-########	if ! grep -q 'Time Breakdown:' "NoSpherA2.log"; then
-########		echo "ERROR: NoSpherA2 finished with error, please check the $I.th NoSpherA2.log file for more details" | tee -a $JOBNAME.lst
-########		unset MAIN_DIALOG
-########		exit 0
-########	else
-########		mv experimental.tsc $JOBNAME.tsc
-########		echo "NoSpherA2 job finish correctly."
-########		cp $JOBNAME.wfn  $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.wfn
-########		cp $JOBNAME.tsc $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.tsc
-########		cp NoSpherA2.log $I.$SCFCALCPROG.cycle.$JOBNAME/$I.NoSpherA2.log
-########	fi
 	fi
         if [ ! -d "$I.$SCFCALCPROG.cycle.$JOBNAME" ]; then
                 mkdir $I.$SCFCALCPROG.cycle.$JOBNAME
@@ -3614,8 +3466,7 @@ TONTO_TO_CRYSTAL(){
                 SPACEGROUPITNUMBER=$(grep "_space_group_IT_number" $CIF | tr -d \' | awk '{print $2}' | tr -d '\r')
 	        if [[ "$SPACEGROUPITNUMBER" == "" ]]; then
 		        echo "ERROR: Space group number not found. Please enter the space group number in your cif with the keyword _symmetry_Int_Tables_number or _space_group_IT_number and restart your job" | tee -a $JOBNAME.lst
-		        unset MAIN_DIALOG
-		        exit 0
+		        exit 1
                 fi 
 	fi
         if [[ "$USEHMSYM" == "true" ]];then 
@@ -3731,8 +3582,7 @@ TONTO_TO_CRYSTAL(){
 	echo "Crystal properties, cycle number $I ended" 
 	if ! grep -q 'SCF ENDED - CONVERGENCE ON ENERGY' "$JOBNAME.out"; then
 		echo "ERROR: Crystal job finished with error, please check the $I.th out file for more details" | tee -a $JOBNAME.lst
-		unset MAIN_DIALOG
-		exit 0
+		exit 1
 	fi
         if [[ "$I" == "1" ]]; then
                 ENERGIA=$(grep "TOTAL ENERGY" $JOBNAME.out | tail -n1 | awk '{print $4}')
@@ -3823,8 +3673,7 @@ GET_FREQ(){
 	echo "Gaussian cycle number $I ended"
 	if ! grep -q 'Normal termination of Gaussian' "$JOBNAME.log"; then
 		echo "ERROR: Gaussian job finished with error, please check the $I.th log file for more details" | tee -a $JOBNAME.lst
-		unset MAIN_DIALOG
-		exit 0
+		exit 1
 	fi
 	echo "Generation fcheck file for Gaussian cycle number $I"
 	if [[ "$USENOSPHERA2" == "true" ]]; then
@@ -3833,17 +3682,6 @@ GET_FREQ(){
 		echo "Generation of .tsc file with NoSpherA2 for cycle number $I in progress"
 		RUN_NOSPHERA2
 		echo "Generation of .tsc file with NoSpherA2 for cycle number $I ended"
-########	if ! grep -q 'Time Breakdown:' "NoSpherA2.log"; then
-########		echo "ERROR: NoSpherA2 finished with error, please check the $I.th NoSpherA2.log file for more details" | tee -a $JOBNAME.lst
-########		unset MAIN_DIALOG
-########		exit 0
-########	else
-########		mv experimental.tsc $JOBNAME.tsc
-########		echo "NoSpherA2 job finish correctly."
-########		cp $JOBNAME.wfn  $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.wfn
-########		cp $JOBNAME.tsc $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.tsc
-########		cp NoSpherA2.log $I.$SCFCALCPROG.cycle.$JOBNAME/$I.NoSpherA2.log
-########	fi
 	fi
         if [ ! -d "$I.$SCFCALCPROG.cycle.$JOBNAME" ]; then
 	        mkdir $I.$SCFCALCPROG.cycle.$JOBNAME
@@ -3922,8 +3760,7 @@ GET_FREQ_ORCA(){
 	echo "Orca cycle number $I ended"
 	if ! grep -q '****ORCA TERMINATED NORMALLY****' "$JOBNAME.out"; then
 		echo "ERROR: Orca job finished with error, please check the $I.th out file for more details" | tee -a $JOBNAME.lst
-		unset MAIN_DIALOG
-		exit 0
+		exit 1
 	fi
 	echo "Generation of molden file for Orca cycle number $I"
 	if [[ "$(which orca_2mkl.exe)" == "" ]]; then
@@ -4051,7 +3888,19 @@ CHECK_ENERGY(){
 	ABSDE=$(awk "function abs(x){return (( x < 0.0) ? -x : x)} BEGIN {print abs($ENERGIA2) - abs($ENERGIA)}")
 	ABSDE2=$(awk "function abs(x){return (( x < 0.0) ? -x : x)} BEGIN {print abs($ENERGIA2) - abs($ENERGIA3)}")
 	DE=$(printf '%.12f' $DE)
-	echo -e " $J\t$(awk '{a[NR]=$0}/^Rigid-atom fit results/{b=NR}END {print a[b-4]}' stdout | awk '{print $1}' )\t$INITIALCHI\t$(awk '{a[NR]=$0}/^Rigid-atom fit results/{b=NR}END {print a[b-4]}' stdout | awk '{print  $2"\t"$3"\t"$4"\t"}') $MAXSHIFT\t$MAXSHIFTATOM $MAXSHIFTPARAM $(awk '{a[NR]=$0}/^Rigid-atom fit results/{b=NR}END {print a[b-4]}' stdout | awk '{print  "    "$9" \t"$10 }' )  $ENERGIA2   $RMSD2   \t$DE"   >> $JOBNAME.lst  
+	# Cycle, fit iterations, chi2 before and after, R, R_w, largest
+	# shift and where it was, parameter and eigenvalue counts.
+	printf ' %s\t%s\t%s\t%s\t%s\t%s\t%s\t%s %s\t%s\t%s\t%s\t%s\t%s\n' \
+		"$J" \
+		"$(printf '%s' "$_fit_summary" | cut -f1)" \
+		"$(printf '%s' "$_fit_summary" | cut -f2)" \
+		"$(printf '%s' "$_fit_summary" | cut -f3)" \
+		"$(printf '%s' "$_fit_summary" | cut -f4)" \
+		"$(printf '%s' "$_fit_summary" | cut -f5)" \
+		"$MAXSHIFT" "$MAXSHIFTATOM" "$MAXSHIFTPARAM" \
+		"$(printf '%s' "$_fit_summary" | cut -f9)" \
+		"$(printf '%s' "$_fit_summary" | cut -f10)" \
+		"$ENERGIA2" "$RMSD2" "$DE" >> $JOBNAME.lst
 	if [[ -z "${HAR_ENERGY_LAST:-}" && -n "${ENERGIA:-}" ]]; then
 		HAR_ENERGY_LAST=$ENERGIA
 	fi
@@ -4061,8 +3910,79 @@ CHECK_ENERGY(){
 	echo "Delta E (cycle  $I - $[ I - 1 ]): $DE "
 }
 
-CHECKCONV(){
-FINALPARAMESD=$(awk '{a[NR]=$0}/^Begin rigid-atom fit/{b=NR}END {print a[b+10]}' stdout | awk '{print $5}')
+
+APPEND_IAM_RESULTS(){
+	# Copy the starting IAM refinement into $JOBNAME.lst.
+	#
+	# Tonto heads the independent-atom-model refinement "IAM refinement" and
+	# the Hirshfeld atom refinement "Structure refinement results". Only the
+	# latter was ever copied into the summary, so a job started from a Tonto
+	# IAM lost precisely the numbers it was started for: without the IAM there
+	# is nothing to compare the HAR against, which is the entire reason for
+	# running one. The results were in stdout all along, just not in the file
+	# users are told holds the results.
+	#
+	# lamaGOET also looked for a "Rigid-atom fit results" heading. Current
+	# Tonto does not emit that string at all, so those extractions were dead.
+	[ -f stdout ] || return 0
+	grep -q '^IAM refinement' stdout || return 0
+	{
+		echo ""
+		echo "###############################################################################################"
+		echo "                        Independent Atom Model (IAM) refinement                                 "
+		echo "###############################################################################################"
+		echo ""
+		awk '/^IAM refinement/{copy=1}
+		     copy && /^Final asymmetric unit parameter values:/{exit}
+		     copy' stdout
+	} >> $JOBNAME.lst
+}
+
+FIT_TABLE_SUMMARY(){
+	# Emit one normalised, tab-separated record describing the last
+	# least-squares fit in stdout:
+	#
+	#   iter  chi2_initial  chi2_final  R  R_w  max_shift  atom  param  N_p  N_eig
+	#
+	# Tonto prints one row per least-squares iteration and then a heading:
+	# "IAM refinement" for the starting model, "Structure refinement results"
+	# for a Hirshfeld atom refinement. It used to print "Rigid-atom fit
+	# results", which lamaGOET looked for; that string no longer appears, so
+	# every field below came out empty and the per-cycle table in the summary
+	# had headers and no rows.
+	#
+	# The two tables also differ in shape. The IAM has ten columns and one
+	# chi2; the HAR has twelve, leading with a cycle number and carrying both
+	# an initial and a final chi2. Normalise here so the caller does not care.
+	awk '
+		/^IAM refinement$/ || /^Structure refinement results$/ { heading = NR }
+		{ line[NR] = $0 }
+		END {
+			if (!heading) exit
+			for (i = heading - 1; i > 0; i--)
+				if (line[i] ~ /^[ \t]*[0-9]+[ \t]/) { last = i; break }
+			if (!last) exit
+			for (i = last; i > 0; i--)
+				if (line[i] !~ /^[ \t]*[0-9]+[ \t]/) { first = i + 1; break }
+
+			maxshift = 0
+			for (i = first; i <= last; i++) {
+				n = split(line[i], f)
+				if (n >= 12) { s = f[7]; a = f[9];  p = f[10] }
+				else         { s = f[5]; a = f[7];  p = f[8]  }
+				if (s < 0) s = -s
+				if (s > maxshift) { maxshift = s; maxatom = a; maxparam = p }
+			}
+
+			n = split(line[last], f)
+			if (n >= 12) { iter = f[2]; ci = f[3]; cf = f[4]; r = f[5]; rw = f[6] }
+			else         { iter = f[1]; ci = f[2]; cf = f[2]; r = f[3]; rw = f[4] }
+
+			printf "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
+			       iter, ci, cf, r, rw, maxshift, maxatom, maxparam,
+			       f[n-1], f[n]
+		}
+	' stdout
 }
 
 GET_RESIDUALS(){
@@ -4297,8 +4217,7 @@ XCW(){
 	cp $JOBNAME.residual_density,cell.cube $J.XCW_cycle.$JOBNAME/$J.residual_density,cell.cube
 	if ! grep -q 'Wall-clock time taken' "stdout"; then
 		echo "ERROR: problems in fit cycle, please check the $J.th stdout file for more details" | tee -a $JOBNAME.lst
-		unset MAIN_DIALOG
-		exit 0
+		exit 1
 	fi
 #for f in *,restricted; do cp $f "$J.fit_cycle.$JOBNAME/$J.${f%}"; done
 }
@@ -4320,8 +4239,7 @@ BOTTOM_PLOT(){
 		echo "      n_all_points= $PTSX $PTSY $PTSZ" >> stdin
 	else
 		echo "ERROR: Please enter cube size information" | tee -a $JOBNAME.lst
-		unset MAIN_DIALOG
-		exit 0
+		exit 1
 	fi
 	echo "      plot_format= cell.cube" >> stdin
 	if [ "$PLOT_ANGS" = "true" ]; then
@@ -4401,8 +4319,7 @@ PLOTS(){
 	fi
 	if ! grep -q 'Wall-clock time taken' "stdout"; then
 		echo "ERROR: problems in fit cycle, please check the $J.th stdout file for more details" | tee -a $JOBNAME.lst
-		unset MAIN_DIALOG
-		exit 0
+		exit 1
 	fi
 }
 
@@ -4568,29 +4485,7 @@ COMPLETECIFBLOCK(){
 	fi
 }
 
-COMPLETECELLBLOCK(){
-        echo "   cluster= {" >> stdin
-        echo "      generation_method= unit_cell" >> stdin
-	echo "      make_info" >> stdin
-	echo "   }" >> stdin
-	echo "" >> stdin
-	echo "   create_cluster" >> stdin
-	echo "" >> stdin
-	echo "   name= $JOBNAME" >> stdin		
-	echo "" >> stdin
-}
 
-REDUCECELLCLUSTER(){
-        echo "   cluster= {" >> stdin
-        echo "      generation_method= assymetric_unit" >> stdin
-        echo "      make_info" >> stdin
-        echo "   }" >> stdin
-        echo "" >> stdin
-        echo "   create_cluster" >> stdin
-        echo "" >> stdin
-        echo "   name= $JOBNAME" >> stdin
-        echo "" >> stdin
-}
 
 run_script(){
 	SECONDS=0
@@ -4661,8 +4556,7 @@ run_script(){
 						sed -i '1 i\  keys= { h= k= l= i_exp= i_sigma= }' $HKL 
 					else
 						echo "ERROR: Please select the format of the hkl file for header (F or F^2)" | tee -a $JOBNAME.lst
-						unset MAIN_DIALOG
-						exit 0
+						exit 1
 					fi
 					sed -i '1 i\ reflection_data= {' $HKL 
 					sed -i '$ a\   }' $HKL
@@ -4796,7 +4690,6 @@ run_script(){
 		echo "   name= $JOBNAME" >> stdin
 		echo "" >> stdin
 #               if [[ "$SCFCALCPROG" == "Crystal14" ]]; then
-#                       COMPLETECELLBLOCK
 #               fi
 		COMPLETECIFBLOCK
 		echo "   put" >> stdin 
@@ -4812,7 +4705,6 @@ run_script(){
                                 echo "   write_xyz_file" >> stdin
                         fi
                 else
-#                       REDUCECELLCLUSTER
                         echo "   write_xtal23_xyz_file" >> stdin
                 fi
 		echo "   put_cif" >> stdin
@@ -4837,18 +4729,13 @@ run_script(){
                         LABELS_IN_XYZ
                 fi
                 #there is no refinement here yet!!!!!!
-########	INITIALCHI=$(awk '{a[NR]=$0}/^Begin rigid-atom fit/{b=NR}END {print a[b+10]}' stdout | awk '{print $2}')
-########	MAXSHIFT=$(awk '{a[NR]=$0}/^Begin rigid-atom fit/{b=NR+10}/^Rigid-atom fit results/{c=NR-4}END {for(d=b;d<=c;++d)print a[d]}' stdout | awk '{ gsub("-","",$0); print $0 }' | awk -v max=0 '{if($5>max){shift=$5; atom=$7; param=$8; max=$5}}END{print shift}')
-########	MAXSHIFTATOM=$(awk '{a[NR]=$0}/^Begin rigid-atom fit/{b=NR+10}/^Rigid-atom fit results/{c=NR-4}END {for(d=b;d<=c;++d)print a[d]}' stdout | awk '{ gsub("-","",$0); print $0 }' | awk -v max=0 '{if($5>max){shift=$5; atom=$7; param=$8; max=$5}}END{print atom}')
-########	MAXSHIFTPARAM=$(awk '{a[NR]=$0}/^Begin rigid-atom fit/{b=NR+10}/^Rigid-atom fit results/{c=NR-4}END {for(d=b;d<=c;++d)print a[d]}' stdout | awk '{ gsub("-","",$0); print $0 }' |awk -v max=0 '{if($5>max){shift=$5; atom=$7; param=$8; max=$5}}END{print param}')
 		if [[ "$SCFCALCPROG" != "Tonto" && "$SCFCALCPROG" != "elmodb" ]]; then
 			sed -i 's/(//g' $JOBNAME.xyz
 			sed -i 's/)//g' $JOBNAME.xyz
 		fi
 		if ! grep -q 'Wall-clock time taken' "stdout"; then
 			echo "ERROR: something wrong with your input cif file, please check the stdout file for more details" | tee -a $JOBNAME.lst
-			unset MAIN_DIALOG
-			exit 0
+			exit 1
 		fi
                 if [ ! -d "$J.tonto_cycle.$JOBNAME" ]; then
 	        	mkdir $J.tonto_cycle.$JOBNAME
@@ -4939,8 +4826,7 @@ run_script(){
 			echo "Gaussian cycle number $I ended"
 			if ! grep -q 'Normal termination of Gaussian' "$JOBNAME.log"; then
 				echo "ERROR: Gaussian job finished with error, please check the $I.th log file for more details" | tee -a $JOBNAME.lst
-				unset MAIN_DIALOG
-				exit 0
+				exit 1
 			fi
                         ENERGIA=$(sed -n '/Population analysis/,/Writing a WFN file/p' $JOBNAME.log |  sed 's/^ //' |  sed ':begin;$!N;s/\n//;tbegin' | awk '!f && sub(/.*HF=/,""){f=1} f' | awk -F '\' '{ print $1}' | tr -d '\r')
                         RMSD=$(sed -n '/Population analysis/,/Writing a WFN file/p' $JOBNAME.log |  sed 's/^ //' |  sed ':begin;$!N;s/\n//;tbegin' | awk '!f && sub(/.*RMSD=/,""){f=1} f' | awk -F '\' '{ print $1}' | tr -d '\r')
@@ -4960,17 +4846,6 @@ run_script(){
 				        echo "Generation of .tsc file with NoSpherA2 for cycle number $NSA2_COUNTER in progress"
 				        RUN_NOSPHERA2
 				        echo "Generation of .tsc file with NoSpherA2 for cycle number $NSA2_COUNTER ended"
-########		        	if ! grep -q 'Time Breakdown:' "NoSpherA2.log"; then
-########		        		echo "ERROR: NoSpherA2 finished with error, please check the $I.th NoSpherA2.log file for more details" | tee -a $JOBNAME.lst
-########		        		unset MAIN_DIALOG
-########		        		exit 0
-########		        	else
-########		        		mv experimental.tsc $JOBNAME.tsc
-########		        		echo "NoSpherA2 job finish correctly."
-########		        		cp $JOBNAME.wfn  $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.wfn
-########		        		cp $JOBNAME.tsc $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.tsc
-########		        		cp NoSpherA2.log $I.$SCFCALCPROG.cycle.$JOBNAME/$I.NoSpherA2.log
-########		        	fi
                                 fi
 			fi
                         if [ ! -d "$I.$SCFCALCPROG.cycle.$JOBNAME" ]; then
@@ -5035,8 +4910,7 @@ run_script(){
 			echo "Orca cycle number $I ended"
 			if ! grep -q '****ORCA TERMINATED NORMALLY****' "$JOBNAME.out"; then
 				echo "ERROR: Orca job finished with error, please check the $I.th out file for more details" | tee -a $JOBNAME.lst
-				unset MAIN_DIALOG
-				exit 0
+				exit 1
 			fi
 			ENERGIA=$(sed -n '/FINAL SINGLE POINT ENERGY/p' $JOBNAME.out | tail -1 | awk '{print $5}' | tr -d '\r')
 			RMSD=$(sed -n '/Last RMS-Density change/p' $JOBNAME.out | tail -1 | awk '{print $5}' | tr -d '\r')
@@ -5074,17 +4948,6 @@ run_script(){
 				        echo "Generation of .tsc file with NoSpherA2 for cycle number $NSA2_COUNTER in progress"
 				        RUN_NOSPHERA2
 				        echo "Generation of .tsc file with NoSpherA2 for cycle number $NSA2_COUNTER ended"
-########        			if ! grep -q 'Time Breakdown:' "NoSpherA2.log"; then
-########        				echo "ERROR: NoSpherA2 finished with error, please check the $I.th NoSpherA2.log file for more details" | tee -a $JOBNAME.lst
-########        				unset MAIN_DIALOG
-########        				exit 0
-########        			else
-########        				mv experimental.tsc $JOBNAME.tsc
-########        				echo "NoSpherA2 job finish correctly."
-########        				cp $JOBNAME.wfn  $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.wfn
-########        				cp $JOBNAME.tsc $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.tsc
-########        				cp NoSpherA2.log $I.$SCFCALCPROG.cycle.$JOBNAME/$I.NoSpherA2.log
-########        			fi
                                 fi
 			fi
                         if [ ! -d "$I.$SCFCALCPROG.cycle.$JOBNAME" ]; then
@@ -5116,8 +4979,7 @@ run_script(){
 			echo "OCC cycle number $I ended"
 			if ! grep -q 'A job well done' "$JOBNAME.out"; then
 				echo "ERROR: OCC job finished with error, please check the $I.th out file for more details" | tee -a $JOBNAME.lst
-				unset MAIN_DIALOG
-				exit 0
+				exit 1
 			fi
 			ENERGIA=$(sed -n '/^total/p' $JOBNAME.out | awk '{print $2}' | tr -d '\r')
 			RMSD=$( awk '{a[NR]=$0}/restricted spinorbital SCF energy converged after/ {print a[NR-1]}' $JOBNAME.out | awk '{print $3}'| tr -d '\r')
@@ -5263,12 +5125,13 @@ run_script(){
 		fi
 		echo "__________________________________________________________________________________________________________________________________________________________________" >> $JOBNAME.lst
 		echo "" >> $JOBNAME.lst
+		APPEND_IAM_RESULTS
 		echo "###############################################################################################" >> $JOBNAME.lst
 		echo "                                     Final Geometry                                         " >> $JOBNAME.lst
 		echo "###############################################################################################" >> $JOBNAME.lst
 		echo "" >> $JOBNAME.lst
 		echo "Energy= $ENERGIA2, RMSD= $RMSD2" >> $JOBNAME.lst
-		echo " $(awk '{a[NR]=$0}/^Rigid-atom fit results/{b=NR}/^Wall-clock time taken for job /{c=NR}END{for (d=b-2;d<c-1;++d) print a[d]}' stdout)"  >> $JOBNAME.lst
+		echo " $(awk '{a[NR]=$0}/^Structure refinement results/ && !b {b=NR}/^Wall-clock time taken for job /{c=NR}END{for (d=b-2;d<c-1;++d) print a[d]}' stdout)"  >> $JOBNAME.lst
 		if [[ "$SCFCALCPROG" != "optgaussian" && "$SCFCALCPROG" != "optorca" ]]; then  
 		        if [[ "$POWDER_HAR" != "true" && "$SCFCALCPROG" != "Crystal14" ]]; then  
 			        GET_RESIDUALS
@@ -5318,11 +5181,18 @@ run_script(){
                 fi
 		echo "__________________________________________________________________________________________________________________________________________________________________" >> $JOBNAME.lst
 		echo "" >> $JOBNAME.lst
+		APPEND_IAM_RESULTS
 		echo "###############################################################################################" >> $JOBNAME.lst
 		echo "                                     Final Geometry                                         " >> $JOBNAME.lst
 		echo "###############################################################################################" >> $JOBNAME.lst
 		echo "" >> $JOBNAME.lst
-		echo " $(awk '{a[NR]=$0}/^Structure refinement results/{b=NR}/^Wall-clock time taken for job /{c=NR}END{for (d=b-2;d<c-1;++d) print a[d]}' stdout)"  >> $JOBNAME.lst
+		# Tonto emits one "Structure refinement results" block per refinement,
+		# so a job that starts from a Tonto IAM produces two: the IAM first,
+		# then the Hirshfeld atom refinement. Record the FIRST match, not the
+		# last, or the IAM block is dropped and the summary shows only the HAR
+		# under lamaGOET's own "Begin rigid-atom fit" heading. Comparing the
+		# two is the whole point of starting from an IAM.
+		echo " $(awk '{a[NR]=$0}/^Structure refinement results/ && !b {b=NR}/^Wall-clock time taken for job /{c=NR}END{for (d=b-2;d<c-1;++d) print a[d]}' stdout)"  >> $JOBNAME.lst
 		if [[ "$XWR" == "true" ]]; then
 			RUN_XWR
 		fi
@@ -5345,11 +5215,12 @@ run_script(){
 			done
 			echo "__________________________________________________________________________________________________________________________________________________________________" >> $JOBNAME.lst
 			echo "" >> $JOBNAME.lst
+			APPEND_IAM_RESULTS
 			echo "###############################################################################################" >> $JOBNAME.lst
 			echo "                                     Final Geometry                                         " >> $JOBNAME.lst
 				echo "###############################################################################################" >> $JOBNAME.lst
 			echo "" >> $JOBNAME.lst
-			echo " $(awk '{a[NR]=$0}/^Rigid-atom fit results/{b=NR}/^Wall-clock time taken for job /{c=NR}END{for (d=b-2;d<c-1;++d) print a[d]}' stdout)"  >> $JOBNAME.lst
+			echo " $(awk '{a[NR]=$0}/^Structure refinement results/ && !b {b=NR}/^Wall-clock time taken for job /{c=NR}END{for (d=b-2;d<c-1;++d) print a[d]}' stdout)"  >> $JOBNAME.lst
 		        if [[ "$POWDER_HAR" != "true" ]]; then  
 			        GET_RESIDUALS
 			        echo " $(awk '{a[NR]=$0}/^Reflections pruned/{b=NR}/^Atom coordinates/{c=NR}END{for (d=b-2;d<c-1;++d) print a[d]}' stdout)"  >> $JOBNAME.lst
@@ -5380,11 +5251,12 @@ run_script(){
 			done
 			echo "__________________________________________________________________________________________________________________________________________________________________" >> $JOBNAME.lst
 			echo "" >> $JOBNAME.lst
+			APPEND_IAM_RESULTS
 			echo "###############################################################################################" >> $JOBNAME.lst
 			echo "                                     Final Geometry                                         " >> $JOBNAME.lst
 				echo "###############################################################################################" >> $JOBNAME.lst
 			echo "" >> $JOBNAME.lst
-			echo " $(awk '{a[NR]=$0}/^Rigid-atom fit results/{b=NR}/^Wall-clock time taken for job /{c=NR}END{for (d=b-2;d<c-1;++d) print a[d]}' stdout)"  >> $JOBNAME.lst
+			echo " $(awk '{a[NR]=$0}/^Structure refinement results/ && !b {b=NR}/^Wall-clock time taken for job /{c=NR}END{for (d=b-2;d<c-1;++d) print a[d]}' stdout)"  >> $JOBNAME.lst
 		        if [[ "$POWDER_HAR" != "true" ]]; then  
 			        GET_RESIDUALS
 			        echo " $(awk '{a[NR]=$0}/^Reflections pruned/{b=NR}/^Atom coordinates/{c=NR}END{for (d=b-2;d<c-1;++d) print a[d]}' stdout)"  >> $JOBNAME.lst
@@ -5401,13 +5273,15 @@ run_script(){
 	fi
 }
 
-# Load saved values before constructing the dialog. Without a job_options.txt,
-# Gaussian is the explicit initial state; assigning it after gtkdialog exits is
-# too late to initialise the dependent widgets.
+# Load saved job options. The Qt interface writes the complete schema, but a
+# hand-written or older file may be missing keys, so supply the defaults the
+# rest of the script assumes.
 LAMAGOET_INITIAL_OPTIONS=${LAMAGOET_BATCH_OPTIONS:-job_options.txt}
 if [[ -f "$LAMAGOET_INITIAL_OPTIONS" ]]; then
     source "$LAMAGOET_INITIAL_OPTIONS"
 fi
+# COMPLETECIF was renamed COMPLETESTRUCT; option files written by the old GUI
+# still use the former name.
 if [[ -z "${COMPLETESTRUCT:-}" && -n "${COMPLETECIF:-}" ]]; then
     COMPLETESTRUCT=$COMPLETECIF
 fi
@@ -5415,2081 +5289,30 @@ if [[ -z "${SCFCALCPROG:-}" ]]; then
     SCFCALCPROG="Gaussian"
 fi
 export SCFCALCPROG
-if [[ "$SCFCALCPROG" == "CP2K" ]]; then
-    CP2K_SETTINGS_VISIBLE=true
-else
-    CP2K_SETTINGS_VISIBLE=false
-fi
 if [[ "$SCFCALCPROG" == "CP2K" && -z "${CP2K_BASIS_SET:-}" ]]; then
     CP2K_BASIS_SET=${CP2K_BASIS:-${BASISSETG:-}}
 fi
-if [[ "$SCFCALCPROG" == "CP2K" || "$SCFCALCPROG" == "Crystal14" ]]; then
-    LEGACY_SCF_OPTIONS_VISIBLE=false
-else
-    LEGACY_SCF_OPTIONS_VISIBLE=true
-fi
-if [[ "$SCFCALCPROG" == "CP2K" ]]; then
-    METHOD_OPTIONS_VISIBLE=false
-else
-    METHOD_OPTIONS_VISIBLE=true
-fi
-if [[ "$SCFCALCPROG" == "Tonto" ]]; then
-    TONTO_BASIS_OPTIONS_VISIBLE=true
-    EXTERNAL_BASIS_OPTIONS_VISIBLE=false
-else
-    TONTO_BASIS_OPTIONS_VISIBLE=false
-    [[ "$SCFCALCPROG" == "CP2K" ]] \
-        && EXTERNAL_BASIS_OPTIONS_VISIBLE=false \
-        || EXTERNAL_BASIS_OPTIONS_VISIBLE=true
-fi
-[[ "$SCFCALCPROG" == "elmodb" ]] \
-    && ELMODB_OPTIONS_VISIBLE=true \
-    || ELMODB_OPTIONS_VISIBLE=false
-[[ "$SCFCALCPROG" == "Tonto" || "$SCFCALCPROG" == "elmodb" ]] \
-    && BASIS_DIRECTORY_VISIBLE=true \
-    || BASIS_DIRECTORY_VISIBLE=false
 : "${CP2K_BASIS_SET_FILE:=$HOME/cp2k-master/install/share/cp2k/data/BASIS_AUG_MOLOPT}"
 : "${CP2K_BASIS_SET:=aug-SZV-MOLOPT-ae-SR}"
 : "${CP2K_XC_FUNCTIONAL:=BLYP}"
 : "${METHOD:=rhf}"
 : "${BASISSETG:=STO-3G}"
 export CP2K_BASIS_SET_FILE CP2K_BASIS_SET CP2K_XC_FUNCTIONAL
-CP2K_FUNCTIONAL_ITEMS=$(
-    _cp2k_list_functionals "$CP2K_XC_FUNCTIONAL" |
-        awk '{ print "       <item>" $0 "</item>" }'
-)
-export CP2K_FUNCTIONAL_ITEMS
-LAMAGOET_CIF_SELECTION_FILE="${TMPDIR:-/tmp}/lamagoet-cif-selection-${USER:-user}-$$"
-LAMAGOET_SCF_SELECTION_FILE="${TMPDIR:-/tmp}/lamagoet-scf-selection-${USER:-user}-$$"
-printf '%s\n' "$SCFCALCPROG" > "$LAMAGOET_SCF_SELECTION_FILE"
-export LAMAGOET_CIF_SELECTION_FILE LAMAGOET_SCF_SELECTION_FILE
-trap 'rm -f -- "$LAMAGOET_CIF_SELECTION_FILE" "$LAMAGOET_SCF_SELECTION_FILE"' EXIT
-
-export MAIN_DIALOG='
-
-	<window window_position="1" title="lamaGOET: An interface for quantum crystallography">
-
-	 <vbox scrollable="true" space-expand="true" space-fill="true" height="800" width="1400" >
-	
-	  <hbox homogeneous="True" >
-	
-	    <hbox homogeneous="True">
-	     <frame>
-	      <text use-markup="true" wrap="false"><label>"<span color='"'blue'"'>Welcome to the interface for quantum crystallography</span>"</label></text>
-	      <pixmap>
-	       <width>40</width>
-	       <height>60</height>
-	       <input file>/usr/local/include/llama.png</input>
-	      </pixmap>
-	     </frame>  
-	    </hbox>
-	
-	  </hbox>
-
-  	 <notebook 
-		tab-labels="HAR|Advanced Settings for HAR |XCW|Elmodb advanced specific|Plots"
-		xx-tab-labels="which will be shown on tabs"
-
-		> 	  
-         <vbox>       
-	 <frame>
-
-	 <hbox>
-
-	    <text xalign="0" use-markup="true" wrap="false" space-fill="True"  space-expand="True"><label>Software for SCF calculation</label></text>
-	      <radiobutton space-fill="True"  space-expand="True">
-	        <label>Gaussian</label>
-	        <input>if [ "$SCFCALCPROG" = "Gaussian" ]; then echo true; else echo false; fi</input>
-	        <action>if true echo 'SCFCALCPROG="Gaussian"'</action>  
-	        <action>if true echo Gaussian > "$LAMAGOET_SCF_SELECTION_FILE"</action>
-	        <action>if true refresh:METHOD</action>
-	        <action>if true refresh:BASISSETG</action>
-	        <action>if true show:METHOD_OPTIONS</action>
-	        <action>if true show:EXTERNAL_BASIS_OPTIONS</action>
-	        <action>if true hide:TONTO_BASIS_OPTIONS</action>
-	        <action>if true show:LEGACY_SCF_OPTIONS</action>
-	        <action>if true hide:ELMODB_OPTIONS</action>
-	        <action>if true hide:BASIS_DIRECTORY_OPTIONS</action>
-	        <action>if true hide:INITADP_OPTIONS</action>
-	        <action>if true hide:CP2K_SETTINGS_FRAME</action>
-	        <action>if true enable:MEM</action>
-	        <action>if true enable:NUMPROC</action>
-	        <action>if true disable:BASISSETDIR</action>
-	        <action>if true enable:SCFCALC_BIN</action>
-	        <action>if false disable:MEM</action>
-	        <action>if false disable:NUMPROC</action>
-	        <action>if false disable:SCFCALC_BIN</action>
-	        <action>if false enable:BASISSETDIR</action>
-	        <action>if true disable:BASISSETT</action>
-	        <action>if false enable:BASISSETT</action>
-	        <action>if true disable:GAMESS</action>
-	        <action>if true disable:ELMOLIB</action>
-	        <action>if false enable:ELMOLIB</action>
-	        <action>if true enable:XHALONG</action>
-	        <action>if false disable:XHALONG</action>
-	        <action>if true enable:COMPLETESTRUCT</action>
-	        <action>if false disable:COMPLETESTRUCT</action>
-	        <action>if true disable:USEGAMESS</action>
-	        <action>if false enable:USEGAMESS</action>
-	        <action>if true enable:GAUSGEN</action>
-	        <action>if false disable:GAUSGEN</action>
-	        <action>if true enable:GAUSSREL</action>
-	        <action>if false disable:GAUSSREL</action>
-	        <action>if true disable:NTAIL</action>
-	        <action>if false enable:NTAIL</action>
-	        <action>if true disable:MANUALRESIDUE</action>
-	        <action>if false enable:MANUALRESIDUE</action>
-	        <action>if true disable:NSSBOND</action>
-	        <action>if false enable:NSSBOND</action>
-	        <action>if true disable:INITADP</action>
-	        <action>if false enable:INITADP</action>
-	        <action>if true enable:USEBECKE</action>
-	        <action>if false disable:USEBECKE</action>
-	        <action>if true enable:GAUSSEMPDISP</action>
-	        <action>if false disable:GAUSSEMPDISP</action>
-	        <action>if true enable:EXTRAKEY</action>
-	        <action>if false disable:EXTRAKEY</action>
-	        <action>if true enable:SCDIPOLES</action>
-	        <action>if false disable:SCDIPOLES</action>
-	        <action>if true disable:DEFRAGNETW</action>
-	        <action>if false enable:DEFRAGNETW</action>
-	      </radiobutton>
-	      <radiobutton space-fill="True"  space-expand="True">
-	        <label>Orca</label>
-	        <input>if [ "$SCFCALCPROG" = "Orca" ]; then echo true; else echo false; fi</input>
-	        <action>if true echo 'SCFCALCPROG="Orca"'</action>
-	        <action>if true echo Orca > "$LAMAGOET_SCF_SELECTION_FILE"</action>
-	        <action>if true refresh:METHOD</action>
-	        <action>if true refresh:BASISSETG</action>
-	        <action>if true show:METHOD_OPTIONS</action>
-	        <action>if true show:EXTERNAL_BASIS_OPTIONS</action>
-	        <action>if true hide:TONTO_BASIS_OPTIONS</action>
-	        <action>if true show:LEGACY_SCF_OPTIONS</action>
-	        <action>if true hide:ELMODB_OPTIONS</action>
-	        <action>if true hide:BASIS_DIRECTORY_OPTIONS</action>
-	        <action>if true hide:INITADP_OPTIONS</action>
-	        <action>if true hide:CP2K_SETTINGS_FRAME</action>
-	        <action>if true enable:MEM</action>
-	        <action>if true enable:NUMPROC</action>
-	        <action>if true enable:SCFCALC_BIN</action>
-	        <action>if true disable:BASISSETDIR</action>
-	        <action>if false disable:MEM</action>
-	        <action>if false disable:NUMPROC</action>
-	        <action>if false disable:SCFCALC_BIN</action>
-	        <action>if true disable:GAMESS</action>
-	        <action>if false enable:BASISSETDIR</action>
-	        <action>if true disable:BASISSETT</action>
-	        <action>if false enable:BASISSETT</action>
-	        <action>if true disable:ELMOLIB</action>
-	        <action>if false enable:ELMOLIB</action>
-	        <action>if true enable:XHALONG</action>
-	        <action>if false disable:XHALONG</action>
-	        <action>if true enable:COMPLETESTRUCT</action>
-	        <action>if false disable:COMPLETESTRUCT</action>
-	        <action>if true disable:USEGAMESS</action>
-	        <action>if false enable:USEGAMESS</action>
-	        <action>if true disable:GAUSGEN</action>
-	        <action>if false enable:GAUSGEN</action>
-	        <action>if true disable:GAUSSREL</action>
-	        <action>if false enable:GAUSSREL</action>
-	        <action>if true disable:NTAIL</action>
-	        <action>if false enable:NTAIL</action>
-	        <action>if true disable:MANUALRESIDUE</action>
-	        <action>if false enable:MANUALRESIDUE</action>
-	        <action>if true disable:NSSBOND</action>
-	        <action>if false enable:NSSBOND</action>
-	        <action>if true disable:INITADP</action>
-	        <action>if false enable:INITADP</action>
-	        <action>if true enable:USEBECKE</action>
-	        <action>if false disable:USEBECKE</action>
-	        <action>if true disable:GAUSSEMPDISP</action>
-	        <action>if false enable:GAUSSEMPDISP</action>
-	        <action>if true enable:EXTRAKEY</action>
-	        <action>if false disable:EXTRAKEY</action>
-	        <action>if true disable:SCDIPOLES</action>
-	        <action>if false enable:SCDIPOLES</action>
-	        <action>if true disable:DEFRAGNETW</action>
-	        <action>if false enable:DEFRAGNETW</action>
-	      </radiobutton>
-	      <radiobutton space-fill="True"  space-expand="True">
-	        <label>OCC</label>
-	        <input>if [ "$SCFCALCPROG" = "OCC" ]; then echo true; else echo false; fi</input>
-	        <action>if true echo 'SCFCALCPROG="OCC"'</action>
-	        <action>if true echo OCC > "$LAMAGOET_SCF_SELECTION_FILE"</action>
-	        <action>if true refresh:METHOD</action>
-	        <action>if true refresh:BASISSETG</action>
-	        <action>if true show:METHOD_OPTIONS</action>
-	        <action>if true show:EXTERNAL_BASIS_OPTIONS</action>
-	        <action>if true hide:TONTO_BASIS_OPTIONS</action>
-	        <action>if true show:LEGACY_SCF_OPTIONS</action>
-	        <action>if true hide:ELMODB_OPTIONS</action>
-	        <action>if true hide:BASIS_DIRECTORY_OPTIONS</action>
-	        <action>if true hide:INITADP_OPTIONS</action>
-	        <action>if true hide:CP2K_SETTINGS_FRAME</action>
-	        <action>if true enable:MEM</action>
-	        <action>if true enable:NUMPROC</action>
-	        <action>if true enable:SCFCALC_BIN</action>
-	        <action>if true disable:BASISSETDIR</action>
-	        <action>if false disable:MEM</action>
-	        <action>if false disable:NUMPROC</action>
-	        <action>if false disable:SCFCALC_BIN</action>
-	        <action>if true disable:GAMESS</action>
-	        <action>if false enable:BASISSETDIR</action>
-	        <action>if true disable:BASISSETT</action>
-	        <action>if false enable:BASISSETT</action>
-	        <action>if true disable:ELMOLIB</action>
-	        <action>if false enable:ELMOLIB</action>
-	        <action>if true enable:XHALONG</action>
-	        <action>if false disable:XHALONG</action>
-	        <action>if true enable:COMPLETESTRUCT</action>
-	        <action>if false disable:COMPLETESTRUCT</action>
-	        <action>if true disable:USEGAMESS</action>
-	        <action>if false enable:USEGAMESS</action>
-	        <action>if true disable:GAUSGEN</action>
-	        <action>if false enable:GAUSGEN</action>
-	        <action>if true disable:GAUSSREL</action>
-	        <action>if false enable:GAUSSREL</action>
-	        <action>if true disable:NTAIL</action>
-	        <action>if false enable:NTAIL</action>
-	        <action>if true disable:MANUALRESIDUE</action>
-	        <action>if false enable:MANUALRESIDUE</action>
-	        <action>if true disable:NSSBOND</action>
-	        <action>if false enable:NSSBOND</action>
-	        <action>if true disable:INITADP</action>
-	        <action>if false enable:INITADP</action>
-	        <action>if true enable:USEBECKE</action>
-	        <action>if false disable:USEBECKE</action>
-	        <action>if true disable:GAUSSEMPDISP</action>
-	        <action>if false enable:GAUSSEMPDISP</action>
-	        <action>if true enable:EXTRAKEY</action>
-	        <action>if false disable:EXTRAKEY</action>
-	        <action>if true enable:SCDIPOLES</action>
-	        <action>if false disable:SCDIPOLES</action>
-	        <action>if true disable:DEFRAGNETW</action>
-	        <action>if false enable:DEFRAGNETW</action>
-	      </radiobutton>
-	      <radiobutton space-fill="True"  space-expand="True">
-	        <label>Tonto</label>
-	        <input>if [ "$SCFCALCPROG" = "Tonto" ]; then echo true; else echo false; fi</input>
-	        <action>if true echo 'SCFCALCPROG="Tonto"'</action>
-	        <action>if true echo Tonto > "$LAMAGOET_SCF_SELECTION_FILE"</action>
-	        <action>if true refresh:METHOD</action>
-	        <action>if true refresh:BASISSETG</action>
-	        <action>if true show:METHOD_OPTIONS</action>
-	        <action>if true hide:EXTERNAL_BASIS_OPTIONS</action>
-	        <action>if true show:TONTO_BASIS_OPTIONS</action>
-	        <action>if true show:LEGACY_SCF_OPTIONS</action>
-	        <action>if true hide:ELMODB_OPTIONS</action>
-	        <action>if true show:BASIS_DIRECTORY_OPTIONS</action>
-	        <action>if true hide:INITADP_OPTIONS</action>
-	        <action>if true hide:CP2K_SETTINGS_FRAME</action>
-	        <action>if true enable:BASISSETDIR</action>
-	        <action>if false disable:BASISSETDIR</action>
-	        <action>if true enable:USEBECKE</action>
-	        <action>if false disable:USEBECKE</action>
-	        <action>if true disable:BASISSETG</action>
-	        <action>if false enable:BASISSETG</action>
-	        <action>if true enable:BASISSETT</action>
-	        <action>if false disable:BASISSETT</action>
-	        <action>if true disable:GAMESS</action>
-	        <action>if true disable:MEM</action>
-	        <action>if true disable:NUMPROC</action>
-	        <action>if true enable:NUMPROCTONTO</action>
-	        <action>if false enable:MEM</action>
-	        <action>if false enable:NUMPROC</action>
-	        <action>if false disable:NUMPROCTONTO</action>
-	        <action>if true disable:ELMOLIB</action>
-	        <action>if false enable:ELMOLIB</action>
-	        <action>if true enable:XHALONG</action>
-	        <action>if false disable:XHALONG</action>
-	        <action>if true enable:COMPLETESTRUCT</action>
-	        <action>if false disable:COMPLETESTRUCT</action>
-	        <action>if true disable:USEGAMESS</action>
-	        <action>if false enable:USEGAMESS</action>
-	        <action>if true disable:GAUSGEN</action>
-	        <action>if false enable:GAUSGEN</action>
-	        <action>if true disable:GAUSSREL</action>
-	        <action>if false enable:GAUSSREL</action>
-	        <action>if true disable:NTAIL</action>
-	        <action>if false enable:NTAIL</action>
-	        <action>if true disable:MANUALRESIDUE</action>
-	        <action>if false enable:MANUALRESIDUE</action>
-	        <action>if true disable:NSSBOND</action>
-	        <action>if false enable:NSSBOND</action>
-	        <action>if true disable:INITADP</action>
-	        <action>if false enable:INITADP</action>
-	        <action>if true disable:GAUSSEMPDISP</action>
-	        <action>if false enable:GAUSSEMPDISP</action>
-	        <action>if true disable:EXTRAKEY</action>
-	        <action>if false enable:EXTRAKEY</action>
-	        <action>if true disable:SCDIPOLES</action>
-	        <action>if false enable:SCDIPOLES</action>
-	        <action>if true disable:DEFRAGNETW</action>
-	        <action>if false enable:DEFRAGNETW</action>
-	      </radiobutton>
-	      <radiobutton space-fill="True"  space-expand="True">
-	        <label>elmodb</label>
-	        <input>if [ "$SCFCALCPROG" = "elmodb" ]; then echo true; else echo false; fi</input>
-	        <action>if true echo 'SCFCALCPROG="elmodb"'</action>
-	        <action>if true echo elmodb > "$LAMAGOET_SCF_SELECTION_FILE"</action>
-	        <action>if true refresh:METHOD</action>
-	        <action>if true refresh:BASISSETG</action>
-	        <action>if true show:METHOD_OPTIONS</action>
-	        <action>if true show:EXTERNAL_BASIS_OPTIONS</action>
-	        <action>if true hide:TONTO_BASIS_OPTIONS</action>
-	        <action>if true show:LEGACY_SCF_OPTIONS</action>
-	        <action>if true show:ELMODB_OPTIONS</action>
-	        <action>if true show:BASIS_DIRECTORY_OPTIONS</action>
-	        <action>if true show:INITADP_OPTIONS</action>
-	        <action>if true hide:CP2K_SETTINGS_FRAME</action>
-	        <action>if true enable:NTAIL</action>
-	        <action>if false disable:NTAIL</action>
-	        <action>if true disable:EXPLICITMOL</action>
-	        <action>if false enable:EXPLICITMOL</action>
-	        <action>if true enable:MEM</action>
-	        <action>if true enable:NUMPROC</action>
-	        <action>if true enable:SCFCALC_BIN</action>
-	        <action>if true enable:BASISSETDIR</action>
-	        <action>if false disable:MEM</action>
-	        <action>if false disable:NUMPROC</action>
-	        <action>if false disable:SCFCALC_BIN</action>
-	        <action>if false disable:BASISSETDIR</action>
-	        <action>if true disable:BASISSETT</action>
-	        <action>if false enable:BASISSETT</action>
-	        <action>if true disable:SCCHARGES</action>
-	        <action>if false enable:SCCHARGES</action>
-	        <action>if true enable:ELMOLIB</action>
-	        <action>if false disable:ELMOLIB</action>
-	        <action>if true disable:XHALONG</action>
-	        <action>if false enable:XHALONG</action>
-	        <action>if true disable:COMPLETESTRUCT</action>
-	        <action>if false enable:COMPLETESTRUCT</action>
-	        <action>if true enable:USEGAMESS</action>
-	        <action>if false disable:USEGAMESS</action>
-	        <action>if true disable:GAUSGEN</action>
-	        <action>if false enable:GAUSGEN</action>
-	        <action>if true disable:GAUSSREL</action>
-	        <action>if false enable:GAUSSREL</action>
-	        <action>if true enable:MANUALRESIDUE</action>
-	        <action>if false disable:MANUALRESIDUE</action>
-	        <action>if true enable:NSSBOND</action>
-	        <action>if false disable:NSSBOND</action>
-	        <action>if true enable:INITADP</action>
-	        <action>if false disable:INITADP</action>
-	        <action>if true disable:GAUSSEMPDISP</action>
-	        <action>if false enable:GAUSSEMPDISP</action>
-	        <action>if true disable:EXTRAKEY</action>
-	        <action>if false enable:EXTRAKEY</action>
-	        <action>if true disable:SCDIPOLES</action>
-	        <action>if false enable:SCDIPOLES</action>
-	        <action>if true disable:DEFRAGNETW</action>
-	        <action>if false enable:DEFRAGNETW</action>
-	      </radiobutton>
-
-      <radiobutton space-fill="True" space-expand="True" visible="true">
-        <label>CP2K periodic (all-electron GAPW)</label>
-        <input>if [ "$SCFCALCPROG" = "CP2K" ]; then echo true; else echo false; fi</input>
-        <action>if true echo 'SCFCALCPROG="CP2K"'</action>
-	        <action>if true echo CP2K > "$LAMAGOET_SCF_SELECTION_FILE"</action>
-	        <action>if true hide:METHOD_OPTIONS</action>
-	        <action>if true hide:EXTERNAL_BASIS_OPTIONS</action>
-	        <action>if true hide:TONTO_BASIS_OPTIONS</action>
-	        <action>if true hide:LEGACY_SCF_OPTIONS</action>
-	        <action>if true hide:ELMODB_OPTIONS</action>
-	        <action>if true hide:BASIS_DIRECTORY_OPTIONS</action>
-	        <action>if true hide:INITADP_OPTIONS</action>
-        <action>if true show:CP2K_SETTINGS_FRAME</action>
-        <action>if true enable:CP2K_BIN</action>
-        <action>if false disable:CP2K_BIN</action>
-        <action>if true enable:CP2K_BASIS_SET_FILE</action>
-        <action>if false disable:CP2K_BASIS_SET_FILE</action>
-        <action>if true enable:CP2K_BASIS_SET</action>
-        <action>if false disable:CP2K_BASIS_SET</action>
-        <action>if true enable:CP2K_XC_FUNCTIONAL</action>
-        <action>if false disable:CP2K_XC_FUNCTIONAL</action>
-        <action>if true enable:CP2K_KPOINT_GRID</action>
-        <action>if false disable:CP2K_KPOINT_GRID</action>
-        <action>if true enable:CP2K_CELL_CHARGE</action>
-        <action>if false disable:CP2K_CELL_CHARGE</action>
-        <action>if true enable:CP2K_CELL_MULTIPLICITY</action>
-        <action>if false disable:CP2K_CELL_MULTIPLICITY</action>
-        <action>if true enable:CP2K_CUTOFF</action>
-        <action>if false disable:CP2K_CUTOFF</action>
-        <action>if true enable:CP2K_REL_CUTOFF</action>
-        <action>if false disable:CP2K_REL_CUTOFF</action>
-        <action>if true enable:CP2K_MAX_SCF</action>
-        <action>if false disable:CP2K_MAX_SCF</action>
-        <action>if true enable:CP2K_EPS_SCF</action>
-        <action>if false disable:CP2K_EPS_SCF</action>
-        <action>if true enable:CP2K_ADDED_MOS</action>
-        <action>if false disable:CP2K_ADDED_MOS</action>
-        <action>if true enable:NUMPROC</action>
-        <action>if true enable:NUMPROCTONTO</action>
-        <action>if true disable:SCFCALC_BIN</action>
-        <action>if true disable:BASISSETDIR</action>
-        <action>if true disable:BASISSETT</action>
-        <action>if true disable:SCCHARGES</action>
-        <action>if true disable:COMPLETESTRUCT</action>
-        <action>if true disable:EXPLICITMOL</action>
-        <action>if true disable:DEFRAGNETW</action>
-        <action>if true disable:POWDER_HAR</action>
-        <action>if true disable:USEGAMESS</action>
-      </radiobutton>
-	      <radiobutton space-fill="True"  space-expand="True" visible="true">
-	        <label>Crystal23</label>
-	        <input>if [ "$SCFCALCPROG" = "Crystal14" ]; then echo true; else echo false; fi</input>
-	        <action>if true echo 'SCFCALCPROG="Crystal14"'</action>
-	        <action>if true echo Crystal14 > "$LAMAGOET_SCF_SELECTION_FILE"</action>
-	        <action>if true refresh:METHOD</action>
-	        <action>if true refresh:BASISSETG</action>
-	        <action>if true show:METHOD_OPTIONS</action>
-	        <action>if true show:EXTERNAL_BASIS_OPTIONS</action>
-	        <action>if true hide:TONTO_BASIS_OPTIONS</action>
-	        <action>if true hide:LEGACY_SCF_OPTIONS</action>
-	        <action>if true hide:ELMODB_OPTIONS</action>
-	        <action>if true hide:BASIS_DIRECTORY_OPTIONS</action>
-	        <action>if true hide:INITADP_OPTIONS</action>
-	        <action>if true hide:CP2K_SETTINGS_FRAME</action>
-	        <action>if true disable:NTAIL</action>
-	        <action>if true enable:MEM</action>
-	        <action>if true enable:USEHMSYM</action>
-	        <action>if false disable:USEHMSYM</action>
-	        <action>if true enable:MAXXTALCYCLE</action>
-	        <action>if true enable:SUPERCON</action>
-	        <action>if true enable:SHRINKA</action>
-	        <action>if true enable:SHRINKB</action>
-	        <action>if true enable:NUMPROC</action>
-	        <action>if false disable:NUMPROC</action>
-	        <action>if true enable:SCFCALC_BIN</action>
-	        <action>if true disable:BASISSETDIR</action>
-	        <action>if true enable:BASISSETT</action>
-	        <action>if false disable:BASISSETT</action>
-	        <action>if false disable:MAXXTALCYCLE</action>
-	        <action>if false disable:SUPERCON</action>
-	        <action>if false disable:SHRINKA</action>
-	        <action>if false disable:SHRINKB</action>
-	        <action>if true disable:SCCHARGES</action>
-	        <action>if true disable:ELMOLIB</action>
-	        <action>if true disable:XHALONG</action>
-	        <action>if true disable:COMPLETESTRUCT</action>
-	        <action>if true disable:USEGAMESS</action>
-	        <action>if true enable:GAUSGEN</action>
-	        <action>if true disable:GAUSSREL</action>
-	        <action>if true disable:MANUALRESIDUE</action>
-	        <action>if true disable:NSSBOND</action>
-	        <action>if true disable:INITADP</action>
-	        <action>if true disable:GAUSSEMPDISP</action>
-	        <action>if true disable:EXTRAKEY</action>
-	        <action>if true disable:SCDIPOLES</action>
-	        <action>if true enable:DEFRAGNETW</action>
-	        <action>if false disable:DEFRAGNETW</action>
-	        <action>if true enable:USEGUESS</action>
-	        <action>if false disable:USEGUESS</action>
-	      </radiobutton>
-	      <radiobutton space-fill="True"  space-expand="True">
-	        <label>SC CC opt with Gaussian and Tonto</label>
-	        <input>if [ "$SCFCALCPROG" = "optgaussian" ]; then echo true; else echo false; fi</input>
-	        <action>if true echo 'SCFCALCPROG="optgaussian"'</action>  
-	        <action>if true echo optgaussian > "$LAMAGOET_SCF_SELECTION_FILE"</action>
-	        <action>if true refresh:METHOD</action>
-	        <action>if true refresh:BASISSETG</action>
-	        <action>if true show:METHOD_OPTIONS</action>
-	        <action>if true show:EXTERNAL_BASIS_OPTIONS</action>
-	        <action>if true hide:TONTO_BASIS_OPTIONS</action>
-	        <action>if true show:LEGACY_SCF_OPTIONS</action>
-	        <action>if true hide:ELMODB_OPTIONS</action>
-	        <action>if true hide:BASIS_DIRECTORY_OPTIONS</action>
-	        <action>if true hide:INITADP_OPTIONS</action>
-	        <action>if true hide:CP2K_SETTINGS_FRAME</action>
-	        <action>if true enable:MEM</action>
-	        <action>if true enable:NUMPROC</action>
-	        <action>if true disable:BASISSETDIR</action>
-	        <action>if true enable:SCFCALC_BIN</action>
-	        <action>if false disable:MEM</action>
-	        <action>if false disable:NUMPROC</action>
-	        <action>if false disable:SCFCALC_BIN</action>
-	        <action>if false enable:BASISSETDIR</action>
-	        <action>if true disable:BASISSETT</action>
-	        <action>if false enable:BASISSETT</action>
-	        <action>if true disable:GAMESS</action>
-	        <action>if true disable:ELMOLIB</action>
-	        <action>if false enable:ELMOLIB</action>
-	        <action>if true enable:XHALONG</action>
-	        <action>if false disable:XHALONG</action>
-	        <action>if true enable:COMPLETESTRUCT</action>
-	        <action>if false disable:COMPLETESTRUCT</action>
-	        <action>if true disable:HKL</action>
-       	        <action>if false enable:HKL</action>
-	        <action>if true disable:WAVE</action>
-       	        <action>if false enable:WAVE</action>
-	        <action>if true disable:FCUT</action>
-       	        <action>if false enable:FCUT</action>
-	        <action>if true disable:POSADP</action>
-       	        <action>if false enable:POSADP</action>
-	        <action>if true disable:POSONLY</action>
-       	        <action>if false enable:POSONLY</action>
-	        <action>if true disable:ADPSONLY</action>
-       	        <action>if false enable:ADPSONLY</action>
-	        <action>if true disable:IAMTONTO</action>
-       	        <action>if false enable:IAMTONTO</action>
-	        <action>if true disable:REFNOTHING</action>
-       	        <action>if false enable:REFNOTHING</action>
-	        <action>if true disable:REFUISO</action>
-       	        <action>if false enable:REFUISO</action>
-	        <action>if true disable:REFHPOS</action>
-       	        <action>if false enable:REFHPOS</action>
-	        <action>if true disable:REFHADP</action>
-       	        <action>if false enable:REFHADP</action>
-	        <action>if true disable:REFANHARM</action>
-       	        <action>if false enable:REFANHARM</action>
-	        <action>if true disable:DISP</action>
-       	        <action>if false enable:DISP</action>
-	        <action>if true enable:USEBECKE</action>
-	        <action>if false disable:USEBECKE</action>
-	        <action>if true disable:WRITEHEADER</action>
-       	        <action>if false enable:WRITEHEADER</action>
-	        <action>if true disable:USEGAMESS</action>
-	        <action>if false enable:USEGAMESS</action>
-	        <action>if true enable:GAUSGEN</action>
-	        <action>if false disable:GAUSGEN</action>
-	        <action>if true enable:GAUSSREL</action>
-	        <action>if false disable:GAUSSREL</action>
-	        <action>if true disable:NTAIL</action>
-	        <action>if false enable:NTAIL</action>
-	        <action>if true disable:MANUALRESIDUE</action>
-	        <action>if false enable:MANUALRESIDUE</action>
-	        <action>if true disable:NSSBOND</action>
-	        <action>if false enable:NSSBOND</action>
-	        <action>if true disable:INITADP</action>
-	        <action>if false enable:INITADP</action>
-	        <action>if true enable:GAUSSEMPDISP</action>
-	        <action>if false disable:GAUSSEMPDISP</action>
-	        <action>if true enable:EXTRAKEY</action>
-	        <action>if false disable:EXTRAKEY</action>
-	        <action>if true enable:SCDIPOLES</action>
-	        <action>if false disable:SCDIPOLES</action>
-	        <action>if true disable:DEFRAGNETW</action>
-	        <action>if false enable:DEFRAGNETW</action>
-	      </radiobutton>
-	      <radiobutton space-fill="True"  space-expand="True">
-	        <label>SC CC opt with Orca and Tonto</label>
-	        <input>if [ "$SCFCALCPROG" = "optorca" ]; then echo true; else echo false; fi</input>
-	        <action>if true echo 'SCFCALCPROG="optorca"'</action>  
-	        <action>if true echo optorca > "$LAMAGOET_SCF_SELECTION_FILE"</action>
-	        <action>if true refresh:METHOD</action>
-	        <action>if true refresh:BASISSETG</action>
-	        <action>if true show:METHOD_OPTIONS</action>
-	        <action>if true show:EXTERNAL_BASIS_OPTIONS</action>
-	        <action>if true hide:TONTO_BASIS_OPTIONS</action>
-	        <action>if true show:LEGACY_SCF_OPTIONS</action>
-	        <action>if true hide:ELMODB_OPTIONS</action>
-	        <action>if true hide:BASIS_DIRECTORY_OPTIONS</action>
-	        <action>if true hide:INITADP_OPTIONS</action>
-	        <action>if true hide:CP2K_SETTINGS_FRAME</action>
-	        <action>if true enable:MEM</action>
-	        <action>if true enable:NUMPROC</action>
-	        <action>if true disable:BASISSETDIR</action>
-	        <action>if true enable:SCFCALC_BIN</action>
-	        <action>if false disable:MEM</action>
-	        <action>if false disable:NUMPROC</action>
-	        <action>if false disable:SCFCALC_BIN</action>
-	        <action>if false enable:BASISSETDIR</action>
-	        <action>if true disable:BASISSETT</action>
-	        <action>if false enable:BASISSETT</action>
-	        <action>if true disable:GAMESS</action>
-	        <action>if true disable:ELMOLIB</action>
-	        <action>if false enable:ELMOLIB</action>
-	        <action>if true enable:XHALONG</action>
-	        <action>if false disable:XHALONG</action>
-	        <action>if true enable:COMPLETESTRUCT</action>
-	        <action>if false disable:COMPLETESTRUCT</action>
-	        <action>if true disable:HKL</action>
-       	        <action>if false enable:HKL</action>
-	        <action>if true disable:WAVE</action>
-       	        <action>if false enable:WAVE</action>
-	        <action>if true disable:FCUT</action>
-       	        <action>if false enable:FCUT</action>
-	        <action>if true disable:POSADP</action>
-       	        <action>if false enable:POSADP</action>
-	        <action>if true disable:POSONLY</action>
-       	        <action>if false enable:POSONLY</action>
-	        <action>if true disable:ADPSONLY</action>
-       	        <action>if false enable:ADPSONLY</action>
-	        <action>if true disable:IAMTONTO</action>
-       	        <action>if false enable:IAMTONTO</action>
-	        <action>if true disable:REFNOTHING</action>
-       	        <action>if false enable:REFNOTHING</action>
-	        <action>if true disable:REFUISO</action>
-       	        <action>if false enable:REFUISO</action>
-	        <action>if true disable:REFHPOS</action>
-       	        <action>if false enable:REFHPOS</action>
-	        <action>if true disable:REFHADP</action>
-       	        <action>if false enable:REFHADP</action>
-	        <action>if true disable:REFANHARM</action>
-       	        <action>if false enable:REFANHARM</action>
-	        <action>if true disable:DISP</action>
-       	        <action>if false enable:DISP</action>
-	        <action>if true enable:USEBECKE</action>
-	        <action>if false disable:USEBECKE</action>
-	        <action>if true disable:WRITEHEADER</action>
-       	        <action>if false enable:WRITEHEADER</action>
-	        <action>if true disable:USEGAMESS</action>
-	        <action>if false enable:USEGAMESS</action>
-	        <action>if true enable:GAUSGEN</action>
-	        <action>if false disable:GAUSGEN</action>
-	        <action>if true enable:GAUSSREL</action>
-	        <action>if false disable:GAUSSREL</action>
-	        <action>if true disable:NTAIL</action>
-	        <action>if false enable:NTAIL</action>
-	        <action>if true disable:MANUALRESIDUE</action>
-	        <action>if false enable:MANUALRESIDUE</action>
-	        <action>if true disable:NSSBOND</action>
-	        <action>if false enable:NSSBOND</action>
-	        <action>if true disable:INITADP</action>
-	        <action>if false enable:INITADP</action>
-	        <action>if true enable:GAUSSEMPDISP</action>
-	        <action>if false disable:GAUSSEMPDISP</action>
-	        <action>if true enable:EXTRAKEY</action>
-	        <action>if false disable:EXTRAKEY</action>
-	        <action>if true enable:SCDIPOLES</action>
-	        <action>if false disable:SCDIPOLES</action>
-	        <action>if true disable:DEFRAGNETW</action>
-	        <action>if false enable:DEFRAGNETW</action>
-	      </radiobutton>
-
-	   </hbox>
-	
-          <hbox>
-	    <checkbox active="false" space-fill="True" space-expand="True" sensitive="true" visible="false">
-	     <label>Powder HAR</label>
-	      <variable>POWDER_HAR</variable>
-	        <action>if true enable:JANAEXE</action>
-	        <action>if false disable:JANAEXE</action>
-	        <action>if true enable:MAXPHARCYCLE</action>
-	        <action>if false disable:MAXPHARCYCLE</action>
-	        <action>if true enable:NSA2ACC</action>
-	        <action>if false disable:NSA2ACC</action>
-	    </checkbox>
-	    <checkbox active="false" space-fill="True" space-expand="True" sensitive="true" visible="false">
-	     <label>Calculate .tsc file with NoSpherA2</label>
-	      <variable>USENOSPHERA2</variable>
-	        <action>if true enable:NSA2ACC</action>
-	        <action>if false disable:NSA2ACC</action>
-              
-	    </checkbox>
-
-	    <checkbox active="false" space-fill="True"  space-expand="True" sensitive="false" visible="false">
-	     <label>Use Gamess for calculation of overlap integrals</label>
-	      <variable>USEGAMESS</variable>
-	        <action>if true enable:GAMESS</action>
-	        <action>if false disable:GAMESS</action>
-	    </checkbox>
-           </hbox>
-	
-	   <hbox> 
-	    <checkbox active="false" space-fill="True"  space-expand="True" sensitive="false" visible="true">
-	     <label>For Crystal only: Use initial guess from previous calculation?</label>
-	      <variable>USEGUESS</variable>
-	    </checkbox>
-           </hbox>
-	
-	   <hseparator></hseparator>
-	
-	   <hbox>
-	    <text label="Tonto executable" has-tooltip="true" tooltip-markup="This can be a full path" ></text>
-	    <entry fs-action="file" fs-folder="./"
-	           fs-title="Select the gamess_int file">
-             <input>if [ ! -z $TONTO ]; then echo "$TONTO"; else (echo "tonto"); fi</input>
-	     <variable>TONTO</variable>
-	    </entry>
-	    <button>
-	     <input file stock="gtk-open"></input>
-	     <action type="fileselect">TONTO</action>
-	    </button>
-	   </hbox>
-	
-	   <hseparator></hseparator>
-	
-	   <hbox>
-	    <text label="Jana2006 executable" has-tooltip="true" tooltip-markup="This can be a full path" ></text>
-	    <entry fs-action="file" fs-folder="./" sensitive="false" 
-	           fs-title="Select the gamess_int file">
-             <input>if [ ! -z $JANAEXE ]; then echo "$JANAEXE"; else (echo "/mnt/c/Jana2006/Jana2006.exe"); fi</input>
-	     <variable>JANAEXE</variable>
-	    </entry>
-	    <button>
-	     <input file stock="gtk-open"></input>
-	     <action type="fileselect">JANAEXE</action>
-	    </button>
-	   </hbox>
-	
-	   <hseparator></hseparator>
-	
-	  <hbox>
-	    <text label="Gaussian, Orca or elmodb executable" has-tooltip="true" tooltip-markup="This can be a full path" ></text>
-	    <entry fs-action="file" fs-folder="./"
-	           fs-title="Select the gamess_int file">
-             <input>if [ ! -z $SCFCALC_BIN ]; then echo "$SCFCALC_BIN"; else (echo "g09"); fi</input>
-	     <variable>SCFCALC_BIN</variable>
-	    </entry>
-	    <button>
-	     <input file stock="gtk-open"></input>
-	     <action type="fileselect">SCFCALC_BIN</action>
-	    </button>
-	   </hbox>
-   <hseparator></hseparator>
-   <vbox visible="'"$CP2K_SETTINGS_VISIBLE"'">
-   <frame>
-    <text use-markup="true"><label>"<b>CP2K periodic all-electron settings</b>"</label></text>
-    <vbox>
-     <hbox>
-      <text label="CP2K executable"></text>
-      <entry sensitive="'"$CP2K_SETTINGS_VISIBLE"'" fs-action="file" fs-folder="./">
-       <input>if [ ! -z $CP2K_BIN ]; then echo "$CP2K_BIN"; else echo "$HOME/cp2k-master/install/bin/cp2k.ssmp"; fi</input>
-       <variable>CP2K_BIN</variable>
-      </entry>
-      <button><input file stock="gtk-open"></input><action type="fileselect">CP2K_BIN</action></button>
-     </hbox>
-     <hbox>
-      <text label="All-electron CP2K basis file"></text>
-      <entry sensitive="'"$CP2K_SETTINGS_VISIBLE"'" fs-action="file" fs-folder="./">
-       <input>if [ ! -z $CP2K_BASIS_SET_FILE ]; then echo "$CP2K_BASIS_SET_FILE"; else echo "$HOME/cp2k-master/install/share/cp2k/data/BASIS_AUG_MOLOPT"; fi</input>
-       <variable>CP2K_BASIS_SET_FILE</variable>
-      </entry>
-      <button>
-       <input file stock="gtk-open"></input>
-       <action type="fileselect">CP2K_BASIS_SET_FILE</action>
-       <action>refresh:CP2K_BASIS_SET</action>
-      </button>
-     </hbox>
-     <hbox>
-      <text label="Basis name"></text>
-      <comboboxentry sensitive="'"$CP2K_SETTINGS_VISIBLE"'" has-tooltip="true" tooltip-markup="Basis aliases read from the selected CP2K basis file. You may also type an alias manually.">
-       <variable>CP2K_BASIS_SET</variable>
-       <input>bash "$LAMAGOET_SCRIPT_DIR/lamaGOET.sh" --list-cp2k-basis-sets "$CP2K_BASIS_SET_FILE" "$CP2K_BASIS_SET"</input>
-      </comboboxentry>
-      <text label="XC functional"></text>
-      <combobox sensitive="'"$CP2K_SETTINGS_VISIBLE"'" has-tooltip="true" tooltip-markup="Non-hybrid CP2K XC shortcuts supported by the input generator. Tonto partitions the imported periodic density with functional-independent Thakkar pro-atoms.">
-       <variable>CP2K_XC_FUNCTIONAL</variable>
-'"$CP2K_FUNCTIONAL_ITEMS"'
-      </combobox>
-      <text label="k-point grid"></text>
-      <entry sensitive="'"$CP2K_SETTINGS_VISIBLE"'"><input>if [ ! -z "$CP2K_KPOINT_GRID" ]; then echo "$CP2K_KPOINT_GRID"; else echo "2 2 2"; fi</input><variable>CP2K_KPOINT_GRID</variable></entry>
-     </hbox>
-     <hbox>
-      <text label="Cell charge"></text>
-      <entry sensitive="'"$CP2K_SETTINGS_VISIBLE"'"><input>if [ ! -z $CP2K_CELL_CHARGE ]; then echo "$CP2K_CELL_CHARGE"; else echo "0"; fi</input><variable>CP2K_CELL_CHARGE</variable></entry>
-      <text label="Cell multiplicity"></text>
-      <entry sensitive="'"$CP2K_SETTINGS_VISIBLE"'"><input>if [ ! -z $CP2K_CELL_MULTIPLICITY ]; then echo "$CP2K_CELL_MULTIPLICITY"; else echo "1"; fi</input><variable>CP2K_CELL_MULTIPLICITY</variable></entry>
-     </hbox>
-     <hbox>
-      <text label="Cutoff"></text>
-      <entry sensitive="'"$CP2K_SETTINGS_VISIBLE"'"><input>if [ ! -z $CP2K_CUTOFF ]; then echo "$CP2K_CUTOFF"; else echo "1200"; fi</input><variable>CP2K_CUTOFF</variable></entry>
-      <text label="Relative cutoff"></text>
-      <entry sensitive="'"$CP2K_SETTINGS_VISIBLE"'"><input>if [ ! -z $CP2K_REL_CUTOFF ]; then echo "$CP2K_REL_CUTOFF"; else echo "80"; fi</input><variable>CP2K_REL_CUTOFF</variable></entry>
-      <text label="Maximum SCF cycles"></text>
-      <entry sensitive="'"$CP2K_SETTINGS_VISIBLE"'"><input>if [ ! -z $CP2K_MAX_SCF ]; then echo "$CP2K_MAX_SCF"; else echo "100"; fi</input><variable>CP2K_MAX_SCF</variable></entry>
-      <text label="SCF tolerance"></text>
-      <entry sensitive="'"$CP2K_SETTINGS_VISIBLE"'"><input>if [ ! -z $CP2K_EPS_SCF ]; then echo "$CP2K_EPS_SCF"; else echo "1.0E-8"; fi</input><variable>CP2K_EPS_SCF</variable></entry>
-      <text label="Added MOs"></text>
-      <entry sensitive="'"$CP2K_SETTINGS_VISIBLE"'"><input>if [ ! -z $CP2K_ADDED_MOS ]; then echo "$CP2K_ADDED_MOS"; else echo "20"; fi</input><variable>CP2K_ADDED_MOS</variable></entry>
-     </hbox>
-    </vbox>
-   </frame>
-   <variable>CP2K_SETTINGS_FRAME</variable>
-   </vbox>
-
-	
-	   <hseparator></hseparator>
-	
-	   <hbox>
-	    <text label="gamess_int executable" has-tooltip="true" tooltip-markup="This can be a full path" ></text>
-	    <entry sensitive="false" fs-action="file" fs-folder="./"
-	           fs-filters="gamess_int"
-	           fs-title="Select the gamess_int file">
-             <input>if [ ! -z $GAMESS ]; then echo "$GAMESS"; else (echo "gamess_int"); fi</input>
-	     <variable>GAMESS</variable>
-	    </entry>
-	    <button>
-	     <input file stock="gtk-open"></input>
-	     <action type="fileselect">GAMESS</action>
-	    </button>
-	   </hbox>
-	
-	   <hseparator></hseparator>
-	
-	   <vbox visible="'"$ELMODB_OPTIONS_VISIBLE"'">
-	   <hbox>
-	    <text label="ELMO libraries folder" has-tooltip="true" tooltip-markup="This can be a full path" ></text>
-	    <entry sensitive="false" fs-action="folder" fs-folder="./"
-	           fs-title="Select the ELMO library folder">
-             <input>if [ ! -z $ELMOLIB ]; then echo "$ELMOLIB"; else (echo "/usr/local/bin/LIBRARIES"); fi</input>
-	     <variable>ELMOLIB</variable>
-	    </entry>
-	    <button>
-	     <input file stock="gtk-open"></input>
-	     <action type="fileselect">ELMOLIB</action>
-	    </button>
-	   </hbox>
-	   <variable>ELMODB_OPTIONS</variable>
-	   </vbox>
-	
-	
-	   <hseparator></hseparator>
-	
-	   <vbox visible="'"$BASIS_DIRECTORY_VISIBLE"'">
-	   <hbox>
-	    <text label="basis sets directory" ></text>
-	    <entry sensitive="false" fs-action="folder" fs-folder="/usr/local/bin/"
-	           fs-title="Select the basis_sets directory">
-             <input>if [ ! -z $BASISSETDIR ]; then echo "$BASISSETDIR"; else (echo "/usr/local/bin/basis_sets"); fi</input>
-	     <variable>BASISSETDIR</variable>
-	    </entry>
-	    <button>
-	     <input file stock="gtk-open"></input>
-	     <action type="fileselect">BASISSETDIR</action>
-	    </button>
-	   </hbox>
-	   <variable>BASIS_DIRECTORY_OPTIONS</variable>
-	   </vbox>
-	
-	   <hseparator></hseparator>
-	
-	   <hbox>
-	    <text use-markup="true" wrap="false"><label>Job name(one word)</label></text>
-	    <entry>
-             <input>if [ ! -z $JOBNAME ]; then echo "$JOBNAME"; else (echo "my_job"); fi</input>
-	     <variable>JOBNAME</variable>
-	    </entry>
-	   </hbox>
-	
-	   <hseparator></hseparator>
-	
-	   <hbox>
-	    <text label="cif or pdb file" has-tooltip="true" tooltip-markup="ONLY use pdb file if you are using elmodb!!!" space-expand="false"></text>
-	    <entry fs-action="file" fs-folder="./"
-	           fs-filters="*.cif|*.pdb"
-	           fs-title="Select a cif or pdb file">
-             <input>if [ -s "$LAMAGOET_CIF_SELECTION_FILE" ]; then cat "$LAMAGOET_CIF_SELECTION_FILE"; elif [ ! -z "$CIF" ]; then echo "$CIF"; fi</input>
-	     <variable>CIF</variable>
-	    </entry>
-	    <button>
-	     <input file stock="gtk-open"></input>
-	     <action type="fileselect">CIF</action>
-	    </button>
-	    <button has-tooltip="true" tooltip-markup="Create a new CIF, open it in a crystallographic viewer, grow and save the structure, then use that new CIF as the job input. Close the viewer before clicking OK.">
-	     <label>Manually grow to new CIF</label>
-	     <action>bash "$LAMAGOET_SCRIPT_DIR/lamaGOET.sh" --grow-cif "$CIF" > "$LAMAGOET_CIF_SELECTION_FILE"</action>
-	     <action>refresh:CIF</action>
-	    </button>
-	
-	    <checkbox active="false" has-tooltip="true" tooltip-markup="Make sure you will enter the correct charge and multiplicity" space-fill="True"  space-expand="True" sensitive="true">
-	     <label>Complete molecule(s) in the cif </label>
-	      <variable>COMPLETESTRUCT</variable>
-	    </checkbox>
-	
-	    <checkbox active="false" has-tooltip="true" tooltip-markup="use HM symbol instead of space group number (crystal23 only)" space-fill="True" space-expand="True" sensitive="false">
-	     <label>Use HM symbol</label>
-	      <variable>USEHMSYM</variable>
-	    </checkbox>
-
-	    <checkbox active="false" has-tooltip="true"
-            tooltip-markup="output bond tables and angles using smart routine for network compounds (crystal23 only)" space-fill="True" space-expand="True" sensitive="false">
-	     <label>Network compound outputs</label>
-	      <variable>DEFRAGNETW</variable>
-	    </checkbox>
-
-	   </hbox>
-	
-	   <hseparator></hseparator>
-
-	   <vbox visible="'"$ELMODB_OPTIONS_VISIBLE"'">
-	   <hbox>
-
-	    <checkbox active="false" has-tooltip="true" tooltip-markup="Make sure you will enter the correct charge and multiplicity" space-fill="True"  space-expand="True" sensitive="false">
-	     <label>Load initial ADPs and precise coordinates from cif</label>
-	      <variable>INITADP</variable>
-	        <action>if true enable:INITADPFILE</action>
-	        <action>if false disable:INITADPFILE</action>
-	    </checkbox>
-
-	    <text label="cif file" has-tooltip="true" tooltip-markup="This should have the same geometry as the pdb file!!!" space-expand="false"></text>
-	    <entry fs-action="file" fs-folder="./"
-	           fs-filters="*.cif"
-	           fs-title="Select a cif file" sensitive="false">
-	     <variable>INITADPFILE</variable>
-	    </entry>
-	    <button>
-	     <input file stock="gtk-open"></input>
-	     <action type="fileselect">INITADPFILE</action>
-	    </button>
-	
-	
-	   </hbox>
-	   <variable>INITADP_OPTIONS</variable>
-	   </vbox>
-
-	   <hseparator></hseparator>
-	
-	   <hbox>
-	    <text label="hkl file" space-expand="false" ></text>
-	    <entry fs-action="file" fs-folder="./"
-	           fs-filters="*.hkl"
-	           fs-filters="*.fcf"
-	           fs-filters="*.fco"
-	           fs-title="Select an hkl file">
-             <input>if [ ! -z $HKL ]; then echo "$HKL"; fi</input>
-	     <variable>HKL</variable>
-	    </entry>
-	    <button>
-	     <input file stock="gtk-open"></input>
-	     <action type="fileselect">HKL</action>
-	    </button>
-	
-	    <checkbox active="false" has-tooltip="true" tooltip-markup="WARNING: Select one ONLY if you need a header to be written in the hkl file!" space-fill="True"  space-expand="True">
-	     <label>write header </label>
-	      <variable>WRITEHEADER</variable>
-	      <action>if true enable:ONF</action>
-	      <action>if true enable:ONF2</action>
-	      <action>if false disable:ONF</action>
-	      <action>if false disable:ONF2</action>
-	    </checkbox>
-	
-	    <checkbox active="false" sensitive= "false" space-fill="True"  space-expand="True">
-	     <label>on F </label>
-	      <variable>ONF</variable>
-	    </checkbox>
-	
-	    <checkbox active="false" sensitive= "false" space-fill="True"  space-expand="True">
-	     <label>on F^2 </label>
-	      <variable>ONF2</variable>
-	    </checkbox>
-	
-	    <checkbox sensitive="true" space-fill="True"  space-expand="True">
-	     <label>Use equivalents? </label>
-	      <variable>USEEQUIV</variable>
-	    </checkbox>
-
-	   </hbox>
-	 
-	   <hseparator></hseparator>
-	
-	   <hbox>
-	    <text use-markup="true" wrap="TRUE" space-expand="false"><label>Wavelenght (in Angstrom)</label></text>
-	    <entry>
-             <input>if [ ! -z $WAVE ]; then echo "$WAVE"; else (echo "0.71073"); fi</input>
-	     <variable>WAVE</variable>
-	    </entry>
-	
-	    <text use-markup="true" wrap="TRUE" space-expand="FALSE"><label>F/sigma cutoff</label></text>
-	    <entry>
-             <input>if [ ! -z $FCUT ]; then echo "$FCUT"; else (echo "3"); fi</input>
-	     <variable>FCUT</variable>
-	    </entry>
-
-	   </hbox>
-
-	   <hseparator></hseparator>
-	
-	   <hbox> 
-	    <text xalign="0" use-markup="true" wrap="false"><label>Charge</label></text>
-	    <spinbutton  range-min="-20"  range-max="20" space-fill="True"  space-expand="True">
-             <input>if [ ! -z $CHARGE ]; then echo "$CHARGE"; else (echo "0"); fi</input>
-		<variable>CHARGE</variable>
-	    </spinbutton>
-	
-	    <text xalign="1" use-markup="true" wrap="false"><label>Multiplicity</label></text>
-	    <spinbutton  range-min="0"  range-max="20"  space-fill="True"  space-expand="True" >
-             <input>if [ ! -z $MULTIPLICITY ]; then echo "$MULTIPLICITY"; else (echo "1"); fi</input>
-		<variable>MULTIPLICITY</variable>
-	    </spinbutton>
-	   </hbox>
-	
-	   <hseparator></hseparator>
-
-	   <vbox visible="'"$METHOD_OPTIONS_VISIBLE"'">
-	
-	   <hbox>
-	    <text xalign="0" use-markup="true" wrap="false" > <label>Method: </label></text>
-	    <comboboxentry allow-empty="true" has-tooltip="true" tooltip-markup="The suggestions follow the selected SCF program. The field remains editable for another supported method." space-fill="True" space-expand="True">
-	     <variable>METHOD</variable>
-	     <input>bash "$LAMAGOET_SCRIPT_DIR/lamaGOET.sh" --list-scf-methods "$LAMAGOET_SCF_SELECTION_FILE" "$METHOD"</input>
-	    </comboboxentry>
-	   </hbox>
-	   <variable>METHOD_OPTIONS</variable>
-	   </vbox>
-
-	   <hseparator></hseparator>
-
-	   <vbox visible="'"$TONTO_BASIS_OPTIONS_VISIBLE"'">
-	   <hbox>
-	    <text xalign="1" use-markup="true" wrap="false"><label>Basis set</label></text>
-	    <combobox has-tooltip="true" tooltip-markup="List of Basis sets available on Tonto. Please check if the basis set you want to use contains all the elements of your structure." sensitive="false" space-fill="True"  space-expand="True">
-	     <variable>BASISSETT</variable>
-	     <item>STO-3G</item>
-	     <item>3-21G</item>
-	     <item>6-31G(d)</item>
-	     <item>6-31G(d,p)</item>
-	     <item>6-311++G(2d,2p)</item>
-	     <item>6-311G(d,p)</item>
-	     <item>ahlrichs-polarization</item>
-	     <item>aug-cc-pVDZ</item>
-	     <item>aug-cc-pVQZ</item>
-	     <item>aug-cc-pVTZ</item>
-	     <item>cc-pVDZ</item>
-	     <item>cc-pVQZ</item>
-	     <item>cc-pVTZ</item>
-	     <item>Clementi-Roetti</item>
-	     <item>Coppens</item>
-	     <item>def2-SVP</item>
-	     <item>def2-SV(P)</item>
-	     <item>def2-TZVP</item>
-	     <item>def2-TZVPP</item>
-	     <item>DZP</item>
-	     <item>DZP-DKH</item>
-	     <item>pVDZ-Ahlrichs</item>
-	     <item>pob-TZVP-rev2</item>
-	     <item>Sadlej+</item>
-	     <item>Sadlej-PVTZ</item>
-	     <item>Spackman-DZP+</item>
-	     <item>Thakkar</item>
-	     <item>TZP-DKH</item>
-	     <item>vanLenthe-Baerends</item>
-	     <item>VTZ-Ahlrichs</item>
-	    </combobox>
-	
-	   </hbox>
-	   <variable>TONTO_BASIS_OPTIONS</variable>
-	   </vbox>
-
-	   <hseparator></hseparator>
-	
-	   <vbox visible="'"$EXTERNAL_BASIS_OPTIONS_VISIBLE"'">
-	   <hbox>
-	
-	    <text><label>Basis set</label> </text>
-	    <comboboxentry tooltip-text="Suggestions follow the selected SCF program. Type another keyword for a custom or externally supplied basis set." sensitive="true">
-	     <variable>BASISSETG</variable>
-	     <input>bash "$LAMAGOET_SCRIPT_DIR/lamaGOET.sh" --list-scf-basis-sets "$LAMAGOET_SCF_SELECTION_FILE" "$BASISSETG"</input>
-	    </comboboxentry>
-	
-	   </hbox>
-	   <variable>EXTERNAL_BASIS_OPTIONS</variable>
-	   </vbox>
-
-	   <hseparator></hseparator>
-
-	   <vbox visible="'"$LEGACY_SCF_OPTIONS_VISIBLE"'">
-	   <hbox>
-
-	    <checkbox active="false" space-fill="True"  space-expand="True">
-	     <label>Input external basis set manualy </label>
-	      <variable>GAUSGEN</variable>
-	      <action>if true disable:BASISSETG</action>
-	      <action>if false enable:BASISSETG</action>
-	    </checkbox>
-
-	   </hbox>
-
-	   <hseparator></hseparator>
-
-	   <hbox>
-	
-	    <checkbox active="false" space-fill="True"  space-expand="True">
-	     <label>Use Grimme dispersion (gd3bj) </label>
-	      <variable>GAUSSEMPDISP</variable>
-	    </checkbox>
-
-	    <checkbox active="false" space-fill="True"  space-expand="True">
-	     <label>Use relativistic method </label>
-	      <variable>GAUSSREL</variable>
-	    </checkbox>
-
-	   </hbox>
-
-	   <hseparator></hseparator>
-
-	   <hbox>
-	
-	    <text><label>Extra Gaussian keywords</label> </text>
-	    <entry tooltip-text="Use the correct Gaussian format" sensitive="true">
-             <input>if [ ! -z $EXTRAKEY ]; then echo "$EXTRAKEY"; fi</input>
-	     <variable>EXTRAKEY</variable>
-	    </entry>
-	
-	   </hbox>
-	
-	   <hseparator></hseparator>
-	
-	   <hbox>
-	
-	    <checkbox>
-	     <label>Use SC cluster charges? </label>
-	      <variable>SCCHARGES</variable>
-	      <action>if true enable:SCCRADIUS</action>
-	      <action>if false disable:SCCRADIUS</action>
-	      <action>if true enable:DEFRAG</action>
-	      <action>if false disable:DEFRAG</action>
-	    </checkbox>
-	
-	    <text use-markup="true" wrap="false" ><label>SC Cluster charges radius</label></text>
-	    <entry has-tooltip="true" tooltip-markup="in Angstrom" sensitive="false">
-             <input>if [ ! -z $SCCRADIUS ]; then echo "$SCCRADIUS"; else (echo "8"); fi</input>
-	     <variable>SCCRADIUS</variable>
-	    </entry>
-	
-	    <checkbox sensitive="false">
-	     <label>Complete molecules </label>
-	     <default>false</default>
-	      <variable>DEFRAG</variable>
-	    </checkbox>
-
-	    <checkbox sensitive="true">
-	     <label>Use dipoles </label>
-	     <default>false</default>
-	      <variable>SCDIPOLES</variable>
-	    </checkbox>
-	
-	    <checkbox>
-	     <label>Include Nuclear energy interaction? (Orca only) </label>
-	      <variable>ADDNUCINTER</variable>
-	    </checkbox>
-           </hbox>
-
-	   <hseparator></hseparator>
-	
-	   <hbox>
-	
-	    <checkbox>
-	     <label>Use explicit cluster of molecules? </label>
-	      <variable>EXPLICITMOL</variable>
-	      <action>if true enable:EXPLRADIUS</action>
-	      <action>if false disable:EXPLRADIUS</action>
-	      <action>if true enable:DEFRAGEXPL</action>
-	      <action>if false disable:DEFRAGEXPL</action>
-	    </checkbox>
-	
-	    <text use-markup="true" wrap="false" ><label>within radius</label></text>
-	    <entry has-tooltip="true" tooltip-markup="in Angstrom" sensitive="false">
-             <input>if [ ! -z $EXPLRADIUS ]; then echo "$EXPLRADIUS"; else (echo "3"); fi</input>
-	     <variable>EXPLRADIUS</variable>
-	    </entry>
-	
-	    <checkbox sensitive="false">
-	     <label>Complete molecules </label>
-	     <default>false</default>
-	      <variable>DEFRAGEXPL</variable>
-	    </checkbox>
-	   </hbox>
-
-	   <hseparator></hseparator>
-
-	   <variable>LEGACY_SCF_OPTIONS</variable>
-	   </vbox>
-		
-	   <hbox>
-	    <text xalign="0" use-markup="true" wrap="false" space-fill="True"  space-expand="True"><label>Refinement options (all atom types): </label></text>
-	    <radiobutton>
-	        <label>positions and ADPs</label>
-	        <default>true</default>
-	        <variable>POSADP</variable>
-	    </radiobutton>
-	    <radiobutton>
-	        <label>positions only</label>
-	        <variable>POSONLY</variable>
-	        <action>if true disable:REFHADP</action>
-	        <action>if false enable:REFHADP</action>
-	        <action>if true disable:HADP</action>
-	        <action>if false enable:HADP</action>
-	    </radiobutton>
-	    <radiobutton>
-	        <label>ADPs only</label>
-	        <variable>ADPSONLY</variable>
-	        <action>if true disable:REFHPOS</action>
-	        <action>if false enable:REFHPOS</action>
-	    </radiobutton>
-	   </hbox>
-	
-	   <hseparator></hseparator>
-	
-	   <hbox>
-	    <checkbox sensitive="true" space-fill="True"  space-expand="True">
-	     <label>Start refinement with a Tonto IAM </label>
-	      <variable>IAMTONTO</variable>
-	      <action>if true disable:XHALONG</action>
-	      <action>if false enable:XHALONG</action>
-	      <action>if true enable:ONLYIAMTONTO</action>
-	      <action>if false disable:ONLYIAMTONTO</action>
-	    </checkbox>
-           
-	    <checkbox sensitive="false" space-fill="True"  space-expand="True">
-	     <label>Only Perform the Tonto IAM </label>
-	      <variable>ONLYIAMTONTO</variable>
-	      <action>if true disable:XHALONG</action>
-	      <action>if false enable:XHALONG</action>
-	    </checkbox>
-	   </hbox>
-
-	   <hseparator></hseparator>
-
-           <hbox>
-	    <checkbox active="false" space-fill="True"  space-expand="True">
-	        <label>Refine nothing for atoms:</label>
-	        <default>true</default>
-	        <variable>REFNOTHING</variable>
-	        <action>if true enable:ATOMLIST</action>
-	        <action>if false disable:ATOMLIST</action>
-	    </checkbox>
-	    <text use-markup="true" wrap="false" ><label>atom labels:</label></text>
-	    <entry sensitive="false">
-             <input>if [ ! -z $ATOMLIST ]; then echo "$ATOMLIST"; fi</input>
-	     <variable>ATOMLIST</variable>
-	    </entry>
-           </hbox>
-	
-	   <hseparator></hseparator>
-
-           <hbox>
-	    <checkbox active="false" space-fill="True"  space-expand="True">
-	        <label>Refine these atoms isotropically:</label>
-	        <default>true</default>
-	        <variable>REFUISO</variable>
-	        <action>if true enable:ATOMUISOLIST</action>
-	        <action>if false disable:ATOMUISOLIST</action>
-	    </checkbox>
-	    <text use-markup="true" wrap="false" ><label>atom labels:</label></text>
-	    <entry sensitive="false">
-	     <variable>ATOMUISOLIST</variable>
-	    </entry>
-           </hbox>
-	
-	   <hseparator></hseparator>
-
-	   <hbox>
-	
-	    <checkbox active="true" space-fill="True"  space-expand="True">
-	     <label>Refine H positions ?</label>
-	      <variable>REFHPOS</variable>
-	      <action>if true disable:XHALONG</action>
-	      <action>if false enable:XHALONG</action>
-	    </checkbox>
-	
-	    <checkbox active="true">
-	     <label>Refine_H_ADPs</label>
-	      <variable>REFHADP</variable>
-	      <action>if true enable:HADP</action>
-	      <action>if false disable:HADP</action>
-	    </checkbox>
-	
-	    <text xalign="0" use-markup="true" wrap="false"><label>Refine H atom isotropically?</label></text>
-	    <combobox>
-	      <variable>HADP</variable>
-	      <item>no</item>
-	      <item>yes</item>
-	    </combobox>
-	   </hbox>
-
-	   <hseparator></hseparator>
-
-	   <hbox>
-
-	    <checkbox sensitive="true" space-fill="True"  space-expand="True">
-	     <label>Refine anharmonic ADPs</label>
-	      <variable>REFANHARM</variable>
-	      <action>if true enable:ANHARMATOMS</action>
-	      <action>if false disable:ANHARMATOMS</action>
-	      <action>if true enable:THIRDORD</action>
-	      <action>if false disable:THIRDORD</action>
-	      <action>if true enable:FOURTHORD</action>
-	      <action>if false disable:FOURTHORD</action>
-	    </checkbox>
-	
-	    <text use-markup="true" wrap="false"  ><label>Atom labels</label></text>
-	    <entry has-tooltip="true" tooltip-markup="as in the cif" sensitive="false">
-             <input>if [ ! -z $ANHARMATOMS ]; then echo "$ANHARMATOMS"; fi</input>
-	     <variable>ANHARMATOMS</variable>
-	    </entry>
-	
-	    <checkbox sensitive="false">
-	     <label>3rd Order</label>
-	     <default>false</default>
-	      <variable>THIRDORD</variable>
-	    </checkbox>
-
-	    <checkbox sensitive="false">
-	     <label>4rd Order</label>
-	     <default>false</default>
-	      <variable>FOURTHORD</variable>
-	    </checkbox>
-	   </hbox>
-	
-	
-	   <hseparator></hseparator>
-	
-	   <hbox>
-	
-	    <checkbox active="false" sensitive="true" space-fill="True"  space-expand="True" sensitive="false" >
-	     <label>Elongate X-H bond lengths ?</label>
-	     <variable>XHALONG</variable>
-	     <default>false</default>
-	     <action>if true enable:BHBOND</action>
-	     <action>if false disable:BHBOND</action>
-	     <action>if true enable:CHBOND</action>
-	     <action>if false disable:CHBOND</action>
-	     <action>if true enable:NHBOND</action>
-	     <action>if false disable:NHBOND</action>
-	     <action>if true enable:OHBOND</action>
-	     <action>if false disable:OHBOND</action>
-	    </checkbox>
-	
-	    <text xalign="1" use-markup="true" wrap="false"><label>if yes, enter new bond lengths below (leave empty for unchanged)</label></text>
-	   </hbox>
-	
-	   <hbox>
-	    <text xalign="0" use-markup="true" wrap="false"><label>B-H:</label></text>
-	    <entry sensitive="false">
-             <input>if [ ! -z $BHBOND ]; then echo "$BHBOND"; else (echo "1.190"); fi</input>
-	     <variable>BHBOND</variable>
-	      <visible>disabled</visible>
-	    </entry>
-	    <text xalign="0" use-markup="true" wrap="false"><label>C-H:</label></text>
-	    <entry sensitive="false">
-             <input>if [ ! -z $CHBOND ]; then echo "$CHBOND"; else (echo "1.083"); fi</input>
-	     <variable>CHBOND</variable>
-	    </entry>
-	   </hbox>
-	
-	   <hbox>
-	    <text xalign="0" use-markup="true" wrap="false"><label>N-H:</label></text>
-	    <entry sensitive="false">
-             <input>if [ ! -z $NHBOND ]; then echo "$NHBOND"; else (echo "1.009"); fi</input>
-	     <variable>NHBOND</variable>
-	    </entry>
-	    <text xalign="0" use-markup="true" wrap="false"><label>O-H:</label></text>
-	    <entry sensitive="false">
-             <input>if [ ! -z $OHBOND ]; then echo "$OHBOND"; else (echo "0.983"); fi</input>
-	     <variable>OHBOND</variable>
-	    </entry>
-	
-	   </hbox>
-	
-	   <hseparator></hseparator>
-	
-	   <hbox>
-	    <text xalign="0" use-markup="true" wrap="false"><label>Apply dispersion corrections?</label></text>
-	    <combobox has-tooltip="true" tooltip-markup="Enter the '"f'"' and '"f''"' values in popup window after pressing '"'OK'"'" space-fill="True"  space-expand="True">
-	      <variable>DISP</variable>
-	      <item>no</item>
-	      <item>yes</item>
-	    </combobox>
-	   </hbox>
-	
-	   <hseparator></hseparator>
-	
-	   <hbox> 
-	    <text xalign="0" use-markup="true" wrap="false"justify="1"><label>Number of processors/threads available for Gaussian, Orca or CP2K</label></text>
-	    <spinbutton  range-min="1"  range-max="100" space-fill="True"  space-expand="True">
-             <input>if [ ! -z $NUMPROC ]; then echo "$NUMPROC"; else (echo "1"); fi</input>
-		<variable>NUMPROC</variable>
-	    </spinbutton>
-
-
-	    <text xalign="0" use-markup="true"
-            wrap="false"justify="1"><label>Number of processors available for Tonto</label></text>
-            <spinbutton  range-min="1"  range-max="100" space-fill="True"  space-expand="True">
-             <input>if [ ! -z $NUMPROCTONTO ]; then echo "$NUMPROCTONTO"; else (echo "1"); fi</input>
-		<variable>NUMPROCTONTO</variable>
-	    </spinbutton>
-
-	   </hbox>
-	
-	   <hseparator></hseparator>
-	
-	   <hbox>
-	    <text xalign="0" use-markup="true" has-tooltip="true" tooltip-markup="(including the unit mb or gb. For elmodb only in mb without unit!)" wrap="false"><label>Memory available for the Gaussian, Orca or elmodb job</label></text>
-	    <entry>
-             <input>if [ ! -z $MEM ]; then echo "$MEM"; else (echo "1gb"); fi</input>
-	     <variable>MEM</variable>
-	    </entry>
-	   </hbox>
-	
-
-
-	  </frame>
-         </vbox>
-         <vbox>
- 
-	  <frame>
-
-	   <hbox space-expand="false" space-fill="false">
-
-	    <text text-xalign="0" use-markup="true" wrap="false" space-expand="FALSE" space-fill="false"><label>Conv. tol. for shift on esd</label></text>
-	   <hbox space-expand="true" space-fill="true">
-	    <entry space-expand="true">
-             <input>if [ ! -z $CONVTOL ]; then echo "$CONVTOL"; else (echo "0.010000"); fi</input>
-	     <variable>CONVTOL</variable>
-	    </entry>
-	
-	   </hbox>
-	   </hbox>
-
-	   <hseparator></hseparator>
-
-	   <hbox space-expand="false" space-fill="false">
-
-	    <text text-xalign="0" use-markup="true" wrap="false"
-            space-expand="FALSE" space-fill="false"><label>Conv. tol. for DE (between two consec. cycles)</label></text>
-	   <hbox space-expand="true" space-fill="true">
-	    <entry space-expand="true">
-             <input>if [ ! -z $CONVTOLE ]; then echo "$CONVTOLE"; else (echo "0.000001"); fi</input>
-	     <variable>CONVTOLE</variable>
-	    </entry>
-	
-	   </hbox>
-	   </hbox>
-
-	   <hseparator></hseparator>
-
-	   <hbox space-expand="false" space-fill="false">
-
-	    <text text-xalign="0" use-markup="true" wrap="false" space-expand="FALSE" space-fill="false"><label>Linear dependence tolerance for SCF (default is 1.10-5)</label></text>
-	   <hbox space-expand="true" space-fill="true">
-	    <entry space-expand="true">
-             <input>if [ ! -z $LINEDEP ]; then echo "$LINEDEP"; else (echo ""); fi</input>
-	     <variable>LINEDEP</variable>
-	    </entry>
-	
-	   </hbox>
-	   </hbox>
-
-	   <hseparator></hseparator>
-
-	   <hbox space-expand="false" space-fill="false">
-
-	    <text text-xalign="0" use-markup="true" wrap="false" space-expand="FALSE" space-fill="false"><label>Max. number of iteration (for each L.S. cycle):</label></text>
-	   <hbox space-expand="true" space-fill="true">
-	    <entry space-expand="true">
-             <input>if [ ! -z $MAXLSCYCLE ]; then echo "$MAXLSCYCLE"; else (echo "30"); fi</input>
-	     <variable>MAXLSCYCLE</variable>
-	    </entry>
-	
-	   </hbox>
-	   </hbox>
-
-	   <hseparator></hseparator>
-
-	   <hbox space-expand="false" space-fill="false">
-
-	    <text text-xalign="0" use-markup="true" wrap="false" space-expand="FALSE" space-fill="false"><label>Max. number of cycles for Crystal23 SCF calculation:</label></text>
-	   <hbox space-expand="true" space-fill="true">
-	    <entry space-expand="true">
-             <input>if [ ! -z $MAXXTALCYCLE ]; then echo "$MAXXTALCYCLE"; fi</input>
-	     <variable>MAXXTALCYCLE</variable>
-	    </entry>
-	        
-	    <checkbox active="false" sensitive="true" space-fill="True"  space-expand="True" sensitive="false" >
-	     <label>Force conventional cell on Crystal23</label>
-	     <variable>SUPERCON</variable>
-	     <default>false</default>
-	    </checkbox>
-
-	   </hbox>
-	   </hbox>
-
-	   <hbox space-expand="false" space-fill="false">
-           
-	    <text text-xalign="0" use-markup="true" wrap="false" space-expand="FALSE" space-fill="false"><label>Shrink values for Crystal23:</label></text>
-	   <hbox space-expand="true" space-fill="true">
-	    <entry space-expand="true">
-             <input>if [ ! -z $SHRINKA ]; then echo "$SHRINKA"; else (echo "6"); fi</input>
-	     <variable>SHRINKA</variable>
-	    </entry>
-	    <entry space-expand="true">
-             <input>if [ ! -z $SHRINKB ]; then echo "$SHRINKB"; else (echo "6"); fi</input>
-	     <variable>SHRINKB</variable>
-	    </entry>
-
-	   </hbox>
-	   </hbox>
-
-	   <hseparator></hseparator>
-
-	   <hbox space-expand="false" space-fill="false">
-
-	    <text text-xalign="0" use-markup="true" wrap="false"
-            space-expand="FALSE" space-fill="false"><label>Max. number of Powder HAR iteration (for each L.S. cycle):</label></text>
-	   <hbox space-expand="true" space-fill="true">
-	    <entry space-expand="true" sensitive="false">
-             <input>if [ ! -z $MAXPHARCYCLE ]; then echo "$MAXPHARCYCLE"; else (echo "10"); fi</input>
-	     <variable>MAXPHARCYCLE</variable>
-	    </entry>
-	
-	   </hbox>
-	   </hbox>
-
-	   <hbox space-expand="false" space-fill="false">
-
-	    <text text-xalign="0" use-markup="true" wrap="false" space-expand="FALSE" space-fill="false"><label>Accuracy for NoSpherA2 tsc calculation:</label></text>
-	   <hbox space-expand="true" space-fill="true">
-	    <entry space-expand="true" sensitive="false">
-             <input>if [ ! -z $NSA2ACC ]; then echo "$NSA2ACC"; else (echo "2"); fi</input>
-	     <variable>NSA2ACC</variable>
-	    </entry>
-	
-	   </hbox>
-
-	   </hbox>
-
-	   <hseparator></hseparator>
-
-	   <hbox space-expand="false" space-fill="false">
-
-	    <text text-xalign="0" use-markup="true" wrap="false" space-expand="FALSE" space-fill="false"><label>Max. L.S. cycles (use if stuck at conv.):</label></text>
-	   <hbox space-expand="true" space-fill="true">
-	    <entry space-expand="true">
-             <input>if [ ! -z $MAXCYCLE ]; then echo "$MAXCYCLE"; else (echo "30"); fi</input>
-	     <variable>MAXCYCLE</variable>
-	    </entry>
-	
-	   </hbox>
-	   </hbox>
-
-	   <hbox space-expand="false" space-fill="false">
-
-	    <text text-xalign="0" use-markup="true" wrap="false" space-expand="FALSE" space-fill="false"><label>The minimum value for correlation matrix elements to be printed:</label></text>
-	   <hbox space-expand="true" space-fill="true">
-	    <entry space-expand="true">
-             <input>if [ ! -z $MINCORCOEF ]; then echo "$MINCORCOEF"; else (echo ""); fi</input>
-	     <variable>MINCORCOEF</variable>
-	    </entry>
-	
-	   </hbox>
-	   </hbox>
-
-	   <hseparator></hseparator>
-
-	   <hbox>
-	    <checkbox sensitive="false" space-fill="True"  space-expand="True">
-	     <label>Use becke grid? </label>
-	      <variable>USEBECKE</variable>
-	      <action>if true enable:ACCURACY</action>
-	      <action>if true enable:BECKEPRUNINGSCHEME</action>
-	      <action>if false disable:ACCURACY</action>
-	      <action>if false disable:BECKEPRUNINGSCHEME</action>
-	    </checkbox>
-	
-	    <text use-markup="true" wrap="false"><label>Becke grid accuracy</label></text>
-	    <combobox has-tooltip="true" tooltip-markup="FOR TONTO SCF ONLY: 
-	'"'very_low'"' to '"'very_high'"' are Treutler-Ahlrichs settings, 
-	'"'extreme'"' and '"'best'"' are better than the Mura-Knowles settings. 
-	The '"'low'"' value is the one comparable to Gaussian." sensitive="false">
-	      <variable>ACCURACY</variable>
-	      <item>very_low</item>
-	      <item>low</item>
-	      <item>medium</item>
-	      <item>high</item>
-	      <item>very_high</item>
-	      <item>extreme</item>
-	      <item>best</item>
-	
-	    </combobox>
-	   </hbox>
-	
-	
-	   <hbox>
-	    <text use-markup="true" wrap="false"><label>Becke grid prunning scheme</label></text>
-	    <combobox sensitive="false" has-tooltip="true" tooltip-markup="FOR TONTO SCF ONLY: 
-	Set the angular pruning scheme for lebedev_grid given a radial point '"'i'"' out of a set of '"'nr'"' radial points arranged in increasing order.">
-	      <variable>BECKEPRUNINGSCHEME</variable>
-	      <item>none</item>
-	      <item>jayatilaka0</item>
-	      <item>jayatilaka1</item>
-	      <item>jayatilaka2</item>
-	      <item>treutler_ahlrichs</item>
-	    </combobox>
-	   </hbox>
-	
-	
-	   <hseparator></hseparator>
-
-	  </frame>
-         </vbox>
-
-	 <vbox visible="true">
-	  <frame>
-
-	   <hbox>
-	    <checkbox active="false" sensitive="true" space-fill="True"  space-expand="True" >
-  	     <label>Perform only XCW (based on input geometry, no HAR) or</label>
-	     <variable>XCWONLY</variable>		
-	     <default>false</default>
-	      <action>if true enable:METHODXCW</action>
-	      <action>if true enable:BASISSETTXCW</action>
-	      <action>if false disable:METHODXCW</action>
-	      <action>if false disable:BASISSETTXCW</action>
-	      <action>if true enable:LAMBDAINITIAL</action>
-	      <action>if true enable:LAMBDASTEP</action>
-	      <action>if true enable:LAMBDAMAX</action>
-	      <action>if false disable:LAMBDAINITIAL</action>
-	      <action>if false disable:LAMBDASTEP</action>
-	      <action>if false disable:LAMBDAMAX</action>
-	      <action>if true enable:BASISSETDIRXCW</action>
-	      <action>if false disable:BASISSETDIRXCW</action>
-	      <action>if true enable:SCCHARGESXCW</action>
-	      <action>if false disable:SCCHARGESXCW</action>
-	    </checkbox>
-
-	    <checkbox  active="false" sensitive="true" space-fill="True"  space-expand="True" >
-  	     <label>Perform XWR (HAR + XCW) job</label>
-	     <variable>XWR</variable>		
-	     <default>false</default>
-	      <action>if true enable:METHODXCW</action>
-	      <action>if true enable:BASISSETTXCW</action>
-	      <action>if false disable:METHODXCW</action>
-	      <action>if false disable:BASISSETTXCW</action>
-	      <action>if true enable:LAMBDAINITIAL</action>
-	      <action>if true enable:LAMBDASTEP</action>
-	      <action>if true enable:LAMBDAMAX</action>
-	      <action>if false disable:LAMBDAINITIAL</action>
-	      <action>if false disable:LAMBDASTEP</action>
-	      <action>if false disable:LAMBDAMAX</action>
-	      <action>if true enable:BASISSETDIRXCW</action>
-	      <action>if false disable:BASISSETDIRXCW</action>
-	      <action>if true enable:SCCHARGESXCW</action>
-	      <action>if false disable:SCCHARGESXCW</action>
-	    </checkbox>
-	   </hbox> 
-
-	   <hbox>
-	    <text label="basis sets directory" ></text>
-	    <entry sensitive="false" fs-action="folder" fs-folder="/usr/local/bin/"
-	           fs-title="Select the basis_sets directory">
-             <input>if [ ! -z $BASISSETDIRXCW ]; then echo "$BASISSETDIRXCW"; else (echo "/usr/local/bin/basis_sets"); fi</input>
-	     <variable>BASISSETDIRXCW</variable>
-	    </entry>
-	    <button>
-	     <input file stock="gtk-open"></input>
-	     <action type="fileselect">BASISSETDIRXCW</action>
-	    </button>
-	   </hbox>
-
-	   <hbox>
-	    <text xalign="0" use-markup="true" wrap="false" > <label>Method: </label></text>
-	    <combobox sensitive="false" allow-empty="true" has-tooltip="true" tooltip-markup="'"'rhf'"' - Restricted Hartree-Fock, 
-	'"'rks'"' - Restricted Kohn-Sham, 
-	'"'rohf'"' - Restricted open shell Hartree-Fock, 
-	'"'uhf'"' - Unrestricted Hartree-Fock, 
-	'"'uks'"' - Unrestricted Kohn-Sham" space-fill="True"  space-expand="True" >
-	     <variable>METHODXCW</variable>
-	     <item>rhf</item>
-	     <item>rks</item>
-	     <item>rohf</item>
-	     <item>uhf</item>
-	     <item>uks</item>
-	     <item>b3lyp</item>
-	    </combobox>
-	
-	
-	    <text xalign="1" use-markup="true" wrap="false"><label>Basis set</label></text>
-	    <combobox has-tooltip="true" tooltip-markup="List of Basis sets available on Tonto. Please check if the basis set you want to use contains all the elements of your structure." sensitive="false" space-fill="True"  space-expand="True">
-	     <variable>BASISSETTXCW</variable>
-	     <item>STO-3G</item>
-	     <item>3-21G</item>
-	     <item>6-31G(d)</item>
-	     <item>6-31G(d,p)</item>
-	     <item>6-311++G(2d,2p)</item>
-	     <item>6-311G(d,p)</item>
-	     <item>ahlrichs-polarization</item>
-	     <item>aug-cc-pVDZ</item>
-	     <item>aug-cc-pVQZ</item>
-	     <item>aug-cc-pVTZ</item>
-	     <item>cc-pVDZ</item>
-	     <item>cc-pVQZ</item>
-	     <item>cc-pVTZ</item>
-	     <item>Clementi-Roetti</item>
-	     <item>Coppens</item>
-	     <item>def2-SVP</item>
-	     <item>def2-SV(P)</item>
-	     <item>def2-TZVP</item>
-	     <item>def2-TZVPP</item>
-	     <item>DZP</item>
-	     <item>DZP-DKH</item>
-	     <item>pVDZ-Ahlrichs</item>
-	     <item>Sadlej+</item>
-	     <item>Sadlej-PVTZ</item>
-	     <item>Spackman-DZP+</item>
-	     <item>Thakkar</item>
-	     <item>TZP-DKH</item>
-	     <item>vanLenthe-Baerends</item>
-	     <item>VTZ-Ahlrichs</item>
-	    </combobox>
-	
-	   </hbox>
-
-	   <hbox>
-	
-	    <checkbox sensitive="false">
-	     <label>Use SC cluster charges? </label>
-	      <variable>SCCHARGESXCW</variable>
-	      <action>if true enable:SCCRADIUSXCW</action>
-	      <action>if false disable:SCCRADIUSXCW</action>
-	      <action>if true enable:DEFRAGXCW</action>
-	      <action>if false disable:DEFRAGXCW</action>
-	    </checkbox>
-	
-	    <text use-markup="true" wrap="false" ><label>SC Cluster charges radius</label></text>
-	    <entry has-tooltip="true" tooltip-markup="in Angstrom" sensitive="false">
-             <input>if [ ! -z $SCCRADIUSXCW ]; then echo "$SCCRADIUSXCW"; else (echo "8"); fi</input>
-	     <variable>SCCRADIUSXCW</variable>
-	    </entry>
-	
-	    <checkbox sensitive="false">
-	     <label>Complete molecules </label>
-	     <default>false</default>
-	      <variable>DEFRAGXCW</variable>
-	    </checkbox>
-	   </hbox>
-
-   	  <hbox> 
-	    <text xalign="0" use-markup="true" wrap="false"justify="1"><label>Enter initial lambda value:</label></text>
-	    <entry  range-min="1"  range-max="100" space-fill="True"  space-expand="True" sensitive="false">
-             <input>if [ ! -z $LAMBDA ]; then echo "$LAMBDA"; else (echo "0"); fi</input>
-		<variable>LAMBDAINITIAL</variable>
-	    </entry>
-	   </hbox><
-
-   	  <hbox> 
-	    <text xalign="0" use-markup="true" wrap="false"justify="1"><label>Enter lambda step size value:</label></text>
-	    <entry  range-min="1"  range-max="100" space-fill="True"  space-expand="True" sensitive="false">
-             <input>if [ ! -z $LAMBDA ]; then echo "$LAMBDA"; else (echo "0.1"); fi</input>
-		<variable>LAMBDASTEP</variable>
-	    </entry>
-	   </hbox><
-
-   	  <hbox> 
-	    <text xalign="0" use-markup="true" wrap="false"justify="1"><label>Enter lambda max value:</label></text>
-	    <entry  range-min="1"  range-max="100" space-fill="True"  space-expand="True" sensitive="false">
-             <input>if [ ! -z $LAMBDA ]; then echo "$LAMBDA"; else (echo "1"); fi</input>
-		<variable>LAMBDAMAX</variable>
-	    </entry>
-	   </hbox><
-
-	  </frame>
-	 </vbox>
-
-	 <vbox visible="true">
-	  <frame>
-
-   	  <hbox> 
-           <text xalign="0" use-markup="true" wrap="false" justify="1"><label>Number of dissulfide bonds:</label></text>
-           <spinbutton  range-min="0"  range-max="1000" space-fill="True"  space-expand="True" sensitive="false">
-             <input>if [ ! -z $NSSBOND ]; then echo "$NSSBOND"; else (echo "0"); fi</input>
-	    <variable>NSSBOND</variable>
-	    <action condition="command_is_true( [ $NSSBOND -gt 0 ] && echo true )">enable:SSBONDATOMS</action>
-	    <action condition="command_is_false( [ $NSSBOND -eq 0 ] && echo false )">disable:SSBONDATOMS</action>
-	   </spinbutton>
-	   </hbox>
-
-	   <hbox>
-	    <text text-xalign="0" use-markup="true" wrap="false" space-expand="FALSE" space-fill="false"><label>Enter the residue information manually:</label></text>
- 	    <edit space-expand="true" space-fill="true" sensitive="false">
-	    <action condition="command_is_true( [ $NSSBOND -gt 0 ] && echo true )">enable:SSBONDATOMS</action>
-	    <action condition="command_is_false( [ $NSSBOND -eq 0 ] && echo false )">disable:SSBONDATOMS</action>
-             <input file>DISSBONDS</input>
-             <variable>SSBONDATOMS</variable>
-      	     <width>350</width><height>150</height>
-             <action  condition="file_is_false(ntail.txt)">touch ntail.txt</action>
-    	    </edit>
-	   </hbox>
-
-   	  <hbox> 
-           <text xalign="0" use-markup="true" wrap="false" justify="1"><label>Enter number of tailor made residues:</label></text>
-           <spinbutton  range-min="0"  range-max="100" space-fill="True"  space-expand="True" sensitive="false">
-             <input>if [ ! -z $NTAIL ]; then echo "$NTAIL"; else (echo "0"); fi</input>
-	    <variable>NTAIL</variable>
-	      <action condition="command_is_true( [ $NTAIL -gt 0 ] && echo true )">enable:ATAIL</action>
-	      <action condition="command_is_false( [ $NTAIL -eq 0 ] && echo false )">disable:ATAIL</action>
-	      <action condition="command_is_true( [ $FRTAIL -gt 0 ] && echo true )">enable:FRTAIL</action>
-	      <action condition="command_is_false( [ $FRTAIL -eq 0 ] && echo false )">disable:FRTAIL</action>
-	   </spinbutton>
-	   </hbox>
-
-   	  <hbox> 
-           <text xalign="0" use-markup="true" wrap="false" justify="1"><label>Enter maximum number of atoms in tailor made residues:</label></text>
-           <spinbutton  range-min="0"  range-max="1000" space-fill="True"  space-expand="True" sensitive="false">
-             <input>if [ ! -z $ATAIL ]; then echo "$ATAIL"; else (echo "100"); fi</input>
-	    <variable>ATAIL</variable>
-	   </spinbutton>
-	   </hbox>
-
-   	  <hbox> 
-           <text xalign="0" use-markup="true" wrap="false" justify="1"><label>Enter maximum number of fragments in tailor made residues:</label></text>
-           <spinbutton  range-min="0"  range-max="1000" space-fill="True"  space-expand="True" sensitive="false">
-             <input>if [ ! -z $FRTAIL ]; then echo "$FRTAIL"; else (echo "200"); fi</input>
-	    <variable>FRTAIL</variable>
-	   </spinbutton>
-	   </hbox>
-
-	   <hbox>
-	    <text text-xalign="0" use-markup="true" wrap="false" space-expand="FALSE" space-fill="false"><label>Enter the residue information manually:</label></text>
- 	    <edit space-expand="true" space-fill="true" sensitive="false">
-             <input file> TAILORED</input>
-             <variable>MANUALRESIDUE</variable>
-      	     <width>350</width><height>350</height>
-             <action  condition="file_is_false(ntail.txt)">touch ntail.txt</action>
-    	    </edit>
-	   </hbox>
- 
-	  </frame>
-	 </vbox>
-
-	 <vbox visible="true">
-	  <frame>
-
-	   <hbox>
-	
-	    <checkbox active="false" sensitive="true" space-fill="True"  space-expand="True" >
-	     <label>Only plot properties from Tonto restricted files</label>
-	     <variable>PLOT_TONTO</variable>		
-	     <default>false</default>
-	     <action>if true enable:DEFDEN</action>
-	     <action>if true enable:DFTXCPOT</action>
-	     <action>if true enable:DENS</action>
-	     <action>if true enable:LAPL</action>
-	     <action>if true enable:NEGLAPL</action>
-	     <action>if true enable:PROMOL</action>
-	     <action>if true enable:RESDENS</action>
-	     <action>if false disable:DEFDEN</action>
-	     <action>if false disable:DFTXCPOT</action>
-	     <action>if false disable:DENS</action>
-	     <action>if false disable:LAPL</action>
-	     <action>if false disable:NEGLAPL</action>
-	     <action>if false disable:PROMOL</action>
-	     <action>if false disable:RESDENS</action>
-	     <action>if true enable:PLOT_ANGS</action>
-	     <action>if false disable:PLOT_ANGS</action>
-	     <action>if true enable:USESEPARATION</action>
-	     <action>if false disable:USESEPARATION</action>
-	     <action>if true enable:USEALLPOINTS</action>
-	     <action>if false disable:USEALLPOINTS</action>
-	     <action>if true enable:USECENTER</action>
-	     <action>if false disable:USECENTER</action>
-	    </checkbox>
-	   </hbox> 
-
-	   <hbox>
-	    <text xalign="0" use-markup="true" wrap="true"justify="1" space-fill="True"  space-expand="True"><label>Please select the property to plot:</label></text>
-	   </hbox> 
-
-	   <hbox>
-	    <checkbox active="false" sensitive="true" space-fill="True"  space-expand="True" sensitive="false" >
-  	     <label>deformation_density</label>
-	     <variable>DEFDEN</variable>		
-	     <default>false</default>
-	    </checkbox>
-	   </hbox> 
-
-
-	   <hbox>
-	    <checkbox active="false" sensitive="true" space-fill="True"  space-expand="True" sensitive="false" >
-  	     <label>dft_xc_potential</label>
-	     <variable>DFTXCPOT</variable>		
-	     <default>false</default>
-	    </checkbox>
-	   </hbox> 
-
-
-	   <hbox>
-	    <checkbox active="false" sensitive="true" space-fill="True"  space-expand="True" sensitive="false" >
-  	     <label>electron_density</label>
-	     <variable>DENS</variable>		
-	     <default>false</default>
-	    </checkbox>
-	   </hbox> 
-
-
-	   <hbox>
-	    <checkbox active="false" sensitive="true" space-fill="True"  space-expand="True" sensitive="false" >
-  	     <label>laplacian</label>
-	     <variable>LAPL</variable>		
-	     <default>false</default>
-	    </checkbox>
-	   </hbox> 
-
-
-	   <hbox>
-	    <checkbox active="false" sensitive="true" space-fill="True"  space-expand="True" sensitive="false" >
-  	     <label>negative_laplacian</label>
-	     <variable>NEGLAPL</variable>		
-	     <default>false</default>
-	    </checkbox>
-	   </hbox> 
-
-
-	   <hbox>
-	    <checkbox active="false" sensitive="true" space-fill="True"  space-expand="True" sensitive="false" >
-  	     <label>promolecule_density</label>
-	     <variable>PROMOL</variable>		
-	     <default>false</default>
-	    </checkbox>
-	   </hbox> 
-
-	   <hseparator></hseparator>
-
-	   <hbox>
-	    <checkbox active="false" sensitive="false" space-fill="True"  space-expand="True">
-  	     <label>Cube file in Angstroms</label>
-	     <variable>PLOT_ANGS</variable>		
-	     <default>false</default>
-	    </checkbox>
-	   </hbox> 
-
-
-	  <hbox space-expand="false" space-fill="false" >
-
-	    <checkbox active="false" sensitive="false" wrap="false" space-expand="FALSE" space-fill="false">
-  	     <label>Use desired point separation (in Angstrom)</label>
-	     <variable>USESEPARATION</variable>		
-	     <default>false</default>
-	     <action>if true enable:SEPARATION</action>
-	     <action>if false disable:SEPARATION</action>
-	     <action>if true disable:USEALLPOINTS</action>
-	     <action>if false enable:USEALLPOINTS</action>
-	    </checkbox>
-
-	   <hbox space-expand="true" space-fill="true" >
-	    <entry space-expand="true" sensitive="false">
-	     <variable>SEPARATION</variable>
-	    </entry>
-	   </hbox>
-	   </hbox>
-
-	  <hbox space-expand="false" space-fill="false" >
-
-	    <checkbox active="false" sensitive="false" wrap="false" space-expand="FALSE" space-fill="false">
-  	     <label>use number of points in X, Y and Z (in Angstrom)</label>
-	     <variable>USEALLPOINTS</variable>		
-	     <default>false</default>
-	     <action>if true enable:PTSX</action>
-	     <action>if false disable:PTSX</action>
-	     <action>if true enable:PTSY</action>
-	     <action>if false disable:PTSY</action>
-	     <action>if true enable:PTSZ</action>
-	     <action>if false disable:PTSZ</action>
-	     <action>if true disable:USESEPARATION</action>
-	     <action>if false enable:USESEPARATION</action>
-	    </checkbox>
-
-	   <hbox space-expand="true" space-fill="true" >
-	    <entry space-expand="true" sensitive="false">
-	     <default>10</default>
-	     <variable>PTSX</variable>
-	    </entry>
-	    <entry space-expand="true" sensitive="false">
-	     <default>10</default>
-	     <variable>PTSY</variable>
-	    </entry>
-	    <entry space-expand="true" sensitive="false">
-	     <default>10</default>
-	     <variable>PTSZ</variable>
-	    </entry>
-	   </hbox>
-	   </hbox>
-
-	  <hbox space-expand="false" space-fill="false" >
-
-	    <checkbox active="false" sensitive="false" wrap="false" space-expand="FALSE" space-fill="false">
-  	     <label>use cube center on atom number</label>
-	     <variable>USECENTER</variable>		
-	     <default>false</default>
-	     <action>if true enable:CENTERATOM</action>
-	     <action>if false disable:CENTERATOM</action>
-	     <action>if true enable:XAXIS</action>
-	     <action>if false disable:XAXIS</action>
-	     <action>if true enable:YAXIS</action>
-	     <action>if false disable:YAXIS</action>
-	     <action>if true enable:WIDTHX</action>
-	     <action>if false disable:WIDTHX</action>
-	     <action>if true enable:WIDTHY</action>
-	     <action>if false disable:WIDTHY</action>
-	     <action>if true enable:WIDTHZ</action>
-	     <action>if false disable:WIDTHZ</action>
-	    </checkbox>
-
-	   <hbox space-expand="true" space-fill="true" >
-	    <entry space-expand="true" sensitive="false">
-	     <default>1</default>
-	     <variable>CENTERATOM</variable>
-	    </entry>
-	   </hbox>
-	   </hbox>
-
-	  <hbox space-expand="false" space-fill="false" >
-	   <text text-xalign="0" use-markup="true" wrap="false" space-expand="FALSE" space-fill="false"><label>X axis defined by atoms number</label></text>
-	   <hbox space-expand="true" space-fill="true" >
-	    <entry space-expand="true" sensitive="false">
-	     <default>1 2</default>
-	     <variable>XAXIS</variable>
-	    </entry>
-	   </hbox>
-	   </hbox>
-
-	  <hbox space-expand="false" space-fill="false" >
-	   <text text-xalign="0" use-markup="true" wrap="false" space-expand="FALSE" space-fill="false"><label>Y axis defined by atoms number</label></text>
-	   <hbox space-expand="true" space-fill="true" >
-	    <entry space-expand="true" sensitive="false">
-	     <default>1 3</default>
-	     <variable>YAXIS</variable>
-	    </entry>
-	   </hbox>
-	   </hbox>
-
-	  <hbox space-expand="false" space-fill="false" >
-	   <text text-xalign="0" use-markup="true" wrap="false" space-expand="FALSE" space-fill="false"><label>width in X, Y and Z (in Angstrom)</label></text>
-	   <hbox space-expand="true" space-fill="true" >
-	    <entry space-expand="true" sensitive="false">
-	     <default>10</default>
-	     <variable>WIDTHX</variable>
-	    </entry>
-	    <entry space-expand="true" sensitive="false">
-	     <default>10</default>
-	     <variable>WIDTHY</variable>
-	    </entry>
-	    <entry space-expand="true" sensitive="false">
-	     <default>10</default>
-	     <variable>WIDTHZ</variable>
-	    </entry>
-	   </hbox>
-	   </hbox>
-
-	  </frame>
-	 </vbox>
-
-	 </notebook>
-
-	   <hbox>
-	    <button ok>
-	    </button>
-	    <button cancel>
-	    </button>
-	   </hbox>
-
-         </vbox>
-
-	</window>
-'
-if [[ "${LAMAGOET_DUMP_GUI_XML:-false}" == "true" ]]; then
-	printf '%s\n' "$MAIN_DIALOG"
-	exit 0
-fi
-# Checking if job_options exists. Cluster runners use --run-job-options to
-# consume it without opening gtkdialog.
+# Checking if job_options exists. The Qt interface and the cluster runners
+# both use --run-job-options to hand one over directly.
 if [[ -n "${LAMAGOET_BATCH_OPTIONS:-}" ]]; then
 	if [[ ! -f "$LAMAGOET_BATCH_OPTIONS" ]]; then
 		echo "lamaGOET: job options file not found: $LAMAGOET_BATCH_OPTIONS" >&2
 		exit 1
 	fi
 	source "$LAMAGOET_BATCH_OPTIONS"
+
+# Processor counts are used unquoted as `mpirun -n $NUMPROCTONTO`, so an option
+# file that predates them expands to `mpirun -n <binary>`: the -n flag consumes
+# the executable path and MPI reports "No executable was specified", which says
+# nothing about the real cause. Supply the defaults the schema promises.
+NUMPROC=${NUMPROC:-1}
+NUMPROCTONTO=${NUMPROCTONTO:-1}
 	if [[ -z "${EXIT:-}" ]]; then
 		EXIT="OK"
 	fi
@@ -7541,7 +5364,10 @@ CB_HB3    1    2   .f.     CB  HB3 CA
 		export $(cut -d= -f1 job_options.txt | awk 'NF==1' | sed '/"/d')
 	fi
 	if [[ "$TESTS" != "true" ]]; then
-		gtkdialog --program=MAIN_DIALOG > job_options.txt
+		# There is no built-in terminal GUI any more. A job_options.txt is
+		# already present, so run it as-is; edit it with the Qt interface or
+		# by hand.
+		echo "lamaGOET: using the job_options.txt in $(pwd)"
 	else
 		if [[ "$SCFCALCPROG" == "elmodb" && "$EXIT" == "OK" ]]; then
 			PDB=$( echo $CIF | awk -F "/" '{print $NF}' ) 
@@ -7578,7 +5404,26 @@ CB_HB3    1    2   .f.     CB  HB3 CA
   16  26
  " > DISSBONDS
 	fi
-	gtkdialog --program=MAIN_DIALOG > job_options.txt
+	cat >&2 <<'NO_OPTIONS'
+
+lamaGOET: no job_options.txt in this directory, and nothing to run.
+
+lamaGOET no longer has a built-in terminal interface. Set a job up with the
+Qt interface, which writes job_options.txt for you:
+
+    lamaGOET_qt.sh        to run the calculation on this computer
+    GUI_lamaGOET_qt.sh    to submit it to a PBS cluster
+
+Then run it from the directory holding job_options.txt:
+
+    lamaGOET
+
+or point at a file directly:
+
+    lamaGOET --run-job-options /path/to/job_options.txt
+
+NO_OPTIONS
+	exit 2
 fi
 fi
 
@@ -7592,6 +5437,7 @@ fi
 
 if [[ "$GAUSGEN" = "true" && ! -f basis_gen.txt ]]; then
     BASISSETG="gen"
+    REQUIRE_ZENITY "an external basis set" "basis_gen.txt" || exit 2
     zenity --entry --title="New basis set" --text="Enter or paste the basis set in the gaussian format as: \n !!NO EMPTY LINE!! \n C 0 \n S 5 \n exponent1 coefficient1 \n exponent2 coefficient2 \n exponent3 coefficient3 \n exponent4 coefficient4 \n exponent5 coefficient5 \n **** \n !!NO EMPTY LINE!! \n (Repeat this for all shells and all elements) " > basis_gen.txt
     sed -i '/BASISSETG=/c\BASISSETG=\"'$BASISSETG'"' job_options.txt
 fi
@@ -7612,6 +5458,7 @@ if [ "$GAUSSREL" = "true" ]; then
 fi
 
 if [[ "$DISP" = "yes" && "$EXIT" = "OK" ]]; then
+	REQUIRE_ZENITY "the dispersion coefficients" "DISP_inst.txt" || exit 2
 	zenity --entry --title="Dispersion coefficients" --text="Enter the dispersion coefficients for each element type followed by f' and f'' values i.e.: \n \n C 0.0031 0.0016 H 0.0 0.0" > DISP_inst.txt
 	while [ $? -eq 1 ]; do 
 		zenity --entry --title="Dispersion coefficients" --text="Enter the dispersion coefficients for each element type followed by f' and f'' values i.e.: \n \n C 0.0031 0.0016 H 0.0 0.0" > DISP_inst.txt
@@ -7696,10 +5543,12 @@ if [ "$EXIT" = "OK" ]; then
                         XTALSETTING=0
                 fi
         fi
-        tail -f $JOBNAME.lst | zenity --title "Job output file - this file will auto-update, scroll down to see later results." --no-wrap --text-info --width 1024 --height 800 --font='DejaVu Sans Mono' &
+        # The old GUI opened a zenity window that tailed the results file.
+        # The file is still written; follow it with `tail -f` if you want to
+        # watch the refinement as it goes.
+        echo "lamaGOET: results are being written to $(pwd)/$JOBNAME.lst"
 	run_script
 else
-	unset MAIN_DIALOG
 #	clea
 	exit 0
 fi

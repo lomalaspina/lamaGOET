@@ -1,6 +1,19 @@
 #!/bin/bash
 export LC_NUMERIC="en_US.UTF-8"
 
+# Make GNU sed/awk/coreutils available under their plain names, and provide
+# the _upper/_lower helpers, so this script behaves the same on Linux and
+# macOS.  See lamagoet_shell_env.sh for why this is necessary.
+_lamagoet_env_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+if [ -r "$_lamagoet_env_dir/lamagoet_shell_env.sh" ]; then
+    source "$_lamagoet_env_dir/lamagoet_shell_env.sh"
+else
+    echo "lamaGOET: cannot find lamagoet_shell_env.sh next to $0" >&2
+    echo "If lamaGOET was installed with install.sh, make sure that file was" >&2
+    echo "symlinked into the same directory as this script." >&2
+    exit 2
+fi
+
 _lamagoet_publish_latest_cif() {
 	local server=${LAMAGOET_LIVE_CIF_SERVER:-}
 	local directory=${LAMAGOET_LIVE_CIF_DIRECTORY:-}
@@ -28,6 +41,14 @@ _lamagoet_publish_latest_cif() {
 # all legacy backends continue through this runner unchanged.
 if [[ -f job_options.txt ]]; then
 	source ./job_options.txt
+
+# Processor counts are used unquoted as `mpirun -n $NUMPROCTONTO`, so an option
+# file that predates them expands to `mpirun -n <binary>`: the -n flag consumes
+# the executable path and MPI reports "No executable was specified", which says
+# nothing about the real cause. Supply the defaults the schema promises.
+NUMPROC=${NUMPROC:-1}
+NUMPROCTONTO=${NUMPROCTONTO:-1}
+
 	if [[ -z "${COMPLETESTRUCT:-}" && -n "${COMPLETECIF:-}" ]]; then
 		COMPLETESTRUCT=$COMPLETECIF
 	fi
@@ -105,8 +126,7 @@ rm SYMMETRY
 NoSphera2.exe -cif $JOBNAME.archive.cif -asym_cif $JOBNAME.fractional.cif1 -wfn $JOBNAME.wfn -hkl $JOBNAME.hkl -acc $NSA2ACC -cpus $NUMPROC > /dev/null
 if ! grep -q 'Time Breakdown:' "NoSpherA2.log"; then
 	echo "ERROR: NoSpherA2 finished with error, please check the $I.th NoSpherA2.log file for more details" | tee -a $JOBNAME.lst
-	unset MAIN_DIALOG
-       	exit 0
+       	exit 1
 else
         mv experimental.tsc $JOBNAME.tsc
        	echo "NoSpherA2 job finish correctly."
@@ -171,8 +191,7 @@ echo "Updating wave at gas phase done"
 #echo "Gaussian cycle number $I ended"
 if ! grep -q 'Normal termination of Gaussian' "$JOBNAME.log"; then
 	echo "ERROR: Gaussian job finished with error, please check the $I.th log file for more details" | tee -a $JOBNAME.lst
-	unset MAIN_DIALOG
-	exit 0
+	exit 1
 fi
 }
 
@@ -231,8 +250,7 @@ fi
 #echo "Orca cycle number $I ended"
 if ! grep -q '****ORCA TERMINATED NORMALLY****' "$JOBNAME.out"; then
 	echo "ERROR: Orca job finished with error, please check the $I.th out file for more details" | tee -a $JOBNAME.lst
-	unset MAIN_DIALOG
-	exit 0
+	exit 1
 fi
 }
 
@@ -303,8 +321,10 @@ else
 fi
 echo "Updating geometry done"
 if [[ "$SCFCALCPROG" != "Tonto" && "$SCFCALCPROG" != "elmodb" ]]; then
-        sed -i 's/(//g' $JOBNAME.xyz
-	sed -i 's/)//g' $JOBNAME.xyz
+	if [ -f "$JOBNAME.xyz" ]; then
+		sed -i 's/(//g' $JOBNAME.xyz
+		sed -i 's/)//g' $JOBNAME.xyz
+	fi
 fi
 #if [[ -f $JOBNAME.cartesian.cif2 ]]; then
 if [[ -f $JOBNAME.fractional.cif1 ]]; then
@@ -422,8 +442,7 @@ GAMESS_ELMODB_OLD_PDB(){
 	rm gamess_input*
 	if ! grep -q 'OVERLAP INTEGRALS WRITTEN ON FILE sao' "$JOBNAME.gamess.out"; then
 		echo "ERROR: Calculation of overlap integrals with gamessus finished with error, please check the $I.th gamess.out file for more details" | tee -a $JOBNAME.lst
-		unset MAIN_DIALOG
-		exit 0
+		exit 1
 	else 
 		echo "Calculation of overlap integrals with gamess done, writing elmodb input files"
 		if [[ ! -f "$( echo $SCFCALC_BIN | awk -F "/" '{print $NF}' )" ]]; then
@@ -466,8 +485,7 @@ GAMESS_ELMODB_OLD_PDB(){
 		./$( echo $SCFCALC_BIN | awk -F "/" '{print $NF}' ) < $JOBNAME.elmodb.inp > $JOBNAME.elmodb.out
 		if ! grep -q 'CONGRATULATIONS: THE ELMO-TRANSFERs ENDED GRACEFULLY!!!' "$JOBNAME.elmodb.out"; then
 			echo "ERROR: elmodb finished with error, please check the $I.th elmodb.out file for more details" | tee -a $JOBNAME.lst
-			unset MAIN_DIALOG
-			exit 0
+			exit 1
 		else
 			echo "elmodb job finish correctly."
 			cp $JOBNAME.elmodb.out  $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.elmodb.out
@@ -483,17 +501,6 @@ GAMESS_ELMODB_OLD_PDB(){
 	                echo "Generation of .tsc file with NoSpherA2 for cycle number $NSA2_COUNTER in progress"
        		        RUN_NOSPHERA2
         	        echo "Generation of .tsc file with NoSpherA2 for cycle number $NSA2_COUNTER ended"
-########		if ! grep -q 'Time Breakdown:' "NoSpherA2.log"; then
-########			echo "ERROR: NoSpherA2 finished with error, please check the $I.th NoSpherA2.log file for more details" | tee -a $JOBNAME.lst
-########			unset MAIN_DIALOG
-########			exit 0
-########		else
-########			echo "NoSpherA2 job finish correctly."
-########			mv experimental.tsc $JOBNAME.tsc
-########			cp $JOBNAME.wfn  $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.elmodb.wfn
-########			cp $JOBNAME.tsc $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.tsc
-########			cp NoSpherA2.log $I.$SCFCALCPROG.cycle.$JOBNAME/$I.NoSpherA2.log
-########		fi
 		fi
 	fi
 }
@@ -543,8 +550,7 @@ ELMODB(){
 	./$( echo $SCFCALC_BIN | awk -F "/" '{print $NF}' ) < $JOBNAME.elmodb.inp > $JOBNAME.elmodb.out
 	if ! grep -q 'CONGRATULATIONS: THE ELMO-TRANSFERs ENDED GRACEFULLY!!!' "$JOBNAME.elmodb.out"; then
 		echo "ERROR: elmodb finished with error, please check the $I.th elmodb.out file for more details" | tee -a $JOBNAME.lst
-		unset MAIN_DIALOG
-		exit 0
+		exit 1
 	else
 		echo "elmodb job finish correctly."
                 if [ ! -d "$I.$SCFCALCPROG.cycle.$JOBNAME" ]; then
@@ -563,17 +569,6 @@ ELMODB(){
                 echo "Generation of .tsc file with NoSpherA2 for cycle number $NSA2_COUNTER in progress"
 	        RUN_NOSPHERA2
                 echo "Generation of .tsc file with NoSpherA2 for cycle number $NSA2_COUNTER ended"
-########	if ! grep -q 'Time Breakdown:' "NoSpherA2.log"; then
-########		echo "ERROR: NoSpherA2 finished with error, please check the $I.th NoSpherA2.log file for more details" | tee -a $JOBNAME.lst
-########		unset MAIN_DIALOG
-########		exit 0
-########	else
-########		mv experimental.tsc $JOBNAME.tsc
-########		echo "NoSpherA2 job finish correctly."
-########		cp $JOBNAME.wfn  $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.elmodb.wfn
-########		cp $JOBNAME.tsc $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.tsc
-########		cp NoSpherA2.log $I.$SCFCALCPROG.cycle.$JOBNAME/$I.NoSpherA2.log
-########	fi
 	fi
 }
 
@@ -637,8 +632,7 @@ TONTO_TO_ORCA(){
 	echo "Orca cycle number $I ended"
 	if ! grep -q '****ORCA TERMINATED NORMALLY****' "$JOBNAME.out"; then
 		echo "ERROR: Orca job finished with error, please check the $I.th out file for more details" | tee -a $JOBNAME.lst
-		unset MAIN_DIALOG
-		exit 0
+		exit 1
 	fi
 	echo "Generation of molden file for Orca cycle number $I"
 	if [[ "$(which orca_2mkl.exe)" == "" ]]; then
@@ -672,17 +666,6 @@ TONTO_TO_ORCA(){
 		echo "Generation of .tsc file with NoSpherA2 for cycle number $I in progress"
 		RUN_NOSPHERA2
 		echo "Generation of .tsc file with NoSpherA2 for cycle number $I ended"
-########	if ! grep -q 'Time Breakdown:' "NoSpherA2.log"; then
-########		echo "ERROR: NoSpherA2 finished with error, please check the $I.th NoSpherA2.log file for more details" | tee -a $JOBNAME.lst
-########		unset MAIN_DIALOG
-########		exit 0
-########	else
-########		mv experimental.tsc $JOBNAME.tsc
-########		echo "NoSpherA2 job finish correctly."
-########		cp $JOBNAME.wfn  $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.wfn
-########		cp $JOBNAME.tsc $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.tsc
-########		cp NoSpherA2.log $I.$SCFCALCPROG.cycle.$JOBNAME/$I.NoSpherA2.log
-########	fi
 	fi
         if [ ! -d "$I.$SCFCALCPROG.cycle.$JOBNAME" ]; then
                 mkdir $I.$SCFCALCPROG.cycle.$JOBNAME
@@ -721,8 +704,7 @@ TONTO_TO_OCC(){
 	echo "OCC cycle number $I ended"
 	if ! grep -q 'A job well done' "$JOBNAME.out"; then
 		echo "ERROR: OCC job finished with error, please check the $I.th out file for more details" | tee -a $JOBNAME.lst
-		unset MAIN_DIALOG
-		exit 0
+		exit 1
 	fi
         if [ ! -d "$I.$SCFCALCPROG.cycle.$JOBNAME" ]; then
                 mkdir $I.$SCFCALCPROG.cycle.$JOBNAME
@@ -935,8 +917,7 @@ TONTO_IAM_BLOCK(){
 			echo "         refine_3rd_order_for_atoms= { $ANHARMATOMS } " >> stdin
 		else 
 			echo "ERROR: Please select at least one of the anharmonic terms to refine" | tee -a $JOBNAME.lst
-			unset MAIN_DIALOG
-			exit 0
+			exit 1
 		fi
 	fi
 	if [[ "$ISFCF" != "true" ]]; then
@@ -978,7 +959,6 @@ TONTO_IAM_BLOCK(){
                 $TONTO
 		echo "Job ended, elapsed time:" | tee -a $JOBNAME.lst
 		echo "$(($DURATION / 86400 )) days,  $((($DURATION / 3600) % 24 )) hours, $((($DURATION / 60) % 60 ))minutes and $(($DURATION % 60 )) seconds elapsed." | tee -a $JOBNAME.lst
-		unset MAIN_DIALOG
 		exit 0
         fi
 }
@@ -1024,7 +1004,13 @@ CRYSTAL_BLOCK(){
 	if [[ "$SCFCALCPROG" != "optgaussian" && "$SCFCALCPROG" != "optorca" ]]; then 
 		echo "      xray_data= {   " >> stdin
 	        if [[ "$POWDER_HAR" != "true" ]]; then 
-        		echo "         thermal_smearing_model= atom-based" >> stdin
+                        # Tonto's thermal_smearing_model= keyword is gone. Its job -- choosing
+                        # how the density is partitioned before thermal smearing -- now belongs
+                        # to partition_model=, written immediately below. The old value
+                        # "atom-based" meant one-centre partitioning, which is what the "oc-"
+                        # prefix of every current value denotes, so oc-hirshfeld and friends
+                        # already carry it. Emitting both would set an invalid value and then
+                        # repeat the key.
                         if [[ "$SCFCALCPROG" == "Crystal14" || "$SCFCALCPROG" == "Tonto" ]]; then
 				WRITE_DENSITY_PARTITION_MODEL || return 1
                         else
@@ -1047,8 +1033,7 @@ CRYSTAL_BLOCK(){
 				echo "         refine_3rd_order_for_atoms= { $ANHARMATOMS } " >> stdin
 			else 
 				echo "ERROR: Please select at least one of the anharmonic terms to refine" | tee -a $JOBNAME.lst
-				unset MAIN_DIALOG
-				exit 0
+				exit 1
 			fi
 		fi
 	        if [[ "$POWDER_HAR" != "true" ]]; then 
@@ -1116,10 +1101,6 @@ CRYSTAL_BLOCK(){
 	echo "" >> stdin
 }
 
-SET_H_ISO(){ 
-	echo "	 set_isotropic_h_adps"  >> stdin
-	echo "" >> stdin
-}
 
 PUT_GEOM(){
         if [[ "$SCFCALCPROG" != "Crystal14" && "$DEFRAGNETW" != "true" ]]; then
@@ -1227,7 +1208,7 @@ SCF_BLOCK_NOT_TONTO(){
 	                if [[ "$POWDER_HAR" != "true" ]]; then
 			        echo "   ! Make Hirshfeld structure factors" >> stdin
 #			        echo "   fit_hirshfeld_atoms" >> stdin
-                                if [[ "$SCFCALCPROG" == "Crystal14" && "$DEFRAGNETW"=="true" ]]; then
+                                if [[ "$SCFCALCPROG" == "Crystal14" && "$DEFRAGNETW" == "true" ]]; then
                                         echo "   phar_defragment" >> stdin
                                 fi
 			        echo "   ha_fit" >> stdin
@@ -1247,10 +1228,6 @@ SCF_BLOCK_NOT_TONTO(){
                 else 
                         echo "   write_xtal23_xyz_file" >> stdin
                 fi
-########	if [[ "$SCFCALCPROG" == "optgaussian" ]]; then
-########		echo "" >> stdin
-########		echo "   put_grown_cif" >> stdin
-########	fi
 	else
 		if [[ "$SCFCALCPROG" != "optgaussian" && "$SCFCALCPROG" != "optorca" ]]; then 
 	                if [[ "$POWDER_HAR" != "true" ]]; then
@@ -1262,7 +1239,7 @@ SCF_BLOCK_NOT_TONTO(){
 			                echo "   make_fock_matrix" >> stdin
 				fi
 #       			echo "   fit_hirshfeld_atoms" >> stdin
-                                if [[ "$SCFCALCPROG" == "Crystal14" && "$DEFRAGNETW"=="true" ]]; then
+                                if [[ "$SCFCALCPROG" == "Crystal14" && "$DEFRAGNETW" == "true" ]]; then
                                         echo "   phar_defragment" >> stdin
                                 fi
 			        echo "   ha_fit" >> stdin
@@ -1284,10 +1261,6 @@ SCF_BLOCK_NOT_TONTO(){
                 else 
                         echo "   write_xtal23_xyz_file" >> stdin
                 fi
-########	if [[ "$SCFCALCPROG" == "optgaussian" ]]; then
-########		echo "" >> stdin
-########		echo "   put_grown_cif" >> stdin
-########	fi
 	fi
 }
 
@@ -1383,7 +1356,6 @@ SCF_TO_TONTO(){
 		PROCESS_CIF
 		DEFINE_JOB_NAME
                if [[ "$SCFCALCPROG" == "Crystal14" ]]; then
-#                       COMPLETECELLBLOCK
                         TONTO_BASIS_SET
         	        CHARGE_MULT
         	        READ_CRYSTAL_WFN
@@ -1410,11 +1382,6 @@ SCF_TO_TONTO(){
 			COMPLETECIFBLOCK
 		fi
 	fi
-########if [[ "$SCFCALCPROG" == "Gaussian" || "$SCFCALCPROG" == "Orca" ]]; then 
-########	if [[ "$COMPLETESTRUCT" == "true" || "$EXPLICITMOL" == "true" ]]; then
-########		COMPLETECIFBLOCK
-########	fi
-########fi
 #       if [[ "$SCFCALCPROG" == "Crystal14" ]]; then
 #       	echo "   use_spherical_basis= TRUE" >> stdin
 #               TONTO_BASIS_SET
@@ -1429,11 +1396,6 @@ SCF_TO_TONTO(){
 		TONTO_IAM_BLOCK
 	fi
 	CRYSTAL_BLOCK
-########if [[ "POWDER_HAR" != "true" ]]; then 
-########        if [[ "$HADP" == "yes" ]]; then 
-########        	SET_H_ISO
-########	fi
-########fi
        	PUT_GEOM
 	if [[ "$POWDER_HAR" != "true" ]]; then
         	if [[ "$USEBECKE" == "true" ]]; then 
@@ -1492,13 +1454,11 @@ SCF_TO_TONTO(){
 # in the geometry, this is an implicit way of checking that the
 # convergency is also in the energy level. 
 # correct
-########MAXSHIFT=$(awk '{a[NR]=$0}/^Begin rigid-atom fit/{b=NR+10}/^Rigid-atom fit results/{c=NR-4}END {for(d=b;d<=c;++d)print a[d]}' stdout | awk '{ gsub("-","",$0); print $0 }' | tail -1 | awk -v max=0 '{if($5>max){shift=$5; atom=$7; param=$8; max=$5}}END{print shift}')
-########MAXSHIFTATOM=$(awk '{a[NR]=$0}/^Begin rigid-atom fit/{b=NR+10}/^Rigid-atom fit results/{c=NR-4}END {for(d=b;d<=c;++d)print a[d]}' stdout | awk '{ gsub("-","",$0); print $0 }' | tail -1 | awk -v max=0 '{if($5>max){shift=$5; atom=$7; param=$8; max=$5}}END{print atom}')
-########MAXSHIFTPARAM=$(awk '{a[NR]=$0}/^Begin rigid-atom fit/{b=NR+10}/^Rigid-atom fit results/{c=NR-4}END {for(d=b;d<=c;++d)print a[d]}' stdout | awk '{ gsub("-","",$0); print $0 }' | tail -1 | awk -v max=0 '{if($5>max){shift=$5; atom=$7; param=$8; max=$5}}END{print param}')
-	MAXSHIFT=$(awk '{a[NR]=$0}/^Begin rigid-atom fit/{b=NR+10}/^Rigid-atom fit results/{c=NR-4}END {for(d=b;d<=c;++d)print a[d]}' stdout | awk '{ gsub("-","",$0); print $0 }' | awk -v max=0 '{if($5>max){shift=$5; atom=$7; param=$8; max=$5}}END{print shift}')
-        MAXSHIFT=$( echo ${MAXSHIFT#-} ) #this is to get the absolute value 
-	MAXSHIFTATOM=$(awk '{a[NR]=$0}/^Begin rigid-atom fit/{b=NR+10}/^Rigid-atom fit results/{c=NR-4}END {for(d=b;d<=c;++d)print a[d]}' stdout | awk '{ gsub("-","",$0); print $0 }' | awk -v max=0 '{if($5>max){shift=$5; atom=$7; param=$8; max=$5}}END{print atom}')
-	MAXSHIFTPARAM=$(awk '{a[NR]=$0}/^Begin rigid-atom fit/{b=NR+10}/^Rigid-atom fit results/{c=NR-4}END {for(d=b;d<=c;++d)print a[d]}' stdout | awk '{ gsub("-","",$0); print $0 }'| awk -v max=0 '{if($5>max){shift=$5; atom=$7; param=$8; max=$5}}END{print param}')
+	# One pass over the last fit table, normalised for either layout.
+	_fit_summary=$(FIT_TABLE_SUMMARY)
+	MAXSHIFT=$(printf '%s' "$_fit_summary" | cut -f6)
+	MAXSHIFTATOM=$(printf '%s' "$_fit_summary" | cut -f7)
+	MAXSHIFTPARAM=$(printf '%s' "$_fit_summary" | cut -f8)
 	if [[ "$SCFCALCPROG" != "Tonto" && "$SCFCALCPROG" != "elmodb" ]]; then
 		sed -i 's/(//g' $JOBNAME.xyz
 		sed -i 's/)//g' $JOBNAME.xyz
@@ -1506,10 +1466,24 @@ SCF_TO_TONTO(){
 	echo "Tonto cycle number $J ended"
 	if ! grep -q 'Wall-clock time taken' "stdout"; then
 		echo "ERROR: problems in fit cycle, please check the $J.th stdout file for more details" | tee -a $JOBNAME.lst
-		unset MAIN_DIALOG
-		exit 0
+		exit 1
 	fi
-	if [ $J = 1 ]; then 
+	if [ $J = 1 ] && [[ "$SCFCALCPROG" == "Tonto" ]]; then
+		# Tonto runs the whole refinement loop itself, so there are no
+		# lamaGOET cycles to tabulate and the per-cycle table below would be
+		# headers with nothing under them. Say where the numbers are instead.
+		{
+			echo "===================="
+			echo "Refinement progress"
+			echo "===================="
+			echo ""
+			echo "Tonto performs the refinement cycles internally, so there is no"
+			echo "per-cycle table here. Its own least-squares iterations, and the"
+			echo "results of each refinement, are in the sections below and in"
+			echo "full in stdout."
+			echo ""
+		} >> $JOBNAME.lst
+	elif [ $J = 1 ]; then
 		echo "====================" >> $JOBNAME.lst
 		echo "Begin rigid-atom fit" >> $JOBNAME.lst
 		echo "====================" >> $JOBNAME.lst
@@ -1628,8 +1602,7 @@ TONTO_TO_GAUSSIAN(){
 	echo "Gaussian cycle number $I ended"
 	if ! grep -q 'Normal termination of Gaussian' "$JOBNAME.log"; then
 		echo "ERROR: Gaussian job finished with error, please check the $I.th log file for more details" | tee -a $JOBNAME.lst
-		unset MAIN_DIALOG
-		exit 0
+		exit 1
 	fi
 	if [[ "$USENOSPHERA2" == "true" && "$I" != "1" ]]; then
 	        echo "Generation fcheck file for Gaussian cycle number $I"
@@ -1638,17 +1611,6 @@ TONTO_TO_GAUSSIAN(){
 		echo "Generation of .tsc file with NoSpherA2 for cycle number $I in progress"
 		RUN_NOSPHERA2
 		echo "Generation of .tsc file with NoSpherA2 for cycle number $I ended"
-########	if ! grep -q 'Time Breakdown:' "NoSpherA2.log"; then
-########		echo "ERROR: NoSpherA2 finished with error, please check the $I.th NoSpherA2.log file for more details" | tee -a $JOBNAME.lst
-########		unset MAIN_DIALOG
-########		exit 0
-########	else
-########		mv experimental.tsc $JOBNAME.tsc
-########		echo "NoSpherA2 job finish correctly."
-########		cp $JOBNAME.wfn  $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.wfn
-########		cp $JOBNAME.tsc $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.tsc
-########		cp NoSpherA2.log $I.$SCFCALCPROG.cycle.$JOBNAME/$I.NoSpherA2.log
-########	fi
 	fi
         if [ ! -d "$I.$SCFCALCPROG.cycle.$JOBNAME" ]; then
                 mkdir $I.$SCFCALCPROG.cycle.$JOBNAME
@@ -1680,8 +1642,7 @@ TONTO_TO_CRYSTAL(){
                 SPACEGROUPITNUMBER=$(grep "_space_group_IT_number" $CIF | tr -d \' | awk '{print $2}' | tr -d '\r')
 	        if [[ "$SPACEGROUPITNUMBER" == "" ]]; then
 		        echo "ERROR: Space group number not found. Please enter the space group number in your cif with the keyword _symmetry_Int_Tables_number or _space_group_IT_number and restart your job" | tee -a $JOBNAME.lst
-		        unset MAIN_DIALOG
-		        exit 0
+		        exit 1
                 fi 
 	fi
         if [[ "$USEHMSYM" == "true" ]];then 
@@ -1797,8 +1758,7 @@ TONTO_TO_CRYSTAL(){
 	echo "Crystal properties, cycle number $I ended" 
 	if ! grep -q 'SCF ENDED - CONVERGENCE ON ENERGY' "$JOBNAME.out"; then
 		echo "ERROR: Crystal job finished with error, please check the $I.th out file for more details" | tee -a $JOBNAME.lst
-		unset MAIN_DIALOG
-		exit 0
+		exit 1
 	fi
         if [[ "$I" == "1" ]]; then
                 ENERGIA=$(grep "TOTAL ENERGY" $JOBNAME.out | tail -n1 | awk '{print $4}')
@@ -1871,7 +1831,7 @@ GET_FREQ(){
 #                	awk '{a[NR]=$0}{b=11}/^------------------------------------------------------------------------/{c=NR}END{for(d=b;d<=c-1;++d)print a[d]}' gaussian-point-charges | awk '{printf "%s\t %s\t %s\t %s\t \n", $1, $2, $3, $4 }' >> $JOBNAME.com
 #                        echo "" >> $JOBNAME.com
 #                else
-                	awk '{a[NR]=$0}{b=12}/^------------------------------------------------------------------------/{c=NR}END{for(d=b;d<=c-1;++d)print a[d]}' gaussian-point-charges | awk '{printf "%s\t %s\t %s\t %s\t \n", $1, $2, $3, $4 }' >> $JOBNAME.com
+                	awk '{a[NR]=$0}{b=13}/^------------------------------------------------------------------------/{c=NR}END{for(d=b;d<=c-1;++d)print a[d]}' cluster_charges | awk '{printf "%s\t %s\t %s\t %s\t \n", $1, $2, $3, $4 }' >> $JOBNAME.com
                         echo "" >> $JOBNAME.com
 #                fi
 #                rm gaussian-point-charges
@@ -1889,8 +1849,7 @@ GET_FREQ(){
 	echo "Gaussian cycle number $I ended"
 	if ! grep -q 'Normal termination of Gaussian' "$JOBNAME.log"; then
 		echo "ERROR: Gaussian job finished with error, please check the $I.th log file for more details" | tee -a $JOBNAME.lst
-		unset MAIN_DIALOG
-		exit 0
+		exit 1
 	fi
 	echo "Generation fcheck file for Gaussian cycle number $I"
 	if [[ "$USENOSPHERA2" == "true" ]]; then
@@ -1899,17 +1858,6 @@ GET_FREQ(){
 		echo "Generation of .tsc file with NoSpherA2 for cycle number $I in progress"
 		RUN_NOSPHERA2
 		echo "Generation of .tsc file with NoSpherA2 for cycle number $I ended"
-########	if ! grep -q 'Time Breakdown:' "NoSpherA2.log"; then
-########		echo "ERROR: NoSpherA2 finished with error, please check the $I.th NoSpherA2.log file for more details" | tee -a $JOBNAME.lst
-########		unset MAIN_DIALOG
-########		exit 0
-########	else
-########		mv experimental.tsc $JOBNAME.tsc
-########		echo "NoSpherA2 job finish correctly."
-########		cp $JOBNAME.wfn  $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.wfn
-########		cp $JOBNAME.tsc $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.tsc
-########		cp NoSpherA2.log $I.$SCFCALCPROG.cycle.$JOBNAME/$I.NoSpherA2.log
-########	fi
 	fi
         if [ ! -d "$I.$SCFCALCPROG.cycle.$JOBNAME" ]; then
 	        mkdir $I.$SCFCALCPROG.cycle.$JOBNAME
@@ -1988,8 +1936,7 @@ GET_FREQ_ORCA(){
 	echo "Orca cycle number $I ended"
 	if ! grep -q '****ORCA TERMINATED NORMALLY****' "$JOBNAME.out"; then
 		echo "ERROR: Orca job finished with error, please check the $I.th out file for more details" | tee -a $JOBNAME.lst
-		unset MAIN_DIALOG
-		exit 0
+		exit 1
 	fi
 	echo "Generation of molden file for Orca cycle number $I"
 	if [[ "$(which orca_2mkl.exe)" == "" ]]; then
@@ -2117,7 +2064,19 @@ CHECK_ENERGY(){
 	ABSDE=$(awk "function abs(x){return (( x < 0.0) ? -x : x)} BEGIN {print abs($ENERGIA2) - abs($ENERGIA)}")
 	ABSDE2=$(awk "function abs(x){return (( x < 0.0) ? -x : x)} BEGIN {print abs($ENERGIA2) - abs($ENERGIA3)}")
 	DE=$(printf '%.12f' $DE)
-	echo -e " $J\t$(awk '{a[NR]=$0}/^Rigid-atom fit results/{b=NR}END {print a[b-4]}' stdout | awk '{print $1}' )\t$INITIALCHI\t$(awk '{a[NR]=$0}/^Rigid-atom fit results/{b=NR}END {print a[b-4]}' stdout | awk '{print  $2"\t"$3"\t"$4"\t"}') $MAXSHIFT\t$MAXSHIFTATOM $MAXSHIFTPARAM $(awk '{a[NR]=$0}/^Rigid-atom fit results/{b=NR}END {print a[b-4]}' stdout | awk '{print  "    "$9" \t"$10 }' )  $ENERGIA2   $RMSD2   \t$DE"   >> $JOBNAME.lst  
+	# Cycle, fit iterations, chi2 before and after, R, R_w, largest
+	# shift and where it was, parameter and eigenvalue counts.
+	printf ' %s\t%s\t%s\t%s\t%s\t%s\t%s\t%s %s\t%s\t%s\t%s\t%s\t%s\n' \
+		"$J" \
+		"$(printf '%s' "$_fit_summary" | cut -f1)" \
+		"$(printf '%s' "$_fit_summary" | cut -f2)" \
+		"$(printf '%s' "$_fit_summary" | cut -f3)" \
+		"$(printf '%s' "$_fit_summary" | cut -f4)" \
+		"$(printf '%s' "$_fit_summary" | cut -f5)" \
+		"$MAXSHIFT" "$MAXSHIFTATOM" "$MAXSHIFTPARAM" \
+		"$(printf '%s' "$_fit_summary" | cut -f9)" \
+		"$(printf '%s' "$_fit_summary" | cut -f10)" \
+		"$ENERGIA2" "$RMSD2" "$DE" >> $JOBNAME.lst
 	if [[ -z "${HAR_ENERGY_LAST:-}" && -n "${ENERGIA:-}" ]]; then
 		HAR_ENERGY_LAST=$ENERGIA
 	fi
@@ -2127,8 +2086,79 @@ CHECK_ENERGY(){
 	echo "Delta E (cycle  $I - $[ I - 1 ]): $DE "
 }
 
-CHECKCONV(){
-FINALPARAMESD=$(awk '{a[NR]=$0}/^Begin rigid-atom fit/{b=NR}END {print a[b+10]}' stdout | awk '{print $5}')
+
+APPEND_IAM_RESULTS(){
+	# Copy the starting IAM refinement into $JOBNAME.lst.
+	#
+	# Tonto heads the independent-atom-model refinement "IAM refinement" and
+	# the Hirshfeld atom refinement "Structure refinement results". Only the
+	# latter was ever copied into the summary, so a job started from a Tonto
+	# IAM lost precisely the numbers it was started for: without the IAM there
+	# is nothing to compare the HAR against, which is the entire reason for
+	# running one. The results were in stdout all along, just not in the file
+	# users are told holds the results.
+	#
+	# lamaGOET also looked for a "Rigid-atom fit results" heading. Current
+	# Tonto does not emit that string at all, so those extractions were dead.
+	[ -f stdout ] || return 0
+	grep -q '^IAM refinement' stdout || return 0
+	{
+		echo ""
+		echo "###############################################################################################"
+		echo "                        Independent Atom Model (IAM) refinement                                 "
+		echo "###############################################################################################"
+		echo ""
+		awk '/^IAM refinement/{copy=1}
+		     copy && /^Final asymmetric unit parameter values:/{exit}
+		     copy' stdout
+	} >> $JOBNAME.lst
+}
+
+FIT_TABLE_SUMMARY(){
+	# Emit one normalised, tab-separated record describing the last
+	# least-squares fit in stdout:
+	#
+	#   iter  chi2_initial  chi2_final  R  R_w  max_shift  atom  param  N_p  N_eig
+	#
+	# Tonto prints one row per least-squares iteration and then a heading:
+	# "IAM refinement" for the starting model, "Structure refinement results"
+	# for a Hirshfeld atom refinement. It used to print "Rigid-atom fit
+	# results", which lamaGOET looked for; that string no longer appears, so
+	# every field below came out empty and the per-cycle table in the summary
+	# had headers and no rows.
+	#
+	# The two tables also differ in shape. The IAM has ten columns and one
+	# chi2; the HAR has twelve, leading with a cycle number and carrying both
+	# an initial and a final chi2. Normalise here so the caller does not care.
+	awk '
+		/^IAM refinement$/ || /^Structure refinement results$/ { heading = NR }
+		{ line[NR] = $0 }
+		END {
+			if (!heading) exit
+			for (i = heading - 1; i > 0; i--)
+				if (line[i] ~ /^[ \t]*[0-9]+[ \t]/) { last = i; break }
+			if (!last) exit
+			for (i = last; i > 0; i--)
+				if (line[i] !~ /^[ \t]*[0-9]+[ \t]/) { first = i + 1; break }
+
+			maxshift = 0
+			for (i = first; i <= last; i++) {
+				n = split(line[i], f)
+				if (n >= 12) { s = f[7]; a = f[9];  p = f[10] }
+				else         { s = f[5]; a = f[7];  p = f[8]  }
+				if (s < 0) s = -s
+				if (s > maxshift) { maxshift = s; maxatom = a; maxparam = p }
+			}
+
+			n = split(line[last], f)
+			if (n >= 12) { iter = f[2]; ci = f[3]; cf = f[4]; r = f[5]; rw = f[6] }
+			else         { iter = f[1]; ci = f[2]; cf = f[2]; r = f[3]; rw = f[4] }
+
+			printf "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
+			       iter, ci, cf, r, rw, maxshift, maxatom, maxparam,
+			       f[n-1], f[n]
+		}
+	' stdout
 }
 
 GET_RESIDUALS(){
@@ -2163,6 +2193,13 @@ GET_RESIDUALS(){
 		READ_CRYSTAL_WFN
 		CRYSTAL_BLOCK
 		DEFINE_JOB_NAME
+	fi
+	# Rebuild the reflection/xray data before the final residual map. The
+	# refined CIF carries the cell and geometry but not the reflection list,
+	# so without this the map is calculated from incomplete data. Crystal14
+	# has already done it immediately above.
+	if [[ "$SCFCALCPROG" != "Crystal14" ]]; then
+		CRYSTAL_BLOCK
 	fi
 	if [[ "$SCFCALCPROG" != "Crystal14" ]]; then
 		echo "   scfdata= {" >> stdin
@@ -2226,11 +2263,19 @@ GET_RESIDUALS(){
 	echo "}" >> stdin 
 	echo "Calculating residual density at final geometry" 
 	J=$[ $J + 1 ]
+        rm -f stdout stde
+        local tonto_status=0
         if [[ "$NUMPROCTONTO" != "1" ]]; then
-		mpirun -n $NUMPROCTONTO $TONTO	
+		mpirun -n "$NUMPROCTONTO" "$TONTO" || tonto_status=$?
 	else
-		$TONTO
+		"$TONTO" || tonto_status=$?
 	fi
+        # Validate the final residual calculation. Without this a failed run is
+        # reported as a completed refinement.
+        if [[ "$tonto_status" -ne 0 ]] || ! grep -q '^Unit cell residual density:' stdout 2>/dev/null; then
+                echo "ERROR: final Tonto residual-density calculation failed; inspect stdin and stdout" | tee -a "$JOBNAME.lst" >&2
+                return 1
+        fi
 	if [[ "$USENOSPHERA2" == "true" ]]; then
                 LABELS_IN_XYZ
         fi
@@ -2350,8 +2395,7 @@ XCW(){
 	cp $JOBNAME.residual_density,cell.cube $J.XCW_cycle.$JOBNAME/$J.residual_density,cell.cube
 	if ! grep -q 'Wall-clock time taken' "stdout"; then
 		echo "ERROR: problems in fit cycle, please check the $J.th stdout file for more details" | tee -a $JOBNAME.lst
-		unset MAIN_DIALOG
-		exit 0
+		exit 1
 	fi
 #for f in *,restricted; do cp $f "$J.fit_cycle.$JOBNAME/$J.${f%}"; done
 }
@@ -2373,8 +2417,7 @@ BOTTOM_PLOT(){
 		echo "      n_all_points= $PTSX $PTSY $PTSZ" >> stdin
 	else
 		echo "ERROR: Please enter cube size information" | tee -a $JOBNAME.lst
-		unset MAIN_DIALOG
-		exit 0
+		exit 1
 	fi
 	echo "      plot_format= cell.cube" >> stdin
 	if [ "$PLOT_ANGS" = "true" ]; then
@@ -2454,8 +2497,7 @@ PLOTS(){
 	fi
 	if ! grep -q 'Wall-clock time taken' "stdout"; then
 		echo "ERROR: problems in fit cycle, please check the $J.th stdout file for more details" | tee -a $JOBNAME.lst
-		unset MAIN_DIALOG
-		exit 0
+		exit 1
 	fi
 }
 
@@ -2621,29 +2663,7 @@ COMPLETECIFBLOCK(){
 	fi
 }
 
-COMPLETECELLBLOCK(){
-        echo "   cluster= {" >> stdin
-        echo "      generation_method= unit_cell" >> stdin
-	echo "      make_info" >> stdin
-	echo "   }" >> stdin
-	echo "" >> stdin
-	echo "   create_cluster" >> stdin
-	echo "" >> stdin
-	echo "   name= $JOBNAME" >> stdin		
-	echo "" >> stdin
-}
 
-REDUCECELLCLUSTER(){
-        echo "   cluster= {" >> stdin
-        echo "      generation_method= assymetric_unit" >> stdin
-        echo "      make_info" >> stdin
-        echo "   }" >> stdin
-        echo "" >> stdin
-        echo "   create_cluster" >> stdin
-        echo "" >> stdin
-        echo "   name= $JOBNAME" >> stdin
-        echo "" >> stdin
-}
 
 run_script(){
 	SECONDS=0
@@ -2708,8 +2728,7 @@ run_script(){
 						sed -i '1 i\  keys= { h= k= l= i_exp= i_sigma= }' $HKL 
 					else
 						echo "ERROR: Please select the format of the hkl file for header (F or F^2)" | tee -a $JOBNAME.lst
-						unset MAIN_DIALOG
-						exit 0
+						exit 1
 					fi
 					sed -i '1 i\ reflection_data= {' $HKL 
 					sed -i '$ a\   }' $HKL
@@ -2843,7 +2862,6 @@ run_script(){
 		echo "   name= $JOBNAME" >> stdin
 		echo "" >> stdin
 #               if [[ "$SCFCALCPROG" == "Crystal14" ]]; then
-#                       COMPLETECELLBLOCK
 #               fi
 		COMPLETECIFBLOCK
 		echo "   put" >> stdin 
@@ -2859,7 +2877,6 @@ run_script(){
                                 echo "   write_xyz_file" >> stdin
                         fi
                 else
-#                       REDUCECELLCLUSTER
                         echo "   write_xtal23_xyz_file" >> stdin
                 fi
 		echo "   put_cif" >> stdin
@@ -2884,18 +2901,13 @@ run_script(){
                         LABELS_IN_XYZ
                 fi
                 #there is no refinement here yet!!!!!!
-########	INITIALCHI=$(awk '{a[NR]=$0}/^Begin rigid-atom fit/{b=NR}END {print a[b+10]}' stdout | awk '{print $2}')
-########	MAXSHIFT=$(awk '{a[NR]=$0}/^Begin rigid-atom fit/{b=NR+10}/^Rigid-atom fit results/{c=NR-4}END {for(d=b;d<=c;++d)print a[d]}' stdout | awk '{ gsub("-","",$0); print $0 }' | awk -v max=0 '{if($5>max){shift=$5; atom=$7; param=$8; max=$5}}END{print shift}')
-########	MAXSHIFTATOM=$(awk '{a[NR]=$0}/^Begin rigid-atom fit/{b=NR+10}/^Rigid-atom fit results/{c=NR-4}END {for(d=b;d<=c;++d)print a[d]}' stdout | awk '{ gsub("-","",$0); print $0 }' | awk -v max=0 '{if($5>max){shift=$5; atom=$7; param=$8; max=$5}}END{print atom}')
-########	MAXSHIFTPARAM=$(awk '{a[NR]=$0}/^Begin rigid-atom fit/{b=NR+10}/^Rigid-atom fit results/{c=NR-4}END {for(d=b;d<=c;++d)print a[d]}' stdout | awk '{ gsub("-","",$0); print $0 }' |awk -v max=0 '{if($5>max){shift=$5; atom=$7; param=$8; max=$5}}END{print param}')
 		if [[ "$SCFCALCPROG" != "Tonto" && "$SCFCALCPROG" != "elmodb" ]]; then
 			sed -i 's/(//g' $JOBNAME.xyz
 			sed -i 's/)//g' $JOBNAME.xyz
 		fi
 		if ! grep -q 'Wall-clock time taken' "stdout"; then
 			echo "ERROR: something wrong with your input cif file, please check the stdout file for more details" | tee -a $JOBNAME.lst
-			unset MAIN_DIALOG
-			exit 0
+			exit 1
 		fi
                 if [ ! -d "$J.tonto_cycle.$JOBNAME" ]; then
 	        	mkdir $J.tonto_cycle.$JOBNAME
@@ -2986,8 +2998,7 @@ run_script(){
 			echo "Gaussian cycle number $I ended"
 			if ! grep -q 'Normal termination of Gaussian' "$JOBNAME.log"; then
 				echo "ERROR: Gaussian job finished with error, please check the $I.th log file for more details" | tee -a $JOBNAME.lst
-				unset MAIN_DIALOG
-				exit 0
+				exit 1
 			fi
                         ENERGIA=$(sed -n '/Population analysis/,/Writing a WFN file/p' $JOBNAME.log |  sed 's/^ //' |  sed ':begin;$!N;s/\n//;tbegin' | awk '!f && sub(/.*HF=/,""){f=1} f' | awk -F '\' '{ print $1}' | tr -d '\r')
                         RMSD=$(sed -n '/Population analysis/,/Writing a WFN file/p' $JOBNAME.log |  sed 's/^ //' |  sed ':begin;$!N;s/\n//;tbegin' | awk '!f && sub(/.*RMSD=/,""){f=1} f' | awk -F '\' '{ print $1}' | tr -d '\r')
@@ -3007,17 +3018,6 @@ run_script(){
 				        echo "Generation of .tsc file with NoSpherA2 for cycle number $NSA2_COUNTER in progress"
 				        RUN_NOSPHERA2
 				        echo "Generation of .tsc file with NoSpherA2 for cycle number $NSA2_COUNTER ended"
-########		        	if ! grep -q 'Time Breakdown:' "NoSpherA2.log"; then
-########		        		echo "ERROR: NoSpherA2 finished with error, please check the $I.th NoSpherA2.log file for more details" | tee -a $JOBNAME.lst
-########		        		unset MAIN_DIALOG
-########		        		exit 0
-########		        	else
-########		        		mv experimental.tsc $JOBNAME.tsc
-########		        		echo "NoSpherA2 job finish correctly."
-########		        		cp $JOBNAME.wfn  $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.wfn
-########		        		cp $JOBNAME.tsc $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.tsc
-########		        		cp NoSpherA2.log $I.$SCFCALCPROG.cycle.$JOBNAME/$I.NoSpherA2.log
-########		        	fi
                                 fi
 			fi
                         if [ ! -d "$I.$SCFCALCPROG.cycle.$JOBNAME" ]; then
@@ -3082,8 +3082,7 @@ run_script(){
 			echo "Orca cycle number $I ended"
 			if ! grep -q '****ORCA TERMINATED NORMALLY****' "$JOBNAME.out"; then
 				echo "ERROR: Orca job finished with error, please check the $I.th out file for more details" | tee -a $JOBNAME.lst
-				unset MAIN_DIALOG
-				exit 0
+				exit 1
 			fi
 			ENERGIA=$(sed -n '/FINAL SINGLE POINT ENERGY/p' $JOBNAME.out | tail -1 | awk '{print $5}' | tr -d '\r')
 			RMSD=$(sed -n '/Last RMS-Density change/p' $JOBNAME.out | tail -1 | awk '{print $5}' | tr -d '\r')
@@ -3121,17 +3120,6 @@ run_script(){
 				        echo "Generation of .tsc file with NoSpherA2 for cycle number $NSA2_COUNTER in progress"
 				        RUN_NOSPHERA2
 				        echo "Generation of .tsc file with NoSpherA2 for cycle number $NSA2_COUNTER ended"
-########        			if ! grep -q 'Time Breakdown:' "NoSpherA2.log"; then
-########        				echo "ERROR: NoSpherA2 finished with error, please check the $I.th NoSpherA2.log file for more details" | tee -a $JOBNAME.lst
-########        				unset MAIN_DIALOG
-########        				exit 0
-########        			else
-########        				mv experimental.tsc $JOBNAME.tsc
-########        				echo "NoSpherA2 job finish correctly."
-########        				cp $JOBNAME.wfn  $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.wfn
-########        				cp $JOBNAME.tsc $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.tsc
-########        				cp NoSpherA2.log $I.$SCFCALCPROG.cycle.$JOBNAME/$I.NoSpherA2.log
-########        			fi
                                 fi
 			fi
                         if [ ! -d "$I.$SCFCALCPROG.cycle.$JOBNAME" ]; then
@@ -3163,8 +3151,7 @@ run_script(){
 			echo "OCC cycle number $I ended"
 			if ! grep -q 'A job well done' "$JOBNAME.out"; then
 				echo "ERROR: OCC job finished with error, please check the $I.th out file for more details" | tee -a $JOBNAME.lst
-				unset MAIN_DIALOG
-				exit 0
+				exit 1
 			fi
 			ENERGIA=$(sed -n '/^total/p' $JOBNAME.out | awk '{print $2}' | tr -d '\r')
 			RMSD=$( awk '{a[NR]=$0}/restricted spinorbital SCF energy converged after/ {print a[NR-1]}' $JOBNAME.out | awk '{print $3}'| tr -d '\r')
@@ -3310,12 +3297,13 @@ run_script(){
 		fi
 		echo "__________________________________________________________________________________________________________________________________________________________________" >> $JOBNAME.lst
 		echo "" >> $JOBNAME.lst
+		APPEND_IAM_RESULTS
 		echo "###############################################################################################" >> $JOBNAME.lst
 		echo "                                     Final Geometry                                         " >> $JOBNAME.lst
 		echo "###############################################################################################" >> $JOBNAME.lst
 		echo "" >> $JOBNAME.lst
 		echo "Energy= $ENERGIA2, RMSD= $RMSD2" >> $JOBNAME.lst
-		echo " $(awk '{a[NR]=$0}/^Rigid-atom fit results/{b=NR}/^Wall-clock time taken for job /{c=NR}END{for (d=b-2;d<c-1;++d) print a[d]}' stdout)"  >> $JOBNAME.lst
+		echo " $(awk '{a[NR]=$0}/^Structure refinement results/ && !b {b=NR}/^Wall-clock time taken for job /{c=NR}END{for (d=b-2;d<c-1;++d) print a[d]}' stdout)"  >> $JOBNAME.lst
 		if [[ "$SCFCALCPROG" != "optgaussian" && "$SCFCALCPROG" != "optorca" ]]; then  
 		        if [[ "$POWDER_HAR" != "true" && "$SCFCALCPROG" != "Crystal14" ]]; then  
 			        GET_RESIDUALS
@@ -3359,11 +3347,18 @@ run_script(){
                 fi
 		echo "__________________________________________________________________________________________________________________________________________________________________" >> $JOBNAME.lst
 		echo "" >> $JOBNAME.lst
+		APPEND_IAM_RESULTS
 		echo "###############################################################################################" >> $JOBNAME.lst
 		echo "                                     Final Geometry                                         " >> $JOBNAME.lst
 		echo "###############################################################################################" >> $JOBNAME.lst
 		echo "" >> $JOBNAME.lst
-		echo " $(awk '{a[NR]=$0}/^Structure refinement results/{b=NR}/^Wall-clock time taken for job /{c=NR}END{for (d=b-2;d<c-1;++d) print a[d]}' stdout)"  >> $JOBNAME.lst
+		# Tonto emits one "Structure refinement results" block per refinement,
+		# so a job that starts from a Tonto IAM produces two: the IAM first,
+		# then the Hirshfeld atom refinement. Record the FIRST match, not the
+		# last, or the IAM block is dropped and the summary shows only the HAR
+		# under lamaGOET's own "Begin rigid-atom fit" heading. Comparing the
+		# two is the whole point of starting from an IAM.
+		echo " $(awk '{a[NR]=$0}/^Structure refinement results/ && !b {b=NR}/^Wall-clock time taken for job /{c=NR}END{for (d=b-2;d<c-1;++d) print a[d]}' stdout)"  >> $JOBNAME.lst
 		if [[ "$XWR" == "true" ]]; then
 			RUN_XWR
 		fi
@@ -3386,11 +3381,12 @@ run_script(){
 			done
 			echo "__________________________________________________________________________________________________________________________________________________________________" >> $JOBNAME.lst
 			echo "" >> $JOBNAME.lst
+			APPEND_IAM_RESULTS
 			echo "###############################################################################################" >> $JOBNAME.lst
 			echo "                                     Final Geometry                                         " >> $JOBNAME.lst
 				echo "###############################################################################################" >> $JOBNAME.lst
 			echo "" >> $JOBNAME.lst
-			echo " $(awk '{a[NR]=$0}/^Rigid-atom fit results/{b=NR}/^Wall-clock time taken for job /{c=NR}END{for (d=b-2;d<c-1;++d) print a[d]}' stdout)"  >> $JOBNAME.lst
+			echo " $(awk '{a[NR]=$0}/^Structure refinement results/ && !b {b=NR}/^Wall-clock time taken for job /{c=NR}END{for (d=b-2;d<c-1;++d) print a[d]}' stdout)"  >> $JOBNAME.lst
 		        if [[ "$POWDER_HAR" != "true" ]]; then  
 			        GET_RESIDUALS
 			        echo " $(awk '{a[NR]=$0}/^Reflections pruned/{b=NR}/^Atom coordinates/{c=NR}END{for (d=b-2;d<c-1;++d) print a[d]}' stdout)"  >> $JOBNAME.lst
@@ -3421,11 +3417,12 @@ run_script(){
 			done
 			echo "__________________________________________________________________________________________________________________________________________________________________" >> $JOBNAME.lst
 			echo "" >> $JOBNAME.lst
+			APPEND_IAM_RESULTS
 			echo "###############################################################################################" >> $JOBNAME.lst
 			echo "                                     Final Geometry                                         " >> $JOBNAME.lst
 				echo "###############################################################################################" >> $JOBNAME.lst
 			echo "" >> $JOBNAME.lst
-			echo " $(awk '{a[NR]=$0}/^Rigid-atom fit results/{b=NR}/^Wall-clock time taken for job /{c=NR}END{for (d=b-2;d<c-1;++d) print a[d]}' stdout)"  >> $JOBNAME.lst
+			echo " $(awk '{a[NR]=$0}/^Structure refinement results/ && !b {b=NR}/^Wall-clock time taken for job /{c=NR}END{for (d=b-2;d<c-1;++d) print a[d]}' stdout)"  >> $JOBNAME.lst
 		        if [[ "$POWDER_HAR" != "true" ]]; then  
 			        GET_RESIDUALS
 			        echo " $(awk '{a[NR]=$0}/^Reflections pruned/{b=NR}/^Atom coordinates/{c=NR}END{for (d=b-2;d<c-1;++d) print a[d]}' stdout)"  >> $JOBNAME.lst

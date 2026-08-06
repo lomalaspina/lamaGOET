@@ -2,6 +2,7 @@
 set -euo pipefail
 
 repo_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
+source "$repo_dir/Tests/lib/shell_test_helpers.sh"
 tmp_root=$(mktemp -d)
 trap 'rm -rf -- "$tmp_root"' EXIT
 
@@ -24,13 +25,11 @@ for runner in RUN_lamaGOET_release.sh lamaGOET.sh; do
         export LAMAGOET_LIVE_CIF_PORT=2244
         JOBNAME=nh3
         printf 'data_test\n' > nh3.cartesian.cif2
-        source <(
-            awk '
+        extract_function "$repo_dir/$runner" '
                 /^_lamagoet_publish_latest_cif\(\)/ { copying=1 }
                 copying { print }
                 copying && /^}/ { exit }
-            ' "$repo_dir/$runner"
-        )
+        ' "publish helper"
         _lamagoet_publish_latest_cif
         grep -q 'nh3.cartesian.cif2' "$FAKE_SCP_LOG"
         grep -q 'submit-host:/data/calculation/nh3.latest_tonto.cif' \

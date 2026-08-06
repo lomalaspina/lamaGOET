@@ -177,5 +177,70 @@ class RunnerRegressionTest(unittest.TestCase):
         self.assertIn('exec bash "$LAMAGOET_MONOLITHIC" --run-job-options', text)
 
 
+
+class IamResultsInSummaryTest(unittest.TestCase):
+    """The IAM refinement must reach <job>.lst, not just stdout.
+
+    Tonto heads the starting refinement "IAM refinement" and the Hirshfeld
+    atom refinement "Structure refinement results".  Only the latter used to
+    be copied into the summary, so a job started from a Tonto IAM lost the
+    very numbers it was started for.
+    """
+
+    def test_both_runners_append_the_iam_block(self):
+        for runner in RUNNERS:
+            text = Path(runner).read_text(encoding="utf-8")
+            with self.subTest(runner=runner):
+                self.assertIn(
+                    "APPEND_IAM_RESULTS(){",
+                    text,
+                    f"{runner} does not define APPEND_IAM_RESULTS",
+                )
+                self.assertIn(
+                    "'^IAM refinement'",
+                    text,
+                    f"{runner} does not look for Tonto's IAM refinement heading",
+                )
+                # Defined once, called before every Final Geometry block.
+                self.assertGreaterEqual(
+                    text.count("APPEND_IAM_RESULTS\n"),
+                    2,
+                    f"{runner} defines APPEND_IAM_RESULTS but never calls it",
+                )
+
+    def test_summary_blocks_do_not_use_the_dead_heading(self):
+        """The result-block extractions must key on a heading Tonto writes.
+
+        Current Tonto emits "IAM refinement" and "Structure refinement
+        results"; it does not emit "Rigid-atom fit results" anywhere.  An
+        extraction keyed on the missing heading leaves its line number unset,
+        so `for (d=b-2; d<c-1; ++d)` starts at -2 and copies the whole of
+        stdout into the summary instead of one block.
+
+        KNOWN GAP: the per-cycle convergence table (MAXSHIFT, MAXSHIFTATOM,
+        MAXSHIFTPARAM and the row written for each cycle) still keys on that
+        heading and therefore comes out blank.  Fixing it needs the right
+        heading per refinement phase, which differs between an IAM and a HAR.
+        Tracked separately; this test covers the block extractions only.
+        """
+        for runner in RUNNERS:
+            text = Path(runner).read_text(encoding="utf-8")
+            live = [
+                line
+                for line in text.splitlines()
+                if "/^Rigid-atom fit results/{b=NR}/^Wall-clock" in line
+                and not line.lstrip().startswith("#")
+            ]
+            with self.subTest(runner=runner):
+                self.assertEqual(
+                    live,
+                    [],
+                    f"{runner} extracts a result block on a heading Tonto no "
+                    f"longer writes: {live[:1]}",
+                )
+
+
+
 if __name__ == "__main__":
     unittest.main()
+
