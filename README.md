@@ -86,6 +86,7 @@ Two ways, and they are not the same thing:
 
 | | |
 |---|---|
+| [docs/WORKSHOP.md](docs/WORKSHOP.md) | a guided introduction, with two worked examples |
 | [docs/INSTALL.md](docs/INSTALL.md) | prerequisites and installation, per platform |
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | how the pieces fit together |
 | [docs/TESTING.md](docs/TESTING.md) | running the tests |

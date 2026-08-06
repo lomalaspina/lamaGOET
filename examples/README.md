@@ -8,6 +8,9 @@ something has broken.
 
 All three use **Tonto only**, so no Gaussian, ORCA or CP2K licence is needed.
 
+For a guided walk through these, with the theory and what to look for, see
+[../docs/WORKSHOP.md](../docs/WORKSHOP.md).
+
 ## Running one
 
 From inside an example folder, either open the interface
