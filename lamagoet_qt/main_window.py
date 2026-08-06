@@ -1602,7 +1602,7 @@ class MainWindow(QMainWindow):
         atoms = structure.asymmetric_unit()
         self.structure = structure
         self.visible_atoms = atoms
-        self.current_grow_description = "asymmetric unit"
+        self.current_grow_description = self.UNGROWN_DESCRIPTION
         self._displayed_cif = path.resolve()
         if automatic:
             self._cif_watch_baseline[path.resolve()] = path.stat().st_mtime_ns
@@ -1732,10 +1732,38 @@ class MainWindow(QMainWindow):
         except (CifError, ValueError) as exc:
             QMessageBox.critical(self, "Could not grow structure", str(exc))
 
+    #: What ``current_grow_description`` says when nothing has been grown yet.
+    UNGROWN_DESCRIPTION = "asymmetric unit"
+
     def export_grown_cif(self) -> None:
         if not self.structure or not self.visible_atoms:
             QMessageBox.information(self, "No structure", "Open and grow a CIF first.")
             return
+
+        # Opening a CIF shows its asymmetric unit, and this button exports
+        # whatever is on screen.  A user who opens a file and exports straight
+        # away therefore gets their own structure back unchanged, with nothing
+        # to indicate that the grow step was skipped.  That matters: Hirshfeld
+        # Atom Refinement runs a quantum-chemistry calculation on the exported
+        # fragment, so an asymmetric unit holding a third of a molecule gives a
+        # chemically meaningless starting geometry rather than an error.
+        if self.current_grow_description == self.UNGROWN_DESCRIPTION:
+            answer = QMessageBox.warning(
+                self,
+                "Nothing has been grown yet",
+                f"The structure view is still showing the asymmetric unit "
+                f"({len(self.visible_atoms)} atoms), so exporting now would "
+                f"copy the original structure unchanged.\n\n"
+                "To grow it, choose a mode beside the structure view — "
+                "\"Complete fragment(s)/molecule(s)\" is usually what a "
+                "refinement needs — and press Apply.\n\n"
+                "Export the asymmetric unit anyway?",
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.Cancel,
+                QMessageBox.StandardButton.Cancel,
+            )
+            if answer != QMessageBox.StandardButton.Yes:
+                return
+
         source = Path(self.cif_path.text()).expanduser()
         if not source.is_absolute():
             source = self.option_path.parent / source
