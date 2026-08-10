@@ -3340,16 +3340,16 @@ SCF_TO_TONTO(){
 #		echo -e " $J\t$(awk '{a[NR]=$0}/^Rigid-atom fit results/{b=NR}END {print a[b-4]}' stdout | awk '{print $1}' )\t$INITIALCHI\t$(awk '{a[NR]=$0}/^Rigid-atom fit results/{b=NR}END {print a[b-4]}' stdout | awk '{print  $2"\t"$3"\t"$4"\t"}') $MAXSHIFT\t$MAXSHIFTATOM $MAXSHIFTPARAM $(awk '{a[NR]=$0}/^Rigid-atom fit results/{b=NR}END {print a[b-4]}' stdout | awk '{print  "\t""    "$9" \t"$10 }' ) "  >> $JOBNAME.lst  
 #	fi
 	FIT_ITER=$(awk '{a[NR]=$0}/^Rigid-atom fit results/{b=NR}END {print a[b-4]}' stdout | awk '{print $1}')
-	INITIAL_CHI=$(awk '{a[NR]=$0}/^Begin rigid-atom fit/{b=NR}END {print a[b+10]}' stdout | awk '{print  $2}')
-	FINAL_CHI=$(awk '{a[NR]=$0}/^Rigid-atom fit results/{b=NR}END {print a[b-4]}' stdout | awk '{print $2}')
+#  	INITIAL_CHI=$(awk '{a[NR]=$0}/^Begin rigid-atom fit/{b=NR}END {print a[b+10]}' stdout | awk '{print  $2}')
+	FINALCHI=$(awk '{a[NR]=$0}/^Rigid-atom fit results/{b=NR}END {print a[b-4]}' stdout | awk '{print $2}')
 	FINAL_R=$(awk '{a[NR]=$0}/^Rigid-atom fit results/{b=NR}END {print a[b-4]}' stdout | awk '{print $3}')
 	FINAL_RW=$(awk '{a[NR]=$0}/^Rigid-atom fit results/{b=NR}END {print a[b-4]}' stdout | awk '{print $4}')
-	MAXSHIFT=$(awk '{a[NR]=$0}/^Begin rigid-atom fit/{b=NR}END {print a[b+10]}' stdout | awk '{print  $5}')
-	MAXSHIFTATOM=$(awk '{a[NR]=$0}/^Begin rigid-atom fit/{b=NR}END {print a[b+10]}' stdout | awk '{print  $7}')
-	MAXSHIFTPARAM=$(awk '{a[NR]=$0}/^Begin rigid-atom fit/{b=NR}END {print a[b+10]}' stdout | awk '{print  $8}')
+#	MAXSHIFT=$(awk '{a[NR]=$0}/^Begin rigid-atom fit/{b=NR}END {print a[b+10]}' stdout | awk '{print  $5}')
+#	MAXSHIFTATOM=$(awk '{a[NR]=$0}/^Begin rigid-atom fit/{b=NR}END {print a[b+10]}' stdout | awk '{print  $7}')
+#	MAXSHIFTPARAM=$(awk '{a[NR]=$0}/^Begin rigid-atom fit/{b=NR}END {print a[b+10]}' stdout | awk '{print  $8}')
 	NUMBER_PARAM=$(awk '{a[NR]=$0}/^Rigid-atom fit results/{b=NR}END {print a[b-4]}' stdout | awk '{print $9}')
 	NUMBER_EIGEN=$(awk '{a[NR]=$0}/^Rigid-atom fit results/{b=NR}END {print a[b-4]}' stdout | awk '{print $10}')
-#	echo -e " $J\t$FIT_ITER\t$INITIALCHI\t$FINAL_CHI\t$FINAL_R\t$FINAL_RW\t$MAXSHIFT\t$MAXSHIFTATOM $MAXSHIFTPARAM\t$NUMBER_PARAM\t$NUMBER_EIGEN\t "  >> $JOBNAME.lst  
+#	echo -e " $J\t$FIT_ITER\t$INITIALCHI\t$FINALCHI\t$FINAL_R\t$FINAL_RW\t$MAXSHIFT\t$MAXSHIFTATOM $MAXSHIFTPARAM\t$NUMBER_PARAM\t$NUMBER_EIGEN\t "  >> $JOBNAME.lst  
 	if [[ "$SCFCALCPROG" != "Tonto" ]]; then 
                 if [ ! -d "$J.tonto_cycle.$JOBNAME" ]; then
 	        	mkdir $J.tonto_cycle.$JOBNAME
@@ -3916,7 +3916,7 @@ CHECK_ENERGY(){
 	DE=$(printf '%.12f' $DE)
 	# Cycle, fit iterations, chi2 before and after, R, R_w, largest
 	# shift and where it was, parameter and eigenvalue counts.
-	echo -e " $J\t$FIT_ITER\t$INITIAL_CHI\t$FINAL_CHI\t$FINAL_R\t$FINAL_RW\t$MAXSHIFT\t$MAXSHIFTATOM $MAXSHIFTPARAM\t$NUMBER_PARAM\t$NUMBER_EIGEN\t$ENERGIA2\t$RMSD2\t$DE"  >> $JOBNAME.lst  
+	echo -e " $J\t$FIT_ITER\t$INITIALCHI\t$FINALCHI\t$FINAL_R\t$FINAL_RW\t$MAXSHIFT\t$MAXSHIFTATOM $MAXSHIFTPARAM\t$NUMBER_PARAM\t$NUMBER_EIGEN\t$ENERGIA2\t$RMSD2\t$DE"  >> $JOBNAME.lst  
 #	printf ' %s\t%s\t%s\t%s\t%s\t%s\t%s\t%s %s\t%s\t%s\t%s\t%s\t%s\n' \
 #		"$J" \
 #		"$(printf '%s' "$_fit_summary" | cut -f1)" \
@@ -4539,7 +4539,7 @@ REDUCECELLCLUSTER(){
 
 run_script(){
 	SECONDS=0
-	MAXSHIFT=0
+	#MAXSHIFT=0
 	# BEGIN LAMAGOET CP2K INTEGRATION: mode validation
 	if [ "$SCFCALCPROG" = "CP2K" ]; then
 		CP2K_VALIDATE_LAMAGOET_MODE || exit 1
@@ -5053,7 +5053,7 @@ run_script(){
 			TONTO_TO_OCC
 			CHECK_ENERGY
 		fi
-		if [[ "$SCFCALCPROG" == "Gaussian" || "$SCFCALCPROG" == "Orca" || "$SCFCALCPROG" == "OCC" || "$SCFCALCPROG" == "Crystal14"  ]]; then
+		if [[ "$SCFCALCPROG" == "Gaussian" || "$SCFCALCPROG" == "Orca" || "$SCFCALCPROG" == "OCC" || "$SCFCALCPROG" == "Crystal14" || "$SCFCALCPROG" == "CP2K" ]]; then
 			if [[ "$DOUBLE_SCF" == "true" ]]; then #I think this whole block is not necessary! need to test
 				if [[ "$POWDER_HAR" == "true" ]]; then
                                         RUN_JANA
@@ -5095,7 +5095,7 @@ run_script(){
 				        CHECK_ENERGY
                                 done
                         else
-                                if [[ "$SCFCALCPROG" != "Crystal14" ]]; then  
+                                if [[ "$SCFCALCPROG" != "Crystal14" && "$SCFCALCPROG" != "CP2K" ]]; then  
  		        	        while (( $(echo "$MAXSHIFT > $CONVTOL" | bc -l) && $( echo "$J <= $MAXCYCLE" | bc -l )  )); do
 # 		        	        while (( $(echo "$MAXSHIFT > $CONVTOL" | bc -l) || $(echo "$(echo ${DE#-}) > $CONVTOLE" | bc -l) || $( echo "$J <= $MAXCYCLE" | bc -l ) )); do
                                                 if [[ "${HAR_WAVEFUNCTION_STALLED:-false}" == "true" ]]; then
@@ -5188,11 +5188,15 @@ run_script(){
 		echo "" >> $JOBNAME.lst
 		APPEND_IAM_RESULTS
 		echo "###############################################################################################" >> $JOBNAME.lst
-		echo "                                     Final Geometry                                         " >> $JOBNAME.lst
+		echo "                                     Final Geometry                                            " >> $JOBNAME.lst
 		echo "###############################################################################################" >> $JOBNAME.lst
 		echo "" >> $JOBNAME.lst
 		echo "Energy= $ENERGIA2, RMSD= $RMSD2" >> $JOBNAME.lst
 		echo " $(awk '{a[NR]=$0}/^Structure refinement results/ && !b {b=NR}/^Wall-clock time taken for job /{c=NR}END{for (d=b-2;d<c-1;++d) print a[d]}' stdout)"  >> $JOBNAME.lst
+		if [[ "$SCFCALCPROG" != "Tonto" && "$SCFCALCPROG" != "optgaussian" && "$SCFCALCPROG" != "optorca" ]]; then 
+			echo " $(awk '{a[NR]=$0}/^Rigid-atom fit results/ && !b {b=NR}/^Fit statistics vs. angle/{c=NR}END{for (d=b-2;d<c-1;++d) print a[d]}' $[$J-1].tonto_cycle.$JOBNAME/$[$J-1].stdout)"  >> $JOBNAME.lst
+			echo " $(awk '{a[NR]=$0}/^Reflections pruned/ && !b {b=NR}/^Wall-clock time taken for job/{c=NR}END{for (d=b-2;d<c-1;++d) print a[d]}' stdout)"  >> $JOBNAME.lst
+		fi
 		if [[ "$SCFCALCPROG" != "optgaussian" && "$SCFCALCPROG" != "optorca" ]]; then  
 		        if [[ "$POWDER_HAR" != "true" && "$SCFCALCPROG" != "Crystal14" ]]; then  
 			        GET_RESIDUALS
@@ -5204,7 +5208,7 @@ run_script(){
 		elif [[ "$SCFCALCPROG" == "optgaussian" && "$SCCHARGES" == "true" ]]; then  
 			SCF_TO_TONTO
 			GET_FREQ
-		elif [[ "$SCFCALCPROG" != "optorca" && "$SCCHARGES" == "true" ]]; then  
+		elif [[ "$SCFCALCPROG" == "optorca" && "$SCCHARGES" == "true" ]]; then  
 			SCF_TO_TONTO
 			GET_FREQ_ORCA
 		fi
@@ -5244,7 +5248,7 @@ run_script(){
 		echo "" >> $JOBNAME.lst
 		APPEND_IAM_RESULTS
 		echo "###############################################################################################" >> $JOBNAME.lst
-		echo "                                     Final Geometry                                         " >> $JOBNAME.lst
+		echo "                                     Final Geometry                                            " >> $JOBNAME.lst
 		echo "###############################################################################################" >> $JOBNAME.lst
 		echo "" >> $JOBNAME.lst
 		# Tonto emits one "Structure refinement results" block per refinement,
@@ -5278,7 +5282,7 @@ run_script(){
 			echo "" >> $JOBNAME.lst
 			APPEND_IAM_RESULTS
 			echo "###############################################################################################" >> $JOBNAME.lst
-			echo "                                     Final Geometry                                         " >> $JOBNAME.lst
+			echo "                                     Final Geometry                                            " >> $JOBNAME.lst
 				echo "###############################################################################################" >> $JOBNAME.lst
 			echo "" >> $JOBNAME.lst
 			echo " $(awk '{a[NR]=$0}/^Structure refinement results/ && !b {b=NR}/^Wall-clock time taken for job /{c=NR}END{for (d=b-2;d<c-1;++d) print a[d]}' stdout)"  >> $JOBNAME.lst
@@ -5314,7 +5318,7 @@ run_script(){
 			echo "" >> $JOBNAME.lst
 			APPEND_IAM_RESULTS
 			echo "###############################################################################################" >> $JOBNAME.lst
-			echo "                                     Final Geometry                                         " >> $JOBNAME.lst
+			echo "                                     Final Geometry                                            " >> $JOBNAME.lst
 				echo "###############################################################################################" >> $JOBNAME.lst
 			echo "" >> $JOBNAME.lst
 			echo " $(awk '{a[NR]=$0}/^Structure refinement results/ && !b {b=NR}/^Wall-clock time taken for job /{c=NR}END{for (d=b-2;d<c-1;++d) print a[d]}' stdout)"  >> $JOBNAME.lst
