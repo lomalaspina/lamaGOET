@@ -2697,6 +2697,11 @@ DISPERSION_COEF(){
 	echo "" >> stdin
 }
 
+EXTI_REF(){
+	echo "   	 refine_extinction= $EXTI" >> stdin
+	echo "" >> stdin
+}
+
 CHARGE_MULT(){
 	echo "   charge= $CHARGE" >> stdin       
 	echo "   multiplicity= $MULTIPLICITY" >> stdin
@@ -2826,6 +2831,7 @@ CRYSTAL_BLOCK(){
         			echo "         optimise_extinction= false" >> stdin
         			echo "         correct_dispersion= $DISP" >> stdin
         			echo "         optimise_scale_factor= true" >> stdin
+        			echo "         refine_extinction= $EXTI" >> stdin
         		fi
                 fi
 		echo "         wavelength= $WAVE Angstrom" >> stdin
@@ -2907,6 +2913,10 @@ CRYSTAL_BLOCK(){
 	echo "" >> stdin
 }
 
+SET_H_ISO(){ 
+	echo "	 set_isotropic_h_adps"  >> stdin
+	echo "" >> stdin
+}
 
 PUT_GEOM(){
         if [[ "$SCFCALCPROG" != "Crystal14" && "$SCFCALCPROG" != "CP2K" && "$DEFRAGNETW" != "true" ]]; then
@@ -3014,7 +3024,7 @@ SCF_BLOCK_NOT_TONTO(){
 	                if [[ "$POWDER_HAR" != "true" ]]; then
 			        echo "   ! Make Hirshfeld structure factors" >> stdin
 #			        echo "   fit_hirshfeld_atoms" >> stdin
-                                if [[ "$SCFCALCPROG" == "Crystal14" && "$DEFRAGNETW" == "true" ]]; then
+                                if [[ "$SCFCALCPROG" == "Crystal14" || "$SCFCALCPROG" == "CP2K" || "$SCFCALCPROG" == "Tonto" ]]; then
                                         echo "   phar_defragment" >> stdin
                                 fi
 			        echo "   ha_fit" >> stdin
@@ -3045,7 +3055,7 @@ SCF_BLOCK_NOT_TONTO(){
 			                echo "   make_fock_matrix" >> stdin
 				fi
 #       			echo "   fit_hirshfeld_atoms" >> stdin
-                                if [[ "$SCFCALCPROG" == "Crystal14" && "$DEFRAGNETW" == "true" ]]; then
+                                if [[ "$SCFCALCPROG" == "Crystal14" || "$SCFCALCPROG" == "CP2K" || "$SCFCALCPROG" == "Tonto" ]]; then
                                         echo "   phar_defragment" >> stdin
                                 fi
 			        echo "   ha_fit" >> stdin
@@ -3217,7 +3227,7 @@ SCF_TO_TONTO(){
         	    SCF_BLOCK_NOT_TONTO
         	elif [ "$SCFCALCPROG" = "CP2K" ]; then
         	    # BEGIN LAMAGOET CP2K INTEGRATION: periodic Hirshfeld fit
-		CP2K_TONTO_SCFDATA || return 1
+	            CP2K_TONTO_SCFDATA || return 1
                     echo "   ! Make Hirshfeld structure factors from the periodic CP2K density" >> stdin
                     # Rebuild the pHAR atom mapping for this newly imported density
                     # and refined geometry. This runs on every cycle; atomic form
@@ -3267,9 +3277,9 @@ SCF_TO_TONTO(){
                 fi
 	fi
 	INITIALCHI=$(awk '{a[NR]=$0}/^Begin rigid-atom fit/{b=NR}END {print a[b+10]}' stdout | awk '{print $2}')
-#	MAXSHIFT=$(awk '{a[NR]=$0}/^Begin rigid-atom fit/{b=NR+10}/^Rigid-atom fit results/{c=NR-4}END {for(d=b;d<=c;++d)print a[d]}' stdout | awk -v max=0 '{if($5>max){shift=$5; atom=$6; param=$7; max=$5}}END{print shift}')
-#	MAXSHIFTATOM=$(awk '{a[NR]=$0}/^Begin rigid-atom fit/{b=NR+10}/^Rigid-atom fit results/{c=NR-4}END {for(d=b;d<=c;++d)print a[d]}' stdout | awk -v max=0 '{if($5>max){shift=$5; atom=$6; param=$7; max=$5}}END{print atom}')
-#	MAXSHIFTPARAM=$(awk '{a[NR]=$0}/^Begin rigid-atom fit/{b=NR+10}/^Rigid-atom fit results/{c=NR-4}END {for(d=b;d<=c;++d)print a[d]}' stdout | awk -v max=0 '{if($5>max){shift=$5; atom=$6; param=$7; max=$5}}END{print param}')
+	MAXSHIFT=$(awk '{a[NR]=$0}/^Begin rigid-atom fit/{b=NR+10}/^Rigid-atom fit results/{c=NR-4}END {for(d=b;d<=c;++d)print a[d]}' stdout | awk -v max=0 '{if($5>max){shift=$5; atom=$7; param=$8; max=$5}}END{print shift}')
+	MAXSHIFTATOM=$(awk '{a[NR]=$0}/^Begin rigid-atom fit/{b=NR+10}/^Rigid-atom fit results/{c=NR-4}END {for(d=b;d<=c;++d)print a[d]}' stdout | awk -v max=0 '{if($5>max){shift=$5; atom=$7; param=$8; max=$5}}END{print atom}')
+	MAXSHIFTPARAM=$(awk '{a[NR]=$0}/^Begin rigid-atom fit/{b=NR+10}/^Rigid-atom fit results/{c=NR-4}END {for(d=b;d<=c;++d)print a[d]}' stdout | awk -v max=0 '{if($5>max){shift=$5; atom=$7; param=$8; max=$5}}END{print param}')
 # this is getting the last value of the table, BUT! Its not correct to
 # use the last value of the table because for every fit the last value
 # will be smaller than the convergency criteria and then lamaGOET will
@@ -3279,10 +3289,15 @@ SCF_TO_TONTO(){
 # convergency is also in the energy level. 
 # correct
 	# One pass over the last fit table, normalised for either layout.
-	_fit_summary=$(FIT_TABLE_SUMMARY)
-	MAXSHIFT=$(printf '%s' "$_fit_summary" | cut -f6)
-	MAXSHIFTATOM=$(printf '%s' "$_fit_summary" | cut -f7)
-	MAXSHIFTPARAM=$(printf '%s' "$_fit_summary" | cut -f8)
+#	_fit_summary=$(FIT_TABLE_SUMMARY)
+#	if [[ $J == 1 ]]; then 
+#		MAXSHIFT=0
+#	else
+#		MAXSHIFT=$(printf '%s' "$_fit_summary" | cut -f6)
+#	fi
+#	MAXSHIFT=$(printf '%s' "$_fit_summary" | cut -f6)
+#	MAXSHIFTATOM=$(printf '%s' "$_fit_summary" | cut -f7)
+#	MAXSHIFTPARAM=$(printf '%s' "$_fit_summary" | cut -f8)
 	if [[ "$SCFCALCPROG" != "Tonto" && "$SCFCALCPROG" != "elmodb" ]]; then
 		sed -i 's/(//g' $JOBNAME.xyz
 		sed -i 's/)//g' $JOBNAME.xyz
@@ -3324,6 +3339,17 @@ SCF_TO_TONTO(){
 #	if [[ "$SCFCALCPROG" != "Gaussian" && "$SCFCALCPROG" != "Orca" && "$SCFCALCPROG" != "Crystal14" || "$SCFCALCPROG" != "OCC" ]]; then 
 #		echo -e " $J\t$(awk '{a[NR]=$0}/^Rigid-atom fit results/{b=NR}END {print a[b-4]}' stdout | awk '{print $1}' )\t$INITIALCHI\t$(awk '{a[NR]=$0}/^Rigid-atom fit results/{b=NR}END {print a[b-4]}' stdout | awk '{print  $2"\t"$3"\t"$4"\t"}') $MAXSHIFT\t$MAXSHIFTATOM $MAXSHIFTPARAM $(awk '{a[NR]=$0}/^Rigid-atom fit results/{b=NR}END {print a[b-4]}' stdout | awk '{print  "\t""    "$9" \t"$10 }' ) "  >> $JOBNAME.lst  
 #	fi
+	FIT_ITER=$(awk '{a[NR]=$0}/^Rigid-atom fit results/{b=NR}END {print a[b-4]}' stdout | awk '{print $1}')
+	INITIAL_CHI=$(awk '{a[NR]=$0}/^Begin rigid-atom fit/{b=NR}END {print a[b+10]}' stdout | awk '{print  $2}')
+	FINAL_CHI=$(awk '{a[NR]=$0}/^Rigid-atom fit results/{b=NR}END {print a[b-4]}' stdout | awk '{print $2}')
+	FINAL_R=$(awk '{a[NR]=$0}/^Rigid-atom fit results/{b=NR}END {print a[b-4]}' stdout | awk '{print $3}')
+	FINAL_RW=$(awk '{a[NR]=$0}/^Rigid-atom fit results/{b=NR}END {print a[b-4]}' stdout | awk '{print $4}')
+	MAXSHIFT=$(awk '{a[NR]=$0}/^Begin rigid-atom fit/{b=NR}END {print a[b+10]}' stdout | awk '{print  $5}')
+	MAXSHIFTATOM=$(awk '{a[NR]=$0}/^Begin rigid-atom fit/{b=NR}END {print a[b+10]}' stdout | awk '{print  $7}')
+	MAXSHIFTPARAM=$(awk '{a[NR]=$0}/^Begin rigid-atom fit/{b=NR}END {print a[b+10]}' stdout | awk '{print  $8}')
+	NUMBER_PARAM=$(awk '{a[NR]=$0}/^Rigid-atom fit results/{b=NR}END {print a[b-4]}' stdout | awk '{print $9}')
+	NUMBER_EIGEN=$(awk '{a[NR]=$0}/^Rigid-atom fit results/{b=NR}END {print a[b-4]}' stdout | awk '{print $10}')
+#	echo -e " $J\t$FIT_ITER\t$INITIALCHI\t$FINAL_CHI\t$FINAL_R\t$FINAL_RW\t$MAXSHIFT\t$MAXSHIFTATOM $MAXSHIFTPARAM\t$NUMBER_PARAM\t$NUMBER_EIGEN\t "  >> $JOBNAME.lst  
 	if [[ "$SCFCALCPROG" != "Tonto" ]]; then 
                 if [ ! -d "$J.tonto_cycle.$JOBNAME" ]; then
 	        	mkdir $J.tonto_cycle.$JOBNAME
@@ -3655,7 +3681,7 @@ GET_FREQ(){
 #                	awk '{a[NR]=$0}{b=11}/^------------------------------------------------------------------------/{c=NR}END{for(d=b;d<=c-1;++d)print a[d]}' gaussian-point-charges | awk '{printf "%s\t %s\t %s\t %s\t \n", $1, $2, $3, $4 }' >> $JOBNAME.com
 #                        echo "" >> $JOBNAME.com
 #                else
-					awk '{a[NR]=$0}{b=13}/^------------------------------------------------------------------------/{c=NR}END{for(d=b;d<=c-1;++d)print a[d]}' cluster_charges | awk '{printf "%s\t %s\t %s\t %s\t \n", $1, $2, $3, $4 }' >> $JOBNAME.com
+			awk '{a[NR]=$0}{b=13}/^------------------------------------------------------------------------/{c=NR}END{for(d=b;d<=c-1;++d)print a[d]}' cluster_charges | awk '{printf "%s\t %s\t %s\t %s\t \n", $1, $2, $3, $4 }' >> $JOBNAME.com
                         echo "" >> $JOBNAME.com
 #                fi
 #                rm gaussian-point-charges
@@ -3890,17 +3916,18 @@ CHECK_ENERGY(){
 	DE=$(printf '%.12f' $DE)
 	# Cycle, fit iterations, chi2 before and after, R, R_w, largest
 	# shift and where it was, parameter and eigenvalue counts.
-	printf ' %s\t%s\t%s\t%s\t%s\t%s\t%s\t%s %s\t%s\t%s\t%s\t%s\t%s\n' \
-		"$J" \
-		"$(printf '%s' "$_fit_summary" | cut -f1)" \
-		"$(printf '%s' "$_fit_summary" | cut -f2)" \
-		"$(printf '%s' "$_fit_summary" | cut -f3)" \
-		"$(printf '%s' "$_fit_summary" | cut -f4)" \
-		"$(printf '%s' "$_fit_summary" | cut -f5)" \
-		"$MAXSHIFT" "$MAXSHIFTATOM" "$MAXSHIFTPARAM" \
-		"$(printf '%s' "$_fit_summary" | cut -f9)" \
-		"$(printf '%s' "$_fit_summary" | cut -f10)" \
-		"$ENERGIA2" "$RMSD2" "$DE" >> $JOBNAME.lst
+	echo -e " $J\t$FIT_ITER\t$INITIAL_CHI\t$FINAL_CHI\t$FINAL_R\t$FINAL_RW\t$MAXSHIFT\t$MAXSHIFTATOM $MAXSHIFTPARAM\t$NUMBER_PARAM\t$NUMBER_EIGEN\t$ENERGIA2\t$RMSD2\t$DE"  >> $JOBNAME.lst  
+#	printf ' %s\t%s\t%s\t%s\t%s\t%s\t%s\t%s %s\t%s\t%s\t%s\t%s\t%s\n' \
+#		"$J" \
+#		"$(printf '%s' "$_fit_summary" | cut -f1)" \
+#		"$(printf '%s' "$_fit_summary" | cut -f2)" \
+#		"$(printf '%s' "$_fit_summary" | cut -f3)" \
+#		"$(printf '%s' "$_fit_summary" | cut -f4)" \
+#		"$(printf '%s' "$_fit_summary" | cut -f5)" \
+#		"$MAXSHIFT" "$MAXSHIFTATOM" "$MAXSHIFTPARAM" \
+#		"$(printf '%s' "$_fit_summary" | cut -f9)" \
+#		"$(printf '%s' "$_fit_summary" | cut -f10)" \
+#		"$ENERGIA2" "$RMSD2" "$DE" >> $JOBNAME.lst
 	if [[ -z "${HAR_ENERGY_LAST:-}" && -n "${ENERGIA:-}" ]]; then
 		HAR_ENERGY_LAST=$ENERGIA
 	fi
@@ -3956,6 +3983,7 @@ FIT_TABLE_SUMMARY(){
 	# an initial and a final chi2. Normalise here so the caller does not care.
 	awk '
 		/^IAM refinement$/ || /^Structure refinement results$/ { heading = NR }
+#this is looking for the wrong header!
 		{ line[NR] = $0 }
 		END {
 			if (!heading) exit
@@ -4485,10 +4513,33 @@ COMPLETECIFBLOCK(){
 	fi
 }
 
+COMPLETECELLBLOCK(){
+        echo "   cluster= {" >> stdin
+        echo "      generation_method= unit_cell" >> stdin
+	echo "      make_info" >> stdin
+	echo "   }" >> stdin
+	echo "" >> stdin
+	echo "   create_cluster" >> stdin
+	echo "" >> stdin
+	echo "   name= $JOBNAME" >> stdin		
+	echo "" >> stdin
+}
 
+REDUCECELLCLUSTER(){
+        echo "   cluster= {" >> stdin
+        echo "      generation_method= assymetric_unit" >> stdin
+        echo "      make_info" >> stdin
+        echo "   }" >> stdin
+        echo "" >> stdin
+        echo "   create_cluster" >> stdin
+        echo "" >> stdin
+        echo "   name= $JOBNAME" >> stdin
+        echo "" >> stdin
+}
 
 run_script(){
 	SECONDS=0
+	MAXSHIFT=0
 	# BEGIN LAMAGOET CP2K INTEGRATION: mode validation
 	if [ "$SCFCALCPROG" = "CP2K" ]; then
 		CP2K_VALIDATE_LAMAGOET_MODE || exit 1
@@ -5072,7 +5123,17 @@ run_script(){
 #					echo convtol $CONVTOL
 #					echo DE $DE
 #					echo convtoleee $CONVTOLE
+					#echo "MAXSHIFT=[$MAXSHIFT]"
+					#echo "CONVTOL=[$CONVTOL]"
+					#echo "DE=[$DE]"
+					#echo "CONVTOLE=[$CONVTOLE]"
+					#echo "$MAXSHIFT > $CONVTOL" | bc -l
+					#echo "${DE#-} > $CONVTOLE" | bc -l
+					#MAXSHIFT=$(echo "$MAXSHIFT > $CONVTOL" | bc -l)
+					#DE=$(echo "${DE#-} > $CONVTOLE" | bc -l)
+					#while (( MAXSHIFT || DE )); do
  		        	        while (( $(echo "$MAXSHIFT > $CONVTOL" | bc -l) || $(echo "$(echo ${DE#-}) > $CONVTOLE" | bc -l) )); do
+
                                                 if [[ "${HAR_WAVEFUNCTION_STALLED:-false}" == "true" ]]; then
                                                         echo "Refinement ended because the wavefunction stopped changing."
                                                         break

@@ -763,6 +763,10 @@ class MainWindow(QMainWindow):
             "Apply experimental dispersion correction"
         )
         refinement_form.addRow(self.dispersion_correction)
+        self.extinction_correction = QCheckBox(
+            "Apply extinction correction (SHELX style)"
+        )
+        refinement_form.addRow(self.extinction_correction)
         layout.addWidget(refinement)
 
         self.cp2k_group = QGroupBox("CP2K periodic all-electron settings")
@@ -1324,6 +1328,7 @@ class MainWindow(QMainWindow):
         self.nh_bond.setText(self._option("NHBOND", "1.009"))
         self.oh_bond.setText(self._option("OHBOND", "0.983"))
         self.dispersion_correction.setChecked(self._bool_option("DISP"))
+        self.extinction_correction.setChecked(self._bool_option("EXTI"))
         self.energy_convergence.setText(self._option("CONVTOLE", "0.00001"))
         self.linear_dependence.setText(self._option("LINEDEP"))
         self.max_ls_cycles.setValue(self._int_option("MAXLSCYCLE", 30))
@@ -1927,6 +1932,7 @@ class MainWindow(QMainWindow):
             "NHBOND": self.nh_bond.text().strip(),
             "OHBOND": self.oh_bond.text().strip(),
             "DISP": "yes" if self.dispersion_correction.isChecked() else "no",
+            "EXTI": "yes" if self.extinction_correction.isChecked() else "no",
             "CONVTOLE": self.energy_convergence.text().strip(),
             "LINEDEP": self.linear_dependence.text().strip(),
             "MAXLSCYCLE": self.max_ls_cycles.value(),
