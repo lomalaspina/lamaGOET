@@ -551,6 +551,119 @@ CP2K_VALIDATE_LAMAGOET_MODE() {
 _cp2k_write_input() {
     local output=$1 project=$2 basis_file=$3 charge=$4 multiplicity=$5
     local functional=$6 subsys=$7 scf_guess=$8 restart_file=${9:-}
+
+    local uks_line=""
+    local restart_line=""
+
+    # Use unrestricted Kohn-Sham for open-shell calculations or
+    # whenever METHOD begins with "u".
+    if [ "$multiplicity" -gt 1 ] 2>/dev/null || [[ "$(_lower "$METHOD")" == u* ]]; then
+        uks_line="    UKS T"
+    fi
+
+    # Optional wavefunction restart.
+    if [ -n "$restart_file" ]; then
+        restart_line="    WFN_RESTART_FILE_NAME $restart_file"
+    fi
+
+    cat > "$output" <<EOF_CP2K
+! Generated directly by instalation_July19/lamaGOET.sh
+! Periodic all-electron GAPW single-point energy calculation.
+
+&GLOBAL
+  PROJECT $project
+  RUN_TYPE ENERGY
+  PRINT_LEVEL LOW
+&END GLOBAL
+
+&FORCE_EVAL
+  METHOD QUICKSTEP
+
+  &DFT
+    BASIS_SET_FILE_NAME $basis_file
+    CHARGE $charge
+    MULTIPLICITY $multiplicity
+$uks_line
+$restart_line
+
+    ! All-electron calculation using GAPW.
+    ! The included SUBSYS file must contain:
+    !   BASIS_SET <...-ae>
+    !   POTENTIAL ALL
+
+    &QS
+      METHOD GAPW
+      EPS_DEFAULT ${CP2K_EPS_DEFAULT:-1.0E-10}
+      GAPW_ACCURATE_XCINT T
+    &END QS
+
+    ! Real-space integration grid.
+    ! These values should be convergence-tested for the
+    ! chosen all-electron basis.
+    &MGRID
+      CUTOFF ${CP2K_CUTOFF:-800}
+      REL_CUTOFF ${CP2K_REL_CUTOFF:-60}
+      NGRIDS ${CP2K_NGRIDS:-4}
+    &END MGRID
+
+    ! Three-dimensional periodic crystal.
+    &POISSON
+      PERIODIC XYZ
+    &END POISSON
+
+    ! Periodic Brillouin-zone sampling.
+    ! Default: 2 x 2 x 2 Monkhorst-Pack grid.
+    &KPOINTS
+      SCHEME MONKHORST-PACK ${CP2K_KPOINT_GRID:-2 2 2}
+      GAMMA_CENTERED T
+      SYMMETRY T
+    &END KPOINTS
+
+    ! Ground-state SCF calculation.
+    &SCF
+      MAX_SCF ${CP2K_MAX_SCF:-100}
+      EPS_SCF ${CP2K_EPS_SCF:-1.0E-8}
+      SCF_GUESS $scf_guess
+
+      ! Standard diagonalization is appropriate for the
+      ! insulating molecular crystal considered here.
+      &DIAGONALIZATION
+        ALGORITHM STANDARD
+      &END DIAGONALIZATION
+
+      ! Robust density mixing.
+      &MIXING
+        METHOD BROYDEN_MIXING
+        ALPHA ${CP2K_MIXING_ALPHA:-0.20}
+        NBROYDEN ${CP2K_MIXING_NBROYDEN:-8}
+      &END MIXING
+
+      ! Keep restart capability for subsequent calculations.
+      &PRINT
+        &RESTART ON
+          BACKUP_COPIES 1
+        &END RESTART
+      &END PRINT
+
+    &END SCF
+
+    &XC
+      &XC_FUNCTIONAL $functional
+      &END XC_FUNCTIONAL
+    &END XC
+
+  &END DFT
+
+  @INCLUDE '$subsys'
+
+&END FORCE_EVAL
+EOF_CP2K
+}
+
+
+_cp2k_write_input_original() {
+    local output=$1 project=$2 basis_file=$3 charge=$4 multiplicity=$5
+    local functional=$6 subsys=$7 scf_guess=$8 restart_file=${9:-}
     local uks_line="" restart_line=""
 
     if [ "$multiplicity" -gt 1 ] 2>/dev/null || [[ "$(_lower "$METHOD")" == u* ]]; then
@@ -634,10 +747,52 @@ $restart_line
 EOF_CP2K
 }
 
+_cp2k_run() {
+    local cp2k_bin=$1 input=$2 output=$3 main_log=${4:-}
+    local executable_name ranks threads rc output_name verbose
+
+    executable_name=$(basename "$cp2k_bin")
+    output_name=$(basename "$output")
+    ranks=${CP2K_MPI_RANKS:-${NUMPROC:-1}}
+    threads=${CP2K_NUM_THREADS:-${NUMPROC:-1}}
+    verbose=${CP2K_TERMINAL_VERBOSE:-true}
+
+    _cp2k_prepare_runtime "$cp2k_bin" || return 1
+
+    if [ -n "${CP2K_RUN_COMMAND:-}" ]; then
+        CP2K_INPUT=$(basename "$input") \
+        CP2K_OUTPUT="$output_name" \
+        CP2K_EXECUTABLE="$cp2k_bin" \
+        bash -lc "$CP2K_RUN_COMMAND" > "$output_name" 2>&1
+        rc=$?
+
+    elif [[ "$executable_name" == *.psmp || "$executable_name" == cp2k.psmp ]]; then
+        _cp2k_require_command mpirun || return 1
+
+        OMP_NUM_THREADS=${CP2K_NUM_THREADS:-1} \
+        OMP_PROC_BIND=${OMP_PROC_BIND:-spread} \
+        OMP_PLACES=${OMP_PLACES:-cores} \
+        mpirun -n "$ranks" "$cp2k_bin" -i "$(basename "$input")" \
+            > "$output_name" 2>&1
+        rc=$?
+
+    else
+        OMP_NUM_THREADS="$threads" \
+        OMP_PROC_BIND=${OMP_PROC_BIND:-spread} \
+        OMP_PLACES=${OMP_PLACES:-cores} \
+        "$cp2k_bin" -i "$(basename "$input")" \
+            > "$output_name" 2>&1
+        rc=$?
+    fi
+
+    return "$rc"
+
+}
+
 # Complete CP2K output is retained in each per-cycle *.cp2k.out file and is
 # streamed live by default so cluster/submission logs remain inspectable.
 # Set CP2K_TERMINAL_VERBOSE=false only when a compact terminal log is required.
-_cp2k_run() {
+_cp2k_run_original() {
     local cp2k_bin=$1 input=$2 output=$3 main_log=${4:-}
     local executable_name ranks threads rc output_name verbose
     executable_name=$(basename "$cp2k_bin")
@@ -2690,6 +2845,12 @@ TONTO_BASIS_SET(){
 	echo "" >> stdin
 }
 
+NOT_TONTO_BASIS_SET(){
+	echo "   basis_directory= $BASISSETDIR" >> stdin
+	echo "   basis_name= $BASISSETG" >> stdin
+	echo "" >> stdin
+}
+
 DISPERSION_COEF(){
 	echo "   	 dispersion_coefficients= {" >> stdin
 	echo "   	 $(cat DISP_inst.txt)" >> stdin
@@ -3172,7 +3333,8 @@ SCF_TO_TONTO(){
 		PROCESS_CIF
 		DEFINE_JOB_NAME
                if [[ "$SCFCALCPROG" == "Crystal14" ]]; then
-                        TONTO_BASIS_SET
+                        #TONTO_BASIS_SET
+                        NOT_TONTO_BASIS_SET
         	        CHARGE_MULT
         	        READ_CRYSTAL_WFN
                fi
@@ -4038,7 +4200,7 @@ GET_RESIDUALS(){
 		DISPERSION_COEF
 	fi
 	if [ "$SCFCALCPROG" = "Crystal14" ]; then
-		TONTO_BASIS_SET
+		NOT_TONTO_BASIS_SET
 	fi
 		CHARGE_MULT
 	if [ "$SCFCALCPROG" = "Crystal14" ]; then
