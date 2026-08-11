@@ -548,7 +548,7 @@ CP2K_VALIDATE_LAMAGOET_MODE() {
     return 0
 }
 
-_cp2k_write_input() {
+_cp2k_write_input_maybe_faster() {
     local output=$1 project=$2 basis_file=$3 charge=$4 multiplicity=$5
     local functional=$6 subsys=$7 scf_guess=$8 restart_file=${9:-}
 
@@ -661,7 +661,7 @@ EOF_CP2K
 }
 
 
-_cp2k_write_input_original() {
+_cp2k_write_input() {
     local output=$1 project=$2 basis_file=$3 charge=$4 multiplicity=$5
     local functional=$6 subsys=$7 scf_guess=$8 restart_file=${9:-}
     local uks_line="" restart_line=""
@@ -792,7 +792,7 @@ _cp2k_run() {
 # Complete CP2K output is retained in each per-cycle *.cp2k.out file and is
 # streamed live by default so cluster/submission logs remain inspectable.
 # Set CP2K_TERMINAL_VERBOSE=false only when a compact terminal log is required.
-_cp2k_run_original() {
+_cp2k_run_original_unwanted_terminal_output() {
     local cp2k_bin=$1 input=$2 output=$3 main_log=${4:-}
     local executable_name ranks threads rc output_name verbose
     executable_name=$(basename "$cp2k_bin")
