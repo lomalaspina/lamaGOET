@@ -71,6 +71,7 @@ OPTION_DEFAULTS: dict[str, str] = {
     "ELMOLIB": "/usr/local/bin/LIBRARIES",
     "EMAIL": "",
     "EXIT": "OK",
+    "EXTI": "no",
     "EXPLICITMOL": "false",
     "EXPLRADIUS": "3",
     "EXTRAKEY": "",

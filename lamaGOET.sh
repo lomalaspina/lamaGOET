@@ -2859,7 +2859,7 @@ DISPERSION_COEF(){
 }
 
 EXTI_REF(){
-	echo "   	 refine_extinction= $EXTI" >> stdin
+	echo "   	 refine_extinction= ${EXTI:-no}" >> stdin
 	echo "" >> stdin
 }
 
@@ -2876,7 +2876,7 @@ TONTO_IAM_BLOCK(){
 		echo "      REDIRECT tonto.cell" >> stdin
 	fi
 	echo "      xray_data= {   " >> stdin
-	echo "         optimise_extinction= false" >> stdin
+	echo "         refine_extinction= ${EXTI:-no}" >> stdin
 	echo "         correct_dispersion= $DISP" >> stdin
 	echo "         wavelength= $WAVE Angstrom" >> stdin
 	if [ "$REFANHARM" == "true" ]; then
@@ -2990,10 +2990,9 @@ CRYSTAL_BLOCK(){
                                 echo "         partition_model= oc-hirshfeld" >> stdin
                         fi
                         if [[ "$PLOT_TONTO" == "false" ]]; then
-        			echo "         optimise_extinction= false" >> stdin
         			echo "         correct_dispersion= $DISP" >> stdin
         			echo "         optimise_scale_factor= true" >> stdin
-        			echo "         refine_extinction= $EXTI" >> stdin
+			echo "         refine_extinction= ${EXTI:-no}" >> stdin
         		fi
                 fi
 		echo "         wavelength= $WAVE Angstrom" >> stdin
