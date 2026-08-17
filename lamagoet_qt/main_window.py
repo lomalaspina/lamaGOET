@@ -322,6 +322,27 @@ class MainWindow(QMainWindow):
         export_action.triggered.connect(self.export_grown_cif)
         toolbar.addAction(export_action)
 
+        central = QWidget()
+        central_layout = QVBoxLayout(central)
+        central_layout.setContentsMargins(0, 8, 0, 0)
+        central_layout.setSpacing(8)
+
+        self.logo_label = QLabel()
+        self.logo_label.setObjectName("lamaGOETHeaderLogo")
+        self.logo_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        badge = QPixmap(str(Path(__file__).resolve().parents[1] / LOGO_IMAGE))
+        if not badge.isNull():
+            height = 3 * QLineEdit().sizeHint().height()
+            self.logo_label.setPixmap(
+                badge.scaledToHeight(
+                    height, Qt.TransformationMode.SmoothTransformation
+                )
+            )
+            self.logo_label.setToolTip("lamaGOET")
+        central_layout.addWidget(
+            self.logo_label, 0, Qt.AlignmentFlag.AlignHCenter
+        )
+
         self.main_splitter = QSplitter(Qt.Orientation.Horizontal)
         self.main_splitter.addWidget(self._job_panel())
         self.main_splitter.addWidget(self._structure_panel())
@@ -344,7 +365,8 @@ class MainWindow(QMainWindow):
         handle = self.main_splitter.handle(1)
         handle.setCursor(Qt.CursorShape.SplitHCursor)
         handle.setToolTip("Drag to resize the setup and structure panels")
-        self.setCentralWidget(self.main_splitter)
+        central_layout.addWidget(self.main_splitter, 1)
+        self.setCentralWidget(central)
         self.setStatusBar(QStatusBar())
         self._show_full_text_in_tooltips()
 
@@ -355,21 +377,7 @@ class MainWindow(QMainWindow):
         layout = QVBoxLayout(content)
 
         job_group = QGroupBox("Job and input")
-        # The logo sits to the left of the first fields, about three rows tall,
-        # so the interface is recognisable without taking space from the form.
-        job_row = QHBoxLayout(job_group)
-        logo = QLabel()
-        badge = QPixmap(str(Path(__file__).resolve().parents[1] / LOGO_IMAGE))
-        if not badge.isNull():
-            height = 3 * QLineEdit().sizeHint().height()
-            logo.setPixmap(
-                badge.scaledToHeight(height, Qt.TransformationMode.SmoothTransformation)
-            )
-            logo.setToolTip("lamaGOET")
-        job_row.addWidget(logo, 0, Qt.AlignmentFlag.AlignTop)
-        job_row.addSpacing(8)
-        job_form = QFormLayout()
-        job_row.addLayout(job_form, 1)
+        job_form = QFormLayout(job_group)
         self.job_name = QLineEdit("my_job")
         self.job_name.editingFinished.connect(self._reset_cif_watch_baseline)
         job_form.addRow("Job name", self.job_name)

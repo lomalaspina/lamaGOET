@@ -420,14 +420,14 @@ _cp2k_log() {
     local message="$*"
     printf '%s\n' "$message"
     if [ -n "${JOBNAME:-}" ]; then
-        printf '%s\n' "$message" >> "${JOBNAME}.lst"
+        printf '%s\n' "$message" >> "${JOBNAME}_CP2K.lst"
     fi
 }
 
 _cp2k_log_detail() {
     local message="$*"
     if [ -n "${JOBNAME:-}" ]; then
-        printf '%s\n' "$message" >> "${JOBNAME}.lst"
+        printf '%s\n' "$message" >> "${JOBNAME}_CP2K.lst"
     fi
 }
 
@@ -435,7 +435,7 @@ _cp2k_error() {
     local message="lamaGOET/CP2K: ERROR: $*"
     printf '%s\n' "$message" >&2
     if [ -n "${JOBNAME:-}" ]; then
-        printf '%s\n' "$message" >> "${JOBNAME}.lst"
+        printf '%s\n' "$message" >> "${JOBNAME}_CP2K.lst"
     fi
     return 1
 }
@@ -792,7 +792,7 @@ _cp2k_run() {
 # Complete CP2K output is retained in each per-cycle *.cp2k.out file and is
 # streamed live by default so cluster/submission logs remain inspectable.
 # Set CP2K_TERMINAL_VERBOSE=false only when a compact terminal log is required.
-_cp2k_run_original_unwanted_terminal_output() {
+_cp2k_run_unwanted_terminal_output() {
     local cp2k_bin=$1 input=$2 output=$3 main_log=${4:-}
     local executable_name ranks threads rc output_name verbose
     executable_name=$(basename "$cp2k_bin")
@@ -2929,6 +2929,7 @@ TONTO_IAM_BLOCK(){
 	        echo "" >> stdin
 	        echo "Running Tonto IAM refinement." 
                 $TONTO
+		DURATION=$SECONDS
 		echo "Job ended, elapsed time:" | tee -a $JOBNAME.lst
 		echo "$(($DURATION / 86400 )) days,  $((($DURATION / 3600) % 24 )) hours, $((($DURATION / 60) % 60 ))minutes and $(($DURATION % 60 )) seconds elapsed." | tee -a $JOBNAME.lst
 		exit 0
@@ -3361,7 +3362,9 @@ SCF_TO_TONTO(){
 		echo "" >> stdin
 	fi
 	if [[ "$SCFCALCPROG" == "Tonto" ]]; then 
-		TONTO_BASIS_SET
+		if [[ $J != 0 && "$IAMTONTO" != "true" ]]; then 
+			TONTO_BASIS_SET
+		fi
 		if [[ "$COMPLETESTRUCT" == "true" || "$EXPLICITMOL" == "true" ]]; then
 			COMPLETECIFBLOCK
 		fi
@@ -3374,7 +3377,9 @@ SCF_TO_TONTO(){
 		DISPERSION_COEF
 	fi
         if [[ "$SCFCALCPROG" != "Crystal14" && "$SCFCALCPROG" != "CP2K" ]]; then
-         	CHARGE_MULT
+		if [[ $J != 0 && "$IAMTONTO" != "true" ]]; then 
+         		CHARGE_MULT
+		fi
         fi
 	if [[ $J == 0 && "$IAMTONTO" == "true" ]]; then 
 		TONTO_IAM_BLOCK
@@ -5360,7 +5365,7 @@ run_script(){
 			echo " $(awk '{a[NR]=$0}/^Reflections pruned/ && !b {b=NR}/^Wall-clock time taken for job/{c=NR}END{for (d=b-2;d<c-1;++d) print a[d]}' stdout)"  >> $JOBNAME.lst
 		fi
 		if [[ "$SCFCALCPROG" != "optgaussian" && "$SCFCALCPROG" != "optorca" ]]; then  
-		        if [[ "$POWDER_HAR" != "true" && "$SCFCALCPROG" != "Crystal14" ]]; then  
+		        if [[ "$POWDER_HAR" != "true" && "$SCFCALCPROG" != "Crystal14" && "$SCFCALCPROG" != "CP2K"  ]]; then  
 			        GET_RESIDUALS
 			        echo " $(awk '{a[NR]=$0}/^Residual density data/{b=NR}/^Wall-clock time taken for job/{c=NR}END{for (d=b-2;d<c-1;++d) print a[d]}' stdout)" >> $JOBNAME.lst
                         fi
@@ -5374,7 +5379,7 @@ run_script(){
 			SCF_TO_TONTO
 			GET_FREQ_ORCA
 		fi
-		echo " $(awk '{a[NR]=$0}/^Reflections pruned/{b=NR}/^Atom coordinates/{c=NR}END{for (d=b-2;d<c-1;++d) print a[d]}' stdout)"  >> $JOBNAME.lst
+#		echo " $(awk '{a[NR]=$0}/^Reflections pruned/{b=NR}/^Atom coordinates/{c=NR}END{for (d=b-2;d<c-1;++d) print a[d]}' stdout)"  >> $JOBNAME.lst
 		DURATION=$SECONDS
 		echo "Job ended, elapsed time:" | tee -a $JOBNAME.lst
 		echo "$(($DURATION / 86400 )) days,  $((($DURATION / 3600) % 24 )) hours, $((($DURATION / 60) % 60 ))minutes and $(($DURATION % 60 )) seconds elapsed." | tee -a $JOBNAME.lst
