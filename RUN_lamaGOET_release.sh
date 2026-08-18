@@ -884,6 +884,14 @@ TONTO_BASIS_SET(){
 	echo "" >> stdin
 }
 
+TONTO_OBSERVED_DENSITY_INPUT(){
+	[[ "$SCFCALCPROG" == "Tonto" && ( "${PARTITION_MODEL:-oc-hirshfeld}" == "observed" || "${PARTITION_MODEL:-oc-hirshfeld}" == "oc-observed" ) ]]
+}
+
+TONTO_IAM_ONLY_INPUT(){
+	[[ "$SCFCALCPROG" == "Tonto" && "$J" == "0" && "$IAMTONTO" == "true" && "$ONLYIAMTONTO" == "true" ]]
+}
+
 DISPERSION_COEF(){
 	echo "   	 dispersion_coefficients= {" >> stdin
 	echo "   	 $(cat DISP_inst.txt)" >> stdin
@@ -1282,6 +1290,35 @@ SCF_BLOCK_PROM_TONTO(){
 	echo "" >> stdin
 }
 
+SCF_BLOCK_OBSERVED_TONTO(){
+	# oc-observed uses a molecular basis only to build neutral atomic
+	# reference densities. It must not run a molecular SCF: the refined
+	# structure factors come from the regularized observed density.
+	echo "   becke_grid= {" >> stdin
+	echo "      set_defaults" >> stdin
+	echo "      accuracy= high" >> stdin
+	echo "   }" >> stdin
+	echo "" >> stdin
+	echo "   ! Atomic reference SCF settings (no molecular SCF command)" >> stdin
+	echo "   scfdata= {" >> stdin
+	echo "      initial_density= promolecule " >> stdin
+	echo "      kind= rhf" >> stdin
+	echo "      output= true " >> stdin
+	echo "      use_SC_cluster_charges= FALSE" >> stdin
+        if [[ "$LINEDEP" != "" ]]; then
+	        echo "      linear_dependence_tol= $LINEDEP" >> stdin
+        fi
+	echo "      convergence= 0.001" >> stdin
+	echo "      diis= { convergence_tolerance= 0.0002 }" >> stdin
+	echo "   }" >> stdin
+	echo "" >> stdin
+	if [[ "$XCWONLY" != "true" && "$PLOT_TONTO" == "false" && "$POWDER_HAR" != "true" ]]; then
+		echo "   ! Refine with regularized observed-density atom factors" >> stdin
+		echo "   refine_hirshfeld_atoms" >> stdin
+		echo "" >> stdin
+	fi
+}
+
 SCF_BLOCK_REST_TONTO(){
 	echo "   ! SC cluster charge SCF" >> stdin
 	echo "   scfdata= {" >> stdin
@@ -1377,7 +1414,9 @@ SCF_TO_TONTO(){
 		echo "" >> stdin
 	fi
 	if [[ "$SCFCALCPROG" == "Tonto" ]]; then 
-		TONTO_BASIS_SET
+		if ! TONTO_IAM_ONLY_INPUT; then
+			TONTO_BASIS_SET
+		fi
 		if [[ "$COMPLETESTRUCT" == "true" || "$EXPLICITMOL" == "true" ]]; then
 			COMPLETECIFBLOCK
 		fi
@@ -1390,7 +1429,9 @@ SCF_TO_TONTO(){
 		DISPERSION_COEF
 	fi
         if [[ "$SCFCALCPROG" != "Crystal14" ]]; then
-         	CHARGE_MULT
+		if ! TONTO_IAM_ONLY_INPUT; then
+			CHARGE_MULT
+		fi
         fi
 	if [[ $J == 0 && "$IAMTONTO" == "true" ]]; then 
 		TONTO_IAM_BLOCK
@@ -1398,7 +1439,7 @@ SCF_TO_TONTO(){
 	CRYSTAL_BLOCK
        	PUT_GEOM
 	if [[ "$POWDER_HAR" != "true" ]]; then
-        	if [[ "$USEBECKE" == "true" ]]; then 
+		if [[ "$USEBECKE" == "true" ]] && ! TONTO_OBSERVED_DENSITY_INPUT; then
         		BECKE_GRID
         	fi
         	if [[ "$SCFCALCPROG" != "Tonto" ]]; then 
@@ -1406,8 +1447,12 @@ SCF_TO_TONTO(){
         	fi
         fi
        	if [[ "$SCFCALCPROG" == "Tonto" ]]; then
-       		SCF_BLOCK_PROM_TONTO
-       		SCF_BLOCK_REST_TONTO
+		if TONTO_OBSERVED_DENSITY_INPUT; then
+			SCF_BLOCK_OBSERVED_TONTO
+		else
+			SCF_BLOCK_PROM_TONTO
+			SCF_BLOCK_REST_TONTO
+		fi
        	fi
 	echo "" >> stdin
 	echo "}" >> stdin 
@@ -2299,7 +2344,7 @@ XCW_SCF_BLOCK(){
 	echo "      real_width= 20" >> stdin
 	echo "   }" >> stdin
 	echo "   " >> stdin
-	SCF_BLOCK_PROM_TONTO
+			SCF_BLOCK_PROM_TONTO
 #	if [[ "$XCWONLY" == "false" ]]; then 
 #		echo "   read_archive molecular_orbitals restricted" >> stdin
 #		echo "   read_archive orbital_energies restricted" >> stdin
@@ -2447,7 +2492,7 @@ PLOTS(){
 #echo "   read_archive orbital_energies restricted" >> stdin
 	echo "   read_archive MO_energies r" >> stdin
 	echo "" >> stdin
-	SCF_BLOCK_REST_TONTO
+			SCF_BLOCK_REST_TONTO
 #	echo "   make_scf_density_matrix" >> stdin
 #echo "   read_archive density_matrix restricted" >> stdin
 	echo "   read_archive density_mx r" >> stdin

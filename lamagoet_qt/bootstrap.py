@@ -11,14 +11,28 @@ import json
 import os
 from pathlib import Path
 import platform
+import shutil
 import subprocess
 import sys
+import tempfile
 from typing import Sequence
 
 
 MINIMUM_PYTHON = (3, 10)
 REQUIRED_MODULES = ("PySide6", "basis_set_exchange", "numpy")
 MARKER_NAME = ".lamagoet-qt-environment.json"
+
+LINUX_QT_XCB_PACKAGES = (
+    "libxcb-cursor0",
+    "libxcb-icccm4",
+    "libxcb-util1",
+    "libxcb-image0",
+    "libxcb-keysyms1",
+    "libxcb-render-util0",
+    "libxcb-xkb1",
+    "libxkbcommon-x11-0",
+)
+NATIVE_LIBRARY_DIRECTORY = "qt-native-libs"
 
 
 class BootstrapError(RuntimeError):
@@ -111,6 +125,155 @@ def _modules_available(python: Path) -> bool:
     return result.returncode == 0
 
 
+def _qt_xcb_plugin(environment: Path) -> Path | None:
+    """Return PySide6's XCB platform plugin inside *environment*."""
+
+    plugins = sorted(
+        environment.glob(
+            "lib/python*/site-packages/PySide6/Qt/plugins/platforms/libqxcb.so"
+        )
+    )
+    return plugins[0] if plugins else None
+
+
+def _native_library_directories(root: Path) -> tuple[Path, ...]:
+    """Return directories below *root* that contain shared libraries."""
+
+    directories = {
+        path.parent
+        for path in root.rglob("*.so*")
+        if path.is_file() or path.is_symlink()
+    }
+    return tuple(sorted(directories))
+
+
+def _prepend_library_paths(
+    variables: dict[str, str],
+    directories: Sequence[Path],
+) -> None:
+    paths = [str(path) for path in directories]
+    existing = [
+        item
+        for item in variables.get("LD_LIBRARY_PATH", "").split(os.pathsep)
+        if item
+    ]
+    combined: list[str] = []
+    for item in [*paths, *existing]:
+        if item not in combined:
+            combined.append(item)
+    if combined:
+        variables["LD_LIBRARY_PATH"] = os.pathsep.join(combined)
+
+
+def _missing_xcb_libraries(
+    plugin: Path,
+    library_directories: Sequence[Path] = (),
+) -> tuple[str, ...]:
+    """Return the unresolved shared libraries reported by ldd."""
+
+    variables = os.environ.copy()
+    _prepend_library_paths(variables, library_directories)
+    try:
+        result = subprocess.run(
+            ["ldd", str(plugin)],
+            text=True,
+            capture_output=True,
+            check=False,
+            env=variables,
+        )
+    except OSError:
+        return ()
+    missing = {
+        line.split("=>", 1)[0].strip()
+        for line in f"{result.stdout}\n{result.stderr}".splitlines()
+        if "=> not found" in line
+    }
+    return tuple(sorted(name for name in missing if name))
+
+
+def _linux_qt_runtime_help(missing: Sequence[str]) -> str:
+    package_command = " ".join(LINUX_QT_XCB_PACKAGES)
+    missing_text = ", ".join(missing) if missing else "unknown XCB libraries"
+    return (
+        "PySide6's XCB platform plugin is missing native libraries: "
+        f"{missing_text}.\n"
+        "Automatic installation in lamaGOET's private environment failed. "
+        "On Debian/Ubuntu/WSL, install them system-wide with:\n"
+        f"  sudo apt-get install {package_command}"
+    )
+
+
+def _ensure_linux_qt_runtime(environment: Path) -> tuple[Path, ...]:
+    """Install missing XCB libraries privately on Debian/Ubuntu/WSL."""
+
+    if platform.system() != "Linux":
+        return ()
+    plugin = _qt_xcb_plugin(environment)
+    if plugin is None:
+        return ()
+
+    native_root = environment / NATIVE_LIBRARY_DIRECTORY
+    library_directories = _native_library_directories(native_root)
+    missing = _missing_xcb_libraries(plugin, library_directories)
+    if not missing:
+        return library_directories
+
+    apt_get = shutil.which("apt-get")
+    dpkg_deb = shutil.which("dpkg-deb")
+    if not apt_get or not dpkg_deb:
+        raise BootstrapError(_linux_qt_runtime_help(missing))
+
+    print(
+        "lamaGOET: installing missing Qt/XCB libraries in the private "
+        "environment (no sudo required)...",
+        file=sys.stderr,
+        flush=True,
+    )
+    native_root.mkdir(parents=True, exist_ok=True)
+    try:
+        with tempfile.TemporaryDirectory(
+            prefix="qt-native-download-",
+            dir=environment,
+        ) as download_directory:
+            subprocess.run(
+                [apt_get, "download", *LINUX_QT_XCB_PACKAGES],
+                cwd=download_directory,
+                check=True,
+            )
+            packages = sorted(Path(download_directory).glob("*.deb"))
+            if not packages:
+                raise BootstrapError(
+                    "apt-get did not download any Qt/XCB packages."
+                )
+            for package in packages:
+                subprocess.run(
+                    [dpkg_deb, "-x", str(package), str(native_root)],
+                    check=True,
+                )
+    except (OSError, subprocess.CalledProcessError, BootstrapError) as exc:
+        raise BootstrapError(_linux_qt_runtime_help(missing)) from exc
+
+    library_directories = _native_library_directories(native_root)
+    remaining = _missing_xcb_libraries(plugin, library_directories)
+    if remaining:
+        raise BootstrapError(_linux_qt_runtime_help(remaining))
+    return library_directories
+
+
+def _configure_linux_qt_platform(variables: dict[str, str]) -> None:
+    """Use XCB when the environment advertises an unusable Wayland socket."""
+
+    if platform.system() != "Linux" or variables.get("QT_QPA_PLATFORM"):
+        return
+    wayland_display = variables.get("WAYLAND_DISPLAY", "")
+    runtime_directory = variables.get("XDG_RUNTIME_DIR", "")
+    if wayland_display and runtime_directory:
+        if (Path(runtime_directory) / wayland_display).exists():
+            return
+    if variables.get("DISPLAY"):
+        variables["QT_QPA_PLATFORM"] = "xcb"
+
+
 def _venv_failure_help() -> str:
     if platform.system() == "Linux":
         return (
@@ -123,7 +286,11 @@ def _venv_failure_help() -> str:
     )
 
 
-def _activated_environment(environment: Path, python: Path) -> dict[str, str]:
+def _activated_environment(
+    environment: Path,
+    python: Path,
+    native_library_directories: Sequence[Path] = (),
+) -> dict[str, str]:
     variables = os.environ.copy()
     executable_directory = str(python.parent)
     path_items = variables.get("PATH", "").split(os.pathsep)
@@ -134,6 +301,8 @@ def _activated_environment(environment: Path, python: Path) -> dict[str, str]:
     variables["VIRTUAL_ENV"] = str(environment)
     variables.pop("PYTHONHOME", None)
     variables["LAMAGOET_QT_BOOTSTRAPPED"] = "1"
+    _prepend_library_paths(variables, native_library_directories)
+    _configure_linux_qt_platform(variables)
     return variables
 
 
@@ -217,12 +386,23 @@ def ensure_qt_environment(
             encoding="utf-8",
         )
 
+    native_library_directories = _ensure_linux_qt_runtime(environment)
+
     try:
         already_running = python.resolve() == Path(sys.executable).resolve()
     except OSError:
         already_running = False
-    activated = _activated_environment(environment, python)
-    if not already_running:
+    activated = _activated_environment(
+        environment, python, native_library_directories
+    )
+    # Linux's dynamic loader reads LD_LIBRARY_PATH when the process starts.
+    # Updating os.environ is therefore too late when a launcher selected the
+    # existing venv interpreter directly. Re-exec once with the private XCB
+    # library directories active; the next pass sees the paths and continues.
+    native_loader_restart = bool(native_library_directories) and os.environ.get(
+        "LD_LIBRARY_PATH", ""
+    ) != activated.get("LD_LIBRARY_PATH", "")
+    if not already_running or native_loader_restart:
         os.execve(
             str(python),
             [str(python), str(script), *arguments],

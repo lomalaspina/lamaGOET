@@ -35,6 +35,15 @@ def main() -> int:
         assert not window.external_basis_group.isHidden()
         assert window.email.isHidden()
         assert window.initial_adp_group.isHidden()
+        assert not window.extinction_correction.isChecked()
+        window.extinction_correction.setChecked(True)
+        assert window._current_values()["EXTI"] == "yes"
+        assert window.logo_label.pixmap() is not None
+        assert not window.logo_label.pixmap().isNull()
+        assert window.logo_label.alignment() & Qt.AlignmentFlag.AlignHCenter
+        central_layout = window.centralWidget().layout()
+        assert central_layout.indexOf(window.logo_label) == 0
+        assert central_layout.indexOf(window.main_splitter) == 1
         window.show()
         app.processEvents()
         total_width = sum(window.main_splitter.sizes())

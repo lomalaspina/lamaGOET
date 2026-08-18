@@ -45,6 +45,18 @@ class RunnerRegressionTest(unittest.TestCase):
                 self.assertIn('dft_exchange_functional= becke88', body)
                 self.assertIn('dft_correlation_functional= lyp', body)
 
+    def test_extinction_selection_reaches_iam_and_har_inputs(self):
+        keyword = 'refine_extinction= ${EXTI:-no}'
+        for name, text in self.runner_text.items():
+            with self.subTest(runner=name, block="IAM"):
+                iam = function_body(text, "TONTO_IAM_BLOCK")
+                self.assertIn(keyword, iam)
+                self.assertNotIn("optimise_extinction= false", iam)
+            with self.subTest(runner=name, block="HAR"):
+                har = function_body(text, "CRYSTAL_BLOCK")
+                self.assertIn(keyword, har)
+                self.assertNotIn("optimise_extinction= false", har)
+
     def test_crystal_partition_selection_was_not_replaced_by_scf_input(self):
         for name, text in self.runner_text.items():
             with self.subTest(runner=name):
@@ -91,6 +103,64 @@ class RunnerRegressionTest(unittest.TestCase):
                     crystal,
                     r'if \[\[[^\n]*SCFCALCPROG[^\n]*"Tonto"[^\n]*\]\]; then\s+'
                     r'WRITE_DENSITY_PARTITION_MODEL',
+                )
+
+    def test_observed_density_uses_atomic_references_without_molecular_scf(self):
+        for name, text in self.runner_text.items():
+            with self.subTest(runner=name):
+                observed = function_body(text, "SCF_BLOCK_OBSERVED_TONTO")
+                self.assertIn('echo "      accuracy= high" >> stdin', observed)
+                self.assertIn('echo "   scfdata= {" >> stdin', observed)
+                self.assertIn(
+                    'echo "   refine_hirshfeld_atoms" >> stdin',
+                    observed,
+                )
+                self.assertNotIn('echo "   scf" >> stdin', observed)
+
+                dispatcher = function_body(text, "SCF_TO_TONTO")
+                self.assertIn(
+                    "if TONTO_OBSERVED_DENSITY_INPUT; then",
+                    dispatcher,
+                )
+                self.assertGreaterEqual(
+                    dispatcher.count("if ! TONTO_IAM_ONLY_INPUT; then"),
+                    2,
+                )
+
+    @unittest.skipUnless(
+        os.name == "posix" and shutil.which("bash"),
+        "generated observed-density input test requires bash",
+    )
+    def test_generated_observed_density_reference_block_has_no_scf_command(self):
+        for runner, text in self.runner_text.items():
+            with self.subTest(runner=runner), tempfile.TemporaryDirectory() as directory:
+                definition = (
+                    "SCF_BLOCK_OBSERVED_TONTO(){\n"
+                    + function_body(text, "SCF_BLOCK_OBSERVED_TONTO")
+                )
+                script = (
+                    definition
+                    + '\nLINEDEP=""\n'
+                    + 'XCWONLY="false"\n'
+                    + 'PLOT_TONTO="false"\n'
+                    + 'POWDER_HAR="false"\n'
+                    + "SCF_BLOCK_OBSERVED_TONTO\n"
+                    + "cat stdin\n"
+                )
+                result = subprocess.run(
+                    ["bash", "-c", script],
+                    cwd=directory,
+                    text=True,
+                    capture_output=True,
+                    check=True,
+                )
+                generated = result.stdout
+                self.assertIn("accuracy= high", generated)
+                self.assertEqual(generated.count("scfdata="), 1)
+                self.assertIn("refine_hirshfeld_atoms", generated)
+                self.assertNotIn(
+                    "scf",
+                    [line.strip() for line in generated.splitlines()],
                 )
 
     @unittest.skipUnless(

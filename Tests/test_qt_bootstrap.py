@@ -92,6 +92,56 @@ class QtBootstrapTest(unittest.TestCase):
                 self.assertFalse(any("pip" in command for command in commands))
                 execute.assert_called_once()
 
+    def test_stale_wayland_environment_falls_back_to_xcb(self):
+        with tempfile.TemporaryDirectory() as directory:
+            variables = {
+                "DISPLAY": ":0",
+                "WAYLAND_DISPLAY": "wayland-0",
+                "XDG_RUNTIME_DIR": str(Path(directory) / "missing"),
+            }
+            with mock.patch("platform.system", return_value="Linux"):
+                bootstrap._configure_linux_qt_platform(variables)
+        self.assertEqual(variables["QT_QPA_PLATFORM"], "xcb")
+
+    def test_explicit_qt_platform_is_preserved(self):
+        variables = {
+            "DISPLAY": ":0",
+            "QT_QPA_PLATFORM": "minimal",
+        }
+        with mock.patch("platform.system", return_value="Linux"):
+            bootstrap._configure_linux_qt_platform(variables)
+        self.assertEqual(variables["QT_QPA_PLATFORM"], "minimal")
+
+    def test_native_libraries_are_activated_before_qt_starts(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            environment = root / "environment"
+            python = bootstrap.environment_python(environment, "Linux")
+            python.parent.mkdir(parents=True)
+            python.touch()
+            native = environment / bootstrap.NATIVE_LIBRARY_DIRECTORY / "usr/lib"
+            native.mkdir(parents=True)
+            (native / "libxcb-cursor.so.0").touch()
+            with mock.patch.dict(
+                "os.environ",
+                {
+                    "PATH": "/usr/bin",
+                    "DISPLAY": ":0",
+                    "WAYLAND_DISPLAY": "wayland-0",
+                    "XDG_RUNTIME_DIR": str(root / "missing"),
+                },
+                clear=True,
+            ), mock.patch("platform.system", return_value="Linux"):
+                variables = bootstrap._activated_environment(
+                    environment,
+                    python,
+                    bootstrap._native_library_directories(
+                        environment / bootstrap.NATIVE_LIBRARY_DIRECTORY
+                    ),
+                )
+        self.assertEqual(variables["QT_QPA_PLATFORM"], "xcb")
+        self.assertEqual(variables["LD_LIBRARY_PATH"], str(native))
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -27,8 +27,19 @@ sudo apt-get install -y gawk coreutils sed
 # Python, for the Qt interface. The launchers build their own environment.
 sudo apt-get install -y python3 python3-venv python3-pip
 
-# Qt runtime libraries, needed to open a window.
-sudo apt-get install -y libxcb-cursor0 libxkbcommon-x11-0 libegl1
+# Qt runtime libraries needed by PySide6's xcb platform plugin. PySide6 ships
+# Qt itself, but these X11/XCB integration libraries belong to the operating
+# system and are deliberately not bundled in the Python wheel.
+sudo apt-get install -y \
+    libegl1 \
+    libxcb-cursor0 \
+    libxcb-icccm4 \
+    libxcb-image0 \
+    libxcb-keysyms1 \
+    libxcb-render-util0 \
+    libxcb-util1 \
+    libxcb-xkb1 \
+    libxkbcommon-x11-0
 sudo apt-get install -y language-pack-en-base
 
 # Still used for a few input prompts: the space group, an external basis set,

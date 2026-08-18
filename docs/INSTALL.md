@@ -41,7 +41,9 @@ If you would rather not use it, the equivalent is:
 
 ```bash
 sudo apt-get install gawk coreutils sed python3 python3-venv python3-pip
-sudo apt-get install libxcb-cursor0 libxkbcommon-x11-0 libegl1 zenity
+sudo apt-get install libegl1 libxcb-cursor0 libxcb-icccm4 libxcb-image0
+sudo apt-get install libxcb-keysyms1 libxcb-render-util0 libxcb-util1
+sudo apt-get install libxcb-xkb1 libxkbcommon-x11-0 zenity
 ```
 
 then run `lamaGOET_qt.sh` directly from the checkout.
