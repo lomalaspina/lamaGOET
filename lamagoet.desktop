@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=Application
+Version=1.0
+Name=lamaGOET
+GenericName=Hirshfeld Atom Refinement
+Comment=Set up and run quantum-crystallographic refinements
+Exec=lamaGOET_qt
+Icon=lamagoet
+Terminal=false
+Categories=Science;Education;Chemistry;
+StartupNotify=true
+StartupWMClass=lamaGOET

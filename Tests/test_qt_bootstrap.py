@@ -42,6 +42,19 @@ class QtBootstrapTest(unittest.TestCase):
                 selected = bootstrap.select_environment(project)
         self.assertEqual(selected.name, f".venv-qt-linux-x86_64-py{sys.version_info.major}{sys.version_info.minor}")
 
+    def test_active_environment_is_identified_by_sys_prefix(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            environment = root / "environment"
+            environment.mkdir()
+            with mock.patch.object(bootstrap.sys, "prefix", str(environment)):
+                self.assertTrue(bootstrap._running_in_environment(environment))
+            # A venv interpreter may resolve to the same executable as the
+            # system Python; the active prefix must still be different.
+            with mock.patch.object(bootstrap.sys, "prefix", str(root / "system")):
+                self.assertFalse(bootstrap._running_in_environment(environment))
+
+
     def test_environment_is_created_installed_marked_and_reused(self):
         with tempfile.TemporaryDirectory() as directory:
             project = Path(directory)
@@ -102,6 +115,35 @@ class QtBootstrapTest(unittest.TestCase):
             with mock.patch("platform.system", return_value="Linux"):
                 bootstrap._configure_linux_qt_platform(variables)
         self.assertEqual(variables["QT_QPA_PLATFORM"], "xcb")
+
+    def test_wsl_prefers_xcb_even_with_a_valid_wayland_socket(self):
+        with tempfile.TemporaryDirectory() as directory:
+            runtime = Path(directory)
+            (runtime / "wayland-0").touch()
+            variables = {
+                "DISPLAY": ":0",
+                "WAYLAND_DISPLAY": "wayland-0",
+                "XDG_RUNTIME_DIR": str(runtime),
+                "WSL_DISTRO_NAME": "Ubuntu",
+            }
+            with mock.patch("platform.system", return_value="Linux"):
+                bootstrap._configure_linux_qt_platform(variables)
+        self.assertEqual(variables["QT_QPA_PLATFORM"], "xcb")
+
+    def test_native_linux_keeps_a_valid_wayland_socket(self):
+        with tempfile.TemporaryDirectory() as directory:
+            runtime = Path(directory)
+            (runtime / "wayland-0").touch()
+            variables = {
+                "DISPLAY": ":0",
+                "WAYLAND_DISPLAY": "wayland-0",
+                "XDG_RUNTIME_DIR": str(runtime),
+            }
+            with mock.patch("platform.system", return_value="Linux"), mock.patch(
+                "platform.release", return_value="6.8.0-generic"
+            ):
+                bootstrap._configure_linux_qt_platform(variables)
+        self.assertNotIn("QT_QPA_PLATFORM", variables)
 
     def test_explicit_qt_platform_is_preserved(self):
         variables = {

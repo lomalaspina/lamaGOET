@@ -23,16 +23,48 @@ REQUIRED_MODULES = ("PySide6", "basis_set_exchange", "numpy")
 MARKER_NAME = ".lamagoet-qt-environment.json"
 
 LINUX_QT_XCB_PACKAGES = (
+    "libdbus-1-3",
+    "libegl1",
+    "libfontconfig1",
+    "libgl1",
+    "libglib2.0-0",
+    "libglvnd0",
+    "libglx0",
+    "libopengl0",
+    "libwayland-client0",
+    "libwayland-cursor0",
+    "libwayland-egl1",
+    "libx11-6",
+    "libx11-xcb1",
+    "libxcb1",
     "libxcb-cursor0",
     "libxcb-icccm4",
-    "libxcb-util1",
     "libxcb-image0",
     "libxcb-keysyms1",
+    "libxcb-randr0",
+    "libxcb-render0",
     "libxcb-render-util0",
+    "libxcb-shape0",
+    "libxcb-shm0",
+    "libxcb-sync1",
+    "libxcb-util1",
+    "libxcb-xfixes0",
     "libxcb-xkb1",
+    "libxcb-xinerama0",
+    "libxext6",
+    "libxkbcommon0",
     "libxkbcommon-x11-0",
 )
 NATIVE_LIBRARY_DIRECTORY = "qt-native-libs"
+
+
+def _running_in_environment(environment: Path) -> bool:
+    """Whether this process is already using *environment*."""
+
+    try:
+        return Path(sys.prefix).resolve() == environment.resolve()
+    except OSError:
+        return False
 
 
 class BootstrapError(RuntimeError):
@@ -261,9 +293,21 @@ def _ensure_linux_qt_runtime(environment: Path) -> tuple[Path, ...]:
 
 
 def _configure_linux_qt_platform(variables: dict[str, str]) -> None:
-    """Use XCB when the environment advertises an unusable Wayland socket."""
+    """Select the most reliable Qt display backend for Linux and WSL.
+
+    WSLg's native Wayland bridge does not consistently forward custom window
+    icons to the Windows taskbar.  XWayland carries Qt's ``_NET_WM_ICON``
+    property directly, so prefer XCB under WSL when an X display is available.
+    An explicit ``QT_QPA_PLATFORM`` always takes precedence.
+    """
 
     if platform.system() != "Linux" or variables.get("QT_QPA_PLATFORM"):
+        return
+    if variables.get("DISPLAY") and (
+        variables.get("WSL_DISTRO_NAME")
+        or "microsoft" in platform.release().lower()
+    ):
+        variables["QT_QPA_PLATFORM"] = "xcb"
         return
     wayland_display = variables.get("WAYLAND_DISPLAY", "")
     runtime_directory = variables.get("XDG_RUNTIME_DIR", "")
@@ -388,10 +432,10 @@ def ensure_qt_environment(
 
     native_library_directories = _ensure_linux_qt_runtime(environment)
 
-    try:
-        already_running = python.resolve() == Path(sys.executable).resolve()
-    except OSError:
-        already_running = False
+    # A venv's python is commonly a symlink to the system interpreter.
+    # sys.prefix identifies the active environment without resolving that
+    # symlink back to the system executable.
+    already_running = _running_in_environment(environment)
     activated = _activated_environment(
         environment, python, native_library_directories
     )

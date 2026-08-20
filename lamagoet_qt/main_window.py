@@ -2579,6 +2579,12 @@ SPLASH_IMAGE = "lamaGOET_splash.png"
 #: The lamaGOET logo, used as the window and application icon.
 LOGO_IMAGE = "llama.png"
 
+# Linux/Wayland application ID. WSLg uses this to associate a Python-launched
+# window with lamagoet.desktop. Without it Windows sees "python3" and displays
+# the generic Linux penguin instead of the lamaGOET icon.
+DESKTOP_FILE_NAME = "lamagoet"
+
+
 
 def _application_icon() -> QIcon:
     """The lamaGOET logo, or an empty icon if it is missing.
@@ -2637,6 +2643,7 @@ def run(
 ) -> int:
     app = QApplication.instance() or QApplication([])
     app.setApplicationName("lamaGOET")
+    app.setDesktopFileName(DESKTOP_FILE_NAME)
     app.setWindowIcon(_application_icon())
     splash = _show_splash()
     window = MainWindow(option_path, submission_mode=submission_mode)

@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import os
 from pathlib import Path
 import sys
 
@@ -23,6 +24,11 @@ def main() -> int:
         "--setup-only",
         action="store_true",
         help="create/update the private Qt environment, then exit",
+    )
+    parser.add_argument(
+        "--check-install",
+        action="store_true",
+        help="create/update the environment and verify that Qt can start",
     )
     parser.add_argument(
         "job_options",
@@ -46,6 +52,41 @@ def main() -> int:
     if args.setup_only:
         print(f"lamaGOET Qt environment is ready: {python}")
         return 0
+    if args.check_install:
+        # Headless build machines have no graphical backend to initialize.
+        # Real desktops and WSLg deliberately use their normal backend so a
+        # missing XCB/Wayland library makes the installation check fail.
+        if (
+            sys.platform.startswith("linux")
+            and not os.environ.get("DISPLAY")
+            and not os.environ.get("WAYLAND_DISPLAY")
+        ):
+            os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+        try:
+            import basis_set_exchange
+            import numpy
+            from PySide6.QtCore import qVersion
+            from PySide6.QtGui import QIcon
+            from PySide6.QtWidgets import QApplication
+
+            app = QApplication.instance() or QApplication([])
+            app.setApplicationName("lamaGOET")
+            app.setDesktopFileName("lamagoet")
+            icon = QIcon(str(project_root / "llama.png"))
+            if icon.isNull():
+                raise RuntimeError("llama.png is missing or unreadable")
+            print(
+                "lamaGOET Qt installation check passed: "
+                f"Python {sys.version_info.major}.{sys.version_info.minor}, "
+                f"Qt {qVersion()}, platform {app.platformName()}, "
+                f"NumPy {numpy.__version__}, "
+                f"Basis Set Exchange {basis_set_exchange.__version__}"
+            )
+            app.quit()
+            return 0
+        except (ImportError, OSError, RuntimeError) as exc:
+            print(f"lamaGOET Qt installation check failed: {exc}", file=sys.stderr)
+            return 2
     try:
         from lamagoet_qt.main_window import run
     except ImportError as exc:

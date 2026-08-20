@@ -29,24 +29,39 @@ environment and takes a few minutes.
 ## Linux (Debian, Ubuntu)
 
 ```bash
-sudo apt-get update
-sudo ./install.sh
+./install.sh
 ```
 
-Safe to run more than once. It installs the GNU tools, Python, the Qt runtime
-libraries, and `zenity`; puts the four commands on your `PATH`; and builds the
-private Python environment.
+Run the script as your normal user. It asks for `sudo` only while installing
+system packages and files; running the entire script with `sudo` would
+otherwise leave the private Python environment owned by root. The installer
+also protects against this when it is accidentally invoked through `sudo`.
 
-If you would rather not use it, the equivalent is:
+Safe to run more than once. It refreshes the package metadata, installs the GNU
+tools, Python, XCB, Wayland, OpenGL, `zenity`, and the remaining native Qt
+libraries; installs the lamaGOET desktop identity and taskbar icon; and builds
+and tests the private Python environment. It reports success only after Qt has
+initialized the current display backend.
+
+If you would rather not use it, install the corresponding packages manually:
 
 ```bash
-sudo apt-get install gawk coreutils sed python3 python3-venv python3-pip
-sudo apt-get install libegl1 libxcb-cursor0 libxcb-icccm4 libxcb-image0
-sudo apt-get install libxcb-keysyms1 libxcb-render-util0 libxcb-util1
-sudo apt-get install libxcb-xkb1 libxkbcommon-x11-0 zenity
+sudo apt-get update
+sudo apt-get install bc ca-certificates coreutils desktop-file-utils findutils
+sudo apt-get install gawk grep gzip locales openssh-client python3 python3-pip
+sudo apt-get install python3-venv sed zenity libegl1 libfontconfig1 libgl1
+sudo apt-get install libgl1-mesa-dri libglib2.0-0 libopengl0 libwayland-client0
+sudo apt-get install libwayland-cursor0 libwayland-egl1 libx11-6 libx11-xcb1
+sudo apt-get install libxcb-cursor0 libxcb-icccm4 libxcb-image0 libxcb-keysyms1
+sudo apt-get install libxcb-render-util0 libxcb-util1 libxcb-xkb1
+sudo apt-get install libxkbcommon0 libxkbcommon-x11-0
 ```
 
-then run `lamaGOET_qt.sh` directly from the checkout.
+Then verify the automatically created Python environment and Qt backend:
+
+```bash
+python3 GUI_lamaGOET_qt.py --check-install
+```
 
 ## Windows
 

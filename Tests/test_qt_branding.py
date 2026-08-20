@@ -45,6 +45,15 @@ class BrandingTest(unittest.TestCase):
         self.assertFalse(icon.isNull())
         self.assertTrue(icon.availableSizes())
 
+    def test_linux_desktop_identity_matches_the_installed_entry(self):
+        desktop = (REPO / "lamagoet.desktop").read_text(encoding="utf-8")
+        self.assertEqual(main_window.DESKTOP_FILE_NAME, "lamagoet")
+        self.assertIn("Name=lamaGOET\n", desktop)
+        self.assertIn("Exec=lamaGOET_qt\n", desktop)
+        self.assertIn("Icon=lamagoet\n", desktop)
+        self.assertIn("StartupWMClass=lamaGOET\n", desktop)
+
+
     def test_the_splash_is_skipped_when_there_is_no_screen(self):
         """Off-screen runs, including this suite, must not try to show it."""
         self.assertIsNone(main_window._show_splash())
