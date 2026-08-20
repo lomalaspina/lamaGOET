@@ -900,7 +900,7 @@ TONTO_TO_CP2K() {
 
     next_cycle=$((${I:-0} + 1))
     if [ "$next_cycle" -gt 1 ]; then
-        _cp2k_log "Preparing periodic geometry for CP2K cycle number $next_cycle"
+        _cp2k_log_detail "Preparing periodic geometry for CP2K cycle number $next_cycle"
     fi
     I=$next_cycle
     cycle_dir="${I}.CP2K.cycle.${JOBNAME}"
@@ -1161,17 +1161,14 @@ CP2K_CHECK_ENERGY() {
     fi
 }
 
-# LAMAGOET CP2K LST FIT SUMMARY v1.1
-# Write one compact .lst row for a Tonto fit and bind it explicitly to the
-# CP2K wavefunction cycle that was passed into that fit.  Do not infer this
-# association from I == J: other lamaGOET workflows can contain preparation,
-# cluster-charge, structure-completion or final-residual program calls that do
-# not advance the two counters in lockstep.
-CP2K_WRITE_FIT_ROW() {
+# LAMAGOET CP2K LST FIT SUMMARY v1.2
+# Capture the Tonto statistics immediately, but do not write the .lst row yet.
+# The Energy-at-final-geometry value only exists after the *next* CP2K run has
+# evaluated the geometry produced by this fit.
+CP2K_CAPTURE_FIT_ROW() {
     local wavefunction_cycle=${1:-${I:-0}}
     local fit_data fit_iter initial_chi final_chi r_factor rw_facto
     local max_shift max_atom max_param n_params n_eigs
-    local energy rmsd delta table_cycle
 
     [ -f stdout ] || {
         _cp2k_error "Tonto stdout is missing while preparing the CP2K fit summary"
@@ -1215,25 +1212,48 @@ CP2K_WRITE_FIT_ROW() {
         fit_iter initial_chi final_chi r_factor rw_factor \
         max_shift max_atom max_param n_params n_eigs <<< "$fit_data"
 
-    table_cycle=${J:-0}
+    CP2K_PENDING_TABLE_CYCLE=${J:-0}
+    CP2K_PENDING_SOURCE_WFN_CYCLE=$wavefunction_cycle
+    CP2K_PENDING_FIT_ITER=$fit_iter
+    CP2K_PENDING_INITIAL_CHI=$initial_chi
+    CP2K_PENDING_FINAL_CHI=$final_chi
+    CP2K_PENDING_R_FACTOR=$r_factor
+    CP2K_PENDING_RW_FACTOR=$rw_factor
+    CP2K_PENDING_MAX_SHIFT=$max_shift
+    CP2K_PENDING_MAX_ATOM=$max_atom
+    CP2K_PENDING_MAX_PARAM=$max_param
+    CP2K_PENDING_N_PARAMS=$n_params
+    CP2K_PENDING_N_EIGS=$n_eigs
+    CP2K_FIT_ROW_PENDING=true
+
+    _cp2k_log_detail "Captured Tonto fit cycle $CP2K_PENDING_TABLE_CYCLE from CP2K wavefunction cycle $wavefunction_cycle"
+}
+
+CP2K_WRITE_FIT_ROW() {
+    local final_geometry_cycle=${1:-${I:-0}}
+    local energy rmsd delta
+
+    [[ "${CP2K_FIT_ROW_PENDING:-false}" == "true" ]] || {
+        _cp2k_error "no pending Tonto fit row is available for CP2K cycle $final_geometry_cycle"
+        return 1
+    }
+
     energy=${CP2K_LAST_ENERGY:-${ENERGIA2:-n/a}}
     rmsd=${CP2K_LAST_RMSD:-${RMSD2:-n/a}}
     delta=${DE:-0.000000000000}
     [[ -n "$rmsd" ]] || rmsd=n/a
 
-    if [ "$table_cycle" -eq 1 ] && [ "${CP2K_LST_MAPPING_NOTE_WRITTEN:-false}" != true ]; then
-        printf "# CP2K rows: Cycle = Tonto ha_fit cycle; Energy/RMSD = CP2K wavefunction used by that fit.\n" \
-            >> "${JOBNAME}.lst"
-        CP2K_LST_MAPPING_NOTE_WRITTEN=true
-    fi
-
     printf " %2d    %3s    %14s %14s %15s %15s %14s  %-6s %-6s %8s %9s %15s %12s %18s\n" \
-        "$table_cycle" "$fit_iter" "$initial_chi" "$final_chi" \
-        "$r_factor" "$rw_factor" "$max_shift" "$max_atom" "$max_param" \
-        "$n_params" "$n_eigs" "$energy" "$rmsd" "$delta" \
+        "$CP2K_PENDING_TABLE_CYCLE" "$CP2K_PENDING_FIT_ITER" \
+        "$CP2K_PENDING_INITIAL_CHI" "$CP2K_PENDING_FINAL_CHI" \
+        "$CP2K_PENDING_R_FACTOR" "$CP2K_PENDING_RW_FACTOR" \
+        "$CP2K_PENDING_MAX_SHIFT" "$CP2K_PENDING_MAX_ATOM" \
+        "$CP2K_PENDING_MAX_PARAM" "$CP2K_PENDING_N_PARAMS" \
+        "$CP2K_PENDING_N_EIGS" "$energy" "$rmsd" "$delta" \
         >> "${JOBNAME}.lst"
 
-    _cp2k_log "Recorded Tonto fit cycle $table_cycle with CP2K wavefunction cycle $wavefunction_cycle"
+    _cp2k_log_detail "Recorded Tonto fit cycle $CP2K_PENDING_TABLE_CYCLE with CP2K final-geometry cycle $final_geometry_cycle"
+    CP2K_FIT_ROW_PENDING=false
 }
 
 CP2K_ASSERT_TONTO_FIT() {
@@ -1246,6 +1266,46 @@ CP2K_ASSERT_TONTO_FIT() {
         return 1
     }
     _cp2k_log "Tonto HAR cycle $J complete: maximum shift/esd = $MAXSHIFT"
+}
+
+CP2K_APPEND_STARTING_GEOMETRY(){
+    {
+        echo ""
+        echo "###############################################################################################"
+        echo "                                     Starting Geometry                                         "
+        echo "###############################################################################################"
+        echo ""
+        echo "Starting geometry: Energy= ${ENERGIA2:-unknown}, RMSD= ${RMSD2:-unknown}"
+        echo ""
+    } >> "${JOBNAME}.lst"
+}
+
+CP2K_APPEND_FINAL_GEOMETRY(){
+    {
+        echo "__________________________________________________________________________________________________________________________________________________________________"
+        echo ""
+        echo "###############################################################################################"
+        echo "                                     Final Geometry                                            "
+        echo "###############################################################################################"
+        echo ""
+        echo "Energy= ${ENERGIA2:-unknown}, RMSD= ${RMSD2:-unknown}"
+        echo ""
+        awk '
+            { line[NR] = $0 }
+            /^Rigid-atom fit results$/ || /^Structure refinement results$/ {
+                start = NR - 2
+            }
+            start && /^Wall-clock time taken for job/ {
+                finish = NR - 2
+            }
+            END {
+                if (!start) exit
+                if (!finish || finish < start) finish = NR
+                for (i = start; i <= finish; i++) print line[i]
+            }
+        ' stdout
+        echo ""
+    } >> "${JOBNAME}.lst"
 }
 
 CP2K_FINAL_RESIDUALS() {
@@ -1287,13 +1347,13 @@ CP2K_FINAL_RESIDUALS() {
             cp "$artifact" "final.CP2K.residuals.${JOBNAME}/$artifact"
         fi
     done
-    awk '{a[NR]=$0}/^Residual density data/{b=NR}/^Wall-clock time taken for job/{c=NR}END{for(d=b-2;d<c-1;++d)print a[d]}' stdout \
-        | tee -a "${JOBNAME}.lst"
+    awk '{a[NR]=$0}/^Residual density data/{b=NR}/^Wall-clock time taken for job/{c=NR}END{for(d=b-2;d<c-1;++d)print a[d]}' stdout >> "${JOBNAME}.lst"
 }
 
 CP2K_RUN_HAR() {
     local duration fit_wfn_cycle
     local final_density_current=false
+    CP2K_FIT_ROW_PENDING=false
     CP2K_VALIDATE_LAMAGOET_MODE || return 1
     _cp2k_log "Starting periodic CP2K Hirshfeld atom refinement"
 
@@ -1301,17 +1361,21 @@ CP2K_RUN_HAR() {
     TONTO_TO_CP2K || return 1
     CP2K_CHECK_ENERGY || return 1
     CHECK_WAVEFUNCTION_STALL "$ENERGIA2" "$RMSD2"
+    CP2K_APPEND_STARTING_GEOMETRY || return 1
 
     # First Tonto Hirshfeld atom fit. Bind the row to the CP2K density
     # that is about to be passed to Tonto; do not infer the mapping from I/J.
     fit_wfn_cycle=$I
     SCF_TO_TONTO || return 1
     CP2K_ASSERT_TONTO_FIT || return 1
-    CP2K_WRITE_FIT_ROW "$fit_wfn_cycle" || return 1
+    CP2K_CAPTURE_FIT_ROW "$fit_wfn_cycle" || return 1
 
     while _cp2k_float_gt "$MAXSHIFT" "${CONVTOL:-0.01}" && [ "$J" -lt "${MAXCYCLE:-20}" ]; do
         TONTO_TO_CP2K || return 1
         CP2K_CHECK_ENERGY || return 1
+        # This CP2K calculation evaluates the geometry created by the
+        # pending Tonto fit, so its energy and delta belong on that fit row.
+        CP2K_WRITE_FIT_ROW "$I" || return 1
         CHECK_WAVEFUNCTION_STALL "$ENERGIA2" "$RMSD2"
         if [[ "${HAR_WAVEFUNCTION_STALLED:-false}" == "true" ]]; then
             final_density_current=true
@@ -1321,7 +1385,7 @@ CP2K_RUN_HAR() {
         fit_wfn_cycle=$I
         SCF_TO_TONTO || return 1
         CP2K_ASSERT_TONTO_FIT || return 1
-        CP2K_WRITE_FIT_ROW "$fit_wfn_cycle" || return 1
+        CP2K_CAPTURE_FIT_ROW "$fit_wfn_cycle" || return 1
     done
 
     if [[ "${HAR_WAVEFUNCTION_STALLED:-false}" == "true" ]]; then
@@ -1337,9 +1401,11 @@ CP2K_RUN_HAR() {
     if [[ "$final_density_current" != "true" ]]; then
         TONTO_TO_CP2K || return 1
         CP2K_CHECK_ENERGY || return 1
+        CP2K_WRITE_FIT_ROW "$I" || return 1
     else
         _cp2k_log "Reusing the current converged CP2K density for final residuals."
     fi
+    CP2K_APPEND_FINAL_GEOMETRY || return 1
     CP2K_FINAL_RESIDUALS || return 1
 
     _cp2k_log "Periodic CP2K HAR finished"
@@ -3347,6 +3413,16 @@ SCF_BLOCK_REST_TONTO(){
 	fi
 }
 
+REPORT_TONTO_HAR_CYCLE(){
+    case "${SCFCALCPROG:-}" in
+        CP2K|Tonto) return 0 ;;
+    esac
+    if [[ -n "${MAXSHIFT:-}" ]]; then
+        printf 'Tonto HAR cycle %s complete: maximum shift/esd = %s\n' \
+            "${J:-unknown}" "$MAXSHIFT"
+    fi
+}
+
 SCF_TO_TONTO(){
 	TONTO_HEADER
 	if [ "$SCFCALCPROG" = "elmodb" ]; then
@@ -3487,6 +3563,14 @@ SCF_TO_TONTO(){
 	MAXSHIFT=$(awk '{a[NR]=$0}/^Begin rigid-atom fit/{b=NR+10}/^Rigid-atom fit results/{c=NR-4}END {for(d=b;d<=c;++d)print a[d]}' stdout | awk -v max=0 '{if($5>max){shift=$5; atom=$7; param=$8; max=$5}}END{print shift}')
 	MAXSHIFTATOM=$(awk '{a[NR]=$0}/^Begin rigid-atom fit/{b=NR+10}/^Rigid-atom fit results/{c=NR-4}END {for(d=b;d<=c;++d)print a[d]}' stdout | awk -v max=0 '{if($5>max){shift=$5; atom=$7; param=$8; max=$5}}END{print atom}')
 	MAXSHIFTPARAM=$(awk '{a[NR]=$0}/^Begin rigid-atom fit/{b=NR+10}/^Rigid-atom fit results/{c=NR-4}END {for(d=b;d<=c;++d)print a[d]}' stdout | awk -v max=0 '{if($5>max){shift=$5; atom=$7; param=$8; max=$5}}END{print param}')
+	_fit_summary=$(FIT_TABLE_SUMMARY)
+	if [[ -n "$_fit_summary" ]]; then
+		IFS=$'\t' read -r _fit_iter _initial_chi _final_chi _final_r _final_rw \
+			_max_shift _max_atom _max_param _number_param _number_eigen <<< "$_fit_summary"
+		MAXSHIFT=$_max_shift
+		MAXSHIFTATOM=$_max_atom
+		MAXSHIFTPARAM=$_max_param
+	fi
 # this is getting the last value of the table, BUT! Its not correct to
 # use the last value of the table because for every fit the last value
 # will be smaller than the convergency criteria and then lamaGOET will
@@ -3514,6 +3598,7 @@ SCF_TO_TONTO(){
 		echo "ERROR: problems in fit cycle, please check the $J.th stdout file for more details" | tee -a $JOBNAME.lst
 		exit 1
 	fi
+	REPORT_TONTO_HAR_CYCLE
 	if [ $J = 1 ] && [[ "$SCFCALCPROG" == "Tonto" ]]; then
 		# Tonto runs the whole refinement loop itself, so there are no
 		# lamaGOET cycles to tabulate and the per-cycle table below would be
@@ -4189,8 +4274,8 @@ FIT_TABLE_SUMMARY(){
 	# chi2; the HAR has twelve, leading with a cycle number and carrying both
 	# an initial and a final chi2. Normalise here so the caller does not care.
 	awk '
-		/^IAM refinement$/ || /^Structure refinement results$/ { heading = NR }
-#this is looking for the wrong header!
+		/^IAM refinement$/ || /^Structure refinement results$/ ||
+		/^Rigid-atom fit results$/ { heading = NR }
 		{ line[NR] = $0 }
 		END {
 			if (!heading) exit

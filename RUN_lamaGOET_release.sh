@@ -1370,6 +1370,16 @@ SCF_BLOCK_REST_TONTO(){
 	fi
 }
 
+REPORT_TONTO_HAR_CYCLE(){
+    case "${SCFCALCPROG:-}" in
+        CP2K|Tonto) return 0 ;;
+    esac
+    if [[ -n "${MAXSHIFT:-}" ]]; then
+        printf 'Tonto HAR cycle %s complete: maximum shift/esd = %s\n' \
+            "${J:-unknown}" "$MAXSHIFT"
+    fi
+}
+
 SCF_TO_TONTO(){
 	TONTO_HEADER
 	if [ "$SCFCALCPROG" = "elmodb" ]; then
@@ -1513,6 +1523,7 @@ SCF_TO_TONTO(){
 		echo "ERROR: problems in fit cycle, please check the $J.th stdout file for more details" | tee -a $JOBNAME.lst
 		exit 1
 	fi
+	REPORT_TONTO_HAR_CYCLE
 	if [ $J = 1 ] && [[ "$SCFCALCPROG" == "Tonto" ]]; then
 		# Tonto runs the whole refinement loop itself, so there are no
 		# lamaGOET cycles to tabulate and the per-cycle table below would be
@@ -2176,7 +2187,8 @@ FIT_TABLE_SUMMARY(){
 	# chi2; the HAR has twelve, leading with a cycle number and carrying both
 	# an initial and a final chi2. Normalise here so the caller does not care.
 	awk '
-		/^IAM refinement$/ || /^Structure refinement results$/ { heading = NR }
+		/^IAM refinement$/ || /^Structure refinement results$/ ||
+		/^Rigid-atom fit results$/ { heading = NR }
 		{ line[NR] = $0 }
 		END {
 			if (!heading) exit

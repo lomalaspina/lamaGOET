@@ -83,6 +83,7 @@ test_cp2k_stationary_energy_stops_before_another_tonto_fit() {
     cp2k_calls=0
     tonto_fits=0
     final_residuals=0
+    fit_rows=0
 
     CP2K_VALIDATE_LAMAGOET_MODE() { return 0; }
     _cp2k_log() { return 0; }
@@ -106,7 +107,14 @@ test_cp2k_stationary_energy_stops_before_another_tonto_fit() {
         MAXSHIFT=1.0
     }
     CP2K_ASSERT_TONTO_FIT() { return 0; }
-    CP2K_WRITE_FIT_ROW() { return 0; }
+    CP2K_CAPTURE_FIT_ROW() { CP2K_FIT_ROW_PENDING=true; }
+    CP2K_WRITE_FIT_ROW() {
+        [[ "${CP2K_FIT_ROW_PENDING:-false}" == "true" ]] || return 1
+        fit_rows=$((fit_rows + 1))
+        CP2K_FIT_ROW_PENDING=false
+    }
+    CP2K_APPEND_STARTING_GEOMETRY() { return 0; }
+    CP2K_APPEND_FINAL_GEOMETRY() { return 0; }
     CP2K_FINAL_RESIDUALS() {
         final_residuals=$((final_residuals + 1))
     }
@@ -115,6 +123,7 @@ test_cp2k_stationary_energy_stops_before_another_tonto_fit() {
     [[ "$HAR_WAVEFUNCTION_STALLED" == "true" ]]
     [[ "$cp2k_calls" -eq 4 ]]
     [[ "$tonto_fits" -eq 3 ]]
+    [[ "$fit_rows" -eq 3 ]]
     [[ "$final_residuals" -eq 1 ]]
 }
 
@@ -123,5 +132,7 @@ test_cp2k_stationary_energy_stops_before_another_tonto_fit
 cp2k_body=$(awk '/^CP2K_RUN_HAR\(\)/,/^}/' "$repo_dir/lamaGOET.sh")
 [[ $(grep -c 'CHECK_WAVEFUNCTION_STALL "$ENERGIA2" "$RMSD2"' <<< "$cp2k_body") -ge 2 ]]
 grep -q 'Reusing the current converged CP2K density for final residuals' <<< "$cp2k_body"
+grep -q 'CP2K_CAPTURE_FIT_ROW' <<< "$cp2k_body"
+[[ $(grep -c 'CP2K_WRITE_FIT_ROW "$I"' <<< "$cp2k_body") -ge 2 ]]
 
 echo "HAR stationary-wavefunction tests passed"

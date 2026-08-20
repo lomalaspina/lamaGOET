@@ -22,7 +22,7 @@ RUNNERS = (ROOT / "lamaGOET.sh", ROOT / "RUN_lamaGOET_release.sh")
 
 def function_body(text: str, name: str) -> str:
     match = re.search(
-        rf"(?ms)^{re.escape(name)}\(\)\{{\n(.*?)(?=^[A-Z][A-Z0-9_]*\(\)\{{|\Z)",
+        rf"(?ms)^{re.escape(name)}\(\)\s*\{{\n(.*?)(?=^[A-Z][A-Z0-9_]*\(\)\s*\{{|\Z)",
         text,
     )
     if not match:
@@ -248,6 +248,169 @@ class RunnerRegressionTest(unittest.TestCase):
 
 
 
+    def test_cycle_report_is_enabled_for_each_external_backend(self):
+        programs = ("Gaussian", "Orca", "OCC", "Crystal14", "elmodb")
+        for runner, text in self.runner_text.items():
+            report = function_body(text, "REPORT_TONTO_HAR_CYCLE")
+            cycle = function_body(text, "SCF_TO_TONTO")
+            self.assertIn("REPORT_TONTO_HAR_CYCLE", cycle)
+            definition = "REPORT_TONTO_HAR_CYCLE(){\n" + report
+            for program in programs:
+                with self.subTest(runner=runner, program=program):
+                    script = (
+                        definition
+                        + f'\nSCFCALCPROG="{program}"\n'
+                        + 'J=3\nMAXSHIFT=0.027620\n'
+                        + "REPORT_TONTO_HAR_CYCLE\n"
+                    )
+                    result = subprocess.run(
+                        ["bash", "-c", script],
+                        text=True,
+                        capture_output=True,
+                        check=True,
+                    )
+                    self.assertEqual(
+                        result.stdout,
+                        "Tonto HAR cycle 3 complete: "
+                        "maximum shift/esd = 0.027620\n",
+                    )
+            for program in ("CP2K", "Tonto"):
+                with self.subTest(runner=runner, program=program):
+                    script = (
+                        definition
+                        + f'\nSCFCALCPROG="{program}"\n'
+                        + 'J=3\nMAXSHIFT=0.027620\n'
+                        + "REPORT_TONTO_HAR_CYCLE\n"
+                    )
+                    result = subprocess.run(
+                        ["bash", "-c", script],
+                        text=True,
+                        capture_output=True,
+                        check=True,
+                    )
+                    self.assertEqual(result.stdout, "")
+
+    def test_fit_table_summary_handles_signed_legacy_and_current_tables(self):
+        cases = (
+            (
+                "legacy",
+                "     1     1.800000  0.010000  0.020000   -3.200000   -0.040000   H1 pz      13       6\n"
+                "     2     1.100000  0.009000  0.018000    0.100000    0.002000    N Uxx     13       6\n"
+                "Rigid-atom fit results\n",
+                ("2", "1.100000", "1.100000", "0.009000", "0.018000", "3.2", "H1", "pz", "13", "6"),
+            ),
+            (
+                "current",
+                "  4  2  1.500000  1.100000  0.009000  0.018000  -4.200000  -0.050000  H1 Uzz  13  6\n"
+                "Structure refinement results\n",
+                ("2", "1.500000", "1.100000", "0.009000", "0.018000", "4.2", "H1", "Uzz", "13", "6"),
+            ),
+        )
+        for runner, text in self.runner_text.items():
+            definition = "FIT_TABLE_SUMMARY(){\n" + function_body(
+                text, "FIT_TABLE_SUMMARY"
+            )
+            for layout, sample, expected in cases:
+                with self.subTest(runner=runner, layout=layout), tempfile.TemporaryDirectory() as directory:
+                    Path(directory, "stdout").write_text(sample, encoding="utf-8")
+                    result = subprocess.run(
+                        ["bash", "-c", definition + "\nFIT_TABLE_SUMMARY\n"],
+                        cwd=directory,
+                        text=True,
+                        capture_output=True,
+                        check=True,
+                    )
+                    self.assertEqual(tuple(result.stdout.rstrip("\n").split("\t")), expected)
+
+    def test_cp2k_output_is_routed_to_terminal_and_lst_as_requested(self):
+        text = self.runner_text["lamaGOET.sh"]
+        prepare = function_body(text, "TONTO_TO_CP2K")
+        capture_row = function_body(text, "CP2K_CAPTURE_FIT_ROW")
+        fit_row = function_body(text, "CP2K_WRITE_FIT_ROW")
+        residuals = function_body(text, "CP2K_FINAL_RESIDUALS")
+        run = function_body(text, "CP2K_RUN_HAR")
+
+        self.assertIn(
+            '_cp2k_log_detail "Preparing periodic geometry for CP2K cycle number',
+            prepare,
+        )
+        self.assertIn(
+            '_cp2k_log_detail "Captured Tonto fit cycle',
+            capture_row,
+        )
+        self.assertIn(
+            '_cp2k_log_detail "Recorded Tonto fit cycle',
+            fit_row,
+        )
+        self.assertNotIn("# CP2K rows:", fit_row)
+        self.assertNotIn("tee -a", residuals)
+        self.assertIn('stdout >> "${JOBNAME}.lst"', residuals)
+
+        starting = function_body(text, "CP2K_APPEND_STARTING_GEOMETRY")
+        final = function_body(text, "CP2K_APPEND_FINAL_GEOMETRY")
+        self.assertIn("Starting Geometry", starting)
+        self.assertIn("Final Geometry", final)
+        self.assertIn("Rigid-atom fit results", final)
+        self.assertIn("Structure refinement results", final)
+        self.assertLess(
+            run.index("CP2K_APPEND_STARTING_GEOMETRY"),
+            run.index("SCF_TO_TONTO"),
+        )
+        self.assertLess(
+            run.index("CP2K_APPEND_FINAL_GEOMETRY"),
+            run.index("CP2K_FINAL_RESIDUALS"),
+        )
+        self.assertLess(
+            run.index("CP2K_CAPTURE_FIT_ROW"),
+            run.index("CP2K_WRITE_FIT_ROW"),
+        )
+        self.assertGreaterEqual(run.count('CP2K_WRITE_FIT_ROW "$I"'), 2)
+
+    def test_cp2k_fit_row_uses_the_following_final_geometry_energy(self):
+        text = self.runner_text["lamaGOET.sh"]
+        definitions = (
+            "CP2K_CAPTURE_FIT_ROW(){\n"
+            + function_body(text, "CP2K_CAPTURE_FIT_ROW")
+            + "CP2K_WRITE_FIT_ROW(){\n"
+            + function_body(text, "CP2K_WRITE_FIT_ROW")
+        )
+        sample = (
+            "Begin rigid-atom fit\n"
+            "     1     1.800000  0.010000  0.020000   -3.200000   -0.040000   H1 pz      13       6\n"
+            "     2     1.100000  0.009000  0.018000    0.100000    0.002000    N Uxx     13       6\n"
+            "Rigid-atom fit results\n"
+        )
+        with tempfile.TemporaryDirectory() as directory:
+            Path(directory, "stdout").write_text(sample, encoding="utf-8")
+            script = definitions + r'''
+_cp2k_log_detail() { :; }
+_cp2k_error() { printf '%s\n' "$*" >&2; }
+JOBNAME=job
+J=4
+I=8
+CP2K_CAPTURE_FIT_ROW "$I"
+[[ ! -e job.lst ]]
+I=9
+CP2K_LAST_ENERGY=-10.250000000000
+CP2K_LAST_RMSD=0.0000001
+DE=-0.125000000000
+CP2K_WRITE_FIT_ROW "$I"
+[[ "$CP2K_FIT_ROW_PENDING" == false ]]
+cat job.lst
+'''
+            result = subprocess.run(
+                ["bash", "-c", script],
+                cwd=directory,
+                text=True,
+                capture_output=True,
+                check=True,
+            )
+        fields = result.stdout.split()
+        self.assertEqual(fields[0], "4")
+        self.assertEqual(fields[11], "-10.250000000000")
+        self.assertEqual(fields[13], "-0.125000000000")
+
+
 class IamResultsInSummaryTest(unittest.TestCase):
     """The IAM refinement must reach <job>.lst, not just stdout.
 
@@ -278,20 +441,13 @@ class IamResultsInSummaryTest(unittest.TestCase):
                     f"{runner} defines APPEND_IAM_RESULTS but never calls it",
                 )
 
-    def test_summary_blocks_do_not_use_the_dead_heading(self):
-        """The result-block extractions must key on a heading Tonto writes.
+    def test_summary_blocks_do_not_use_unguarded_heading_extraction(self):
+        """Result-block extraction must not fall back to the whole stdout.
 
-        Current Tonto emits "IAM refinement" and "Structure refinement
-        results"; it does not emit "Rigid-atom fit results" anywhere.  An
-        extraction keyed on the missing heading leaves its line number unset,
-        so `for (d=b-2; d<c-1; ++d)` starts at -2 and copies the whole of
-        stdout into the summary instead of one block.
-
-        KNOWN GAP: the per-cycle convergence table (MAXSHIFT, MAXSHIFTATOM,
-        MAXSHIFTPARAM and the row written for each cycle) still keys on that
-        heading and therefore comes out blank.  Fixing it needs the right
-        heading per refinement phase, which differs between an IAM and a HAR.
-        Tracked separately; this test covers the block extractions only.
+        Supported Tonto versions use either "Rigid-atom fit results" or
+        "Structure refinement results". An unguarded extraction keyed to the
+        other layout can copy the whole stdout into the summary instead of one
+        result block.
         """
         for runner in RUNNERS:
             text = Path(runner).read_text(encoding="utf-8")
