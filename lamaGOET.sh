@@ -2971,9 +2971,7 @@ TONTO_IAM_BLOCK(){
 	else
 		echo "         read_fcf_file $HKL" >> stdin
 	fi
-	if [[ "$USEEQUIV" = "true" ]]; then
-		echo "         use_equivalents= $USEEQUIV" >> stdin
-        fi
+	echo "         merg_code= ${MERGCODE:-2}" >> stdin
 	if [[ "$FCUT" != "0" ]]; then
 		echo "         f_sigma_cutoff= $FCUT" >> stdin
 	fi
@@ -3089,9 +3087,7 @@ CRYSTAL_BLOCK(){
 			else
 				echo "         read_fcf_file $HKL" >> stdin
 			fi
-	                if [[ "$USEEQUIV" = "true" ]]; then
-                		echo "         use_equivalents= $USEEQUIV" >> stdin
-                        fi
+	                echo "         merg_code= ${MERGCODE:-2}" >> stdin
 	                if [[ "$FCUT" != "0" ]]; then
         		        echo "         f_sigma_cutoff= $FCUT" >> stdin
                         fi
@@ -4865,24 +4861,50 @@ run_script(){
 	if [[ "$SCFCALCPROG" != "optgaussian" && "$SCFCALCPROG" != "optorca" && "$POWDER_HAR" != "true" ]]; then 
 		HKLEXT=$(echo $HKL | awk -F. '{print $NF}')
 		if [[ "$HKLEXT" != "fcf" ]]; then
-			#removing  0 0 0 line 
-			if [[ ! -z $(awk '{if (($1) == "0" && ($2) == "0" && ($3) == "0" ) print}' $HKL) ]]; then
-				awk '{if (($1) != "0" && ($2) != "0" && ($3) != "0" ) print}' $HKL > $JOBNAME.tonto_edited.hkl
-			fi
-			#backing up hkl input file and copying the one without the 0 line to the $HKL variable
-			if [ -f "$JOBNAME.tonto_edited.hkl" ]; then
-				cp $HKL $JOBNAME.your_input.hkl
-				cp $JOBNAME.tonto_edited.hkl $HKL
-				rm $JOBNAME.tonto_edited.hkl
-				echo "WARNING: HKL has been formated, your original input is saved with the name $JOBNAME.your_input.hkl!"
-			fi
-			
-			#checking if numbers are grown together and separating them. note that this will ignore the header lines if is exists.
-			if [[ ! -z "$(awk ' NF<5 && NF>2 {print $0}' $HKL)" ]]; then
-				gawk 'BEGIN { FS = "" } { for (i = 1; i <= NF; i = i + 1) h=$1$2$3$4; k=$5$6$7$8; l=$9$10$11$12; i_f=$13$14$15$16$17$18$19$20; sig=$21$22$23$24$25$26$27$28; print h, k, l, i_f, sig }' $HKL > $JOBNAME.tonto_edited.hkl
-				cp $HKL $JOBNAME.your_input.hkl
-				cp $JOBNAME.tonto_edited.hkl $HKL
-				rm $JOBNAME.tonto_edited.hkl
+			# Convert raw SHELX HKLF records to five whitespace-separated
+			# columns before adding the Tonto header. SHELX uses fixed widths
+			# (4,4,4,8,8), so l and I can legitimately touch. Stop at the
+			# 0 0 0 terminator and ignore any .ins/.cif text appended after it.
+			if [[ -z "$(grep "reflection_data= {" "$HKL")" && "$WRITEHEADER" = "true" ]]; then
+				if ! awk '
+					BEGIN {
+						number = "^[+-]?([0-9]+([.][0-9]*)?|[.][0-9]+)([EeDd][+-]?[0-9]+)?$"
+						seen = 0
+					}
+					{
+						sub(/\r$/, "")
+						if (length($0) < 12) {
+							if (seen) exit
+							next
+						}
+						hs = substr($0,1,4); ks = substr($0,5,4); ls = substr($0,9,4)
+						gsub(/[[:space:]]/,"",hs); gsub(/[[:space:]]/,"",ks); gsub(/[[:space:]]/,"",ls)
+						if (hs !~ /^[+-]?[0-9]+$/ || ks !~ /^[+-]?[0-9]+$/ || ls !~ /^[+-]?[0-9]+$/) {
+							if (seen) exit
+							next
+						}
+						h = hs + 0; k = ks + 0; l = ls + 0
+						if (h == 0 && k == 0 && l == 0) exit
+						obs = substr($0,13,8); sig = substr($0,21,8)
+						gsub(/[[:space:]]/,"",obs); gsub(/[[:space:]]/,"",sig)
+						if (obs !~ number || sig !~ number) {
+							if (seen) exit 2
+							next
+						}
+						gsub(/[dD]/,"E",obs); gsub(/[dD]/,"E",sig)
+						print h, k, l, obs, sig
+						seen = 1
+					}
+					END { if (!seen) exit 2 }
+				' "$HKL" > "$JOBNAME.tonto_edited.hkl"; then
+					echo "ERROR: Could not parse SHELX fixed-width reflections from $HKL" | tee -a "$JOBNAME.lst"
+					rm -f "$JOBNAME.tonto_edited.hkl"
+					exit 1
+				fi
+				cp "$HKL" "$JOBNAME.your_input.hkl"
+				cp "$JOBNAME.tonto_edited.hkl" "$HKL"
+				rm "$JOBNAME.tonto_edited.hkl"
+				echo "WARNING: SHELX HKL was converted for Tonto; the original is $JOBNAME.your_input.hkl"
 			fi
 		
 			# writing header on hkl

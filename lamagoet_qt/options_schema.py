@@ -102,6 +102,7 @@ OPTION_DEFAULTS: dict[str, str] = {
     "MAXLSCYCLE": "30",
     "MAXPHARCYCLE": "10",
     "MAXXTALCYCLE": "",
+    "MERGCODE": "2",
     "MEM": "1gb",
     "MEMPBS": "1gb",
     "METHOD": "rhf",

@@ -56,6 +56,7 @@ LINUX_QT_XCB_PACKAGES = (
     "libxkbcommon-x11-0",
 )
 NATIVE_LIBRARY_DIRECTORY = "qt-native-libs"
+WSLG_WESTON_LOG = Path("/mnt/wslg/weston.log")
 
 
 def _running_in_environment(environment: Path) -> bool:
@@ -292,27 +293,51 @@ def _ensure_linux_qt_runtime(environment: Path) -> tuple[Path, ...]:
     return library_directories
 
 
+def _wslg_gfxredir_enabled() -> bool | None:
+    """Return WSLg's latest shared-memory graphics state, if reported."""
+
+    enabled: bool | None = None
+    try:
+        with WSLG_WESTON_LOG.open(encoding="utf-8", errors="replace") as stream:
+            for line in stream:
+                marker = "RDP backend: use_gfxredir ="
+                if marker in line:
+                    enabled = line.rsplit("=", 1)[-1].strip() == "1"
+    except OSError:
+        return None
+    return enabled
+
+
 def _configure_linux_qt_platform(variables: dict[str, str]) -> None:
     """Select the most reliable Qt display backend for Linux and WSL.
 
-    WSLg's native Wayland bridge does not consistently forward custom window
-    icons to the Windows taskbar.  XWayland carries Qt's ``_NET_WM_ICON``
-    property directly, so prefer XCB under WSL when an X display is available.
+    A healthy WSLg shared-memory transport can use XWayland reliably, allowing
+    Qt's per-window icon to reach the Windows taskbar. If WSLg reports that the
+    transport is disabled (the Windows ``[WARN: COPY MODE]`` state), use native
+    Wayland so the window remains visible and maximizable. When WSLg's state
+    cannot be established, favour the safe Wayland path. XCB remains the
+    fallback for stale or absent Wayland sessions.
     An explicit ``QT_QPA_PLATFORM`` always takes precedence.
     """
 
     if platform.system() != "Linux" or variables.get("QT_QPA_PLATFORM"):
         return
-    if variables.get("DISPLAY") and (
-        variables.get("WSL_DISTRO_NAME")
-        or "microsoft" in platform.release().lower()
-    ):
-        variables["QT_QPA_PLATFORM"] = "xcb"
-        return
+
+    is_wsl = bool(variables.get("WSL_DISTRO_NAME")) or (
+        "microsoft" in platform.release().lower()
+    )
     wayland_display = variables.get("WAYLAND_DISPLAY", "")
     runtime_directory = variables.get("XDG_RUNTIME_DIR", "")
     if wayland_display and runtime_directory:
-        if (Path(runtime_directory) / wayland_display).exists():
+        socket = Path(wayland_display)
+        if not socket.is_absolute():
+            socket = Path(runtime_directory) / socket
+        if socket.exists():
+            if is_wsl:
+                if variables.get("DISPLAY") and _wslg_gfxredir_enabled() is True:
+                    variables["QT_QPA_PLATFORM"] = "xcb"
+                else:
+                    variables["QT_QPA_PLATFORM"] = "wayland"
             return
     if variables.get("DISPLAY"):
         variables["QT_QPA_PLATFORM"] = "xcb"

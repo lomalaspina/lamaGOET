@@ -50,6 +50,7 @@ class InstallScriptTest(unittest.TestCase):
     def test_installer_verifies_qt_and_installs_desktop_identity(self):
         self.assertIn("--check-install", self.script)
         self.assertIn("/usr/local/share/pixmaps/lamagoet.png", self.script)
+        self.assertIn("/usr/share/icons/hicolor/128x128/apps/lamagoet.png", self.script)
         self.assertIn("/usr/local/share/applications/lamagoet.desktop", self.script)
         self.assertIn("Exec=lamaGOET_qt\n", self.desktop)
         self.assertIn("Icon=lamagoet\n", self.desktop)

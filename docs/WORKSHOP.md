@@ -87,7 +87,11 @@ cluster charges is the "minimal HAR", and a reasonable starting point.
 
 ## Three things to know before you start
 
-1. **Reflection files must be merged and pruned of systematic absences.**
+1. **Reflection files may be unmerged.** Choose a SHELXL-compatible MERG code
+   in the GUI. Tonto merges the observations before refinement and rejects
+   only reflections whose calculated structure factor is numerically zero
+   after the selected aspherical density model has been evaluated. Do not
+   remove reflections merely because an IAM calculation makes them zero.
 
 2. **The molecule must be chemically complete.** HAR runs a quantum chemical
    calculation on whatever fragment you give it. If the asymmetric unit holds

@@ -32,6 +32,11 @@ def main() -> int:
         assert not window.gaussian_features.isHidden()
         assert not window.cluster_group.isHidden()
         assert not window.header_group.isHidden()
+        assert window.merg_code.currentData() == 2
+        assert "space-group equivalents" in window.merg_description.toPlainText()
+        window.merg_code.setCurrentIndex(window.merg_code.findData(4))
+        assert "anomalous-scattering" in window.merg_description.toPlainText()
+        window.merg_code.setCurrentIndex(window.merg_code.findData(2))
         assert not window.external_basis_group.isHidden()
         assert window.email.isHidden()
         assert window.initial_adp_group.isHidden()
@@ -172,6 +177,7 @@ def main() -> int:
             "DISP",
             "TONTO",
             "PLOT_TONTO",
+            "MERGCODE",
             "BASISSETDIR",
             "GAUSSIAN_BIN",
             "ORCA_BIN",

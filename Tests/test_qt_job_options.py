@@ -59,6 +59,7 @@ class JobOptionsTest(unittest.TestCase):
         self.assertEqual(values["OBSERVED_DENSITY_SHRINKAGE"], "0.5")
         self.assertEqual(values["OBSERVED_DENSITY_MIN_TF"], "0.1")
         self.assertEqual(values["OBSERVED_ZERO_PHASE_SIGN"], "0")
+        self.assertEqual(values["MERGCODE"], "2")
 
     def test_schema_contains_every_original_gtkdialog_variable(self):
         self.assertFalse(ORIGINAL_GUI_VARIABLES - set(OPTION_DEFAULTS))

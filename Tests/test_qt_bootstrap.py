@@ -116,7 +116,7 @@ class QtBootstrapTest(unittest.TestCase):
                 bootstrap._configure_linux_qt_platform(variables)
         self.assertEqual(variables["QT_QPA_PLATFORM"], "xcb")
 
-    def test_wsl_prefers_xcb_even_with_a_valid_wayland_socket(self):
+    def test_wsl_uses_wayland_when_gfxredir_state_is_unknown(self):
         with tempfile.TemporaryDirectory() as directory:
             runtime = Path(directory)
             (runtime / "wayland-0").touch()
@@ -126,9 +126,67 @@ class QtBootstrapTest(unittest.TestCase):
                 "XDG_RUNTIME_DIR": str(runtime),
                 "WSL_DISTRO_NAME": "Ubuntu",
             }
-            with mock.patch("platform.system", return_value="Linux"):
+            with mock.patch("platform.system", return_value="Linux"), mock.patch.object(
+                bootstrap, "WSLG_WESTON_LOG", runtime / "missing.log"
+            ):
+                bootstrap._configure_linux_qt_platform(variables)
+        self.assertEqual(variables["QT_QPA_PLATFORM"], "wayland")
+
+    def test_wsl_prefers_xcb_when_gfxredir_is_enabled(self):
+        with tempfile.TemporaryDirectory() as directory:
+            runtime = Path(directory)
+            (runtime / "wayland-0").touch()
+            log = runtime / "weston.log"
+            log.write_text(
+                "RDP backend: use_gfxredir = 0\n"
+                "RDP backend: use_gfxredir = 1\n",
+                encoding="utf-8",
+            )
+            variables = {
+                "DISPLAY": ":0",
+                "WAYLAND_DISPLAY": "wayland-0",
+                "XDG_RUNTIME_DIR": str(runtime),
+                "WSL_DISTRO_NAME": "Ubuntu",
+            }
+            with mock.patch("platform.system", return_value="Linux"), mock.patch.object(
+                bootstrap, "WSLG_WESTON_LOG", log
+            ):
                 bootstrap._configure_linux_qt_platform(variables)
         self.assertEqual(variables["QT_QPA_PLATFORM"], "xcb")
+
+    def test_wsl_uses_wayland_when_gfxredir_is_disabled(self):
+        with tempfile.TemporaryDirectory() as directory:
+            runtime = Path(directory)
+            (runtime / "wayland-0").touch()
+            log = runtime / "weston.log"
+            log.write_text("RDP backend: use_gfxredir = 0\n", encoding="utf-8")
+            variables = {
+                "DISPLAY": ":0",
+                "WAYLAND_DISPLAY": "wayland-0",
+                "XDG_RUNTIME_DIR": str(runtime),
+                "WSL_DISTRO_NAME": "Ubuntu",
+            }
+            with mock.patch("platform.system", return_value="Linux"), mock.patch.object(
+                bootstrap, "WSLG_WESTON_LOG", log
+            ):
+                bootstrap._configure_linux_qt_platform(variables)
+        self.assertEqual(variables["QT_QPA_PLATFORM"], "wayland")
+
+    def test_wsl_accepts_an_absolute_wayland_socket_path(self):
+        with tempfile.TemporaryDirectory() as directory:
+            socket = Path(directory) / "wayland-lamagoet"
+            socket.touch()
+            variables = {
+                "DISPLAY": ":0",
+                "WAYLAND_DISPLAY": str(socket),
+                "XDG_RUNTIME_DIR": str(Path(directory) / "unused"),
+                "WSL_DISTRO_NAME": "Ubuntu",
+            }
+            with mock.patch("platform.system", return_value="Linux"), mock.patch.object(
+                bootstrap, "WSLG_WESTON_LOG", Path(directory) / "missing.log"
+            ):
+                bootstrap._configure_linux_qt_platform(variables)
+        self.assertEqual(variables["QT_QPA_PLATFORM"], "wayland")
 
     def test_native_linux_keeps_a_valid_wayland_socket(self):
         with tempfile.TemporaryDirectory() as directory:

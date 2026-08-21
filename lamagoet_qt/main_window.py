@@ -77,6 +77,14 @@ PROGRAMS = (
     ("SC cluster optimization: Orca + Tonto", "optorca"),
 )
 
+MERG_DESCRIPTIONS = {
+    0: "Keep every observation with its original Miller indices; do not merge.",
+    1: "Put indices in the standard setting, but keep observations unmerged.",
+    2: "Merge space-group equivalents; keep Friedel pairs separate in non-centrosymmetric space groups (default).",
+    3: "Merge space-group equivalents and Friedel opposites.",
+    4: "As MERG 3, and disable anomalous-scattering corrections (f'' = 0).",
+}
+
 METHODS = {
     "Gaussian": (
         "rhf", "uhf", "rohf", "rks", "uks", "blyp", "ublyp", "b3lyp",
@@ -432,21 +440,31 @@ class MainWindow(QMainWindow):
         job_form.addRow(self.hkl_label, self.hkl_row)
 
         self.header_group = QGroupBox("Tonto reflection-file header")
-        header_layout = QHBoxLayout(self.header_group)
+        header_layout = QGridLayout(self.header_group)
         self.write_header = QCheckBox("Write header")
         self.write_header.toggled.connect(self._header_changed)
-        header_layout.addWidget(self.write_header)
+        header_layout.addWidget(self.write_header, 0, 0)
         self.header_on_f = QRadioButton("on F")
         self.header_on_f2 = QRadioButton("on F²")
         self.header_on_f.setChecked(True)
-        header_layout.addWidget(self.header_on_f)
-        header_layout.addWidget(self.header_on_f2)
-        self.use_equivalents = QCheckBox("Use equivalents")
-        self.use_equivalents.setToolTip(
-            "General Tonto xray_data.use_equivalents option; it is not "
-            "specific to Crystal23."
+        header_layout.addWidget(self.header_on_f, 0, 1)
+        header_layout.addWidget(self.header_on_f2, 0, 2)
+        header_layout.addWidget(QLabel("MERG code"), 1, 0)
+        self.merg_code = QComboBox()
+        for code in range(5):
+            self.merg_code.addItem(str(code), code)
+        self.merg_code.setToolTip("SHELXL-compatible reflection merging mode")
+        self.merg_code.currentIndexChanged.connect(self._update_merg_description)
+        header_layout.addWidget(self.merg_code, 1, 1, 1, 2)
+        self.merg_description = QPlainTextEdit()
+        self.merg_description.setReadOnly(True)
+        self.merg_description.setMaximumHeight(68)
+        self.merg_description.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+        self.merg_description.setToolTip(
+            "Tonto applies this rule to the unmerged reflection observations "
+            "before refinement."
         )
-        header_layout.addWidget(self.use_equivalents)
+        header_layout.addWidget(self.merg_description, 2, 0, 1, 3)
         job_form.addRow(self.header_group)
 
         self.method_label = QLabel("Method")
@@ -1246,7 +1264,12 @@ class MainWindow(QMainWindow):
         self.write_header.setChecked(self._bool_option("WRITEHEADER"))
         self.header_on_f.setChecked(self._bool_option("ONF", True))
         self.header_on_f2.setChecked(self._bool_option("ONF2"))
-        self.use_equivalents.setChecked(self._bool_option("USEEQUIV"))
+        merg_code = self._int_option("MERGCODE", 2)
+        if merg_code == 2 and self._bool_option("USEEQUIV"):
+            merg_code = 0
+        self.merg_code.setCurrentIndex(
+            max(0, self.merg_code.findData(merg_code))
+        )
         self.extra_keywords.setText(self._option("EXTRAKEY"))
         self.external_basis.setChecked(self._bool_option("GAUSGEN"))
         basis_definition = self.option_path.parent / "basis_gen.txt"
@@ -1514,6 +1537,12 @@ class MainWindow(QMainWindow):
         enabled = self.write_header.isChecked()
         self.header_on_f.setEnabled(enabled)
         self.header_on_f2.setEnabled(enabled)
+
+    def _update_merg_description(self, *_args) -> None:
+        code = int(self.merg_code.currentData())
+        self.merg_description.setPlainText(
+            f"MERG {code}: {MERG_DESCRIPTIONS[code]}"
+        )
 
     def _initial_adp_changed(self) -> None:
         enabled = self.initial_adp.isChecked()
@@ -1892,7 +1921,10 @@ class MainWindow(QMainWindow):
             "ONF2": _bool_text(
                 self.write_header.isChecked() and self.header_on_f2.isChecked()
             ),
-            "USEEQUIV": _bool_text(self.use_equivalents.isChecked()),
+            "MERGCODE": int(self.merg_code.currentData()),
+            # Retain the old variable in complete job_options files. Current
+            # runners emit merg_code= and do not emit use_equivalents=.
+            "USEEQUIV": _bool_text(int(self.merg_code.currentData()) <= 1),
             "GAUSGEN": _bool_text(self.external_basis.isChecked()),
             "GAUSSEMPDISP": _bool_text(self.grimme.isChecked()),
             "GAUSSREL": _bool_text(self.relativistic.isChecked()),

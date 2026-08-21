@@ -118,10 +118,17 @@ run_admin install -Dm644 "$localdir/llama.png" \
     /usr/local/share/pixmaps/lamagoet.png
 run_admin install -Dm644 "$localdir/llama.png" \
     /usr/local/share/icons/hicolor/128x128/apps/lamagoet.png
+# WSLg exposes the user distribution's /usr/share/icons tree to its system
+# compositor, but it does not expose /usr/local/share/icons there. Keep the
+# conventional local installation above and provide this WSLg-visible copy so
+# native Wayland windows retain the lamaGOET taskbar icon.
+run_admin install -Dm644 "$localdir/llama.png" \
+    /usr/share/icons/hicolor/128x128/apps/lamagoet.png
 run_admin install -Dm644 "$localdir/lamagoet.desktop" \
     /usr/local/share/applications/lamagoet.desktop
 if command -v gtk-update-icon-cache >/dev/null 2>&1; then
     run_admin gtk-update-icon-cache -f -t /usr/local/share/icons/hicolor
+    run_admin gtk-update-icon-cache -f -t /usr/share/icons/hicolor
 fi
 run_admin update-desktop-database /usr/local/share/applications
 
