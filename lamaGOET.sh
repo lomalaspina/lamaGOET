@@ -1123,14 +1123,37 @@ CP2K_TONTO_SCFDATA() {
         echo "   ! it does not replace or mix the imported CP2K density."
         echo "   scfdata= {"
         echo "      initial_density= promolecule"
-        echo "      kind= rks"
-        echo "      dft_exchange_functional= becke88"
-        echo "      dft_correlation_functional= lyp"
-        echo "      output= false"
-        echo "      use_SC_cluster_charges= false"
-        echo "   }"
-        echo ""
     } >> stdin
+        if [[ "$METHOD" == "b3lyp" || "$METHOD" == "B3LYP" || "$METHOD" == "rks" || "$METHOD" == "RKS" ]]; then
+                echo "      kind= rks" >> stdin
+                echo "      output= true " >> stdin
+                echo "      dft_exchange_functional= b3lypgx" >> stdin
+                echo "      dft_correlation_functional= b3lypgc" >> stdin
+        elif [[ "$METHOD" == "blyp" || "$METHOD" == "BLYP" || "$METHOD" == "PBE" || "$METHOD" == "pbe" ]]; then
+                echo "      kind= rks" >> stdin
+                echo "      output= true " >> stdin
+                echo "      dft_exchange_functional= becke88" >> stdin
+                echo "      dft_correlation_functional= lyp" >> stdin
+        else
+                echo "      kind= $METHOD" >> stdin
+                echo "      output= true " >> stdin
+        fi
+        if [[ "$LINEDEP" != "" ]]; then
+                echo "      linear_dependence_tol= $LINEDEP" >> stdin
+        fi
+        if [[ "$SCCHARGES" == "true" ]]; then
+                echo "      use_SC_cluster_charges= TRUE" >> stdin
+                echo "      cluster_radius= $SCCRADIUS angstrom" >> stdin
+                echo "      defragment= $DEFRAG" >> stdin
+        else
+                echo "      use_SC_cluster_charges= FALSE" >> stdin
+        fi
+        if [[ "$PLOT_TONTO" == "false" ]]; then
+                echo "      convergence= 0.001" >> stdin
+                echo "      diis= { convergence_tolerance= 0.0002 }" >> stdin
+        fi
+        echo "   }" >> stdin
+        echo "" >> stdin
 }
 
 CP2K_CHECK_ENERGY() {
@@ -3333,15 +3356,11 @@ SCF_BLOCK_OBSERVED_TONTO(){
 	# oc-observed uses a molecular basis only to build neutral atomic
 	# reference densities. It must not run a molecular SCF: the refined
 	# structure factors come from the regularized observed density.
-	echo "   becke_grid= {" >> stdin
-	echo "      set_defaults" >> stdin
-	echo "      accuracy= high" >> stdin
-	echo "   }" >> stdin
-	echo "" >> stdin
+	BECKE_GRID	
 	echo "   ! Atomic reference SCF settings (no molecular SCF command)" >> stdin
 	echo "   scfdata= {" >> stdin
 	echo "      initial_density= promolecule " >> stdin
-	echo "      kind= rhf" >> stdin
+	echo "      kind= rhf" >> stdin   # this is the promolecule guess, should be always rhf
 	echo "      output= true " >> stdin
 	echo "      use_SC_cluster_charges= FALSE" >> stdin
         if [[ "$LINEDEP" != "" ]]; then
@@ -3367,7 +3386,7 @@ SCF_BLOCK_REST_TONTO(){
 	        echo "      output= true " >> stdin
 		echo "      dft_exchange_functional= b3lypgx" >> stdin
 		echo "      dft_correlation_functional= b3lypgc" >> stdin
-	elif [[ "$METHOD" == "blyp" || "$METHOD" == "BLYP" ]]; then
+	elif [[ "$METHOD" == "blyp" || "$METHOD" == "BLYP" || "$METHOD" == "PBE" || "$METHOD" == "pbe" ]]; then
 		echo "      kind= rks" >> stdin
 	        echo "      output= true " >> stdin
 		echo "      dft_exchange_functional= becke88" >> stdin
