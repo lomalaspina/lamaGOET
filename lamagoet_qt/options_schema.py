@@ -17,7 +17,7 @@ from typing import Mapping
 # the original GUI supplied on 2026-07-31, the current Crystal guess control,
 # the dispatch variables, cluster fields, and the monolithic CP2K controls.
 OPTION_DEFAULTS: dict[str, str] = {
-    "ACCURACY": "very_low",
+    "ACCURACY": "extreme",
     "ADDNUCINTER": "false",
     "ADPSONLY": "false",
     "ANHARMATOMS": "",

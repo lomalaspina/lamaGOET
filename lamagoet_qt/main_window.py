@@ -945,8 +945,9 @@ class MainWindow(QMainWindow):
         self.becke_accuracy = QComboBox()
         self.becke_accuracy.setEditable(True)
         self.becke_accuracy.addItems(
-            ["very_low", "low", "medium", "high", "very_high"]
+            ["very_low", "sg-1", "low", "medium", "high", "very_high", "extreme", "best"]
         )
+        self.becke_accuracy.setCurrentText("extreme")
         form.addRow("Becke accuracy", self.becke_accuracy)
         self.becke_pruning = QComboBox()
         self.becke_pruning.setEditable(True)
@@ -1374,7 +1375,7 @@ class MainWindow(QMainWindow):
         self.use_nosphera2.setChecked(self._bool_option("USENOSPHERA2"))
         self.use_becke.setChecked(self._bool_option("USEBECKE"))
         self._set_combo_text(
-            self.becke_accuracy, self._option("ACCURACY", "very_low")
+            self.becke_accuracy, self._option("ACCURACY", "extreme")
         )
         self._set_combo_text(
             self.becke_pruning,
