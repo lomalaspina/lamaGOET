@@ -612,7 +612,7 @@ class MainWindow(QMainWindow):
         )
         self.stockholder_model.setToolTip(
             "Selects only the Hirshfeld stockholder denominator. The density "
-            "remains the imported Crystal23 or CP2K density."
+            "remains the selected observed, Crystal23, or CP2K density."
         )
         self.stockholder_model_label = QLabel("Stockholder model")
         stockholder_form.addRow(
@@ -1648,13 +1648,16 @@ class MainWindow(QMainWindow):
         tonto = program == "Tonto"
         periodic = program in {"Crystal14", "CP2K"}
         observed = tonto and self.partition_model.currentData() == "oc-observed"
+        uses_stockholder_choice = periodic or observed
         self.stockholder_group.setTitle(
-            "Tonto density partition" if tonto else "Periodic stockholder model"
+            "Observed-density partition"
+            if observed
+            else ("Tonto density partition" if tonto else "Periodic density partition")
         )
         self.partition_model_label.setVisible(tonto)
         self.partition_model.setVisible(tonto)
-        self.stockholder_model_label.setVisible(periodic)
-        self.stockholder_model.setVisible(periodic)
+        self.stockholder_model_label.setVisible(uses_stockholder_choice)
+        self.stockholder_model.setVisible(uses_stockholder_choice)
         for widget in (
             self.observed_shrinkage_label,
             self.observed_shrinkage,

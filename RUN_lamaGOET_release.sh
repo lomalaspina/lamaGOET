@@ -981,6 +981,7 @@ WRITE_DENSITY_PARTITION_MODEL(){
 			;;
 		observed|oc-observed)
 			echo "         partition_model= oc-observed" >> stdin
+			echo "         stockholder_model= ${STOCKHOLDER_MODEL:-cluster}" >> stdin
 			echo "         observed_density_shrinkage= ${OBSERVED_DENSITY_SHRINKAGE:-0.5}" >> stdin
 			echo "         observed_density_min_TF= ${OBSERVED_DENSITY_MIN_TF:-0.1}" >> stdin
 			echo "         observed_zero_phase_sign= ${OBSERVED_ZERO_PHASE_SIGN:-0}" >> stdin
@@ -1290,11 +1291,7 @@ SCF_BLOCK_OBSERVED_TONTO(){
 	# oc-observed uses a molecular basis only to build neutral atomic
 	# reference densities. It must not run a molecular SCF: the refined
 	# structure factors come from the regularized observed density.
-	echo "   becke_grid= {" >> stdin
-	echo "      set_defaults" >> stdin
-	echo "      accuracy= high" >> stdin
-	echo "   }" >> stdin
-	echo "" >> stdin
+	BECKE_GRID
 	echo "   ! Atomic reference SCF settings (no molecular SCF command)" >> stdin
 	echo "   scfdata= {" >> stdin
 	echo "      initial_density= promolecule " >> stdin

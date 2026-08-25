@@ -3043,6 +3043,7 @@ WRITE_DENSITY_PARTITION_MODEL(){
 			;;
 		observed|oc-observed)
 			echo "         partition_model= oc-observed" >> stdin
+			echo "         stockholder_model= ${STOCKHOLDER_MODEL:-cluster}" >> stdin
 			echo "         observed_density_shrinkage= ${OBSERVED_DENSITY_SHRINKAGE:-0.5}" >> stdin
 			echo "         observed_density_min_TF= ${OBSERVED_DENSITY_MIN_TF:-0.1}" >> stdin
 			echo "         observed_zero_phase_sign= ${OBSERVED_ZERO_PHASE_SIGN:-0}" >> stdin

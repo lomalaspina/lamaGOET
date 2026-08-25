@@ -52,6 +52,7 @@ class JobOptionsTest(unittest.TestCase):
         self.assertEqual(values["SCFCALCPROG"], "Gaussian")
         self.assertEqual(values["SCFCALC_BIN"], "g09")
         self.assertEqual(values["TONTO"], "tonto")
+        self.assertEqual(values["ACCURACY"], "extreme")
         self.assertEqual(values["PLOT_TONTO"], "false")
         self.assertEqual(values["EXTI"], "no")
         self.assertEqual(values["PARTITION_MODEL"], "oc-hirshfeld")
@@ -145,6 +146,7 @@ class JobOptionsTest(unittest.TestCase):
                 path,
                 {
                     "PARTITION_MODEL": "oc-observed",
+                    "STOCKHOLDER_MODEL": "periodic",
                     "OBSERVED_DENSITY_SHRINKAGE": "0.35",
                     "OBSERVED_DENSITY_MIN_TF": "0.025",
                     "OBSERVED_ZERO_PHASE_SIGN": "-1",
@@ -152,6 +154,7 @@ class JobOptionsTest(unittest.TestCase):
             )
             result = load_job_options(path)
         self.assertEqual(result["PARTITION_MODEL"], "oc-observed")
+        self.assertEqual(result["STOCKHOLDER_MODEL"], "periodic")
         self.assertEqual(result["OBSERVED_DENSITY_SHRINKAGE"], "0.35")
         self.assertEqual(result["OBSERVED_DENSITY_MIN_TF"], "0.025")
         self.assertEqual(result["OBSERVED_ZERO_PHASE_SIGN"], "-1")

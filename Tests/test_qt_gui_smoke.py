@@ -34,6 +34,14 @@ def main() -> int:
         assert not window.header_group.isHidden()
         assert window.merg_code.currentData() == 2
         assert "space-group equivalents" in window.merg_description.toPlainText()
+        assert [
+            window.becke_accuracy.itemText(index)
+            for index in range(window.becke_accuracy.count())
+        ] == [
+            "very_low", "sg-1", "low", "medium", "high", "very_high",
+            "extreme", "best",
+        ]
+        assert window.becke_accuracy.currentText() == "extreme"
         window.merg_code.setCurrentIndex(window.merg_code.findData(4))
         assert "anomalous-scattering" in window.merg_description.toPlainText()
         window.merg_code.setCurrentIndex(window.merg_code.findData(2))
@@ -267,13 +275,18 @@ def main() -> int:
         assert not tonto_window.stockholder_group.isHidden()
         assert not tonto_window.partition_model.isHidden()
         assert tonto_window.partition_model.currentData() == "oc-observed"
-        assert tonto_window.stockholder_model.isHidden()
+        assert not tonto_window.stockholder_model.isHidden()
+        assert tonto_window.stockholder_model.currentData() == "cluster"
+        tonto_window.stockholder_model.setCurrentIndex(
+            tonto_window.stockholder_model.findData("periodic")
+        )
         assert not tonto_window.observed_shrinkage.isHidden()
         assert tonto_window.observed_shrinkage.value() == 0.35
         assert tonto_window.observed_min_tf.value() == 0.025
         assert tonto_window.observed_zero_phase_sign.currentData() == -1
         tonto_values = tonto_window._current_values()
         assert tonto_values["PARTITION_MODEL"] == "oc-observed"
+        assert tonto_values["STOCKHOLDER_MODEL"] == "periodic"
         tonto_window.close()
 
         crystal_options = Path(directory) / "crystal_options.txt"
