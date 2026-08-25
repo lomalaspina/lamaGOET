@@ -2955,8 +2955,23 @@ DISPERSION_COEF(){
 	echo "" >> stdin
 }
 
+WRITE_EXTINCTION_OPTIONS(){
+	echo "         refine_extinction= ${EXTI:-no}" >> stdin
+	case "${EXTI:-no}" in
+		yes|YES|true|TRUE|1|on|ON)
+			echo "         extinction_model= ${EXTINCTION_MODEL:-zachariasen}" >> stdin
+			if [[ "${EXTINCTION_MODEL:-zachariasen}" == "becker-coppens" ]]; then
+				echo "         extinction_type= ${EXTINCTION_TYPE:-type-1}" >> stdin
+				echo "         extinction_distribution= ${EXTINCTION_DISTRIBUTION:-gaussian}" >> stdin
+				echo "         extinction_anisotropic= ${EXTINCTION_ANISOTROPIC:-false}" >> stdin
+				echo "         extinction_mean_path_mm= ${EXTINCTION_MEAN_PATH_MM:-0.3}" >> stdin
+			fi
+			;;
+	esac
+}
+
 EXTI_REF(){
-	echo "   	 refine_extinction= ${EXTI:-no}" >> stdin
+	WRITE_EXTINCTION_OPTIONS
 	echo "" >> stdin
 }
 
@@ -2973,7 +2988,7 @@ TONTO_IAM_BLOCK(){
 		echo "      REDIRECT tonto.cell" >> stdin
 	fi
 	echo "      xray_data= {   " >> stdin
-	echo "         refine_extinction= ${EXTI:-no}" >> stdin
+	WRITE_EXTINCTION_OPTIONS
 	echo "         correct_dispersion= $DISP" >> stdin
 	echo "         wavelength= $WAVE Angstrom" >> stdin
 	if [ "$REFANHARM" == "true" ]; then
@@ -3088,7 +3103,7 @@ CRYSTAL_BLOCK(){
                         if [[ "$PLOT_TONTO" == "false" ]]; then
         			echo "         correct_dispersion= $DISP" >> stdin
         			echo "         optimise_scale_factor= true" >> stdin
-			echo "         refine_extinction= ${EXTI:-no}" >> stdin
+			WRITE_EXTINCTION_OPTIONS
         		fi
                 fi
 		echo "         wavelength= $WAVE Angstrom" >> stdin

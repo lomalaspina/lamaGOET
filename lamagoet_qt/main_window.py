@@ -789,10 +789,76 @@ class MainWindow(QMainWindow):
             "Apply experimental dispersion correction"
         )
         refinement_form.addRow(self.dispersion_correction)
-        self.extinction_correction = QCheckBox(
-            "Apply extinction correction (SHELX style)"
+        self.extinction_correction = QCheckBox("Refine extinction correction")
+        self.extinction_correction.toggled.connect(
+            self._extinction_controls_changed
         )
         refinement_form.addRow(self.extinction_correction)
+
+        self.extinction_options = QGroupBox("Extinction model")
+        extinction_form = QFormLayout(self.extinction_options)
+        self.extinction_model = QComboBox()
+        self.extinction_model.addItem(
+            "Zachariasen (SHELXL/Larson)", "zachariasen"
+        )
+        self.extinction_model.addItem("Becker–Coppens", "becker-coppens")
+        self.extinction_model.currentIndexChanged.connect(
+            self._extinction_controls_changed
+        )
+        extinction_form.addRow("Correction", self.extinction_model)
+
+        self.extinction_explanation = QLabel()
+        self.extinction_explanation.setWordWrap(True)
+        self.extinction_explanation.setTextInteractionFlags(
+            Qt.TextInteractionFlag.TextSelectableByMouse
+        )
+        extinction_form.addRow(self.extinction_explanation)
+
+        self.extinction_type_label = QLabel("Becker–Coppens type")
+        self.extinction_type = QComboBox()
+        self.extinction_type.addItem(
+            "Type 1 — mosaic-spread dominated", "type-1"
+        )
+        self.extinction_type.addItem(
+            "Type 2 — particle-size dominated + primary", "type-2"
+        )
+        self.extinction_type.addItem("Mixed — types 1 and 2", "mixed")
+        self.extinction_type.currentIndexChanged.connect(
+            self._extinction_controls_changed
+        )
+        extinction_form.addRow(self.extinction_type_label, self.extinction_type)
+
+        self.extinction_distribution_label = QLabel("Mosaic distribution")
+        self.extinction_distribution = QComboBox()
+        self.extinction_distribution.addItem("Gaussian", "gaussian")
+        self.extinction_distribution.addItem("Lorentzian", "lorentzian")
+        extinction_form.addRow(
+            self.extinction_distribution_label,
+            self.extinction_distribution,
+        )
+
+        self.extinction_nature_label = QLabel("Nature")
+        self.extinction_nature = QComboBox()
+        self.extinction_nature.addItem("Isotropic", "isotropic")
+        self.extinction_nature.addItem("Anisotropic", "anisotropic")
+        extinction_form.addRow(
+            self.extinction_nature_label,
+            self.extinction_nature,
+        )
+
+        self.extinction_mean_path_label = QLabel(
+            "Absorption-weighted mean path length (mm)"
+        )
+        self.extinction_mean_path = QDoubleSpinBox()
+        self.extinction_mean_path.setRange(0.000001, 100.0)
+        self.extinction_mean_path.setDecimals(6)
+        self.extinction_mean_path.setSingleStep(0.05)
+        self.extinction_mean_path.setValue(0.3)
+        extinction_form.addRow(
+            self.extinction_mean_path_label,
+            self.extinction_mean_path,
+        )
+        refinement_form.addRow(self.extinction_options)
         layout.addWidget(refinement)
 
         self.cp2k_group = QGroupBox("CP2K periodic all-electron settings")
@@ -1361,6 +1427,30 @@ class MainWindow(QMainWindow):
         self.oh_bond.setText(self._option("OHBOND", "0.983"))
         self.dispersion_correction.setChecked(self._bool_option("DISP"))
         self.extinction_correction.setChecked(self._bool_option("EXTI"))
+        extinction_model = self._option("EXTINCTION_MODEL", "zachariasen")
+        model_index = self.extinction_model.findData(extinction_model)
+        self.extinction_model.setCurrentIndex(max(0, model_index))
+        extinction_type = self._option("EXTINCTION_TYPE", "type-1")
+        type_index = self.extinction_type.findData(extinction_type)
+        self.extinction_type.setCurrentIndex(max(0, type_index))
+        distribution = self._option(
+            "EXTINCTION_DISTRIBUTION", "gaussian"
+        )
+        distribution_index = self.extinction_distribution.findData(distribution)
+        self.extinction_distribution.setCurrentIndex(
+            max(0, distribution_index)
+        )
+        nature = (
+            "anisotropic"
+            if self._bool_option("EXTINCTION_ANISOTROPIC")
+            else "isotropic"
+        )
+        nature_index = self.extinction_nature.findData(nature)
+        self.extinction_nature.setCurrentIndex(max(0, nature_index))
+        self.extinction_mean_path.setValue(
+            self._float_option("EXTINCTION_MEAN_PATH_MM", 0.3)
+        )
+        self._extinction_controls_changed()
         self.energy_convergence.setText(self._option("CONVTOLE", "0.00001"))
         self.linear_dependence.setText(self._option("LINEDEP"))
         self.max_ls_cycles.setValue(self._int_option("MAXLSCYCLE", 30))
@@ -1579,6 +1669,54 @@ class MainWindow(QMainWindow):
         elongate = self.elongate_xh.isChecked()
         for widget in (self.bh_bond, self.ch_bond, self.nh_bond, self.oh_bond):
             widget.setEnabled(elongate)
+
+    def _extinction_controls_changed(self, *_args) -> None:
+        enabled = self.extinction_correction.isChecked()
+        self.extinction_options.setVisible(enabled)
+        model = self.extinction_model.currentData() or "zachariasen"
+        becker_coppens = model == "becker-coppens"
+        for widget in (
+            self.extinction_type_label,
+            self.extinction_type,
+            self.extinction_distribution_label,
+            self.extinction_distribution,
+            self.extinction_nature_label,
+            self.extinction_nature,
+        ):
+            widget.setVisible(becker_coppens)
+        self.extinction_mean_path_label.setVisible(becker_coppens)
+        self.extinction_mean_path.setVisible(becker_coppens)
+        if not becker_coppens:
+            explanation = (
+                "Zachariasen's single-parameter correction, also called the "
+                "Larson method and used by SHELXL. Choose this for compatibility "
+                "with conventional SHELXL refinements."
+            )
+        else:
+            type_text = {
+                "type-1": (
+                    "Type 1 models secondary extinction dominated by mosaic "
+                    "spread."
+                ),
+                "type-2": (
+                    "Type 2 models secondary extinction dominated by finite "
+                    "particle size and includes primary extinction."
+                ),
+                "mixed": (
+                    "Mixed refines separate Type 1 and Type 2 contributions "
+                    "and includes primary extinction."
+                ),
+            }.get(self.extinction_type.currentData(), "")
+            explanation = (
+                f"{type_text} Gaussian or Lorentzian selects the assumed "
+                "mosaic distribution; isotropic uses one coefficient, while "
+                "anisotropic refines Tonto's reciprocal-vector coefficient "
+                "tensor. A standard HKL file does not contain the measured "
+                "diffractometer azimuth needed for a full beam-direction "
+                "Thornley–Nelmes treatment. The mean path is crystal-specific; "
+                "0.3 mm is only a starting placeholder."
+            )
+        self.extinction_explanation.setText(explanation)
 
     def _grow_mode_changed(self) -> None:
         mode = self.grow_mode.currentData()
@@ -1977,6 +2115,15 @@ class MainWindow(QMainWindow):
             "OHBOND": self.oh_bond.text().strip(),
             "DISP": "yes" if self.dispersion_correction.isChecked() else "no",
             "EXTI": "yes" if self.extinction_correction.isChecked() else "no",
+            "EXTINCTION_MODEL": self.extinction_model.currentData(),
+            "EXTINCTION_TYPE": self.extinction_type.currentData(),
+            "EXTINCTION_DISTRIBUTION": (
+                self.extinction_distribution.currentData()
+            ),
+            "EXTINCTION_ANISOTROPIC": _bool_text(
+                self.extinction_nature.currentData() == "anisotropic"
+            ),
+            "EXTINCTION_MEAN_PATH_MM": self.extinction_mean_path.value(),
             "CONVTOLE": self.energy_convergence.text().strip(),
             "LINEDEP": self.linear_dependence.text().strip(),
             "MAXLSCYCLE": self.max_ls_cycles.value(),

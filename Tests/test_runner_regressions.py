@@ -46,16 +46,76 @@ class RunnerRegressionTest(unittest.TestCase):
                 self.assertIn('dft_correlation_functional= lyp', body)
 
     def test_extinction_selection_reaches_iam_and_har_inputs(self):
-        keyword = 'refine_extinction= ${EXTI:-no}'
         for name, text in self.runner_text.items():
             with self.subTest(runner=name, block="IAM"):
                 iam = function_body(text, "TONTO_IAM_BLOCK")
-                self.assertIn(keyword, iam)
+                self.assertIn("WRITE_EXTINCTION_OPTIONS", iam)
                 self.assertNotIn("optimise_extinction= false", iam)
             with self.subTest(runner=name, block="HAR"):
                 har = function_body(text, "CRYSTAL_BLOCK")
-                self.assertIn(keyword, har)
+                self.assertIn("WRITE_EXTINCTION_OPTIONS", har)
                 self.assertNotIn("optimise_extinction= false", har)
+            with self.subTest(runner=name, block="model options"):
+                options = function_body(text, "WRITE_EXTINCTION_OPTIONS")
+                self.assertIn('refine_extinction= ${EXTI:-no}', options)
+                self.assertIn(
+                    'extinction_model= ${EXTINCTION_MODEL:-zachariasen}',
+                    options,
+                )
+                self.assertIn(
+                    'extinction_type= ${EXTINCTION_TYPE:-type-1}', options
+                )
+                self.assertIn(
+                    "extinction_distribution= "
+                    "${EXTINCTION_DISTRIBUTION:-gaussian}",
+                    options,
+                )
+                self.assertIn(
+                    "extinction_anisotropic= "
+                    "${EXTINCTION_ANISOTROPIC:-false}",
+                    options,
+                )
+                self.assertIn(
+                    "extinction_mean_path_mm= "
+                    "${EXTINCTION_MEAN_PATH_MM:-0.3}",
+                    options,
+                )
+
+    @unittest.skipUnless(
+        os.name == "posix" and shutil.which("bash"),
+        "generated extinction input test requires bash",
+    )
+    def test_generated_extinction_model_options(self):
+        for runner, text in self.runner_text.items():
+            definition = (
+                "WRITE_EXTINCTION_OPTIONS(){\n"
+                + function_body(text, "WRITE_EXTINCTION_OPTIONS")
+            )
+            with self.subTest(runner=runner), tempfile.TemporaryDirectory() as directory:
+                script = (
+                    definition
+                    + '\nEXTI="yes"\n'
+                    + 'EXTINCTION_MODEL="becker-coppens"\n'
+                    + 'EXTINCTION_TYPE="mixed"\n'
+                    + 'EXTINCTION_DISTRIBUTION="lorentzian"\n'
+                    + 'EXTINCTION_ANISOTROPIC="true"\n'
+                    + 'EXTINCTION_MEAN_PATH_MM="0.425"\n'
+                    + "WRITE_EXTINCTION_OPTIONS\ncat stdin\n"
+                )
+                result = subprocess.run(
+                    ["bash", "-c", script],
+                    cwd=directory,
+                    text=True,
+                    capture_output=True,
+                    check=True,
+                )
+            generated = result.stdout
+            self.assertIn("refine_extinction= yes", generated)
+            self.assertIn("extinction_model= becker-coppens", generated)
+            self.assertIn("extinction_type= mixed", generated)
+            self.assertIn("extinction_distribution= lorentzian", generated)
+            self.assertIn("extinction_anisotropic= true", generated)
+            self.assertIn("extinction_mean_path_mm= 0.425", generated)
 
     def test_crystal_partition_selection_was_not_replaced_by_scf_input(self):
         for name, text in self.runner_text.items():
@@ -109,7 +169,7 @@ class RunnerRegressionTest(unittest.TestCase):
         for name, text in self.runner_text.items():
             with self.subTest(runner=name):
                 observed = function_body(text, "SCF_BLOCK_OBSERVED_TONTO")
-                self.assertIn('echo "      accuracy= high" >> stdin', observed)
+                self.assertIn("BECKE_GRID", observed)
                 self.assertIn('echo "   scfdata= {" >> stdin', observed)
                 self.assertIn(
                     'echo "   refine_hirshfeld_atoms" >> stdin',
@@ -135,12 +195,16 @@ class RunnerRegressionTest(unittest.TestCase):
         for runner, text in self.runner_text.items():
             with self.subTest(runner=runner), tempfile.TemporaryDirectory() as directory:
                 definition = (
-                    "SCF_BLOCK_OBSERVED_TONTO(){\n"
+                    "BECKE_GRID(){\n"
+                    + function_body(text, "BECKE_GRID")
+                    + "\nSCF_BLOCK_OBSERVED_TONTO(){\n"
                     + function_body(text, "SCF_BLOCK_OBSERVED_TONTO")
                 )
                 script = (
                     definition
-                    + '\nLINEDEP=""\n'
+                    + '\nACCURACY="extreme"\n'
+                    + 'BECKEPRUNINGSCHEME="none"\n'
+                    + 'LINEDEP=""\n'
                     + 'XCWONLY="false"\n'
                     + 'PLOT_TONTO="false"\n'
                     + 'POWDER_HAR="false"\n'
@@ -155,7 +219,7 @@ class RunnerRegressionTest(unittest.TestCase):
                     check=True,
                 )
                 generated = result.stdout
-                self.assertIn("accuracy= high", generated)
+                self.assertIn("accuracy= extreme", generated)
                 self.assertEqual(generated.count("scfdata="), 1)
                 self.assertIn("refine_hirshfeld_atoms", generated)
                 self.assertNotIn(
@@ -204,6 +268,7 @@ class RunnerRegressionTest(unittest.TestCase):
                 self.assertIn(expected, result.stdout)
                 if program == "Tonto" and selected == "oc-observed":
                     self.assertIn("observed_density_shrinkage= 0.35", result.stdout)
+                    self.assertIn("stockholder_model= periodic", result.stdout)
                     self.assertNotIn("partition_model= oc-crystal23", result.stdout)
                 elif program != "Tonto":
                     self.assertIn("stockholder_model= periodic", result.stdout)
@@ -469,4 +534,3 @@ class IamResultsInSummaryTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
-

@@ -51,6 +51,46 @@ def main() -> int:
         assert not window.extinction_correction.isChecked()
         window.extinction_correction.setChecked(True)
         assert window._current_values()["EXTI"] == "yes"
+        assert not window.extinction_options.isHidden()
+        assert window.extinction_model.currentData() == "zachariasen"
+        assert "SHELXL" in window.extinction_explanation.text()
+        window.extinction_model.setCurrentIndex(
+            window.extinction_model.findData("becker-coppens")
+        )
+        window.extinction_type.setCurrentIndex(
+            window.extinction_type.findData("type-2")
+        )
+        window.extinction_distribution.setCurrentIndex(
+            window.extinction_distribution.findData("lorentzian")
+        )
+        window.extinction_nature.setCurrentIndex(
+            window.extinction_nature.findData("anisotropic")
+        )
+        window.extinction_mean_path.setValue(0.425)
+        extinction_values = window._current_values()
+        assert extinction_values["EXTINCTION_MODEL"] == "becker-coppens"
+        assert extinction_values["EXTINCTION_TYPE"] == "type-2"
+        assert extinction_values["EXTINCTION_DISTRIBUTION"] == "lorentzian"
+        assert extinction_values["EXTINCTION_ANISOTROPIC"] == "true"
+        assert extinction_values["EXTINCTION_MEAN_PATH_MM"] == 0.425
+        assert not window.extinction_mean_path.isHidden()
+        assert window.save_options() == options
+        saved_extinction = load_job_options(options)
+        assert saved_extinction["EXTINCTION_MODEL"] == "becker-coppens"
+        assert saved_extinction["EXTINCTION_TYPE"] == "type-2"
+        assert saved_extinction["EXTINCTION_DISTRIBUTION"] == "lorentzian"
+        assert saved_extinction["EXTINCTION_ANISOTROPIC"] == "true"
+        assert saved_extinction["EXTINCTION_MEAN_PATH_MM"] == "0.425"
+        reloaded = MainWindow(options)
+        assert reloaded.extinction_correction.isChecked()
+        assert reloaded.extinction_model.currentData() == "becker-coppens"
+        assert reloaded.extinction_type.currentData() == "type-2"
+        assert reloaded.extinction_distribution.currentData() == "lorentzian"
+        assert reloaded.extinction_nature.currentData() == "anisotropic"
+        assert reloaded.extinction_mean_path.value() == 0.425
+        reloaded.close()
+        window.extinction_correction.setChecked(False)
+        assert window.extinction_options.isHidden()
         assert window.logo_label.pixmap() is not None
         assert not window.logo_label.pixmap().isNull()
         assert window.logo_label.alignment() & Qt.AlignmentFlag.AlignHCenter
