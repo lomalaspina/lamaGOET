@@ -32,7 +32,8 @@ def main() -> int:
         gaussian_methods = {
             window.method.itemText(index) for index in range(window.method.count())
         }
-        assert {"PBEPBE", "uPBEPBE", "PBE1PBE", "uPBE1PBE"}.issubset(
+        assert {"PBEPBE", "uPBEPBE", "blyp", "b3lyp"}.issubset(gaussian_methods)
+        assert not {"PBE1PBE", "uPBE1PBE", "m06", "wb97xd"}.intersection(
             gaussian_methods
         )
         assert not {"pbe", "upbe", "pbe0", "upbe0"}.intersection(
@@ -187,8 +188,8 @@ def main() -> int:
         for program, minimum_methods, minimum_basis in (
             ("Tonto", 3, 20),
             ("elmodb", 3, 20),
-            ("optgaussian", 10, 40),
-            ("optorca", 10, 40),
+            ("optgaussian", 8, 40),
+            ("optorca", 5, 40),
         ):
             window.program.setCurrentIndex(window.program.findData(program))
             assert window.method.count() >= minimum_methods

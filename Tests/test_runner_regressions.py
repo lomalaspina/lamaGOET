@@ -44,6 +44,9 @@ class RunnerRegressionTest(unittest.TestCase):
                 self.assertIn('echo "   refine_hirshfeld_atoms" >> stdin', body)
                 self.assertIn('dft_exchange_functional= becke88', body)
                 self.assertIn('dft_correlation_functional= lyp', body)
+                self.assertIn('dft_exchange_functional= pbex', body)
+                self.assertIn('dft_correlation_functional= pbec', body)
+                self.assertIn('METHOD" == "upbe', body)
 
     def test_extinction_selection_reaches_iam_and_har_inputs(self):
         for name, text in self.runner_text.items():

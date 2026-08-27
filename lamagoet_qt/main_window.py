@@ -86,23 +86,20 @@ MERG_DESCRIPTIONS = {
 }
 
 METHODS = {
+    # HAR always asks Tonto to reconstruct atom-centred form factors.  Keep
+    # each external-program menu to methods for which Tonto has the matching
+    # all-electron exchange/correlation implementation; the boxes remain
+    # editable for expert use, but unsupported methods are no longer suggested.
     "Gaussian": (
-        "rhf", "uhf", "rohf", "rks", "uks", "blyp", "ublyp", "b3lyp",
-        "ub3lyp", "b3pw91", "PBEPBE", "uPBEPBE", "PBE1PBE", "uPBE1PBE",
-        "bp86", "tpss", "tpssh",
-        "m06", "m06-2x", "wb97xd",
+        "rhf", "uhf", "blyp", "ublyp", "b3lyp", "ub3lyp",
+        "PBEPBE", "uPBEPBE",
     ),
-    "Orca": (
-        "RHF", "UHF", "ROHF", "RKS", "UKS", "BLYP", "B3LYP", "BP86",
-        "PBE", "PBE0", "TPSS", "TPSSh", "M06", "M06-2X", "wB97X-D3",
-        "wB97X-V",
+    "Orca": ("RHF", "UHF", "BLYP", "B3LYP", "PBE"),
+    "OCC": ("rhf", "uhf", "blyp", "b3lyp", "pbe"),
+    "Tonto": (
+        "rhf", "uhf", "blyp", "ublyp", "b3lyp", "ub3lyp", "pbe", "upbe",
     ),
-    "OCC": ("rhf", "uhf", "rks", "uks", "blyp", "b3lyp", "pbe", "pbe0"),
-    "Tonto": ("rhf", "uhf", "rks", "uks", "blyp", "b3lyp"),
-    "Crystal14": (
-        "rhf", "uhf", "PBE", "BLYP", "B3LYP", "B3PW", "PBE0", "HSE06",
-        "PBESOL", "PBESOL0", "SCAN", "R2SCAN", "M06L", "M06", "M062X",
-    ),
+    "Crystal14": ("rhf", "uhf", "PBE", "BLYP", "B3LYP"),
 }
 METHODS["optgaussian"] = METHODS["Gaussian"]
 METHODS["optorca"] = METHODS["Orca"]
@@ -188,9 +185,7 @@ BASIS = {
     ),
 }
 
-CP2K_FUNCTIONALS = (
-    "BLYP", "BP", "PADE", "LDA", "PBE", "TPSS", "HCTH120", "OLYP", "BEEFVDW"
-)
+CP2K_FUNCTIONALS = ("BLYP", "PBE")
 
 
 def _editable_combo() -> QComboBox:

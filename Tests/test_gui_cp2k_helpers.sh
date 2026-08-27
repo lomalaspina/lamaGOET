@@ -18,7 +18,7 @@ if [[ "$actual" != "$expected" ]]; then
 fi
 
 actual=$("$script" --list-cp2k-functionals "PBE")
-expected=$'PBE\nBLYP\nBP\nPADE\nLDA\nTPSS\nHCTH120\nOLYP\nBEEFVDW'
+expected=$'PBE\nBLYP'
 if [[ "$actual" != "$expected" ]]; then
     printf 'Unexpected CP2K functional list:\n%s\n' "$actual" >&2
     exit 1
@@ -30,9 +30,15 @@ if [[ "$(printf '%s\n' "$actual" | head -n 1)" != "BLYP" ]] \
     echo "Saved Gaussian method was not preserved in the editable method list" >&2
     exit 1
 fi
-for method in PBEPBE uPBEPBE PBE1PBE uPBE1PBE; do
+for method in PBEPBE uPBEPBE; do
     if ! printf '%s\n' "$actual" | grep -qx "$method"; then
         echo "Canonical Gaussian method $method is missing" >&2
+        exit 1
+    fi
+done
+for unsupported in PBE1PBE uPBE1PBE m06 wb97xd; do
+    if printf '%s\n' "$actual" | grep -qx "$unsupported"; then
+        echo "Method unsupported by Tonto leaked into the Gaussian suggestions: $unsupported" >&2
         exit 1
     fi
 done
@@ -71,7 +77,8 @@ done
 
 actual=$("$script" --list-scf-methods Crystal14 "PBE0")
 if [[ "$(printf '%s\n' "$actual" | head -n 1)" != "PBE0" ]] \
-    || ! printf '%s\n' "$actual" | grep -qx "HSE06"; then
+    || ! printf '%s\n' "$actual" | grep -qx "PBE" \
+    || printf '%s\n' "$actual" | grep -qx "HSE06"; then
     echo "CRYSTAL23 method suggestions or the saved value are missing" >&2
     exit 1
 fi

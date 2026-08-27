@@ -1148,7 +1148,17 @@ SCF_BLOCK_NOT_TONTO(){
 		echo "     ! SC cluster charge SCF" >> stdin
 		echo "      scfdata= {" >> stdin
 		if [[ "$METHOD" != "rks" && "$METHOD" != "rhf" && "$METHOD" != "uhf" && "$METHOD" != "uks" ]]; then
-                        if [[ "$METHOD" == "ub3lyp" || "$METHOD" == "UB3LYP" ]]; then
+			if [[ "$METHOD" == "uPBEPBE" || "$METHOD" == "upbepbe" || "$METHOD" == "uPBE" || "$METHOD" == "upbe" ]]; then
+				echo "      initial_MOs= unrestricted   " >> stdin
+				echo "      kind= uks " >> stdin
+				echo "      dft_exchange_functional= pbex" >> stdin
+				echo "      dft_correlation_functional= pbec" >> stdin
+			elif [[ "$METHOD" == "PBEPBE" || "$METHOD" == "pbepbe" || "$METHOD" == "PBE" || "$METHOD" == "pbe" ]]; then
+				echo "      initial_MOs= restricted   " >> stdin
+				echo "      kind= rks " >> stdin
+				echo "      dft_exchange_functional= pbex" >> stdin
+				echo "      dft_correlation_functional= pbec" >> stdin
+			elif [[ "$METHOD" == "ub3lyp" || "$METHOD" == "UB3LYP" ]]; then
 		                echo "      initial_MOs= unrestricted   " >> stdin # Only for new tonto may 2020
 			        echo "      kind= uks " >> stdin
 			        echo "      dft_exchange_functional= b3lypgx" >> stdin
@@ -1158,6 +1168,16 @@ SCF_BLOCK_NOT_TONTO(){
 			        echo "      kind= rks " >> stdin
 			        echo "      dft_exchange_functional= b3lypgx" >> stdin
                 		echo "      dft_correlation_functional= b3lypgc" >> stdin
+                        elif [[ "$METHOD" == "ublyp" || "$METHOD" == "UBLYP" ]]; then
+		                echo "      initial_MOs= unrestricted   " >> stdin
+			        echo "      kind= uks " >> stdin
+			        echo "      dft_exchange_functional= becke88" >> stdin
+                		echo "      dft_correlation_functional= lyp" >> stdin
+                        elif [[ "$METHOD" == "blyp" || "$METHOD" == "BLYP" ]]; then
+		                echo "      initial_MOs= restricted   " >> stdin
+			        echo "      kind= rks " >> stdin
+			        echo "      dft_exchange_functional= becke88" >> stdin
+                		echo "      dft_correlation_functional= lyp" >> stdin
                         else
 		                echo "      initial_MOs= restricted   " >> stdin # Only for new tonto may 2020
 			        echo "      kind= rks " >> stdin
@@ -1193,7 +1213,17 @@ SCF_BLOCK_NOT_TONTO(){
 		echo "   scfdata= {" >> stdin
 		echo "      initial_density= promolecule" >> stdin
 		if [[ "$METHOD" != "rks" && "$METHOD" != "rhf" && "$METHOD" != "uhf" && "$METHOD" != "uks" ]]; then
-                        if [[ "$METHOD" == "ub3lyp" || "$METHOD" == "UB3LYP" ]]; then
+			if [[ "$METHOD" == "uPBEPBE" || "$METHOD" == "upbepbe" || "$METHOD" == "uPBE" || "$METHOD" == "upbe" ]]; then
+				echo "      initial_MOs= unrestricted   " >> stdin
+				echo "      kind= uks " >> stdin
+				echo "      dft_exchange_functional= pbex" >> stdin
+				echo "      dft_correlation_functional= pbec" >> stdin
+			elif [[ "$METHOD" == "PBEPBE" || "$METHOD" == "pbepbe" || "$METHOD" == "PBE" || "$METHOD" == "pbe" ]]; then
+				echo "      initial_MOs= restricted   " >> stdin
+				echo "      kind= rks " >> stdin
+				echo "      dft_exchange_functional= pbex" >> stdin
+				echo "      dft_correlation_functional= pbec" >> stdin
+			elif [[ "$METHOD" == "ub3lyp" || "$METHOD" == "UB3LYP" ]]; then
 		                echo "      initial_MOs= unrestricted   " >> stdin # Only for new tonto may 2020
 			        echo "      kind= uks " >> stdin
 			        echo "      dft_exchange_functional= b3lypgx" >> stdin
@@ -1203,6 +1233,16 @@ SCF_BLOCK_NOT_TONTO(){
 			        echo "      kind= rks " >> stdin
 			        echo "      dft_exchange_functional= b3lypgx" >> stdin
         			echo "      dft_correlation_functional= b3lypgc" >> stdin
+                        elif [[ "$METHOD" == "ublyp" || "$METHOD" == "UBLYP" ]]; then
+		                echo "      initial_MOs= unrestricted   " >> stdin
+			        echo "      kind= uks " >> stdin
+			        echo "      dft_exchange_functional= becke88" >> stdin
+        			echo "      dft_correlation_functional= lyp" >> stdin
+                        elif [[ "$METHOD" == "blyp" || "$METHOD" == "BLYP" ]]; then
+		                echo "      initial_MOs= restricted   " >> stdin
+			        echo "      kind= rks " >> stdin
+			        echo "      dft_exchange_functional= becke88" >> stdin
+        			echo "      dft_correlation_functional= lyp" >> stdin
                         else
 		                echo "      initial_MOs= restricted   " >> stdin # Only for new tonto may 2020
 			        echo "      kind= rks " >> stdin
@@ -1333,18 +1373,48 @@ SCF_BLOCK_OBSERVED_TONTO(){
 SCF_BLOCK_REST_TONTO(){
 	echo "   ! SC cluster charge SCF" >> stdin
 	echo "   scfdata= {" >> stdin
-	echo "      initial_MOs= restricted" >> stdin
 	if [[ "$METHOD" == "b3lyp" || "$METHOD" == "B3LYP" || "$METHOD" == "rks" || "$METHOD" == "RKS" ]]; then
+		echo "      initial_MOs= restricted" >> stdin
 		echo "      kind= rks" >> stdin
 	        echo "      output= true " >> stdin
 		echo "      dft_exchange_functional= b3lypgx" >> stdin
 		echo "      dft_correlation_functional= b3lypgc" >> stdin
+	elif [[ "$METHOD" == "ub3lyp" || "$METHOD" == "UB3LYP" || "$METHOD" == "uks" || "$METHOD" == "UKS" ]]; then
+		echo "      initial_MOs= unrestricted" >> stdin
+		echo "      kind= uks" >> stdin
+	        echo "      output= true " >> stdin
+		echo "      dft_exchange_functional= b3lypgx" >> stdin
+		echo "      dft_correlation_functional= b3lypgc" >> stdin
 	elif [[ "$METHOD" == "blyp" || "$METHOD" == "BLYP" ]]; then
+		echo "      initial_MOs= restricted" >> stdin
 		echo "      kind= rks" >> stdin
 	        echo "      output= true " >> stdin
 		echo "      dft_exchange_functional= becke88" >> stdin
 		echo "      dft_correlation_functional= lyp" >> stdin
+	elif [[ "$METHOD" == "ublyp" || "$METHOD" == "UBLYP" ]]; then
+		echo "      initial_MOs= unrestricted" >> stdin
+		echo "      kind= uks" >> stdin
+	        echo "      output= true " >> stdin
+		echo "      dft_exchange_functional= becke88" >> stdin
+		echo "      dft_correlation_functional= lyp" >> stdin
+	elif [[ "$METHOD" == "PBEPBE" || "$METHOD" == "pbepbe" || "$METHOD" == "PBE" || "$METHOD" == "pbe" ]]; then
+		echo "      initial_MOs= restricted" >> stdin
+		echo "      kind= rks" >> stdin
+	        echo "      output= true " >> stdin
+		echo "      dft_exchange_functional= pbex" >> stdin
+		echo "      dft_correlation_functional= pbec" >> stdin
+	elif [[ "$METHOD" == "uPBEPBE" || "$METHOD" == "upbepbe" || "$METHOD" == "uPBE" || "$METHOD" == "upbe" ]]; then
+		echo "      initial_MOs= unrestricted" >> stdin
+		echo "      kind= uks" >> stdin
+	        echo "      output= true " >> stdin
+		echo "      dft_exchange_functional= pbex" >> stdin
+		echo "      dft_correlation_functional= pbec" >> stdin
 	else 
+		if [[ "$METHOD" == "uhf" || "$METHOD" == "UHF" ]]; then
+			echo "      initial_MOs= unrestricted" >> stdin
+		else
+			echo "      initial_MOs= restricted" >> stdin
+		fi
 		echo "      kind= $METHOD" >> stdin
 	        echo "      output= true " >> stdin
 	fi
@@ -2272,7 +2342,17 @@ GET_RESIDUALS(){
 	if [[ "$SCFCALCPROG" != "Crystal14" ]]; then
 		echo "   scfdata= {" >> stdin
 		if [[ "$METHOD" != "rks" && "$METHOD" != "rhf" && "$METHOD" != "uhf" && "$METHOD" != "uks" && "$METHOD" != "HF" ]]; then
-	                if [[ "$METHOD" == "ub3lyp" || "$METHOD" == "UB3LYP" ]]; then
+	                if [[ "$METHOD" == "uPBEPBE" || "$METHOD" == "upbepbe" || "$METHOD" == "uPBE" || "$METHOD" == "upbe" ]]; then
+		                echo "      initial_MOs= unrestricted   " >> stdin
+			        echo "      kind= uks " >> stdin
+			        echo "      dft_exchange_functional= pbex" >> stdin
+	        		echo "      dft_correlation_functional= pbec" >> stdin
+	                elif [[ "$METHOD" == "PBEPBE" || "$METHOD" == "pbepbe" || "$METHOD" == "PBE" || "$METHOD" == "pbe" ]]; then
+		                echo "      initial_MOs= restricted   " >> stdin
+			        echo "      kind= rks " >> stdin
+			        echo "      dft_exchange_functional= pbex" >> stdin
+	        		echo "      dft_correlation_functional= pbec" >> stdin
+	                elif [[ "$METHOD" == "ub3lyp" || "$METHOD" == "UB3LYP" ]]; then
 		                echo "      initial_MOs= unrestricted   " >> stdin # Only for new tonto may 2020
 			        echo "      kind= uks " >> stdin
 			        echo "      dft_exchange_functional= b3lypgx" >> stdin
@@ -2282,6 +2362,16 @@ GET_RESIDUALS(){
 			        echo "      kind= rks " >> stdin
 			        echo "      dft_exchange_functional= b3lypgx" >> stdin
 	        		echo "      dft_correlation_functional= b3lypgc" >> stdin
+	                elif [[ "$METHOD" == "ublyp" || "$METHOD" == "UBLYP" ]]; then
+		                echo "      initial_MOs= unrestricted   " >> stdin
+			        echo "      kind= uks " >> stdin
+			        echo "      dft_exchange_functional= becke88" >> stdin
+	        		echo "      dft_correlation_functional= lyp" >> stdin
+	                elif [[ "$METHOD" == "blyp" || "$METHOD" == "BLYP" ]]; then
+		                echo "      initial_MOs= restricted   " >> stdin
+			        echo "      kind= rks " >> stdin
+			        echo "      dft_exchange_functional= becke88" >> stdin
+	        		echo "      dft_correlation_functional= lyp" >> stdin
 	                else
 		                echo "      initial_MOs= restricted   " >> stdin # Only for new tonto may 2020
 			        echo "      kind= rks " >> stdin
