@@ -2226,29 +2226,56 @@ _har_abs_value_le() {
 CHECK_WAVEFUNCTION_STALL(){
 	local current_energy=$1
 	local current_rmsd=$2
+	local geometry_file=${3:-}
 	local energy_tolerance=${HAR_ENERGY_REPEAT_TOL:-${CONVTOLE:-0.000001}}
 	local rmsd_tolerance=${HAR_SCF_RMSD_TOL:-1.0e-7}
+	local geometry_fingerprint=""
 	local reason=""
 
 	HAR_WAVEFUNCTION_STALLED=false
-	if [[ -z "$current_energy" ]]; then
-		return 0
+	if [[ -n "$geometry_file" && -s "$geometry_file" ]]; then
+		# Tonto writes the refined CIF at fixed decimal precision. Once that
+		# file repeats, the next quantum calculation receives exactly the same
+		# crystallographic geometry even when its final SCF energy jitters in
+		# the last few digits. cksum is portable across Linux and macOS.
+		geometry_fingerprint=$(cksum < "$geometry_file" 2>/dev/null | awk '{print $1 ":" $2}')
+		if [[ -n "$geometry_fingerprint" && "$geometry_fingerprint" == "${HAR_GEOMETRY_LAST:-}" ]]; then
+			HAR_GEOMETRY_DIRECT_REPEAT_COUNT=$(( ${HAR_GEOMETRY_DIRECT_REPEAT_COUNT:-0} + 1 ))
+			HAR_GEOMETRY_PERIOD2_REPEAT_COUNT=0
+			if (( HAR_GEOMETRY_DIRECT_REPEAT_COUNT >= 2 )); then
+				reason="the refined crystallographic geometry repeated in consecutive cycles"
+			fi
+		elif [[ -n "$geometry_fingerprint" && "$geometry_fingerprint" == "${HAR_GEOMETRY_PREV2:-}" ]]; then
+			HAR_GEOMETRY_PERIOD2_REPEAT_COUNT=$(( ${HAR_GEOMETRY_PERIOD2_REPEAT_COUNT:-0} + 1 ))
+			HAR_GEOMETRY_DIRECT_REPEAT_COUNT=0
+			if (( HAR_GEOMETRY_PERIOD2_REPEAT_COUNT >= 2 )); then
+				reason="the refined crystallographic geometry entered a stable two-cycle oscillation"
+			fi
+		else
+			HAR_GEOMETRY_DIRECT_REPEAT_COUNT=0
+			HAR_GEOMETRY_PERIOD2_REPEAT_COUNT=0
+		fi
+		HAR_GEOMETRY_PREV2=${HAR_GEOMETRY_LAST:-}
+		HAR_GEOMETRY_LAST=$geometry_fingerprint
 	fi
-	if [[ -n "${HAR_ENERGY_LAST:-}" ]] \
+	if [[ -z "$current_energy" ]]; then
+		if [[ -z "$reason" ]]; then return 0; fi
+	fi
+	if [[ -z "$reason" && -n "${HAR_ENERGY_LAST:-}" ]] \
 		&& _har_abs_diff_le "$current_energy" "$HAR_ENERGY_LAST" "$energy_tolerance"; then
 		HAR_DIRECT_REPEAT_COUNT=$(( ${HAR_DIRECT_REPEAT_COUNT:-0} + 1 ))
 		HAR_PERIOD2_REPEAT_COUNT=0
 		if (( HAR_DIRECT_REPEAT_COUNT >= 2 )); then
 			reason="the SCF energy repeated in consecutive cycles"
 		fi
-	elif [[ -n "${HAR_ENERGY_PREV2:-}" ]] \
+	elif [[ -z "$reason" && -n "${HAR_ENERGY_PREV2:-}" ]] \
 		&& _har_abs_diff_le "$current_energy" "$HAR_ENERGY_PREV2" "$energy_tolerance"; then
 		HAR_PERIOD2_REPEAT_COUNT=$(( ${HAR_PERIOD2_REPEAT_COUNT:-0} + 1 ))
 		HAR_DIRECT_REPEAT_COUNT=0
 		if (( HAR_PERIOD2_REPEAT_COUNT >= 2 )); then
 			reason="the SCF energy entered a stable two-cycle oscillation"
 		fi
-	else
+	elif [[ -z "$reason" ]]; then
 		HAR_DIRECT_REPEAT_COUNT=0
 		HAR_PERIOD2_REPEAT_COUNT=0
 	fi
@@ -2304,7 +2331,7 @@ CHECK_ENERGY(){
 	if [[ -z "${HAR_ENERGY_LAST:-}" && -n "${ENERGIA:-}" ]]; then
 		HAR_ENERGY_LAST=$ENERGIA
 	fi
-	CHECK_WAVEFUNCTION_STALL "$ENERGIA2" "$RMSD2"
+	CHECK_WAVEFUNCTION_STALL "$ENERGIA2" "$RMSD2" "${JOBNAME}.fractional.cif1"
 	ENERGIA=$ENERGIA2
 	RMSD=$RMSD2
 	echo "Delta E (cycle  $I - $[ I - 1 ]): $DE "

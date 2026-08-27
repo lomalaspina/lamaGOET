@@ -50,11 +50,31 @@ test_repeated_energy_stops_after_normal_scf_even_with_high_rmsd() {
     [[ "$HAR_WAVEFUNCTION_STALLED" == "true" ]]
 }
 
+test_repeated_refined_geometry_stops_despite_energy_jitter() {
+    unset HAR_ENERGY_LAST HAR_ENERGY_PREV2
+    unset HAR_DIRECT_REPEAT_COUNT HAR_PERIOD2_REPEAT_COUNT
+    unset HAR_GEOMETRY_LAST HAR_GEOMETRY_PREV2
+    unset HAR_GEOMETRY_DIRECT_REPEAT_COUNT HAR_GEOMETRY_PERIOD2_REPEAT_COUNT
+    HAR_WAVEFUNCTION_STALLED=false
+
+    local geometry
+    geometry=$(mktemp)
+    printf '%s\n' 'data_test' '_atom_site_label N1' > "$geometry"
+
+    CHECK_WAVEFUNCTION_STALL -225.972329568128 0.0 "$geometry"
+    CHECK_WAVEFUNCTION_STALL -225.972330783360 0.0 "$geometry"
+    CHECK_WAVEFUNCTION_STALL -225.972329891069 0.0 "$geometry"
+
+    [[ "$HAR_WAVEFUNCTION_STALLED" == "true" ]]
+    rm -f "$geometry"
+}
+
 for script in "$repo_dir/lamaGOET.sh" "$repo_dir/RUN_lamaGOET_release.sh"; do
     load_detector "$script"
     test_period_two_series
     test_direct_repeat_series
     test_repeated_energy_stops_after_normal_scf_even_with_high_rmsd
+    test_repeated_refined_geometry_stops_despite_energy_jitter
 
     grep -q 'HAR_WAVEFUNCTION_STALLED:-false' "$script"
     if grep -q 'SAME=$(diff temp1 temp2)' "$script"; then
@@ -75,6 +95,7 @@ test_cp2k_stationary_energy_stops_before_another_tonto_fit() {
     HAR_WAVEFUNCTION_STALLED=false
     HAR_ENERGY_REPEAT_TOL=1.0e-10
     HAR_SCF_RMSD_TOL=1.0e-8
+    JOBNAME=stall_test
     I=0
     J=0
     MAXSHIFT=1.0
@@ -131,6 +152,7 @@ test_cp2k_stationary_energy_stops_before_another_tonto_fit
 
 cp2k_body=$(awk '/^CP2K_RUN_HAR\(\)/,/^}/' "$repo_dir/lamaGOET.sh")
 [[ $(grep -c 'CHECK_WAVEFUNCTION_STALL "$ENERGIA2" "$RMSD2"' <<< "$cp2k_body") -ge 2 ]]
+[[ $(grep -c 'CHECK_WAVEFUNCTION_STALL "$ENERGIA2" "$RMSD2" "${JOBNAME}.fractional.cif1"' <<< "$cp2k_body") -ge 2 ]]
 grep -q 'Reusing the current converged CP2K density for final residuals' <<< "$cp2k_body"
 grep -q 'CP2K_CAPTURE_FIT_ROW' <<< "$cp2k_body"
 [[ $(grep -c 'CP2K_WRITE_FIT_ROW "$I"' <<< "$cp2k_body") -ge 2 ]]
