@@ -891,6 +891,33 @@ TONTO_OBSERVED_DENSITY_INPUT(){
 	[[ "$SCFCALCPROG" == "Tonto" && ( "${PARTITION_MODEL:-oc-hirshfeld}" == "observed" || "${PARTITION_MODEL:-oc-hirshfeld}" == "oc-observed" ) ]]
 }
 
+TONTO_FINAL_WAVEFUNCTION_EXPORTS_AVAILABLE(){
+	# These files require a finite canonical molecular-orbital expansion.
+	# Periodic Crystal23 densities and the observed-density model do not
+	# provide one, so requesting the writers there would either fail or export
+	# the wrong (IAM-prior) wavefunction.
+	case "$SCFCALCPROG" in
+		Gaussian|Orca|OCC|elmodb)
+			return 0
+			;;
+		Tonto)
+			! TONTO_OBSERVED_DENSITY_INPUT
+			;;
+		*)
+			return 1
+			;;
+	esac
+}
+
+APPEND_FINAL_WAVEFUNCTION_EXPORTS(){
+	echo "" >> stdin
+	echo "   put_nbo_file_47" >> stdin
+	echo "" >> stdin
+	echo "   write_aim2000_wfn_file" >> stdin
+	echo "" >> stdin
+	echo "   write_full_wfx_file" >> stdin
+}
+
 TONTO_IAM_ONLY_INPUT(){
 	[[ "$SCFCALCPROG" == "Tonto" && "$J" == "0" && "$IAMTONTO" == "true" && "$ONLYIAMTONTO" == "true" ]]
 }
@@ -2300,6 +2327,10 @@ FIT_TABLE_SUMMARY(){
 }
 
 GET_RESIDUALS(){
+	local export_final_wavefunction=false
+	if TONTO_FINAL_WAVEFUNCTION_EXPORTS_AVAILABLE; then
+		export_final_wavefunction=true
+	fi
 	TONTO_HEADER
 	DEFINE_JOB_NAME
 	if [ "$SCFCALCPROG" = "elmodb" ]; then
@@ -2406,6 +2437,9 @@ GET_RESIDUALS(){
 	echo "   put_minmax_residual_density" >> stdin
 	echo "" >> stdin
         echo "   put_fitting_plots" >> stdin
+	if [[ "$export_final_wavefunction" == "true" ]]; then
+		APPEND_FINAL_WAVEFUNCTION_EXPORTS
+	fi
 #       echo "   plot_grid= {                           " >> stdin
 #       echo "" >> stdin
 #       echo "      kind= residual_density_map" >> stdin
@@ -2422,6 +2456,9 @@ GET_RESIDUALS(){
 	echo "Calculating residual density at final geometry" 
 	J=$[ $J + 1 ]
         rm -f stdout stde
+	if [[ "$export_final_wavefunction" == "true" ]]; then
+		rm -f -- "$JOBNAME.47" "$JOBNAME.wfn" "$JOBNAME.wfx"
+	fi
         local tonto_status=0
         if [[ "$NUMPROCTONTO" != "1" ]]; then
 		mpirun -n "$NUMPROCTONTO" "$TONTO" || tonto_status=$?
@@ -2434,6 +2471,17 @@ GET_RESIDUALS(){
                 echo "ERROR: final Tonto residual-density calculation failed; inspect stdin and stdout" | tee -a "$JOBNAME.lst" >&2
                 return 1
         fi
+	if [[ "$export_final_wavefunction" == "true" ]]; then
+		local wavefunction_artifact
+		for wavefunction_artifact in "$JOBNAME.47" "$JOBNAME.wfn" "$JOBNAME.wfx"; do
+			if [[ ! -s "$wavefunction_artifact" ]]; then
+				echo "ERROR: final Tonto wavefunction export is missing or empty: $wavefunction_artifact" | tee -a "$JOBNAME.lst" >&2
+				return 1
+			fi
+		done
+	else
+		echo "Final .47/.wfn/.wfx export skipped: $SCFCALCPROG does not provide a finite canonical molecular-orbital representation for this residual-density model." >> "$JOBNAME.lst"
+	fi
 	if [[ "$USENOSPHERA2" == "true" ]]; then
                 LABELS_IN_XYZ
         fi
@@ -2448,6 +2496,11 @@ GET_RESIDUALS(){
 	cp $JOBNAME'.archive.fcf' $J.tonto_cycle.$JOBNAME/$J.$JOBNAME.archive.fcf
 	cp $JOBNAME'.archive.fco' $J.tonto_cycle.$JOBNAME/$J.$JOBNAME.archive.fco
 	cp $JOBNAME'.residual_density,cell.cube' $J.tonto_cycle.$JOBNAME/$J.$JOBNAME.residual_density,cell.cube
+	if [[ "$export_final_wavefunction" == "true" ]]; then
+		for wavefunction_artifact in "$JOBNAME.47" "$JOBNAME.wfn" "$JOBNAME.wfx"; do
+			cp -- "$wavefunction_artifact" "$J.tonto_cycle.$JOBNAME/$J.$wavefunction_artifact"
+		done
+	fi
 }
 
 XCW_SCF_BLOCK(){

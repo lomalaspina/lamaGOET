@@ -534,6 +534,85 @@ class IamResultsInSummaryTest(unittest.TestCase):
                 )
 
 
+class FinalWavefunctionExportTest(unittest.TestCase):
+    """Final orbital files must be requested only from canonical MO models."""
+
+    def test_both_runners_request_and_validate_all_three_exports(self):
+        for runner in RUNNERS:
+            text = runner.read_text(encoding="utf-8")
+            with self.subTest(runner=runner.name):
+                append = function_body(text, "APPEND_FINAL_WAVEFUNCTION_EXPORTS")
+                self.assertIn("put_nbo_file_47", append)
+                self.assertIn("write_aim2000_wfn_file", append)
+                self.assertIn("write_full_wfx_file", append)
+
+                residuals = function_body(text, "GET_RESIDUALS")
+                self.assertIn("TONTO_FINAL_WAVEFUNCTION_EXPORTS_AVAILABLE", residuals)
+                self.assertIn("APPEND_FINAL_WAVEFUNCTION_EXPORTS", residuals)
+                self.assertIn('"$JOBNAME.47"', residuals)
+                self.assertIn('"$JOBNAME.wfn"', residuals)
+                self.assertIn('"$JOBNAME.wfx"', residuals)
+                self.assertIn('[[ ! -s "$wavefunction_artifact" ]]', residuals)
+
+    @unittest.skipUnless(
+        os.name == "posix" and shutil.which("bash"),
+        "wavefunction export classification test requires bash",
+    )
+    def test_export_classification_distinguishes_molecular_and_periodic_models(self):
+        for runner, text in self.runner_text().items():
+            definitions = (
+                "TONTO_OBSERVED_DENSITY_INPUT(){\n"
+                + function_body(text, "TONTO_OBSERVED_DENSITY_INPUT")
+                + "TONTO_FINAL_WAVEFUNCTION_EXPORTS_AVAILABLE(){\n"
+                + function_body(text, "TONTO_FINAL_WAVEFUNCTION_EXPORTS_AVAILABLE")
+            )
+            script = definitions + r'''
+check() {
+    SCFCALCPROG=$1
+    PARTITION_MODEL=$2
+    if TONTO_FINAL_WAVEFUNCTION_EXPORTS_AVAILABLE; then
+        printf '%s:%s=yes\n' "$SCFCALCPROG" "$PARTITION_MODEL"
+    else
+        printf '%s:%s=no\n' "$SCFCALCPROG" "$PARTITION_MODEL"
+    fi
+}
+check Gaussian oc-hirshfeld
+check Orca oc-hirshfeld
+check OCC oc-hirshfeld
+check elmodb oc-hirshfeld
+check Tonto oc-hirshfeld
+check Tonto oc-observed
+check CP2K periodic
+check Crystal14 periodic
+'''
+            result = subprocess.run(
+                ["bash", "-c", script],
+                text=True,
+                capture_output=True,
+                check=True,
+            )
+            with self.subTest(runner=runner):
+                self.assertEqual(
+                    result.stdout.splitlines(),
+                    [
+                        "Gaussian:oc-hirshfeld=yes",
+                        "Orca:oc-hirshfeld=yes",
+                        "OCC:oc-hirshfeld=yes",
+                        "elmodb:oc-hirshfeld=yes",
+                        "Tonto:oc-hirshfeld=yes",
+                        "Tonto:oc-observed=no",
+                        "CP2K:periodic=no",
+                        "Crystal14:periodic=no",
+                    ],
+                )
+
+    @staticmethod
+    def runner_text():
+        return {
+            path.name: path.read_text(encoding="utf-8") for path in RUNNERS
+        }
+
+
 
 if __name__ == "__main__":
     unittest.main()
