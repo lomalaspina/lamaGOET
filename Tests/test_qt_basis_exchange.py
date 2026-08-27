@@ -34,6 +34,17 @@ class BasisExchangeTest(unittest.TestCase):
         self.assertEqual(text.upper().count("$DATA"), 1)
         self.assertEqual(text.upper().count("$END"), 1)
 
+    def test_mixed_gaussian_basis_keeps_one_delimiter_per_element(self):
+        text, _ = render_mixed_basis(
+            "Gaussian", {"H": "pob-TZVP-rev2", "N": "pob-TZVP-rev2"}
+        )
+        self.assertEqual(text.count("****"), 2)
+        self.assertLess(text.index("H     0"), text.index("****"))
+        self.assertLess(text.index("****"), text.index("N     0"))
+        self.assertIn("****\nN     0", text)
+        self.assertNotIn("****\n\nN     0", text)
+        self.assertTrue(text.rstrip().endswith("****"))
+
 
 if __name__ == "__main__":
     unittest.main()

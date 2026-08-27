@@ -101,6 +101,9 @@ _lamagoet_list_scf_methods() {
     local program
     local current=${2:-}
     program=$(_lamagoet_selected_scf_program "${1:-Gaussian}")
+    if [[ "$program" == "Gaussian" || "$program" == "optgaussian" ]]; then
+        current=$(_lamagoet_gaussian_method_keyword "$current")
+    fi
 
     {
         [ -n "$current" ] && printf '%s\n' "$current"
@@ -108,7 +111,8 @@ _lamagoet_list_scf_methods() {
             Gaussian|optgaussian)
                 printf '%s\n' \
                     rhf uhf rohf rks uks blyp ublyp b3lyp ub3lyp \
-                    b3pw91 ub3pw91 pbe upbe pbe0 upbe0 bp86 ubp86 \
+                    b3pw91 ub3pw91 PBEPBE uPBEPBE PBE1PBE uPBE1PBE \
+                    bp86 ubp86 \
                     tpss utpss tpssh utpssh m06 um06 m06-2x um06-2x \
                     wb97xd uwb97xd
                 ;;
@@ -5847,6 +5851,9 @@ echo "" > $JOBNAME.lst
 if [[ -z "$SCFCALCPROG" ]]; then
 	SCFCALCPROG="Gaussian"
 	echo "SCFCALCPROG=\"$SCFCALCPROG\"" >> job_options.txt
+fi
+if [[ "$SCFCALCPROG" == "Gaussian" || "$SCFCALCPROG" == "optgaussian" ]]; then
+    METHOD=$(_lamagoet_gaussian_method_keyword "${METHOD:-rhf}")
 fi
 
 if [[ "$GAUSGEN" = "true" && ! -f basis_gen.txt ]]; then

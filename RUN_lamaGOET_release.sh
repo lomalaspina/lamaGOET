@@ -48,6 +48,9 @@ if [[ -f job_options.txt ]]; then
 # nothing about the real cause. Supply the defaults the schema promises.
 NUMPROC=${NUMPROC:-1}
 NUMPROCTONTO=${NUMPROCTONTO:-1}
+if [[ "${SCFCALCPROG:-}" == "Gaussian" || "${SCFCALCPROG:-}" == "optgaussian" ]]; then
+	METHOD=$(_lamagoet_gaussian_method_keyword "${METHOD:-rhf}")
+fi
 
 	if [[ -z "${COMPLETESTRUCT:-}" && -n "${COMPLETECIF:-}" ]]; then
 		COMPLETESTRUCT=$COMPLETECIF

@@ -88,7 +88,8 @@ MERG_DESCRIPTIONS = {
 METHODS = {
     "Gaussian": (
         "rhf", "uhf", "rohf", "rks", "uks", "blyp", "ublyp", "b3lyp",
-        "ub3lyp", "b3pw91", "pbe", "pbe0", "bp86", "tpss", "tpssh",
+        "ub3lyp", "b3pw91", "PBEPBE", "uPBEPBE", "PBE1PBE", "uPBE1PBE",
+        "bp86", "tpss", "tpssh",
         "m06", "m06-2x", "wb97xd",
     ),
     "Orca": (
@@ -106,6 +107,24 @@ METHODS = {
 METHODS["optgaussian"] = METHODS["Gaussian"]
 METHODS["optorca"] = METHODS["Orca"]
 METHODS["elmodb"] = METHODS["Tonto"]
+
+GAUSSIAN_METHOD_ALIASES = {
+    "pbe": "PBEPBE",
+    "pbepbe": "PBEPBE",
+    "upbe": "uPBEPBE",
+    "upbepbe": "uPBEPBE",
+    "pbe0": "PBE1PBE",
+    "pbe1pbe": "PBE1PBE",
+    "upbe0": "uPBE1PBE",
+    "upbe1pbe": "uPBE1PBE",
+}
+
+
+def gaussian_method_keyword(method: str) -> str:
+    """Return Gaussian's canonical route keyword, accepting legacy aliases."""
+
+    stripped = method.strip()
+    return GAUSSIAN_METHOD_ALIASES.get(stripped.casefold(), stripped)
 
 GAUSSIAN_BASIS = (
     "STO-3G", "STO-6G", "3-21G", "3-21G(d)", "3-21++G(d)", "4-31G",
@@ -1547,7 +1566,10 @@ class MainWindow(QMainWindow):
         self.cp2k_eps_scf.setText(self._option("CP2K_EPS_SCF", "1.0E-8"))
         self.cp2k_added_mos.setValue(self._int_option("CP2K_ADDED_MOS", 20))
         self._program_changed()
-        self._set_combo_text(self.method, self._option("METHOD", "rhf"))
+        saved_method = self._option("METHOD", "rhf")
+        if program in {"Gaussian", "optgaussian"}:
+            saved_method = gaussian_method_keyword(saved_method)
+        self._set_combo_text(self.method, saved_method)
         basis_name = (
             self._option("BASISSETT", "STO-3G")
             if program == "Tonto"
@@ -1738,6 +1760,8 @@ class MainWindow(QMainWindow):
     def _program_changed(self, *_args) -> None:
         program = self.program.currentData() or "Gaussian"
         old_method = self.method.currentText()
+        if program in {"Gaussian", "optgaussian"}:
+            old_method = gaussian_method_keyword(old_method)
         old_basis = self.basis.currentText()
         self.method.clear()
         self.method.addItems(METHODS.get(program, ()))
@@ -2196,7 +2220,10 @@ class MainWindow(QMainWindow):
         if self.submission_mode == "cluster":
             result["EMAIL"] = self.email.text().strip()
         if program != "CP2K":
-            result["METHOD"] = self.method.currentText().strip()
+            method = self.method.currentText().strip()
+            if program in {"Gaussian", "optgaussian"}:
+                method = gaussian_method_keyword(method)
+            result["METHOD"] = method
             result["BASISSETT" if program == "Tonto" else "BASISSETG"] = (
                 self.basis.currentText().strip()
             )

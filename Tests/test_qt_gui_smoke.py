@@ -29,6 +29,18 @@ def main() -> int:
         options = Path(directory) / "job_options.txt"
         window = MainWindow(options)
         assert window.program.currentData() == "Gaussian"
+        gaussian_methods = {
+            window.method.itemText(index) for index in range(window.method.count())
+        }
+        assert {"PBEPBE", "uPBEPBE", "PBE1PBE", "uPBE1PBE"}.issubset(
+            gaussian_methods
+        )
+        assert not {"pbe", "upbe", "pbe0", "upbe0"}.intersection(
+            gaussian_methods
+        )
+        window.method.setEditText("pbe0")
+        assert window._current_values()["METHOD"] == "PBE1PBE"
+        window.method.setCurrentText("rhf")
         assert not window.gaussian_features.isHidden()
         assert not window.cluster_group.isHidden()
         assert not window.header_group.isHidden()

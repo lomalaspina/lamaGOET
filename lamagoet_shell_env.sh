@@ -134,7 +134,19 @@ if [ "$REALPATH" != "realpath" ]; then realpath() { command "$REALPATH" "$@"; };
 # would otherwise turn "i" into a dotless capital.
 _upper() { printf '%s' "${1:-}" | tr 'a-z' 'A-Z'; }
 _lower() { printf '%s' "${1:-}" | tr 'A-Z' 'a-z'; }
-export -f _upper _lower
+
+_lamagoet_gaussian_method_keyword() {
+    local method=${1:-}
+    case "$(_lower "$method")" in
+        pbe|pbepbe)       printf '%s' PBEPBE ;;
+        upbe|upbepbe)     printf '%s' uPBEPBE ;;
+        pbe0|pbe1pbe)     printf '%s' PBE1PBE ;;
+        upbe0|upbe1pbe)   printf '%s' uPBE1PBE ;;
+        *)                printf '%s' "$method" ;;
+    esac
+}
+
+export -f _upper _lower _lamagoet_gaussian_method_keyword
 
 LAMAGOET_SHELL_ENV_LOADED=1
 export LAMAGOET_SHELL_ENV_LOADED

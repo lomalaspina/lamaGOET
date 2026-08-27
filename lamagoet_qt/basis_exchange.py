@@ -116,6 +116,18 @@ def render_mixed_basis(
             ]
             bodies.append("\n".join(lines).strip())
         text = "$DATA\n\n" + "\n\n".join(bodies) + "\n\n$END\n"
+    elif output_format == "gaussian94":
+        # In a Gaussian Gen basis, **** terminates each element/centre basis
+        # block.  It is required between elements as well as after the last
+        # one; do not collapse the per-element BSE terminators into one.
+        if any(not piece.rstrip().endswith("****") for piece in pieces):
+            raise BasisExchangeError(
+                "Basis Set Exchange returned an incomplete Gaussian94 basis block."
+            )
+        # Gaussian 09 treats a blank line after **** as the end of the entire
+        # general-basis input section.  The following element header must be
+        # on the immediately following line.
+        text = "\n".join(pieces) + "\n"
     else:
         text = "\n\n".join(pieces) + "\n"
     cp2k_map = " ".join(

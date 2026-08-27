@@ -30,6 +30,24 @@ if [[ "$(printf '%s\n' "$actual" | head -n 1)" != "BLYP" ]] \
     echo "Saved Gaussian method was not preserved in the editable method list" >&2
     exit 1
 fi
+for method in PBEPBE uPBEPBE PBE1PBE uPBE1PBE; do
+    if ! printf '%s\n' "$actual" | grep -qx "$method"; then
+        echo "Canonical Gaussian method $method is missing" >&2
+        exit 1
+    fi
+done
+for obsolete in pbe upbe pbe0 upbe0; do
+    if printf '%s\n' "$actual" | grep -qx "$obsolete"; then
+        echo "Legacy Gaussian method $obsolete leaked into the method list" >&2
+        exit 1
+    fi
+done
+
+actual=$("$script" --list-scf-methods Gaussian "pbe0")
+if [[ "$(printf '%s\n' "$actual" | head -n 1)" != "PBE1PBE" ]]; then
+    echo "Legacy Gaussian PBE0 method was not canonicalized" >&2
+    exit 1
+fi
 
 printf '%s\n' Orca > "$tmp_dir/scf-program"
 actual=$("$script" --list-scf-basis-sets "$tmp_dir/scf-program" "MyCustomBasis")

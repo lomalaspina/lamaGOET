@@ -69,6 +69,10 @@ if source ./lamagoet_shell_env.sh 2>/dev/null; then
     done
     printf 'x' | grep -q x && [ "$(_upper ab)" = "AB" ] || report "_upper is wrong"
     [ "$(_lower AB)" = "ab" ] || report "_lower is wrong"
+    [ "$(_lamagoet_gaussian_method_keyword pbe)" = "PBEPBE" ] \
+        || report "legacy Gaussian PBE mapping is wrong"
+    [ "$(_lamagoet_gaussian_method_keyword upbe0)" = "uPBE1PBE" ] \
+        || report "legacy unrestricted Gaussian PBE0 mapping is wrong"
 else
     echo "GNU tools are not installed; skipping the tool checks." >&2
     echo "  macOS: brew install gnu-sed gawk coreutils" >&2
