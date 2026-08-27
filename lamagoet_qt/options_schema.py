@@ -131,6 +131,7 @@ OPTION_DEFAULTS: dict[str, str] = {
     "ONLYIAMTONTO": "false",
     "ORCA_BIN": "orca",
     "PARTITION_MODEL": "oc-hirshfeld",
+    "PERIODIC_WAVEFUNCTION_EXPORT": "false",
     "PLOT_ANGS": "false",
     "PLOT_TONTO": "false",
     "POSADP": "true",

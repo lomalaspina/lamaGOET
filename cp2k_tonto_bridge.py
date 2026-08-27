@@ -412,6 +412,13 @@ class MOKPMetadata:
     kpoints: np.ndarray
     weights: np.ndarray
     density_by_kpoint: list[np.ndarray]
+    # Retain the canonical orbitals as well as the density assembled from
+    # them.  The density bridge historically discarded these arrays after
+    # forming P(k); periodic TREXIO export needs the original eigenvalues,
+    # occupations and (possibly complex) Bloch coefficients.
+    eigenvalues_by_kpoint_spin: np.ndarray | None = None
+    occupations_by_kpoint_spin: np.ndarray | None = None
+    coefficients_by_kpoint_spin: np.ndarray | None = None
 
     def validate(self) -> None:
         if self.cell_bohr.shape != (3, 3):
@@ -445,7 +452,7 @@ class MOKPMetadata:
             raise BridgeError(
                 f"MOKP weight array has shape {self.weights.shape}, expected {(self.nkp,)}"
             )
-        if len(self.density_by_kpoint) != self.nkp:
+        if self.density_by_kpoint and len(self.density_by_kpoint) != self.nkp:
             raise BridgeError(
                 f"MOKP contains {len(self.density_by_kpoint)} k-point density matrices, expected {self.nkp}"
             )
@@ -454,6 +461,26 @@ class MOKPMetadata:
                 raise BridgeError(
                     f"MOKP density matrix for k-point {ikp} has shape {matrix.shape}, "
                     f"expected {(self.nao, self.nao)}"
+                )
+        orbital_shape = (self.nkp, self.nspins, self.nmo)
+        if self.eigenvalues_by_kpoint_spin is not None:
+            if self.eigenvalues_by_kpoint_spin.shape != orbital_shape:
+                raise BridgeError(
+                    "MOKP eigenvalue array has shape "
+                    f"{self.eigenvalues_by_kpoint_spin.shape}, expected {orbital_shape}"
+                )
+        if self.occupations_by_kpoint_spin is not None:
+            if self.occupations_by_kpoint_spin.shape != orbital_shape:
+                raise BridgeError(
+                    "MOKP occupation array has shape "
+                    f"{self.occupations_by_kpoint_spin.shape}, expected {orbital_shape}"
+                )
+        coefficient_shape = (self.nkp, self.nspins, self.nao, self.nmo)
+        if self.coefficients_by_kpoint_spin is not None:
+            if self.coefficients_by_kpoint_spin.shape != coefficient_shape:
+                raise BridgeError(
+                    "MOKP coefficient array has shape "
+                    f"{self.coefficients_by_kpoint_spin.shape}, expected {coefficient_shape}"
                 )
         weight_sum = float(np.sum(self.weights))
         if not math.isclose(weight_sum, 1.0, rel_tol=1.0e-8, abs_tol=1.0e-10):
@@ -534,7 +561,9 @@ def _parse_sparse_coefficients(
     raise BridgeError("unexpected end of MOKP sparse coefficient block")
 
 
-def read_mokp(path: Path) -> MOKPMetadata:
+def read_mokp(
+    path: Path, *, retain_orbitals: bool = False, build_density: bool = True
+) -> MOKPMetadata:
     lines = path.read_text(encoding="utf-8").splitlines()
     version = "unknown"
     natom = nspins = nao = nkp = nmo = 0
@@ -680,7 +709,22 @@ def read_mokp(path: Path) -> MOKPMetadata:
             )
         )
 
-    density_by_kpoint = [np.zeros((nao, nao), dtype=np.complex128) for _ in range(nkp)]
+    density_by_kpoint = (
+        [np.zeros((nao, nao), dtype=np.complex128) for _ in range(nkp)]
+        if build_density
+        else []
+    )
+    eigenvalues_by_kpoint_spin = (
+        np.zeros((nkp, nspins, nmo), dtype=np.float64) if retain_orbitals else None
+    )
+    occupations_by_kpoint_spin = (
+        np.zeros((nkp, nspins, nmo), dtype=np.float64) if retain_orbitals else None
+    )
+    coefficients_by_kpoint_spin = (
+        np.zeros((nkp, nspins, nao, nmo), dtype=np.complex128)
+        if retain_orbitals
+        else None
+    )
     seen_blocks: set[tuple[int, int]] = set()
     cursor = 0
     while cursor < len(lines):
@@ -738,8 +782,16 @@ def read_mokp(path: Path) -> MOKPMetadata:
         if not use_real_wfn:
             coeff += 1j * coeff_im
         occ = np.asarray(occupations, dtype=np.float64)
-        weighted = coeff * occ[np.newaxis, :]
-        density_by_kpoint[ikp - 1] += weighted @ coeff.conj().T
+        if retain_orbitals:
+            assert eigenvalues_by_kpoint_spin is not None
+            assert occupations_by_kpoint_spin is not None
+            assert coefficients_by_kpoint_spin is not None
+            eigenvalues_by_kpoint_spin[ikp - 1, ispin - 1, :] = eigenvalues
+            occupations_by_kpoint_spin[ikp - 1, ispin - 1, :] = occ
+            coefficients_by_kpoint_spin[ikp - 1, ispin - 1, :, :] = coeff
+        if build_density:
+            weighted = coeff * occ[np.newaxis, :]
+            density_by_kpoint[ikp - 1] += weighted @ coeff.conj().T
         cursor += 1
 
     expected_blocks = {(ikp, ispin) for ikp in range(1, nkp + 1) for ispin in range(1, nspins + 1)}
@@ -764,6 +816,9 @@ def read_mokp(path: Path) -> MOKPMetadata:
         kpoints=kpoints,
         weights=weights,
         density_by_kpoint=density_by_kpoint,
+        eigenvalues_by_kpoint_spin=eigenvalues_by_kpoint_spin,
+        occupations_by_kpoint_spin=occupations_by_kpoint_spin,
+        coefficients_by_kpoint_spin=coefficients_by_kpoint_spin,
     )
     metadata.validate()
     return metadata

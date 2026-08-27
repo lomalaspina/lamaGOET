@@ -1,3 +1,7 @@
 PySide6>=6.7,<7
 basis_set_exchange>=0.11,<1
 numpy>=1.26,<3
+# Periodic refinements run on Unix/WSL. TREXIO publishes Linux and macOS
+# wheels, but not a native Windows wheel; excluding it there keeps the native
+# Windows job-submission GUI installable.
+trexio>=2.6,<3; platform_system != "Windows"

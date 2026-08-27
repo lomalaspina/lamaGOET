@@ -909,10 +909,35 @@ class MainWindow(QMainWindow):
         self.cp2k_eps_scf = QLineEdit("1.0E-8")
         cp2k_form.addRow("SCF tolerance", self.cp2k_eps_scf)
         self.cp2k_added_mos = QSpinBox()
-        self.cp2k_added_mos.setRange(0, 10000)
+        self.cp2k_added_mos.setRange(-1, 10000)
         self.cp2k_added_mos.setValue(20)
+        self.cp2k_added_mos.setSpecialValueText("All available (-1)")
+        self.cp2k_added_mos.setToolTip(
+            "CP2K ADDED_MOS. Use -1 to retain the complete virtual space in "
+            "the periodic TREXIO export; this can be substantially more expensive."
+        )
         cp2k_form.addRow("Added MOs", self.cp2k_added_mos)
         layout.addWidget(self.cp2k_group)
+
+        self.periodic_wavefunction_group = QGroupBox("Periodic wavefunction export")
+        periodic_export_layout = QVBoxLayout(self.periodic_wavefunction_group)
+        self.periodic_wavefunction_export = QCheckBox(
+            "Write the final CP2K/Crystal23 wavefunction as TREXIO"
+        )
+        self.periodic_wavefunction_export.setToolTip(
+            "TREXIO retains the unit cell, k points, weights, complex Bloch "
+            "coefficients, occupations and orbital energies."
+        )
+        periodic_export_layout.addWidget(self.periodic_wavefunction_export)
+        periodic_export_note = QLabel(
+            "Molecular WFN, WFX and NBO .47 files cannot exactly represent an "
+            "infinite periodic wavefunction. lamaGOET therefore writes TREXIO. "
+            "Crystal23 orbitals are reconstructed from its periodic overlap and "
+            "Fock/Kohn–Sham matrices; CP2K orbitals come from MO_KP."
+        )
+        periodic_export_note.setWordWrap(True)
+        periodic_export_layout.addWidget(periodic_export_note)
+        layout.addWidget(self.periodic_wavefunction_group)
 
         if self.submission_mode == "cluster":
             note_text = (
@@ -1560,6 +1585,9 @@ class MainWindow(QMainWindow):
         self.cp2k_max_scf.setValue(self._int_option("CP2K_MAX_SCF", 100))
         self.cp2k_eps_scf.setText(self._option("CP2K_EPS_SCF", "1.0E-8"))
         self.cp2k_added_mos.setValue(self._int_option("CP2K_ADDED_MOS", 20))
+        self.periodic_wavefunction_export.setChecked(
+            self._bool_option("PERIODIC_WAVEFUNCTION_EXPORT")
+        )
         self._program_changed()
         saved_method = self._option("METHOD", "rhf")
         if program in {"Gaussian", "optgaussian"}:
@@ -1794,6 +1822,9 @@ class MainWindow(QMainWindow):
         self.initial_adp_group.setVisible(program == "elmodb")
         self.nuclear_interaction.setVisible(program in {"Orca", "optorca"})
         self.cp2k_group.setVisible(program == "CP2K")
+        self.periodic_wavefunction_group.setVisible(
+            program in {"Crystal14", "CP2K"}
+        )
         self._partition_model_changed()
         self._cluster_controls_changed()
         # Some Linux Qt themes leave this popup visible while the dependent
@@ -2094,6 +2125,9 @@ class MainWindow(QMainWindow):
             "USEGUESS": _bool_text(self.use_previous_crystal_guess.isChecked()),
             "CRYSTAL_SETTING": self.crystal_setting.currentData(),
             "PARTITION_MODEL": partition_model,
+            "PERIODIC_WAVEFUNCTION_EXPORT": _bool_text(
+                self.periodic_wavefunction_export.isChecked()
+            ),
             "STOCKHOLDER_MODEL": self.stockholder_model.currentData(),
             "OBSERVED_DENSITY_SHRINKAGE": self.observed_shrinkage.value(),
             "OBSERVED_DENSITY_MIN_TF": self.observed_min_tf.value(),

@@ -142,6 +142,8 @@ run_admin ln -sf "$localdir/GUI_lamaGOET_qt.sh"      /usr/local/bin/GUI_lamaGOET
 # symlinks above mean dirname of the invoked command is /usr/local/bin.
 run_admin ln -sf "$localdir/lamagoet_shell_env.sh" \
     /usr/local/bin/lamagoet_shell_env.sh
+run_admin ln -sf "$localdir/periodic_wavefunction_export.py" \
+    /usr/local/bin/lamaGOET_periodic_wavefunction_export
 
 # Build the private environment and initialize the actual Qt display backend.
 # This catches incomplete pip installs and native XCB/Wayland/OpenGL failures

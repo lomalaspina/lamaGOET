@@ -918,6 +918,66 @@ APPEND_FINAL_WAVEFUNCTION_EXPORTS(){
 	echo "   write_full_wfx_file" >> stdin
 }
 
+PERIODIC_WAVEFUNCTION_EXPORT_ENABLED(){
+	case "${PERIODIC_WAVEFUNCTION_EXPORT:-false}" in
+		true|TRUE|yes|YES|1|on|ON)
+			[[ "$SCFCALCPROG" == "CP2K" || "$SCFCALCPROG" == "Crystal14" ]]
+			;;
+		*)
+			return 1
+			;;
+	esac
+}
+
+EXPORT_FINAL_PERIODIC_WAVEFUNCTION(){
+	PERIODIC_WAVEFUNCTION_EXPORT_ENABLED || return 0
+	local exporter=${PERIODIC_WAVEFUNCTION_EXPORTER:-$_lamagoet_env_dir/periodic_wavefunction_export.py}
+	local resolved_exporter support_dir python_command output log_file mokp_file basis_file
+	if [[ ! -f "$exporter" ]] && command -v lamaGOET_periodic_wavefunction_export >/dev/null 2>&1; then
+		exporter=$(command -v lamaGOET_periodic_wavefunction_export)
+	fi
+	if [[ ! -f "$exporter" ]]; then
+		echo "ERROR: periodic wavefunction exporter was not found: $exporter" | tee -a "$JOBNAME.lst" >&2
+		return 1
+	fi
+	resolved_exporter=$(python3 -c 'import os,sys; print(os.path.realpath(sys.argv[1]))' "$exporter") || return 1
+	support_dir=$(cd "$(dirname "$resolved_exporter")" && pwd) || return 1
+	if [[ -n "${LAMAGOET_PERIODIC_EXPORT_PYTHON:-}" ]]; then
+		python_command=$LAMAGOET_PERIODIC_EXPORT_PYTHON
+	elif [[ -x "$support_dir/.venv-qt/bin/python" ]]; then
+		python_command=$support_dir/.venv-qt/bin/python
+	else
+		python_command=python3
+	fi
+	output="$JOBNAME.periodic.trexio"
+	log_file="$JOBNAME.periodic-wavefunction-export.log"
+	rm -f -- "$output" "$output.json" "$log_file"
+	case "$SCFCALCPROG" in
+		CP2K)
+			mokp_file=$(find "${CP2K_LAST_CYCLE_DIR:-.}" -maxdepth 1 -type f -name '*.mokp' -print 2>/dev/null | sort | tail -1)
+			if [[ -z "$mokp_file" ]]; then
+				echo "ERROR: no final CP2K MO_KP .mokp file was found" | tee -a "$JOBNAME.lst" >&2
+				return 1
+			fi
+			"$python_command" "$resolved_exporter" cp2k \
+				--mokp "$mokp_file" --output "$output" > "$log_file" 2>&1
+			;;
+		Crystal14)
+			basis_file="${BASISSETDIR%/}/${BASISSETG}"
+			"$python_command" "$resolved_exporter" crystal23 \
+				--xml GenerateXML.XML --basis-file "$basis_file" \
+				--output "$output" > "$log_file" 2>&1
+			;;
+	esac
+	local export_status=$?
+	if [[ "$export_status" -ne 0 || ! -s "$output" || ! -s "$output.json" ]]; then
+		tail -n 30 "$log_file" >&2 2>/dev/null || true
+		echo "ERROR: final periodic TREXIO export failed; inspect $log_file" | tee -a "$JOBNAME.lst" >&2
+		return 1
+	fi
+	echo "Final periodic wavefunction: $output (TREXIO; cell and Bloch k points retained)" | tee -a "$JOBNAME.lst"
+}
+
 TONTO_IAM_ONLY_INPUT(){
 	[[ "$SCFCALCPROG" == "Tonto" && "$J" == "0" && "$IAMTONTO" == "true" && "$ONLYIAMTONTO" == "true" ]]
 }
@@ -2482,6 +2542,7 @@ GET_RESIDUALS(){
 	else
 		echo "Final .47/.wfn/.wfx export skipped: $SCFCALCPROG does not provide a finite canonical molecular-orbital representation for this residual-density model." >> "$JOBNAME.lst"
 	fi
+	EXPORT_FINAL_PERIODIC_WAVEFUNCTION || return 1
 	if [[ "$USENOSPHERA2" == "true" ]]; then
                 LABELS_IN_XYZ
         fi
@@ -2499,6 +2560,12 @@ GET_RESIDUALS(){
 	if [[ "$export_final_wavefunction" == "true" ]]; then
 		for wavefunction_artifact in "$JOBNAME.47" "$JOBNAME.wfn" "$JOBNAME.wfx"; do
 			cp -- "$wavefunction_artifact" "$J.tonto_cycle.$JOBNAME/$J.$wavefunction_artifact"
+		done
+	fi
+	if PERIODIC_WAVEFUNCTION_EXPORT_ENABLED; then
+		local periodic_artifact
+		for periodic_artifact in "$JOBNAME.periodic.trexio" "$JOBNAME.periodic.trexio.json" "$JOBNAME.periodic-wavefunction-export.log"; do
+			cp -- "$periodic_artifact" "$J.tonto_cycle.$JOBNAME/$J.$periodic_artifact"
 		done
 	fi
 }
