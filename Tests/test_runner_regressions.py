@@ -161,7 +161,37 @@ class RunnerRegressionTest(unittest.TestCase):
                     "observed_zero_phase_sign= ${OBSERVED_ZERO_PHASE_SIGN:-0}",
                     body,
                 )
+                self.assertIn(
+                    "observed_density_reconstruct= "
+                    "${OBSERVED_DENSITY_RECONSTRUCTION:-legacy}",
+                    body,
+                )
+                self.assertIn(
+                    "observed_density_prior= "
+                    "${OBSERVED_DENSITY_PRIOR_STRENGTH:-0.1}",
+                    body,
+                )
+                self.assertIn(
+                    "observed_density_smoothness= "
+                    "${OBSERVED_DENSITY_SMOOTHNESS:-0.1}",
+                    body,
+                )
+                self.assertIn(
+                    "observed_density_step= "
+                    "${OBSERVED_DENSITY_STEP_SIZE:-0.25}",
+                    body,
+                )
+                self.assertIn(
+                    "observed_density_max_iter= "
+                    "${OBSERVED_DENSITY_MAX_ITERATIONS:-12}",
+                    body,
+                )
                 crystal = function_body(text, "CRYSTAL_BLOCK")
+                self.assertIn(
+                    "r_free_percentage= "
+                    "${OBSERVED_DENSITY_R_FREE_PERCENTAGE:-10}",
+                    crystal,
+                )
                 self.assertRegex(
                     crystal,
                     r'if \[\[[^\n]*SCFCALCPROG[^\n]*"Tonto"[^\n]*\]\]; then\s+'

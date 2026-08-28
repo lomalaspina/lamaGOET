@@ -154,6 +154,12 @@ class JobOptionsTest(unittest.TestCase):
                     "STOCKHOLDER_MODEL": "periodic",
                     "OBSERVED_DENSITY_SHRINKAGE": "0.35",
                     "OBSERVED_DENSITY_MIN_TF": "0.025",
+                    "OBSERVED_DENSITY_RECONSTRUCTION": "constrained",
+                    "OBSERVED_DENSITY_R_FREE_PERCENTAGE": "15",
+                    "OBSERVED_DENSITY_PRIOR_STRENGTH": "0.2",
+                    "OBSERVED_DENSITY_SMOOTHNESS": "0.3",
+                    "OBSERVED_DENSITY_STEP_SIZE": "0.4",
+                    "OBSERVED_DENSITY_MAX_ITERATIONS": "20",
                     "OBSERVED_ZERO_PHASE_SIGN": "-1",
                 },
             )
@@ -162,6 +168,12 @@ class JobOptionsTest(unittest.TestCase):
         self.assertEqual(result["STOCKHOLDER_MODEL"], "periodic")
         self.assertEqual(result["OBSERVED_DENSITY_SHRINKAGE"], "0.35")
         self.assertEqual(result["OBSERVED_DENSITY_MIN_TF"], "0.025")
+        self.assertEqual(result["OBSERVED_DENSITY_RECONSTRUCTION"], "constrained")
+        self.assertEqual(result["OBSERVED_DENSITY_R_FREE_PERCENTAGE"], "15")
+        self.assertEqual(result["OBSERVED_DENSITY_PRIOR_STRENGTH"], "0.2")
+        self.assertEqual(result["OBSERVED_DENSITY_SMOOTHNESS"], "0.3")
+        self.assertEqual(result["OBSERVED_DENSITY_STEP_SIZE"], "0.4")
+        self.assertEqual(result["OBSERVED_DENSITY_MAX_ITERATIONS"], "20")
         self.assertEqual(result["OBSERVED_ZERO_PHASE_SIGN"], "-1")
 
 

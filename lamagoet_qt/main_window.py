@@ -633,6 +633,91 @@ class MainWindow(QMainWindow):
             self.stockholder_model_label, self.stockholder_model
         )
 
+        self.observed_reconstruction = QComboBox()
+        self.observed_reconstruction.addItem(
+            "Legacy residual / thermal-factor deconvolution", "legacy"
+        )
+        self.observed_reconstruction.addItem(
+            "Constrained positive density prior (recommended)", "constrained"
+        )
+        self.observed_reconstruction.setToolTip(
+            "The constrained model keeps atom-specific ADPs in the diffraction "
+            "forward operator, enforces a positive density and exact electron "
+            "count, and selects the reconstruction using reflections excluded "
+            "from both density reconstruction and geometry refinement. Legacy "
+            "is retained only for reproduction of earlier calculations."
+        )
+        self.observed_reconstruction.currentIndexChanged.connect(
+            self._partition_model_changed
+        )
+        self.observed_reconstruction_label = QLabel("Reconstruction")
+        stockholder_form.addRow(
+            self.observed_reconstruction_label,
+            self.observed_reconstruction,
+        )
+
+        self.observed_r_free = QSpinBox()
+        self.observed_r_free.setRange(1, 50)
+        self.observed_r_free.setValue(10)
+        self.observed_r_free.setSuffix(" %")
+        self.observed_r_free.setToolTip(
+            "Deterministic fraction of merged reflections held out from both "
+            "density reconstruction and structural least squares. For very "
+            "small data sets, 15–20% gives a more stable validation estimate."
+        )
+        self.observed_r_free_label = QLabel("Held-out reflections")
+        stockholder_form.addRow(
+            self.observed_r_free_label, self.observed_r_free
+        )
+
+        self.observed_prior = QDoubleSpinBox()
+        self.observed_prior.setRange(0.0, 1.0)
+        self.observed_prior.setDecimals(4)
+        self.observed_prior.setSingleStep(0.05)
+        self.observed_prior.setValue(0.1)
+        self.observed_prior.setToolTip(
+            "Tikhonov pull towards the neutral-IAM density at every projected step."
+        )
+        self.observed_prior_label = QLabel("IAM-prior strength")
+        stockholder_form.addRow(
+            self.observed_prior_label, self.observed_prior
+        )
+
+        self.observed_smoothness = QDoubleSpinBox()
+        self.observed_smoothness.setRange(0.0, 100.0)
+        self.observed_smoothness.setDecimals(4)
+        self.observed_smoothness.setSingleStep(0.05)
+        self.observed_smoothness.setValue(0.1)
+        self.observed_smoothness.setSuffix(" bohr²")
+        self.observed_smoothness.setToolTip(
+            "Reciprocal-space high-resolution damping: 1/(1 + beta |k|²)."
+        )
+        self.observed_smoothness_label = QLabel("Smoothness β")
+        stockholder_form.addRow(
+            self.observed_smoothness_label, self.observed_smoothness
+        )
+
+        self.observed_step = QDoubleSpinBox()
+        self.observed_step.setRange(0.001, 1.0)
+        self.observed_step.setDecimals(4)
+        self.observed_step.setSingleStep(0.05)
+        self.observed_step.setValue(0.25)
+        self.observed_step.setToolTip("Projected density-gradient step size.")
+        self.observed_step_label = QLabel("Reconstruction step")
+        stockholder_form.addRow(self.observed_step_label, self.observed_step)
+
+        self.observed_max_iterations = QSpinBox()
+        self.observed_max_iterations.setRange(1, 100)
+        self.observed_max_iterations.setValue(12)
+        self.observed_max_iterations.setToolTip(
+            "Maximum projected reconstruction iterations in each HAR outer cycle."
+        )
+        self.observed_max_iterations_label = QLabel("Reconstruction iterations")
+        stockholder_form.addRow(
+            self.observed_max_iterations_label,
+            self.observed_max_iterations,
+        )
+
         self.observed_shrinkage = QDoubleSpinBox()
         self.observed_shrinkage.setRange(0.0, 0.999999)
         self.observed_shrinkage.setDecimals(6)
@@ -1419,6 +1504,27 @@ class MainWindow(QMainWindow):
             partition_model = "oc-observed"
         partition_index = self.partition_model.findData(partition_model)
         self.partition_model.setCurrentIndex(max(0, partition_index))
+        reconstruction_index = self.observed_reconstruction.findData(
+            self._option("OBSERVED_DENSITY_RECONSTRUCTION", "legacy")
+        )
+        self.observed_reconstruction.setCurrentIndex(
+            max(0, reconstruction_index)
+        )
+        self.observed_r_free.setValue(
+            self._int_option("OBSERVED_DENSITY_R_FREE_PERCENTAGE", 10)
+        )
+        self.observed_prior.setValue(
+            self._float_option("OBSERVED_DENSITY_PRIOR_STRENGTH", 0.1)
+        )
+        self.observed_smoothness.setValue(
+            self._float_option("OBSERVED_DENSITY_SMOOTHNESS", 0.1)
+        )
+        self.observed_step.setValue(
+            self._float_option("OBSERVED_DENSITY_STEP_SIZE", 0.25)
+        )
+        self.observed_max_iterations.setValue(
+            self._int_option("OBSERVED_DENSITY_MAX_ITERATIONS", 12)
+        )
         self.observed_shrinkage.setValue(
             self._float_option("OBSERVED_DENSITY_SHRINKAGE", 0.5)
         )
@@ -1836,6 +1942,10 @@ class MainWindow(QMainWindow):
         tonto = program == "Tonto"
         periodic = program in {"Crystal14", "CP2K"}
         observed = tonto and self.partition_model.currentData() == "oc-observed"
+        constrained = (
+            observed
+            and self.observed_reconstruction.currentData() == "constrained"
+        )
         uses_stockholder_choice = periodic or observed
         self.stockholder_group.setTitle(
             "Observed-density partition"
@@ -1846,15 +1956,30 @@ class MainWindow(QMainWindow):
         self.partition_model.setVisible(tonto)
         self.stockholder_model_label.setVisible(uses_stockholder_choice)
         self.stockholder_model.setVisible(uses_stockholder_choice)
+        self.observed_reconstruction_label.setVisible(observed)
+        self.observed_reconstruction.setVisible(observed)
         for widget in (
             self.observed_shrinkage_label,
             self.observed_shrinkage,
             self.observed_min_tf_label,
             self.observed_min_tf,
-            self.observed_zero_phase_sign_label,
-            self.observed_zero_phase_sign,
         ):
-            widget.setVisible(observed)
+            widget.setVisible(observed and not constrained)
+        for widget in (
+            self.observed_r_free_label,
+            self.observed_r_free,
+            self.observed_prior_label,
+            self.observed_prior,
+            self.observed_smoothness_label,
+            self.observed_smoothness,
+            self.observed_step_label,
+            self.observed_step,
+            self.observed_max_iterations_label,
+            self.observed_max_iterations,
+        ):
+            widget.setVisible(constrained)
+        self.observed_zero_phase_sign_label.setVisible(observed)
+        self.observed_zero_phase_sign.setVisible(observed)
 
     def _program_activated(self, *_args) -> None:
         self.program.hidePopup()
@@ -2129,6 +2254,16 @@ class MainWindow(QMainWindow):
                 self.periodic_wavefunction_export.isChecked()
             ),
             "STOCKHOLDER_MODEL": self.stockholder_model.currentData(),
+            "OBSERVED_DENSITY_RECONSTRUCTION": (
+                self.observed_reconstruction.currentData()
+            ),
+            "OBSERVED_DENSITY_R_FREE_PERCENTAGE": self.observed_r_free.value(),
+            "OBSERVED_DENSITY_PRIOR_STRENGTH": self.observed_prior.value(),
+            "OBSERVED_DENSITY_SMOOTHNESS": self.observed_smoothness.value(),
+            "OBSERVED_DENSITY_STEP_SIZE": self.observed_step.value(),
+            "OBSERVED_DENSITY_MAX_ITERATIONS": (
+                self.observed_max_iterations.value()
+            ),
             "OBSERVED_DENSITY_SHRINKAGE": self.observed_shrinkage.value(),
             "OBSERVED_DENSITY_MIN_TF": self.observed_min_tf.value(),
             "OBSERVED_ZERO_PHASE_SIGN": self.observed_zero_phase_sign.currentData(),

@@ -342,6 +342,34 @@ def main() -> int:
         assert tonto_values["STOCKHOLDER_MODEL"] == "periodic"
         tonto_window.close()
 
+        constrained_options = Path(directory) / "tonto_constrained_options.txt"
+        constrained_options.write_text(
+            'SCFCALCPROG="Tonto"\n'
+            'PARTITION_MODEL="oc-observed"\n'
+            'OBSERVED_DENSITY_RECONSTRUCTION="constrained"\n'
+            'OBSERVED_DENSITY_R_FREE_PERCENTAGE="20"\n'
+            'OBSERVED_DENSITY_PRIOR_STRENGTH="0.2"\n'
+            'OBSERVED_DENSITY_SMOOTHNESS="0.3"\n'
+            'OBSERVED_DENSITY_STEP_SIZE="0.4"\n'
+            'OBSERVED_DENSITY_MAX_ITERATIONS="24"\n',
+            encoding="utf-8",
+        )
+        constrained_window = MainWindow(constrained_options)
+        assert constrained_window.partition_model.currentData() == "oc-observed"
+        assert constrained_window.observed_reconstruction.currentData() == "constrained"
+        assert constrained_window.observed_shrinkage.isHidden()
+        assert constrained_window.observed_min_tf.isHidden()
+        assert not constrained_window.observed_r_free.isHidden()
+        assert constrained_window.observed_r_free.value() == 20
+        assert constrained_window.observed_prior.value() == 0.2
+        assert constrained_window.observed_smoothness.value() == 0.3
+        assert constrained_window.observed_step.value() == 0.4
+        assert constrained_window.observed_max_iterations.value() == 24
+        constrained_values = constrained_window._current_values()
+        assert constrained_values["OBSERVED_DENSITY_RECONSTRUCTION"] == "constrained"
+        assert constrained_values["OBSERVED_DENSITY_R_FREE_PERCENTAGE"] == 20
+        constrained_window.close()
+
         crystal_options = Path(directory) / "crystal_options.txt"
         crystal_options.write_text(
             'SCFCALCPROG="Crystal14"\n'
