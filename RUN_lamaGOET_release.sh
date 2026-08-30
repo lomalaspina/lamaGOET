@@ -36,6 +36,27 @@ _lamagoet_publish_latest_cif() {
 	done
 }
 
+_lamagoet_archive_hirshfeld_atom_cubes() {
+    [[ "${OUTPUT_HIRSHFELD_ATOM_CUBES:-false}" == "true" ]] || return 0
+
+    local target="${J:-0}.tonto_cycle.${JOBNAME:-job}"
+    local artifact
+    local found=false
+    mkdir -p -- "$target"
+    shopt -s nullglob
+    for artifact in \
+        "${JOBNAME}.Hirshfeld_atom_"*,cell.cube \
+        "${JOBNAME}.Hirshfeld_atom_observed_FF_correction_cycle_"*.dat
+    do
+        found=true
+        cp -- "$artifact" "$target/${J:-0}.${artifact#${JOBNAME}.}"
+    done
+    shopt -u nullglob
+    if [[ "$found" != "true" ]]; then
+        printf 'lamaGOET: warning: Hirshfeld-atom cube output was requested but no cube file was produced\n' >&2
+    fi
+}
+
 # The periodic CP2K implementation is maintained in the monolithic launcher.
 # A cluster-side RUN_lamaGOET invocation delegates only CP2K jobs to it, while
 # all legacy backends continue through this runner unchanged.
@@ -918,13 +939,24 @@ APPEND_FINAL_WAVEFUNCTION_EXPORTS(){
 	echo "   write_full_wfx_file" >> stdin
 }
 
+FINITE_WAVEFUNCTION_EXPORT_ENABLED(){
+	case "${FINITE_WAVEFUNCTION_EXPORT:-false}" in
+		true|TRUE|yes|YES|1|on|ON)
+			[[ "$SCFCALCPROG" == "CP2K" || "$SCFCALCPROG" == "Crystal14" ]]
+			;;
+		*)
+			return 1
+			;;
+	esac
+}
+
 PERIODIC_WAVEFUNCTION_EXPORT_ENABLED(){
 	case "${PERIODIC_WAVEFUNCTION_EXPORT:-false}" in
 		true|TRUE|yes|YES|1|on|ON)
 			[[ "$SCFCALCPROG" == "CP2K" || "$SCFCALCPROG" == "Crystal14" ]]
 			;;
 		*)
-			return 1
+			FINITE_WAVEFUNCTION_EXPORT_ENABLED
 			;;
 	esac
 }
@@ -976,6 +1008,97 @@ EXPORT_FINAL_PERIODIC_WAVEFUNCTION(){
 		return 1
 	fi
 	echo "Final periodic wavefunction: $output (TREXIO; cell and Bloch k points retained)" | tee -a "$JOBNAME.lst"
+}
+
+EXPORT_FINAL_FINITE_WAVEFUNCTION(){
+	FINITE_WAVEFUNCTION_EXPORT_ENABLED || return 0
+	local generator=${FINITE_WAVEFUNCTION_GENERATOR:-$_lamagoet_env_dir/finite_crystal_wavefunction.py}
+	local resolved_generator support_dir python_command periodic_file source method_value
+	local cif_file basis_directory basis_name output_directory base_output log_file mokp_file
+	if [[ ! -f "$generator" ]] && command -v lamaGOET_finite_crystal_wavefunction >/dev/null 2>&1; then
+		generator=$(command -v lamaGOET_finite_crystal_wavefunction)
+	fi
+	if [[ ! -f "$generator" ]]; then
+		echo "ERROR: finite crystal-wavefunction generator was not found: $generator" | tee -a "$JOBNAME.lst" >&2
+		return 1
+	fi
+	resolved_generator=$(python3 -c 'import os,sys; print(os.path.realpath(sys.argv[1]))' "$generator") || return 1
+	support_dir=$(cd "$(dirname "$resolved_generator")" && pwd) || return 1
+	if [[ -n "${LAMAGOET_PERIODIC_EXPORT_PYTHON:-}" ]]; then
+		python_command=$LAMAGOET_PERIODIC_EXPORT_PYTHON
+	elif [[ -x "$support_dir/.venv-qt/bin/python" ]]; then
+		python_command=$support_dir/.venv-qt/bin/python
+	else
+		python_command=python3
+	fi
+	cif_file="$JOBNAME.fractional.cif1"
+	[[ -s "$cif_file" ]] || cif_file="$JOBNAME.archive.cif"
+	if [[ ! -s "$cif_file" ]]; then
+		echo "ERROR: no final crystallographic CIF was found for the finite calculation" | tee -a "$JOBNAME.lst" >&2
+		return 1
+	fi
+	case "$SCFCALCPROG" in
+		CP2K)
+			source=cp2k
+			mokp_file=$(find "${CP2K_LAST_CYCLE_DIR:-.}" -maxdepth 1 -type f -name '*.mokp' -print 2>/dev/null | sort | tail -1)
+			periodic_file=$mokp_file
+			method_value=${FINITE_WAVEFUNCTION_METHOD:-${CP2K_XC_FUNCTIONAL:-BLYP}}
+			;;
+		Crystal14)
+			source=crystal23
+			periodic_file=GenerateXML.XML
+			method_value=${FINITE_WAVEFUNCTION_METHOD:-${METHOD:-BLYP}}
+			;;
+	esac
+	if [[ ! -s "$periodic_file" || ! -s "$JOBNAME.periodic.trexio" ]]; then
+		echo "ERROR: finite calculation requires both the final periodic source and TREXIO export" | tee -a "$JOBNAME.lst" >&2
+		return 1
+	fi
+	basis_directory=${FINITE_WAVEFUNCTION_BASIS_DIR:-$BASISSETDIR}
+	basis_name=${FINITE_WAVEFUNCTION_BASIS_NAME:-$BASISSETG}
+	if [[ -z "$basis_directory" || -z "$basis_name" ]]; then
+		echo "ERROR: select a full-electron Tonto basis directory and name for the finite calculation" | tee -a "$JOBNAME.lst" >&2
+		return 1
+	fi
+	base_output="$JOBNAME.finite-wavefunction"
+	output_directory=$base_output
+	local serial=1
+	while [[ -e "$output_directory" ]]; do
+		serial=$((serial + 1))
+		output_directory="$base_output.$serial"
+	done
+	log_file="$output_directory.log"
+	local options=(
+		--source "$source"
+		--periodic-file "$periodic_file"
+		--periodic-trexio "$JOBNAME.periodic.trexio"
+		--cif "$cif_file"
+		--basis-directory "$basis_directory"
+		--basis-name "$basis_name"
+		--method "$method_value"
+		--charge "${FINITE_WAVEFUNCTION_CHARGE:-${CHARGE:-0}}"
+		--multiplicity "${FINITE_WAVEFUNCTION_MULTIPLICITY:-${MULTIPLICITY:-1}}"
+		--center-atom "${FINITE_WAVEFUNCTION_CENTER_ATOM:-1}"
+		--active-radius "${FINITE_WAVEFUNCTION_ACTIVE_RADIUS:-2.0}"
+		--buffer-radii "${FINITE_WAVEFUNCTION_BUFFER_RADII:-4.0,6.0}"
+		--tonto "${FINITE_WAVEFUNCTION_TONTO:-$TONTO}"
+		--output-directory "$output_directory"
+	)
+	case "${FINITE_WAVEFUNCTION_CAP_BOUNDARIES:-true}" in
+		false|FALSE|no|NO|0|off|OFF) options+=(--no-cap-boundaries) ;;
+	esac
+	case "${FINITE_WAVEFUNCTION_PREPARE_ONLY:-false}" in
+		true|TRUE|yes|YES|1|on|ON) options+=(--prepare-only) ;;
+	esac
+	"$python_command" "$resolved_generator" "${options[@]}" > "$log_file" 2>&1
+	local export_status=$?
+	if [[ "$export_status" -ne 0 || ! -s "$output_directory/manifest.json" ]]; then
+		tail -n 30 "$log_file" >&2 2>/dev/null || true
+		echo "ERROR: finite crystal-wavefunction calculation failed; inspect $log_file" | tee -a "$JOBNAME.lst" >&2
+		return 1
+	fi
+	echo "Finite crystal-cluster wavefunction series: $output_directory" | tee -a "$JOBNAME.lst"
+	echo "  This is a new finite all-electron calculation; the exact periodic result is $JOBNAME.periodic.trexio." | tee -a "$JOBNAME.lst"
 }
 
 TONTO_IAM_ONLY_INPUT(){
@@ -1078,6 +1201,10 @@ WRITE_DENSITY_PARTITION_MODEL(){
 	if [[ "$SCFCALCPROG" != "Tonto" ]]; then
 		echo "         partition_model= oc-crystal23" >> stdin
 		echo "         stockholder_model= ${STOCKHOLDER_MODEL:-cluster}" >> stdin
+		echo "         output_Hirshfeld_atom_cubes= ${OUTPUT_HIRSHFELD_ATOM_CUBES:-false}" >> stdin
+		if [[ -n "${HIRSHFELD_ATOM_CUBE_LABEL:-}" ]]; then
+			echo "         Hirshfeld_atom_cube_label= ${HIRSHFELD_ATOM_CUBE_LABEL}" >> stdin
+		fi
 		return 0
 	fi
 	case "${PARTITION_MODEL:-oc-hirshfeld}" in
@@ -1104,6 +1231,10 @@ WRITE_DENSITY_PARTITION_MODEL(){
 			return 1
 			;;
 	esac
+	echo "         output_Hirshfeld_atom_cubes= ${OUTPUT_HIRSHFELD_ATOM_CUBES:-false}" >> stdin
+	if [[ -n "${HIRSHFELD_ATOM_CUBE_LABEL:-}" ]]; then
+		echo "         Hirshfeld_atom_cube_label= ${HIRSHFELD_ATOM_CUBE_LABEL}" >> stdin
+	fi
 }
 
 CRYSTAL_BLOCK(){
@@ -1765,6 +1896,7 @@ SCF_TO_TONTO(){
 #			cp gaussian-point-charges $J.tonto_cycle.$JOBNAME/$J.gaussian-point-charges
 		fi
 	fi
+	_lamagoet_archive_hirshfeld_atom_cubes
 	_lamagoet_publish_latest_cif
 }
 
@@ -2581,6 +2713,7 @@ GET_RESIDUALS(){
 		echo "Final .47/.wfn/.wfx export skipped: $SCFCALCPROG does not provide a finite canonical molecular-orbital representation for this residual-density model." >> "$JOBNAME.lst"
 	fi
 	EXPORT_FINAL_PERIODIC_WAVEFUNCTION || return 1
+	EXPORT_FINAL_FINITE_WAVEFUNCTION || return 1
 	if [[ "$USENOSPHERA2" == "true" ]]; then
                 LABELS_IN_XYZ
         fi

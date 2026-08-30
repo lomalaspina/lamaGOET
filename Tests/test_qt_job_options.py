@@ -62,6 +62,8 @@ class JobOptionsTest(unittest.TestCase):
         self.assertEqual(values["EXTINCTION_MEAN_PATH_MM"], "0.3")
         self.assertEqual(values["PARTITION_MODEL"], "oc-hirshfeld")
         self.assertEqual(values["STOCKHOLDER_MODEL"], "cluster")
+        self.assertEqual(values["OUTPUT_HIRSHFELD_ATOM_CUBES"], "false")
+        self.assertEqual(values["HIRSHFELD_ATOM_CUBE_LABEL"], "")
         self.assertEqual(values["OBSERVED_DENSITY_SHRINKAGE"], "0.5")
         self.assertEqual(values["OBSERVED_DENSITY_MIN_TF"], "0.1")
         self.assertEqual(values["OBSERVED_ZERO_PHASE_SIGN"], "0")
@@ -152,6 +154,8 @@ class JobOptionsTest(unittest.TestCase):
                 {
                     "PARTITION_MODEL": "oc-observed",
                     "STOCKHOLDER_MODEL": "periodic",
+                    "OUTPUT_HIRSHFELD_ATOM_CUBES": "true",
+                    "HIRSHFELD_ATOM_CUBE_LABEL": "N1",
                     "OBSERVED_DENSITY_SHRINKAGE": "0.35",
                     "OBSERVED_DENSITY_MIN_TF": "0.025",
                     "OBSERVED_DENSITY_RECONSTRUCTION": "constrained",
@@ -166,6 +170,8 @@ class JobOptionsTest(unittest.TestCase):
             result = load_job_options(path)
         self.assertEqual(result["PARTITION_MODEL"], "oc-observed")
         self.assertEqual(result["STOCKHOLDER_MODEL"], "periodic")
+        self.assertEqual(result["OUTPUT_HIRSHFELD_ATOM_CUBES"], "true")
+        self.assertEqual(result["HIRSHFELD_ATOM_CUBE_LABEL"], "N1")
         self.assertEqual(result["OBSERVED_DENSITY_SHRINKAGE"], "0.35")
         self.assertEqual(result["OBSERVED_DENSITY_MIN_TF"], "0.025")
         self.assertEqual(result["OBSERVED_DENSITY_RECONSTRUCTION"], "constrained")

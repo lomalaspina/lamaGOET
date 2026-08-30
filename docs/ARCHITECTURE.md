@@ -119,6 +119,7 @@ stopped early.
 | `<my_job>.lst` | lamaGOET's summary, assembled from `stdout` |
 | `<my_job>.archive.cif` | the refined structure |
 | `<my_job>.residual_density,cell.cube` | for VESTA |
+| `<my_job>.Hirshfeld_atom_density_cycle_<I>_<label>,cell.cube` | optional density of one partitioned independent atom; see [HIRSHFELD_ATOM_CUBES.md](HIRSHFELD_ATOM_CUBES.md) |
 | `<N>.tonto_cycle.<my_job>/` | a snapshot of each cycle |
 
 `<my_job>.lst` is built by copying blocks out of `stdout`, matched by heading. That

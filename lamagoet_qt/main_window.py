@@ -761,6 +761,32 @@ class MainWindow(QMainWindow):
             self.observed_zero_phase_sign_label,
             self.observed_zero_phase_sign,
         )
+
+        cube_row = QWidget()
+        cube_layout = QHBoxLayout(cube_row)
+        cube_layout.setContentsMargins(0, 0, 0, 0)
+        self.output_hirshfeld_atom_cubes = QCheckBox(
+            "Output Hirshfeld atoms after partition"
+        )
+        self.output_hirshfeld_atom_cubes.setToolTip(
+            "Write unit-cell Gaussian cube files from the current live "
+            "stockholder partition after every Tonto partition step."
+        )
+        self.output_hirshfeld_atom_cubes.toggled.connect(
+            self._partition_model_changed
+        )
+        cube_layout.addWidget(self.output_hirshfeld_atom_cubes)
+        cube_layout.addWidget(QLabel("Atom label (optional)"))
+        self.hirshfeld_atom_cube_label = QLineEdit()
+        self.hirshfeld_atom_cube_label.setPlaceholderText(
+            "blank = all independent atoms"
+        )
+        self.hirshfeld_atom_cube_label.setToolTip(
+            "Enter an exact CIF atom label, for example N1, to write only "
+            "that independent atom. Leave blank to write all independent atoms."
+        )
+        cube_layout.addWidget(self.hirshfeld_atom_cube_label)
+        stockholder_form.addRow(cube_row)
         layout.addWidget(self.stockholder_group)
 
         self.cluster_group = QGroupBox("Molecular cluster environment")
@@ -1022,6 +1048,61 @@ class MainWindow(QMainWindow):
         )
         periodic_export_note.setWordWrap(True)
         periodic_export_layout.addWidget(periodic_export_note)
+
+        self.finite_wavefunction_export = QCheckBox(
+            "Run a finite all-electron crystal-cluster calculation and write .47/.wfn/.wfx"
+        )
+        self.finite_wavefunction_export.setToolTip(
+            "This starts a new finite Tonto SCF on an active region plus crystal "
+            "buffer. It does not convert Bloch orbitals into a molecular file."
+        )
+        self.finite_wavefunction_export.toggled.connect(
+            self._finite_wavefunction_changed
+        )
+        periodic_export_layout.addWidget(self.finite_wavefunction_export)
+        self.finite_wavefunction_options = QWidget()
+        finite_form = QFormLayout(self.finite_wavefunction_options)
+        self.finite_basis_directory = QLineEdit()
+        finite_form.addRow("Finite all-electron basis directory", self.finite_basis_directory)
+        self.finite_basis_name = _editable_combo()
+        self.finite_basis_name.addItems(TONTO_BASIS)
+        finite_form.addRow("Finite all-electron basis name", self.finite_basis_name)
+        self.finite_center_atom = QSpinBox()
+        self.finite_center_atom.setRange(1, 100000)
+        self.finite_center_atom.setValue(1)
+        self.finite_center_atom.setToolTip(
+            "One-based atom index in the crystallographic unit cell generated from the CIF."
+        )
+        finite_form.addRow("Active-region centre atom", self.finite_center_atom)
+        self.finite_active_radius = QDoubleSpinBox()
+        self.finite_active_radius.setRange(0.1, 100.0)
+        self.finite_active_radius.setDecimals(2)
+        self.finite_active_radius.setValue(2.0)
+        self.finite_active_radius.setSuffix(" Å")
+        finite_form.addRow("Active-region radius", self.finite_active_radius)
+        self.finite_buffer_radii = QLineEdit("4.0,6.0")
+        self.finite_buffer_radii.setToolTip(
+            "Comma-separated quantum-buffer radii. Use at least two values to "
+            "test sensitivity to the artificial boundary."
+        )
+        finite_form.addRow("Quantum-buffer radii", self.finite_buffer_radii)
+        self.finite_cap_boundaries = QCheckBox(
+            "Hydrogen-cap severed bonds in extended covalent networks"
+        )
+        self.finite_cap_boundaries.setChecked(True)
+        finite_form.addRow("Boundary treatment", self.finite_cap_boundaries)
+        self.finite_prepare_only = QCheckBox(
+            "Prepare and validate cluster inputs only (do not run Tonto)"
+        )
+        finite_form.addRow("Testing mode", self.finite_prepare_only)
+        finite_note = QLabel(
+            "The periodic TREXIO file remains the exact periodic result. The finite "
+            "files are a new buffered-cluster approximation. Inspect every generated "
+            "XYZ and compare active-region observables across buffer radii before use."
+        )
+        finite_note.setWordWrap(True)
+        finite_form.addRow(finite_note)
+        periodic_export_layout.addWidget(self.finite_wavefunction_options)
         layout.addWidget(self.periodic_wavefunction_group)
 
         if self.submission_mode == "cluster":
@@ -1535,6 +1616,12 @@ class MainWindow(QMainWindow):
             self._int_option("OBSERVED_ZERO_PHASE_SIGN", 0)
         )
         self.observed_zero_phase_sign.setCurrentIndex(max(0, zero_phase_index))
+        self.output_hirshfeld_atom_cubes.setChecked(
+            self._bool_option("OUTPUT_HIRSHFELD_ATOM_CUBES")
+        )
+        self.hirshfeld_atom_cube_label.setText(
+            self._option("HIRSHFELD_ATOM_CUBE_LABEL")
+        )
         self._partition_model_changed()
         self.sc_charges.setChecked(self._bool_option("SCCHARGES"))
         self.sc_radius.setText(self._option("SCCRADIUS", "8"))
@@ -1694,6 +1781,39 @@ class MainWindow(QMainWindow):
         self.periodic_wavefunction_export.setChecked(
             self._bool_option("PERIODIC_WAVEFUNCTION_EXPORT")
         )
+        self.finite_wavefunction_export.setChecked(
+            self._bool_option("FINITE_WAVEFUNCTION_EXPORT")
+        )
+        self.finite_basis_directory.setText(
+            self._option(
+                "FINITE_WAVEFUNCTION_BASIS_DIR",
+                self.basis_directory.text(),
+            )
+        )
+        self._set_combo_text(
+            self.finite_basis_name,
+            self._option(
+                "FINITE_WAVEFUNCTION_BASIS_NAME",
+                self._option("BASISSETG", "pob-TZVP-rev2"),
+            ),
+        )
+        self.finite_center_atom.setValue(
+            self._int_option("FINITE_WAVEFUNCTION_CENTER_ATOM", 1)
+        )
+        self.finite_active_radius.setValue(
+            self._float_option("FINITE_WAVEFUNCTION_ACTIVE_RADIUS", 2.0)
+        )
+        self.finite_buffer_radii.setText(
+            self._option("FINITE_WAVEFUNCTION_BUFFER_RADII", "4.0,6.0")
+        )
+        self.finite_cap_boundaries.setChecked(
+            self._option("FINITE_WAVEFUNCTION_CAP_BOUNDARIES", "true").lower()
+            in {"true", "yes", "1", "on"}
+        )
+        self.finite_prepare_only.setChecked(
+            self._bool_option("FINITE_WAVEFUNCTION_PREPARE_ONLY")
+        )
+        self._finite_wavefunction_changed()
         self._program_changed()
         saved_method = self._option("METHOD", "rhf")
         if program in {"Gaussian", "optgaussian"}:
@@ -1919,7 +2039,7 @@ class MainWindow(QMainWindow):
         )
         self.crystal_group.setVisible(program == "Crystal14")
         self.stockholder_group.setVisible(
-            program in {"Tonto", "Crystal14", "CP2K"}
+            program not in {"optgaussian", "optorca"}
         )
         has_reflections = program not in {"optgaussian", "optorca"}
         self.hkl_label.setVisible(has_reflections)
@@ -1936,6 +2056,13 @@ class MainWindow(QMainWindow):
         # Some Linux Qt themes leave this popup visible while the dependent
         # controls are being rebuilt. Explicitly close it after selection.
         QTimer.singleShot(0, self.program.hidePopup)
+
+    def _finite_wavefunction_changed(self, *_args) -> None:
+        enabled = self.finite_wavefunction_export.isChecked()
+        self.finite_wavefunction_options.setEnabled(enabled)
+        if enabled:
+            # A finite surrogate never replaces the exact periodic record.
+            self.periodic_wavefunction_export.setChecked(True)
 
     def _partition_model_changed(self, *_args) -> None:
         program = self.program.currentData() or "Gaussian"
@@ -1980,6 +2107,9 @@ class MainWindow(QMainWindow):
             widget.setVisible(constrained)
         self.observed_zero_phase_sign_label.setVisible(observed)
         self.observed_zero_phase_sign.setVisible(observed)
+        self.hirshfeld_atom_cube_label.setEnabled(
+            self.output_hirshfeld_atom_cubes.isChecked()
+        )
 
     def _program_activated(self, *_args) -> None:
         self.program.hidePopup()
@@ -2207,6 +2337,35 @@ class MainWindow(QMainWindow):
 
     def _current_values(self) -> dict[str, object]:
         program = self.program.currentData() or "Gaussian"
+        if self.finite_wavefunction_export.isChecked():
+            if program not in {"Crystal14", "CP2K"}:
+                raise ValueError(
+                    "Finite crystal wavefunction output is available only for CP2K or Crystal23."
+                )
+            if not self.finite_basis_directory.text().strip() or not self.finite_basis_name.currentText().strip():
+                raise ValueError(
+                    "Select the full-electron Tonto basis directory and name for the finite calculation."
+                )
+            try:
+                radii = sorted(
+                    {
+                        float(value.strip())
+                        for value in self.finite_buffer_radii.text().split(",")
+                        if value.strip()
+                    }
+                )
+            except ValueError as exc:
+                raise ValueError(
+                    "Finite quantum-buffer radii must be comma-separated numbers."
+                ) from exc
+            if len(radii) < 2:
+                raise ValueError(
+                    "Enter at least two finite quantum-buffer radii for a boundary-convergence series."
+                )
+            if radii[0] <= self.finite_active_radius.value():
+                raise ValueError(
+                    "Every finite quantum-buffer radius must be larger than the active-region radius."
+                )
         if program == "Tonto":
             partition_model = self.partition_model.currentData()
         elif program in {"Crystal14", "CP2K"}:
@@ -2253,7 +2412,33 @@ class MainWindow(QMainWindow):
             "PERIODIC_WAVEFUNCTION_EXPORT": _bool_text(
                 self.periodic_wavefunction_export.isChecked()
             ),
+            "FINITE_WAVEFUNCTION_EXPORT": _bool_text(
+                self.finite_wavefunction_export.isChecked()
+            ),
+            "FINITE_WAVEFUNCTION_BASIS_DIR": (
+                self.finite_basis_directory.text().strip()
+            ),
+            "FINITE_WAVEFUNCTION_BASIS_NAME": (
+                self.finite_basis_name.currentText().strip()
+            ),
+            "FINITE_WAVEFUNCTION_CENTER_ATOM": self.finite_center_atom.value(),
+            "FINITE_WAVEFUNCTION_ACTIVE_RADIUS": self.finite_active_radius.value(),
+            "FINITE_WAVEFUNCTION_BUFFER_RADII": (
+                self.finite_buffer_radii.text().strip()
+            ),
+            "FINITE_WAVEFUNCTION_CAP_BOUNDARIES": _bool_text(
+                self.finite_cap_boundaries.isChecked()
+            ),
+            "FINITE_WAVEFUNCTION_PREPARE_ONLY": _bool_text(
+                self.finite_prepare_only.isChecked()
+            ),
             "STOCKHOLDER_MODEL": self.stockholder_model.currentData(),
+            "OUTPUT_HIRSHFELD_ATOM_CUBES": _bool_text(
+                self.output_hirshfeld_atom_cubes.isChecked()
+            ),
+            "HIRSHFELD_ATOM_CUBE_LABEL": (
+                self.hirshfeld_atom_cube_label.text().strip()
+            ),
             "OBSERVED_DENSITY_RECONSTRUCTION": (
                 self.observed_reconstruction.currentData()
             ),

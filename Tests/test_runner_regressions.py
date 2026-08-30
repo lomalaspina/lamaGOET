@@ -22,7 +22,7 @@ RUNNERS = (ROOT / "lamaGOET.sh", ROOT / "RUN_lamaGOET_release.sh")
 
 def function_body(text: str, name: str) -> str:
     match = re.search(
-        rf"(?ms)^{re.escape(name)}\(\)\s*\{{\n(.*?)(?=^[A-Z][A-Z0-9_]*\(\)\s*\{{|\Z)",
+        rf"(?ms)^{re.escape(name)}\(\)\s*\{{\n(.*?)(?=^[A-Za-z_][A-Za-z0-9_]*\(\)\s*\{{|\Z)",
         text,
     )
     if not match:
@@ -285,6 +285,8 @@ class RunnerRegressionTest(unittest.TestCase):
                         + f'\nSCFCALCPROG="{program}"\n'
                         + f'PARTITION_MODEL="{selected}"\n'
                         + 'STOCKHOLDER_MODEL="periodic"\n'
+                        + 'OUTPUT_HIRSHFELD_ATOM_CUBES="true"\n'
+                        + 'HIRSHFELD_ATOM_CUBE_LABEL="N1"\n'
                         + 'OBSERVED_DENSITY_SHRINKAGE="0.35"\n'
                         + 'OBSERVED_DENSITY_MIN_TF="0.025"\n'
                         + 'OBSERVED_ZERO_PHASE_SIGN="-1"\n'
@@ -299,6 +301,12 @@ class RunnerRegressionTest(unittest.TestCase):
                         check=True,
                     )
                 self.assertIn(expected, result.stdout)
+                self.assertIn(
+                    "output_Hirshfeld_atom_cubes= true", result.stdout
+                )
+                self.assertIn(
+                    "Hirshfeld_atom_cube_label= N1", result.stdout
+                )
                 if program == "Tonto" and selected == "oc-observed":
                     self.assertIn("observed_density_shrinkage= 0.35", result.stdout)
                     self.assertIn("stockholder_model= periodic", result.stdout)
@@ -634,6 +642,39 @@ check Crystal14 periodic
                         "CP2K:periodic=no",
                         "Crystal14:periodic=no",
                     ],
+                )
+
+    @unittest.skipUnless(
+        os.name == "posix" and shutil.which("bash"),
+        "Hirshfeld cube archive test requires bash",
+    )
+    def test_hirshfeld_atom_cubes_are_archived_per_tonto_cycle(self):
+        for runner, text in self.runner_text().items():
+            definition = (
+                "_lamagoet_archive_hirshfeld_atom_cubes(){\n"
+                + function_body(text, "_lamagoet_archive_hirshfeld_atom_cubes")
+            )
+            with self.subTest(runner=runner), tempfile.TemporaryDirectory() as directory:
+                script = definition + r'''
+OUTPUT_HIRSHFELD_ATOM_CUBES=true
+JOBNAME=my_job
+J=3
+printf 'cube' > my_job.Hirshfeld_atom_density_cycle_0_N1,cell.cube
+printf 'prior' > my_job.Hirshfeld_atom_IAM_prior_cycle_0_N1,cell.cube
+printf 'residual' > my_job.Hirshfeld_atom_observed_residual_cycle_0_N1,cell.cube
+printf 'table' > my_job.Hirshfeld_atom_observed_FF_correction_cycle_0_N1.dat
+_lamagoet_archive_hirshfeld_atom_cubes
+test -s 3.tonto_cycle.my_job/3.Hirshfeld_atom_density_cycle_0_N1,cell.cube
+test -s 3.tonto_cycle.my_job/3.Hirshfeld_atom_IAM_prior_cycle_0_N1,cell.cube
+test -s 3.tonto_cycle.my_job/3.Hirshfeld_atom_observed_residual_cycle_0_N1,cell.cube
+test -s 3.tonto_cycle.my_job/3.Hirshfeld_atom_observed_FF_correction_cycle_0_N1.dat
+'''
+                subprocess.run(
+                    ["bash", "-c", script],
+                    cwd=directory,
+                    text=True,
+                    capture_output=True,
+                    check=True,
                 )
 
     @staticmethod

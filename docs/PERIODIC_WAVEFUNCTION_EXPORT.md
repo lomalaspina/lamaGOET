@@ -74,7 +74,7 @@ source .venv-qt/bin/activate
 python periodic_wavefunction_export.py validate my_job.periodic.trexio
 ```
 
-## Finite supercell WFX/NBO files
+## Finite `.47`, WFN and WFX post-processing
 
 A finite Born–von Karman supercell can formally be constructed from a complete
 uniform k mesh, but it is not an exact representation of the infinite
@@ -84,7 +84,53 @@ writing dense MO coefficients. Arbitrary eigenvector phases and degenerate
 band rotations must additionally be gauge-fixed before producing real
 localized orbitals.
 
-lamaGOET therefore does not silently generate a finite WFX or `.47` surrogate.
-TREXIO is the publishable periodic result. A future supercell conversion should
-be a separate, explicitly labelled post-processing operation with band-gauge
-control and a file-size limit.
+lamaGOET therefore does not silently convert the Bloch orbitals into a finite
+WFX or `.47` surrogate. TREXIO remains the publishable periodic result.
+
+The optional **Run a finite all-electron crystal-cluster calculation** control
+instead performs a new calculation with a finite Hamiltonian:
+
+1. The final crystallographic CIF is expanded about a user-selected unit-cell
+   atom.
+2. For a molecular crystal, every molecule intersecting the requested quantum
+   buffer is retained whole. For an extended covalent network, real atoms are
+   retained to the buffer radius and severed bonds are hydrogen capped.
+3. Tonto performs a new finite, all-electron HF/BLYP/PBE/B3LYP SCF in the basis
+   explicitly selected for this calculation.
+4. Tonto writes all canonical orbitals to `.wfx`, an AIM2000 `.wfn`, and an NBO
+   `.47` that is checked for the required `$FOCK` block.
+5. lamaGOET repeats this for a comma-separated series of buffer radii. The
+   generated geometries, inputs, files, energies, checksums and provenance are
+   recorded in `JOBNAME.finite-wavefunction/manifest.json`.
+
+This finite output is useful only if quantities in the chosen active region
+are stable as the buffer is enlarged. The cluster charge/multiplicity must be
+physically appropriate, the selected Tonto library must contain a full-electron
+basis for every real atom and hydrogen cap, and every generated XYZ should be
+inspected. Hydrogen caps change the boundary Hamiltonian; these files must be
+described as buffered finite-cluster calculations, not as the periodic CP2K or
+Crystal23 wavefunction.
+
+The Qt **Prepare only** option writes the manifest, XYZ files and Tonto `stdin`
+files without launching the potentially expensive SCFs. This is the recommended
+first test for a new crystal.
+
+Equivalent `job_options.txt` controls are:
+
+```bash
+PERIODIC_WAVEFUNCTION_EXPORT="true"
+FINITE_WAVEFUNCTION_EXPORT="true"
+FINITE_WAVEFUNCTION_BASIS_DIR="/path/to/tonto/basis_sets"
+FINITE_WAVEFUNCTION_BASIS_NAME="pob-TZVP-rev2"
+FINITE_WAVEFUNCTION_CENTER_ATOM="1"
+FINITE_WAVEFUNCTION_ACTIVE_RADIUS="2.0"
+FINITE_WAVEFUNCTION_BUFFER_RADII="4.0,6.0"
+FINITE_WAVEFUNCTION_CAP_BOUNDARIES="true"
+FINITE_WAVEFUNCTION_PREPARE_ONLY="true"
+```
+
+The workflow intentionally does not claim that diffraction amplitudes plus
+model phases define a unique interacting wavefunction. Nor does it yet include
+a frozen-density or projection-based Pauli embedding operator. If that stronger
+embedding is required, it must be implemented and validated as a separate
+Hamiltonian term rather than implied by a file conversion.

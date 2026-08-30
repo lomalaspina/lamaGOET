@@ -91,7 +91,8 @@ Two ways, and they are not the same thing:
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | how the pieces fit together |
 | [docs/TESTING.md](docs/TESTING.md) | running the tests |
 | [docs/TONTO_COMPATIBILITY.md](docs/TONTO_COMPATIBILITY.md) | which Tonto to build, and what has changed |
-| [docs/PERIODIC_WAVEFUNCTION_EXPORT.md](docs/PERIODIC_WAVEFUNCTION_EXPORT.md) | exact CP2K/Crystal23 TREXIO wavefunction export and limitations |
+| [docs/PERIODIC_WAVEFUNCTION_EXPORT.md](docs/PERIODIC_WAVEFUNCTION_EXPORT.md) | exact CP2K/Crystal23 TREXIO export and finite `.47`/WFN/WFX cluster recalculation |
+| [docs/HIRSHFELD_ATOM_CUBES.md](docs/HIRSHFELD_ATOM_CUBES.md) | per-independent-atom density cubes from the live Hirshfeld partition |
 | [CLAUDE.md](CLAUDE.md) | what to know before changing the code |
 | [examples/](examples/) | worked examples with published numbers |
 

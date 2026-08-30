@@ -291,7 +291,9 @@ def main() -> int:
             'SCFCALCPROG="CP2K"\n'
             f'CP2K_BASIS_SET_FILE="{ROOT / "Tests" / "cp2k_basis_sample"}"\n'
             'CP2K_BASIS_SET="DZVP-MOLOPT-GTH-q4"\n'
-            'CP2K_XC_FUNCTIONAL="PBE"\n',
+            'CP2K_XC_FUNCTIONAL="PBE"\n'
+            'OUTPUT_HIRSHFELD_ATOM_CUBES="true"\n'
+            'HIRSHFELD_ATOM_CUBE_LABEL="N1"\n',
             encoding="utf-8",
         )
         cp2k_window = MainWindow(cp2k_options)
@@ -306,12 +308,17 @@ def main() -> int:
         assert cp2k_window.observed_shrinkage.isHidden()
         assert not cp2k_window.stockholder_model.isHidden()
         assert cp2k_window.stockholder_model.currentData() == "cluster"
+        assert cp2k_window.output_hirshfeld_atom_cubes.isChecked()
+        assert cp2k_window.hirshfeld_atom_cube_label.isEnabled()
+        assert cp2k_window.hirshfeld_atom_cube_label.text() == "N1"
         cp2k_window.stockholder_model.setCurrentIndex(
             cp2k_window.stockholder_model.findData("periodic")
         )
         assert cp2k_window._current_values()["STOCKHOLDER_MODEL"] == "periodic"
         cp2k_values = cp2k_window._current_values()
         assert cp2k_values["PARTITION_MODEL"] == "oc-crystal23"
+        assert cp2k_values["OUTPUT_HIRSHFELD_ATOM_CUBES"] == "true"
+        assert cp2k_values["HIRSHFELD_ATOM_CUBE_LABEL"] == "N1"
         cp2k_window.close()
 
         tonto_options = Path(directory) / "tonto_observed_options.txt"
