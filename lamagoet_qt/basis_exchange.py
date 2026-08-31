@@ -128,6 +128,22 @@ def render_mixed_basis(
         # general-basis input section.  The following element header must be
         # on the immediately following line.
         text = "\n".join(pieces) + "\n"
+    elif output_format == "crystal":
+        # BSE exports every requested element as a complete stand-alone
+        # CRYSTAL basis input and therefore appends ``99 0`` to every piece.
+        # In a mixed basis that record terminates the *entire* basis section,
+        # so retaining it between elements makes CRYSTAL ignore the remaining
+        # atom definitions.  Strip the per-element records and emit exactly
+        # one terminator after the final element.
+        bodies: list[str] = []
+        for piece in pieces:
+            lines = piece.rstrip().splitlines()
+            if not lines or lines[-1].split() != ["99", "0"]:
+                raise BasisExchangeError(
+                    "Basis Set Exchange returned an incomplete CRYSTAL basis block."
+                )
+            bodies.append("\n".join(lines[:-1]).rstrip())
+        text = "\n".join(bodies) + "\n99 0\n"
     else:
         text = "\n\n".join(pieces) + "\n"
     cp2k_map = " ".join(

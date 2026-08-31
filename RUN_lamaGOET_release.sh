@@ -1214,8 +1214,8 @@ WRITE_DENSITY_PARTITION_MODEL(){
 		observed|oc-observed)
 			echo "         partition_model= oc-observed" >> stdin
 			echo "         stockholder_model= ${STOCKHOLDER_MODEL:-cluster}" >> stdin
-			echo "         observed_density_reconstruct= ${OBSERVED_DENSITY_RECONSTRUCTION:-legacy}" >> stdin
-			if [[ "${OBSERVED_DENSITY_RECONSTRUCTION:-legacy}" == "constrained" ]]; then
+			echo "         observed_density_reconstruct= ${OBSERVED_DENSITY_RECONSTRUCTION:-constrained}" >> stdin
+			if [[ "${OBSERVED_DENSITY_RECONSTRUCTION:-constrained}" == "constrained" ]]; then
 				echo "         observed_density_prior= ${OBSERVED_DENSITY_PRIOR_STRENGTH:-0.1}" >> stdin
 				echo "         observed_density_smoothness= ${OBSERVED_DENSITY_SMOOTHNESS:-0.1}" >> stdin
 				echo "         observed_density_step= ${OBSERVED_DENSITY_STEP_SIZE:-0.25}" >> stdin
@@ -1240,7 +1240,7 @@ WRITE_DENSITY_PARTITION_MODEL(){
 CRYSTAL_BLOCK(){
 	echo "" >> stdin
 	echo "   crystal= {    " >> stdin
-	if [[ "$SCFCALCPROG" == "Tonto" && "${PARTITION_MODEL:-oc-hirshfeld}" =~ ^(observed|oc-observed)$ && "${OBSERVED_DENSITY_RECONSTRUCTION:-legacy}" == "constrained" ]]; then
+	if [[ "$SCFCALCPROG" == "Tonto" && "${PARTITION_MODEL:-oc-hirshfeld}" =~ ^(observed|oc-observed)$ && "${OBSERVED_DENSITY_RECONSTRUCTION:-constrained}" == "constrained" ]]; then
 		echo "      r_free_percentage= ${OBSERVED_DENSITY_R_FREE_PERCENTAGE:-10}" >> stdin
 	fi
 	if [[ "$SCFCALCPROG" == "elmodb" && $J == 0 && "$INITADP" == "false" ]]; then

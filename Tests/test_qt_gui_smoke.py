@@ -325,6 +325,7 @@ def main() -> int:
         tonto_options.write_text(
             'SCFCALCPROG="Tonto"\n'
             'PARTITION_MODEL="oc-observed"\n'
+            'OBSERVED_DENSITY_RECONSTRUCTION="legacy"\n'
             'OBSERVED_DENSITY_SHRINKAGE="0.35"\n'
             'OBSERVED_DENSITY_MIN_TF="0.025"\n'
             'OBSERVED_ZERO_PHASE_SIGN="-1"\n',

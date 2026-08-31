@@ -45,6 +45,20 @@ class BasisExchangeTest(unittest.TestCase):
         self.assertNotIn("****\n\nN     0", text)
         self.assertTrue(text.rstrip().endswith("****"))
 
+    def test_mixed_crystal_basis_has_only_one_final_terminator(self):
+        text, _ = render_mixed_basis(
+            "Crystal14", {"H": "pob-TZVP-rev2", "N": "pob-TZVP-rev2"}
+        )
+        terminators = [
+            index
+            for index, line in enumerate(text.splitlines())
+            if line.split() == ["99", "0"]
+        ]
+        self.assertEqual(len(terminators), 1)
+        self.assertEqual(terminators[0], len(text.splitlines()) - 1)
+        self.assertLess(text.index("1 4"), text.index("7 8"))
+        self.assertLess(text.index("7 8"), text.index("99 0"))
+
 
 if __name__ == "__main__":
     unittest.main()

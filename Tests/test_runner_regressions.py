@@ -163,7 +163,7 @@ class RunnerRegressionTest(unittest.TestCase):
                 )
                 self.assertIn(
                     "observed_density_reconstruct= "
-                    "${OBSERVED_DENSITY_RECONSTRUCTION:-legacy}",
+                    "${OBSERVED_DENSITY_RECONSTRUCTION:-constrained}",
                     body,
                 )
                 self.assertIn(
@@ -285,6 +285,7 @@ class RunnerRegressionTest(unittest.TestCase):
                         + f'\nSCFCALCPROG="{program}"\n'
                         + f'PARTITION_MODEL="{selected}"\n'
                         + 'STOCKHOLDER_MODEL="periodic"\n'
+                        + 'OBSERVED_DENSITY_RECONSTRUCTION="legacy"\n'
                         + 'OUTPUT_HIRSHFELD_ATOM_CUBES="true"\n'
                         + 'HIRSHFELD_ATOM_CUBE_LABEL="N1"\n'
                         + 'OBSERVED_DENSITY_SHRINKAGE="0.35"\n'

@@ -66,6 +66,14 @@ class JobOptionsTest(unittest.TestCase):
         self.assertEqual(values["HIRSHFELD_ATOM_CUBE_LABEL"], "")
         self.assertEqual(values["OBSERVED_DENSITY_SHRINKAGE"], "0.5")
         self.assertEqual(values["OBSERVED_DENSITY_MIN_TF"], "0.1")
+        self.assertEqual(
+            values["OBSERVED_DENSITY_RECONSTRUCTION"], "constrained"
+        )
+        self.assertEqual(values["OBSERVED_DENSITY_R_FREE_PERCENTAGE"], "10")
+        self.assertEqual(values["OBSERVED_DENSITY_PRIOR_STRENGTH"], "0.1")
+        self.assertEqual(values["OBSERVED_DENSITY_SMOOTHNESS"], "0.1")
+        self.assertEqual(values["OBSERVED_DENSITY_STEP_SIZE"], "0.25")
+        self.assertEqual(values["OBSERVED_DENSITY_MAX_ITERATIONS"], "12")
         self.assertEqual(values["OBSERVED_ZERO_PHASE_SIGN"], "0")
         self.assertEqual(values["MERGCODE"], "2")
 

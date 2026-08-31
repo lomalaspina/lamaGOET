@@ -635,10 +635,11 @@ class MainWindow(QMainWindow):
 
         self.observed_reconstruction = QComboBox()
         self.observed_reconstruction.addItem(
-            "Legacy residual / thermal-factor deconvolution", "legacy"
+            "Constrained positive density prior (recommended)", "constrained"
         )
         self.observed_reconstruction.addItem(
-            "Constrained positive density prior (recommended)", "constrained"
+            "Legacy residual / thermal-factor deconvolution (reproduction only)",
+            "legacy",
         )
         self.observed_reconstruction.setToolTip(
             "The constrained model keeps atom-specific ADPs in the diffraction "
@@ -1586,7 +1587,7 @@ class MainWindow(QMainWindow):
         partition_index = self.partition_model.findData(partition_model)
         self.partition_model.setCurrentIndex(max(0, partition_index))
         reconstruction_index = self.observed_reconstruction.findData(
-            self._option("OBSERVED_DENSITY_RECONSTRUCTION", "legacy")
+            self._option("OBSERVED_DENSITY_RECONSTRUCTION", "constrained")
         )
         self.observed_reconstruction.setCurrentIndex(
             max(0, reconstruction_index)
