@@ -378,6 +378,20 @@ def main() -> int:
         assert constrained_values["OBSERVED_DENSITY_R_FREE_PERCENTAGE"] == 20
         constrained_window.close()
 
+        constrained_default_options = (
+            Path(directory) / "tonto_constrained_default_options.txt"
+        )
+        constrained_default_options.write_text(
+            'SCFCALCPROG="Tonto"\n'
+            'PARTITION_MODEL="oc-observed"\n'
+            'OBSERVED_DENSITY_RECONSTRUCTION="constrained"\n',
+            encoding="utf-8",
+        )
+        constrained_default_window = MainWindow(constrained_default_options)
+        assert constrained_default_window.observed_prior.value() == 0.0
+        assert constrained_default_window.observed_smoothness.value() == 0.01
+        constrained_default_window.close()
+
         crystal_options = Path(directory) / "crystal_options.txt"
         crystal_options.write_text(
             'SCFCALCPROG="Crystal14"\n'

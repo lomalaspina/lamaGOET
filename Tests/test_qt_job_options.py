@@ -70,8 +70,8 @@ class JobOptionsTest(unittest.TestCase):
             values["OBSERVED_DENSITY_RECONSTRUCTION"], "constrained"
         )
         self.assertEqual(values["OBSERVED_DENSITY_R_FREE_PERCENTAGE"], "10")
-        self.assertEqual(values["OBSERVED_DENSITY_PRIOR_STRENGTH"], "0.1")
-        self.assertEqual(values["OBSERVED_DENSITY_SMOOTHNESS"], "0.1")
+        self.assertEqual(values["OBSERVED_DENSITY_PRIOR_STRENGTH"], "0.0")
+        self.assertEqual(values["OBSERVED_DENSITY_SMOOTHNESS"], "0.01")
         self.assertEqual(values["OBSERVED_DENSITY_STEP_SIZE"], "0.25")
         self.assertEqual(values["OBSERVED_DENSITY_MAX_ITERATIONS"], "12")
         self.assertEqual(values["OBSERVED_ZERO_PHASE_SIGN"], "0")

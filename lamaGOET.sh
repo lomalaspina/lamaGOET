@@ -3280,8 +3280,8 @@ WRITE_DENSITY_PARTITION_MODEL(){
 			echo "         stockholder_model= ${STOCKHOLDER_MODEL:-cluster}" >> stdin
 			echo "         observed_density_reconstruct= ${OBSERVED_DENSITY_RECONSTRUCTION:-constrained}" >> stdin
 			if [[ "${OBSERVED_DENSITY_RECONSTRUCTION:-constrained}" == "constrained" ]]; then
-				echo "         observed_density_prior= ${OBSERVED_DENSITY_PRIOR_STRENGTH:-0.1}" >> stdin
-				echo "         observed_density_smoothness= ${OBSERVED_DENSITY_SMOOTHNESS:-0.1}" >> stdin
+				echo "         observed_density_prior= ${OBSERVED_DENSITY_PRIOR_STRENGTH:-0.0}" >> stdin
+				echo "         observed_density_smoothness= ${OBSERVED_DENSITY_SMOOTHNESS:-0.01}" >> stdin
 				echo "         observed_density_step= ${OBSERVED_DENSITY_STEP_SIZE:-0.25}" >> stdin
 				echo "         observed_density_max_iter= ${OBSERVED_DENSITY_MAX_ITERATIONS:-12}" >> stdin
 			else
@@ -4171,7 +4171,7 @@ TONTO_TO_CRYSTAL(){
         if [[ "$GAUSGEN" == "true" || "$BASISSETG" == "gen" ]]; then
                 echo "END"  >> $JOBNAME.d12
                 cat basis_gen.txt >>  $JOBNAME.d12
-                echo "99 0"  >> $JOBNAME.d12
+#               echo "99 0"  >> $JOBNAME.d12
                 echo "ENDBS"  >> $JOBNAME.d12
         else
                 echo "BASISSET"  >> $JOBNAME.d12

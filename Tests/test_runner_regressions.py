@@ -168,12 +168,12 @@ class RunnerRegressionTest(unittest.TestCase):
                 )
                 self.assertIn(
                     "observed_density_prior= "
-                    "${OBSERVED_DENSITY_PRIOR_STRENGTH:-0.1}",
+                    "${OBSERVED_DENSITY_PRIOR_STRENGTH:-0.0}",
                     body,
                 )
                 self.assertIn(
                     "observed_density_smoothness= "
-                    "${OBSERVED_DENSITY_SMOOTHNESS:-0.1}",
+                    "${OBSERVED_DENSITY_SMOOTHNESS:-0.01}",
                     body,
                 )
                 self.assertIn(

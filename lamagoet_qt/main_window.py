@@ -674,10 +674,12 @@ class MainWindow(QMainWindow):
         self.observed_prior = QDoubleSpinBox()
         self.observed_prior.setRange(0.0, 1.0)
         self.observed_prior.setDecimals(4)
-        self.observed_prior.setSingleStep(0.05)
-        self.observed_prior.setValue(0.1)
+        self.observed_prior.setSingleStep(0.01)
+        self.observed_prior.setValue(0.0)
         self.observed_prior.setToolTip(
-            "Tikhonov pull towards the neutral-IAM density at every projected step."
+            "Optional Tikhonov pull towards the neutral-IAM density. Zero is "
+            "recommended: positivity, electron count, reciprocal smoothing, "
+            "finite iteration and held-out validation remain active."
         )
         self.observed_prior_label = QLabel("IAM-prior strength")
         stockholder_form.addRow(
@@ -687,11 +689,13 @@ class MainWindow(QMainWindow):
         self.observed_smoothness = QDoubleSpinBox()
         self.observed_smoothness.setRange(0.0, 100.0)
         self.observed_smoothness.setDecimals(4)
-        self.observed_smoothness.setSingleStep(0.05)
-        self.observed_smoothness.setValue(0.1)
+        self.observed_smoothness.setSingleStep(0.01)
+        self.observed_smoothness.setValue(0.01)
         self.observed_smoothness.setSuffix(" bohr²")
         self.observed_smoothness.setToolTip(
-            "Reciprocal-space high-resolution damping: 1/(1 + beta |k|²)."
+            "Reciprocal-space high-resolution damping: 1/(1 + beta |k|²). "
+            "The default 0.01 bohr² retains low-order chemical density while "
+            "damping high-frequency noise."
         )
         self.observed_smoothness_label = QLabel("Smoothness β")
         stockholder_form.addRow(
@@ -703,7 +707,10 @@ class MainWindow(QMainWindow):
         self.observed_step.setDecimals(4)
         self.observed_step.setSingleStep(0.05)
         self.observed_step.setValue(0.25)
-        self.observed_step.setToolTip("Projected density-gradient step size.")
+        self.observed_step.setToolTip(
+            "Initial projected density-gradient step. Tonto grows successful "
+            "steps and backtracks trials against the complex phased target."
+        )
         self.observed_step_label = QLabel("Reconstruction step")
         stockholder_form.addRow(self.observed_step_label, self.observed_step)
 
@@ -1596,10 +1603,10 @@ class MainWindow(QMainWindow):
             self._int_option("OBSERVED_DENSITY_R_FREE_PERCENTAGE", 10)
         )
         self.observed_prior.setValue(
-            self._float_option("OBSERVED_DENSITY_PRIOR_STRENGTH", 0.1)
+            self._float_option("OBSERVED_DENSITY_PRIOR_STRENGTH", 0.0)
         )
         self.observed_smoothness.setValue(
-            self._float_option("OBSERVED_DENSITY_SMOOTHNESS", 0.1)
+            self._float_option("OBSERVED_DENSITY_SMOOTHNESS", 0.01)
         )
         self.observed_step.setValue(
             self._float_option("OBSERVED_DENSITY_STEP_SIZE", 0.25)
