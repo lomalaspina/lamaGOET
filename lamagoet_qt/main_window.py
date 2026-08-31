@@ -2936,6 +2936,13 @@ class MainWindow(QMainWindow):
         explanation = QLabel(
             "Only orbital GTO bases containing no ECP for the selected element "
             "are listed. Choose independently for each element."
+            + (
+                " Crystal23 export assigns neutral-atom CHE shell populations; "
+                "you can edit basis_gen.txt afterwards if a deliberately ionic "
+                "starting population is required."
+                if program == "Crystal14"
+                else ""
+            )
         )
         explanation.setWordWrap(True)
         layout.addWidget(explanation)
