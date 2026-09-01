@@ -167,6 +167,11 @@ class RunnerRegressionTest(unittest.TestCase):
                     body,
                 )
                 self.assertIn(
+                    "observed_density_motion_model= "
+                    "${OBSERVED_DENSITY_MOTION_MODEL:-static}",
+                    body,
+                )
+                self.assertIn(
                     "observed_density_prior= "
                     "${OBSERVED_DENSITY_PRIOR_STRENGTH:-0.0}",
                     body,
@@ -310,12 +315,94 @@ class RunnerRegressionTest(unittest.TestCase):
                 )
                 if program == "Tonto" and selected == "oc-observed":
                     self.assertIn("observed_density_shrinkage= 0.35", result.stdout)
+                    self.assertIn(
+                        "observed_density_motion_model= static", result.stdout
+                    )
                     self.assertIn("stockholder_model= periodic", result.stdout)
                     self.assertNotIn("partition_model= oc-crystal23", result.stdout)
                 elif program != "Tonto":
                     self.assertIn("stockholder_model= periodic", result.stdout)
                     self.assertNotIn("partition_model= oc-observed", result.stdout)
                     self.assertNotIn("observed_density_shrinkage", result.stdout)
+
+    @unittest.skipUnless(
+        os.name == "posix" and shutil.which("bash"),
+        "generated observed-density validation test requires bash",
+    )
+    def test_dynamic_observed_density_runner_validation(self):
+        valid = {
+            "SCFCALCPROG": "Tonto",
+            "PARTITION_MODEL": "oc-observed",
+            "OBSERVED_DENSITY_RECONSTRUCTION": "constrained",
+            "OBSERVED_DENSITY_MOTION_MODEL": "dynamic",
+            "POSADP": "false",
+            "POSONLY": "true",
+            "ADPSONLY": "false",
+            "REFHPOS": "false",
+            "REFUISO": "false",
+            "REFHADP": "false",
+            "HADP": "no",
+            "REFANHARM": "false",
+            "THIRDORD": "false",
+            "FOURTHORD": "false",
+        }
+        invalid_overrides = (
+            {"OBSERVED_DENSITY_MOTION_MODEL": "unknown"},
+            {"SCFCALCPROG": "Gaussian"},
+            {"PARTITION_MODEL": "oc-hirshfeld"},
+            {"OBSERVED_DENSITY_RECONSTRUCTION": "legacy"},
+            {"POSONLY": "false"},
+            {"POSADP": "true"},
+            {"ADPSONLY": "true"},
+            {"REFHPOS": "true"},
+            {"REFUISO": "true"},
+            {"REFHADP": "true"},
+            {"HADP": "yes"},
+            {"REFANHARM": "true"},
+            {"THIRDORD": "true"},
+            {"FOURTHORD": "true"},
+        )
+        for runner, text in self.runner_text.items():
+            definition = (
+                "TONTO_OBSERVED_DENSITY_INPUT(){\n"
+                + function_body(text, "TONTO_OBSERVED_DENSITY_INPUT")
+                + "\nVALIDATE_OBSERVED_DENSITY_MOTION_MODEL(){\n"
+                + function_body(text, "VALIDATE_OBSERVED_DENSITY_MOTION_MODEL")
+            )
+
+            def run_validation(values):
+                assignments = "\n".join(
+                    f'{name}="{value}"' for name, value in values.items()
+                )
+                return subprocess.run(
+                    [
+                        "bash",
+                        "-c",
+                        definition
+                        + "\n"
+                        + assignments
+                        + "\nVALIDATE_OBSERVED_DENSITY_MOTION_MODEL\n",
+                    ],
+                    text=True,
+                    capture_output=True,
+                )
+
+            with self.subTest(runner=runner, case="valid dynamic"):
+                self.assertEqual(run_validation(valid).returncode, 0)
+            with self.subTest(runner=runner, case="default static"):
+                static = dict(valid)
+                static.pop("OBSERVED_DENSITY_MOTION_MODEL")
+                static["POSONLY"] = "false"
+                static["POSADP"] = "true"
+                static["REFHPOS"] = "true"
+                static["REFHADP"] = "true"
+                static["HADP"] = "yes"
+                self.assertEqual(run_validation(static).returncode, 0)
+            for override in invalid_overrides:
+                case = dict(valid)
+                case.update(override)
+                with self.subTest(runner=runner, invalid=override):
+                    self.assertNotEqual(run_validation(case).returncode, 0)
 
     def test_orca_inputs_request_the_selected_processor_count(self):
         for name, text in self.runner_text.items():

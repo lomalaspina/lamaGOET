@@ -365,6 +365,9 @@ def main() -> int:
         constrained_window = MainWindow(constrained_options)
         assert constrained_window.partition_model.currentData() == "oc-observed"
         assert constrained_window.observed_reconstruction.currentData() == "constrained"
+        assert not constrained_window.observed_motion_model.isHidden()
+        assert constrained_window.observed_motion_model.currentData() == "static"
+        assert constrained_window.observed_dynamic_warning.isHidden()
         assert constrained_window.observed_shrinkage.isHidden()
         assert constrained_window.observed_min_tf.isHidden()
         assert not constrained_window.observed_r_free.isHidden()
@@ -375,8 +378,61 @@ def main() -> int:
         assert constrained_window.observed_max_iterations.value() == 24
         constrained_values = constrained_window._current_values()
         assert constrained_values["OBSERVED_DENSITY_RECONSTRUCTION"] == "constrained"
+        assert constrained_values["OBSERVED_DENSITY_MOTION_MODEL"] == "static"
         assert constrained_values["OBSERVED_DENSITY_R_FREE_PERCENTAGE"] == 20
         constrained_window.close()
+
+        dynamic_options = Path(directory) / "tonto_dynamic_options.txt"
+        dynamic_options.write_text(
+            'SCFCALCPROG="Tonto"\n'
+            'PARTITION_MODEL="oc-observed"\n'
+            'OBSERVED_DENSITY_RECONSTRUCTION="constrained"\n'
+            'OBSERVED_DENSITY_MOTION_MODEL="dynamic"\n'
+            'POSADP="true"\n'
+            'POSONLY="false"\n'
+            'ADPSONLY="true"\n'
+            'REFHPOS="true"\n'
+            'REFUISO="true"\n'
+            'REFHADP="true"\n'
+            'HADP="yes"\n'
+            'REFANHARM="true"\n'
+            'THIRDORD="true"\n'
+            'FOURTHORD="true"\n',
+            encoding="utf-8",
+        )
+        dynamic_window = MainWindow(dynamic_options)
+        assert dynamic_window.observed_motion_model.currentData() == "dynamic"
+        assert not dynamic_window.observed_dynamic_warning.isHidden()
+        assert dynamic_window.refine_dynamic_shapes.isChecked()
+        assert not dynamic_window.refine_dynamic_shapes.isHidden()
+        assert "ΔFcalc" in dynamic_window.convergence_label.text()
+        assert "dynamic-density" in dynamic_window.max_ls_cycles_label.text()
+        assert not dynamic_window.refine_pos_only.isEnabled()
+        assert not dynamic_window.refine_pos_adp.isEnabled()
+        assert not dynamic_window.refine_adps_only.isEnabled()
+        assert not dynamic_window.refine_uiso.isChecked()
+        assert not dynamic_window.refine_uiso.isEnabled()
+        assert not dynamic_window.refine_h_positions.isChecked()
+        assert not dynamic_window.refine_h_positions.isEnabled()
+        assert not dynamic_window.refine_h_adps.isChecked()
+        assert not dynamic_window.refine_h_adps.isEnabled()
+        assert not dynamic_window.h_adp.isChecked()
+        assert not dynamic_window.h_adp.isEnabled()
+        assert not dynamic_window.refine_anharmonic.isChecked()
+        assert not dynamic_window.refine_anharmonic.isEnabled()
+        dynamic_values = dynamic_window._current_values()
+        assert dynamic_values["OBSERVED_DENSITY_MOTION_MODEL"] == "dynamic"
+        assert dynamic_values["POSADP"] == "false"
+        assert dynamic_values["POSONLY"] == "true"
+        assert dynamic_values["ADPSONLY"] == "false"
+        assert dynamic_values["REFHPOS"] == "false"
+        assert dynamic_values["REFUISO"] == "false"
+        assert dynamic_values["REFHADP"] == "false"
+        assert dynamic_values["HADP"] == "no"
+        assert dynamic_values["REFANHARM"] == "false"
+        assert dynamic_values["THIRDORD"] == "false"
+        assert dynamic_values["FOURTHORD"] == "false"
+        dynamic_window.close()
 
         constrained_default_options = (
             Path(directory) / "tonto_constrained_default_options.txt"

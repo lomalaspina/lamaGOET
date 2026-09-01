@@ -912,6 +912,37 @@ TONTO_OBSERVED_DENSITY_INPUT(){
 	[[ "$SCFCALCPROG" == "Tonto" && ( "${PARTITION_MODEL:-oc-hirshfeld}" == "observed" || "${PARTITION_MODEL:-oc-hirshfeld}" == "oc-observed" ) ]]
 }
 
+VALIDATE_OBSERVED_DENSITY_MOTION_MODEL(){
+	local motion_model="${OBSERVED_DENSITY_MOTION_MODEL:-static}"
+	case "$motion_model" in
+		static)
+			return 0
+			;;
+		dynamic)
+			;;
+		*)
+			echo "RUN_lamaGOET: ERROR: OBSERVED_DENSITY_MOTION_MODEL must be 'static' or 'dynamic', not '$motion_model'." >&2
+			return 1
+			;;
+	esac
+
+	if ! TONTO_OBSERVED_DENSITY_INPUT; then
+		echo "RUN_lamaGOET: ERROR: dynamic observed density is available only for SCFCALCPROG=Tonto with PARTITION_MODEL=oc-observed." >&2
+		return 1
+	fi
+	if [[ "${OBSERVED_DENSITY_RECONSTRUCTION:-constrained}" != "constrained" ]]; then
+		echo "RUN_lamaGOET: ERROR: dynamic observed density requires OBSERVED_DENSITY_RECONSTRUCTION=constrained." >&2
+		return 1
+	fi
+	if [[ "${POSONLY:-false}" != "true" || "${POSADP:-false}" == "true" || "${ADPSONLY:-false}" == "true" || \
+	      "${REFHPOS:-true}" != "false" || "${REFUISO:-false}" == "true" || "${REFHADP:-true}" != "false" || \
+	      ( "${HADP:-no}" != "no" && "${HADP:-no}" != "false" ) || \
+	      "${REFANHARM:-false}" == "true" || "${THIRDORD:-false}" == "true" || "${FOURTHORD:-false}" == "true" ]]; then
+		echo "RUN_lamaGOET: ERROR: dynamic observed density fixes coordinates and ADPs; use its generated no-ADP setting and disable H-position, ADP, Uiso and anharmonic refinement options." >&2
+		return 1
+	fi
+}
+
 TONTO_FINAL_WAVEFUNCTION_EXPORTS_AVAILABLE(){
 	# These files require a finite canonical molecular-orbital expansion.
 	# Periodic Crystal23 densities and the observed-density model do not
@@ -1215,6 +1246,7 @@ WRITE_DENSITY_PARTITION_MODEL(){
 			echo "         partition_model= oc-observed" >> stdin
 			echo "         stockholder_model= ${STOCKHOLDER_MODEL:-cluster}" >> stdin
 			echo "         observed_density_reconstruct= ${OBSERVED_DENSITY_RECONSTRUCTION:-constrained}" >> stdin
+			echo "         observed_density_motion_model= ${OBSERVED_DENSITY_MOTION_MODEL:-static}" >> stdin
 			if [[ "${OBSERVED_DENSITY_RECONSTRUCTION:-constrained}" == "constrained" ]]; then
 				echo "         observed_density_prior= ${OBSERVED_DENSITY_PRIOR_STRENGTH:-0.0}" >> stdin
 				echo "         observed_density_smoothness= ${OBSERVED_DENSITY_SMOOTHNESS:-0.01}" >> stdin
@@ -3283,6 +3315,13 @@ run_script(){
 	echo "Refine position and ADPs: $POSADP" >> $JOBNAME.lst
 	echo "Refine positions only	: $POSONLY" >> $JOBNAME.lst
 	echo "Refine ADPs only	: $ADPSONLY" >> $JOBNAME.lst
+	if TONTO_OBSERVED_DENSITY_INPUT; then
+		echo "Observed-density reconstruction: ${OBSERVED_DENSITY_RECONSTRUCTION:-constrained}" >> $JOBNAME.lst
+		echo "Observed-density motion model: ${OBSERVED_DENSITY_MOTION_MODEL:-static}" >> $JOBNAME.lst
+		if [[ "${OBSERVED_DENSITY_MOTION_MODEL:-static}" == "dynamic" ]]; then
+			echo "Dynamic structural parameters: coordinates and conventional ADPs fixed" >> $JOBNAME.lst
+		fi
+	fi
 	if [[ "$POSONLY" != "true" ]]; then
 		echo "Refine H ADPs 		: $REFHADP" >> $JOBNAME.lst
 		if [[ "$REFHADP" == "true" ]]; then
@@ -3957,6 +3996,8 @@ if [[ -z "$SCFCALCPROG" ]]; then
 	echo "SCFCALCPROG=\"$SCFCALCPROG\"" >> job_options.txt
         source ./job_options.txt
 fi
+
+VALIDATE_OBSERVED_DENSITY_MOTION_MODEL || exit 2
 
 
 if [[ "$SCFCALCPROG" == "Crystal14" ]]; then

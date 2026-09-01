@@ -558,7 +558,8 @@ class MainWindow(QMainWindow):
         processor_layout.addWidget(self.tonto_processors)
         form.addRow(processor_row)
         self.convergence = QLineEdit("0.01")
-        form.addRow("Maximum shift/s.u.", self.convergence)
+        self.convergence_label = QLabel("Maximum shift/s.u.")
+        form.addRow(self.convergence_label, self.convergence)
         self.max_cycles = QSpinBox()
         self.max_cycles.setRange(1, 999)
         self.max_cycles.setValue(50)
@@ -656,6 +657,40 @@ class MainWindow(QMainWindow):
             self.observed_reconstruction_label,
             self.observed_reconstruction,
         )
+
+        self.observed_motion_model = QComboBox()
+        self.observed_motion_model.addItem(
+            "Static density + independently refined ADPs (recommended)",
+            "static",
+        )
+        self.observed_motion_model.addItem(
+            "Dynamic thermally averaged atom shapes (experimental)",
+            "dynamic",
+        )
+        self.observed_motion_model.setToolTip(
+            "Static reconstructs an intrinsic electron density and applies "
+            "trial ADPs in the diffraction model. Dynamic reconstructs the "
+            "thermally averaged atomic electron-density shapes and uses their "
+            "form factors directly, so a second ADP factor is neither applied "
+            "nor independently refinable."
+        )
+        self.observed_motion_model.currentIndexChanged.connect(
+            self._partition_model_changed
+        )
+        self.observed_motion_model_label = QLabel("Motion treatment")
+        stockholder_form.addRow(
+            self.observed_motion_model_label,
+            self.observed_motion_model,
+        )
+        self.observed_dynamic_warning = QLabel(
+            "Experimental: the fitted atom is a time-averaged electron-density "
+            "shape containing bonding, thermal motion and static disorder. "
+            "Atom coordinates and conventional ADPs are fixed to remove an "
+            "exact position-shape ambiguity; Tonto reconstructs the shapes "
+            "and may refine scale and extinction."
+        )
+        self.observed_dynamic_warning.setWordWrap(True)
+        stockholder_form.addRow(self.observed_dynamic_warning)
 
         self.observed_r_free = QSpinBox()
         self.observed_r_free.setRange(1, 50)
@@ -841,9 +876,18 @@ class MainWindow(QMainWindow):
         self.refine_pos_adp = QRadioButton("positions and ADPs")
         self.refine_pos_only = QRadioButton("positions only")
         self.refine_adps_only = QRadioButton("ADPs only")
+        self.refine_dynamic_shapes = QRadioButton(
+            "dynamic shapes only (coordinates and ADPs fixed)"
+        )
+        self.refine_dynamic_shapes.setVisible(False)
         self.refine_pos_adp.setChecked(True)
         for identifier, button in enumerate(
-            (self.refine_pos_adp, self.refine_pos_only, self.refine_adps_only)
+            (
+                self.refine_pos_adp,
+                self.refine_pos_only,
+                self.refine_adps_only,
+                self.refine_dynamic_shapes,
+            )
         ):
             self.refine_mode.addButton(button, identifier)
             mode_layout.addWidget(button)
@@ -1186,7 +1230,13 @@ class MainWindow(QMainWindow):
         self.max_ls_cycles = QSpinBox()
         self.max_ls_cycles.setRange(1, 10000)
         self.max_ls_cycles.setValue(30)
-        form.addRow("Maximum least-squares cycles", self.max_ls_cycles)
+        self.max_ls_cycles_label = QLabel("Maximum least-squares cycles")
+        self.max_ls_cycles.setToolTip(
+            "For dynamic observed density this limits the phase-updated "
+            "density-shape outer cycles; no structural least-squares matrix "
+            "is solved."
+        )
+        form.addRow(self.max_ls_cycles_label, self.max_ls_cycles)
         self.max_xtal_cycles = QLineEdit()
         form.addRow("Maximum Crystal cycles (blank = automatic)", self.max_xtal_cycles)
         self.supercon = QCheckBox("Use Crystal SUPERCON")
@@ -1599,6 +1649,10 @@ class MainWindow(QMainWindow):
         self.observed_reconstruction.setCurrentIndex(
             max(0, reconstruction_index)
         )
+        motion_index = self.observed_motion_model.findData(
+            self._option("OBSERVED_DENSITY_MOTION_MODEL", "static")
+        )
+        self.observed_motion_model.setCurrentIndex(max(0, motion_index))
         self.observed_r_free.setValue(
             self._int_option("OBSERVED_DENSITY_R_FREE_PERCENTAGE", 10)
         )
@@ -1938,10 +1992,20 @@ class MainWindow(QMainWindow):
         self.complete_explicit_molecules.setEnabled(explicit_enabled)
 
     def _refinement_controls_changed(self) -> None:
+        dynamic_observed = self._dynamic_observed_density_selected()
         self.only_iam_tonto.setEnabled(self.iam_tonto.isChecked())
         self.atom_list.setEnabled(self.refine_nothing.isChecked())
-        self.atom_uiso_list.setEnabled(self.refine_uiso.isChecked())
-        anharmonic = self.refine_anharmonic.isChecked()
+        self.refine_uiso.setEnabled(not dynamic_observed)
+        self.atom_uiso_list.setEnabled(
+            self.refine_uiso.isChecked() and not dynamic_observed
+        )
+        self.refine_h_adps.setEnabled(not dynamic_observed)
+        self.refine_h_positions.setEnabled(not dynamic_observed)
+        self.h_adp.setEnabled(not dynamic_observed)
+        self.refine_anharmonic.setEnabled(not dynamic_observed)
+        anharmonic = (
+            self.refine_anharmonic.isChecked() and not dynamic_observed
+        )
         self.anharmonic_atoms.setEnabled(anharmonic)
         self.third_order.setEnabled(anharmonic)
         self.fourth_order.setEnabled(anharmonic)
@@ -2072,6 +2136,14 @@ class MainWindow(QMainWindow):
             # A finite surrogate never replaces the exact periodic record.
             self.periodic_wavefunction_export.setChecked(True)
 
+    def _dynamic_observed_density_selected(self) -> bool:
+        return (
+            (self.program.currentData() or "Gaussian") == "Tonto"
+            and self.partition_model.currentData() == "oc-observed"
+            and self.observed_reconstruction.currentData() == "constrained"
+            and self.observed_motion_model.currentData() == "dynamic"
+        )
+
     def _partition_model_changed(self, *_args) -> None:
         program = self.program.currentData() or "Gaussian"
         tonto = program == "Tonto"
@@ -2081,6 +2153,7 @@ class MainWindow(QMainWindow):
             observed
             and self.observed_reconstruction.currentData() == "constrained"
         )
+        dynamic_observed = self._dynamic_observed_density_selected()
         uses_stockholder_choice = periodic or observed
         self.stockholder_group.setTitle(
             "Observed-density partition"
@@ -2093,6 +2166,19 @@ class MainWindow(QMainWindow):
         self.stockholder_model.setVisible(uses_stockholder_choice)
         self.observed_reconstruction_label.setVisible(observed)
         self.observed_reconstruction.setVisible(observed)
+        self.observed_motion_model_label.setVisible(constrained)
+        self.observed_motion_model.setVisible(constrained)
+        self.observed_dynamic_warning.setVisible(dynamic_observed)
+        self.convergence_label.setText(
+            "Outer RMS |ΔFcalc|/σ tolerance"
+            if dynamic_observed
+            else "Maximum shift/s.u."
+        )
+        self.max_ls_cycles_label.setText(
+            "Maximum dynamic-density outer cycles"
+            if dynamic_observed
+            else "Maximum least-squares cycles"
+        )
         for widget in (
             self.observed_shrinkage_label,
             self.observed_shrinkage,
@@ -2118,6 +2204,25 @@ class MainWindow(QMainWindow):
         self.hirshfeld_atom_cube_label.setEnabled(
             self.output_hirshfeld_atom_cubes.isChecked()
         )
+        for button in (
+            self.refine_pos_adp,
+            self.refine_pos_only,
+            self.refine_adps_only,
+        ):
+            button.setEnabled(not dynamic_observed)
+        self.refine_dynamic_shapes.setVisible(dynamic_observed)
+        if dynamic_observed:
+            self.refine_dynamic_shapes.setChecked(True)
+            self.refine_uiso.setChecked(False)
+            self.refine_h_positions.setChecked(False)
+            self.refine_h_adps.setChecked(False)
+            self.h_adp.setChecked(False)
+            self.refine_anharmonic.setChecked(False)
+            self.third_order.setChecked(False)
+            self.fourth_order.setChecked(False)
+        elif self.refine_dynamic_shapes.isChecked():
+            self.refine_pos_adp.setChecked(True)
+        self._refinement_controls_changed()
 
     def _program_activated(self, *_args) -> None:
         self.program.hidePopup()
@@ -2380,6 +2485,12 @@ class MainWindow(QMainWindow):
             partition_model = "oc-crystal23"
         else:
             partition_model = "oc-hirshfeld"
+        dynamic_observed = (
+            program == "Tonto"
+            and partition_model == "oc-observed"
+            and self.observed_reconstruction.currentData() == "constrained"
+            and self.observed_motion_model.currentData() == "dynamic"
+        )
         result: dict[str, object] = {
             "SCFCALCPROG": program,
             "JOBNAME": self.job_name.text().strip() or "my_job",
@@ -2450,6 +2561,9 @@ class MainWindow(QMainWindow):
             "OBSERVED_DENSITY_RECONSTRUCTION": (
                 self.observed_reconstruction.currentData()
             ),
+            "OBSERVED_DENSITY_MOTION_MODEL": (
+                "dynamic" if dynamic_observed else "static"
+            ),
             "OBSERVED_DENSITY_R_FREE_PERCENTAGE": self.observed_r_free.value(),
             "OBSERVED_DENSITY_PRIOR_STRENGTH": self.observed_prior.value(),
             "OBSERVED_DENSITY_SMOOTHNESS": self.observed_smoothness.value(),
@@ -2473,22 +2587,44 @@ class MainWindow(QMainWindow):
             "DEFRAGEXPL": _bool_text(
                 self.complete_explicit_molecules.isChecked()
             ),
-            "POSADP": _bool_text(self.refine_pos_adp.isChecked()),
-            "POSONLY": _bool_text(self.refine_pos_only.isChecked()),
-            "ADPSONLY": _bool_text(self.refine_adps_only.isChecked()),
+            "POSADP": _bool_text(
+                self.refine_pos_adp.isChecked() and not dynamic_observed
+            ),
+            "POSONLY": _bool_text(
+                self.refine_pos_only.isChecked() or dynamic_observed
+            ),
+            "ADPSONLY": _bool_text(
+                self.refine_adps_only.isChecked() and not dynamic_observed
+            ),
             "IAMTONTO": _bool_text(self.iam_tonto.isChecked()),
             "ONLYIAMTONTO": _bool_text(self.only_iam_tonto.isChecked()),
             "REFNOTHING": _bool_text(self.refine_nothing.isChecked()),
             "ATOMLIST": self.atom_list.text().strip(),
-            "REFUISO": _bool_text(self.refine_uiso.isChecked()),
+            "REFUISO": _bool_text(
+                self.refine_uiso.isChecked() and not dynamic_observed
+            ),
             "ATOMUISOLIST": self.atom_uiso_list.text().strip(),
-            "REFHPOS": _bool_text(self.refine_h_positions.isChecked()),
-            "REFHADP": _bool_text(self.refine_h_adps.isChecked()),
-            "HADP": "yes" if self.h_adp.isChecked() else "no",
-            "REFANHARM": _bool_text(self.refine_anharmonic.isChecked()),
+            "REFHPOS": _bool_text(
+                self.refine_h_positions.isChecked() and not dynamic_observed
+            ),
+            "REFHADP": _bool_text(
+                self.refine_h_adps.isChecked() and not dynamic_observed
+            ),
+            "HADP": (
+                "yes"
+                if self.h_adp.isChecked() and not dynamic_observed
+                else "no"
+            ),
+            "REFANHARM": _bool_text(
+                self.refine_anharmonic.isChecked() and not dynamic_observed
+            ),
             "ANHARMATOMS": self.anharmonic_atoms.text().strip(),
-            "THIRDORD": _bool_text(self.third_order.isChecked()),
-            "FOURTHORD": _bool_text(self.fourth_order.isChecked()),
+            "THIRDORD": _bool_text(
+                self.third_order.isChecked() and not dynamic_observed
+            ),
+            "FOURTHORD": _bool_text(
+                self.fourth_order.isChecked() and not dynamic_observed
+            ),
             "XHALONG": _bool_text(self.elongate_xh.isChecked()),
             "BHBOND": self.bh_bond.text().strip(),
             "CHBOND": self.ch_bond.text().strip(),

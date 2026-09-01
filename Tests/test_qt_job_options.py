@@ -69,6 +69,7 @@ class JobOptionsTest(unittest.TestCase):
         self.assertEqual(
             values["OBSERVED_DENSITY_RECONSTRUCTION"], "constrained"
         )
+        self.assertEqual(values["OBSERVED_DENSITY_MOTION_MODEL"], "static")
         self.assertEqual(values["OBSERVED_DENSITY_R_FREE_PERCENTAGE"], "10")
         self.assertEqual(values["OBSERVED_DENSITY_PRIOR_STRENGTH"], "0.0")
         self.assertEqual(values["OBSERVED_DENSITY_SMOOTHNESS"], "0.01")
@@ -167,6 +168,7 @@ class JobOptionsTest(unittest.TestCase):
                     "OBSERVED_DENSITY_SHRINKAGE": "0.35",
                     "OBSERVED_DENSITY_MIN_TF": "0.025",
                     "OBSERVED_DENSITY_RECONSTRUCTION": "constrained",
+                    "OBSERVED_DENSITY_MOTION_MODEL": "dynamic",
                     "OBSERVED_DENSITY_R_FREE_PERCENTAGE": "15",
                     "OBSERVED_DENSITY_PRIOR_STRENGTH": "0.2",
                     "OBSERVED_DENSITY_SMOOTHNESS": "0.3",
@@ -183,6 +185,7 @@ class JobOptionsTest(unittest.TestCase):
         self.assertEqual(result["OBSERVED_DENSITY_SHRINKAGE"], "0.35")
         self.assertEqual(result["OBSERVED_DENSITY_MIN_TF"], "0.025")
         self.assertEqual(result["OBSERVED_DENSITY_RECONSTRUCTION"], "constrained")
+        self.assertEqual(result["OBSERVED_DENSITY_MOTION_MODEL"], "dynamic")
         self.assertEqual(result["OBSERVED_DENSITY_R_FREE_PERCENTAGE"], "15")
         self.assertEqual(result["OBSERVED_DENSITY_PRIOR_STRENGTH"], "0.2")
         self.assertEqual(result["OBSERVED_DENSITY_SMOOTHNESS"], "0.3")
