@@ -48,6 +48,59 @@ class RunnerRegressionTest(unittest.TestCase):
                 self.assertIn('dft_correlation_functional= pbec', body)
                 self.assertIn('METHOD" == "upbe', body)
 
+    def test_tonto_version_uses_supported_long_option(self):
+        for name, text in self.runner_text.items():
+            with self.subTest(runner=name):
+                self.assertIn(
+                    '"$TONTO" --version >> "$JOBNAME.lst"',
+                    text,
+                )
+                self.assertNotRegex(text, r"\$TONTO\s+-v(?:\s|\))")
+
+    def test_external_crystal_basis_never_becomes_tonto_gen_basis(self):
+        for name, text in self.runner_text.items():
+            with self.subTest(runner=name):
+                body = function_body(text, "NOT_TONTO_BASIS_SET")
+                self.assertIn("CRYSTAL_TONTO_BASIS_NAME", body)
+                self.assertIn("${BASISSETT:-STO-3G}", body)
+                self.assertRegex(body, r'""\|gen\|external\)')
+
+    @unittest.skipUnless(
+        os.name == "posix" and shutil.which("bash"),
+        "generated Crystal23/Tonto basis test requires bash",
+    )
+    def test_external_crystal_basis_writes_named_tonto_reference(self):
+        for runner, text in self.runner_text.items():
+            definition = (
+                '_lower(){ tr "[:upper:]" "[:lower:]" <<< "$1"; }\n'
+                "NOT_TONTO_BASIS_SET(){\n"
+                + function_body(text, "NOT_TONTO_BASIS_SET")
+            )
+            with self.subTest(runner=runner), tempfile.TemporaryDirectory() as directory:
+                library = Path(directory) / "basis_sets"
+                library.mkdir()
+                (library / "def2-TZVP").write_text("basis\n", encoding="utf-8")
+                script = (
+                    definition
+                    + '\nSCFCALCPROG="Crystal14"\n'
+                    + 'GAUSGEN="true"\n'
+                    + 'BASISSETG="gen"\n'
+                    + 'BASISSETT="STO-3G"\n'
+                    + 'CRYSTAL_TONTO_BASIS_NAME="def2-TZVP"\n'
+                    + f'BASISSETDIR="{library}"\n'
+                    + "NOT_TONTO_BASIS_SET\n"
+                    + "cat stdin\n"
+                )
+                result = subprocess.run(
+                    ["bash", "-c", script],
+                    cwd=directory,
+                    text=True,
+                    capture_output=True,
+                    check=True,
+                )
+            self.assertIn("basis_name= def2-TZVP", result.stdout)
+            self.assertNotIn("basis_name= gen", result.stdout)
+
     def test_retained_diamond_46_ao_pair_has_one_crystal_terminator(self):
         example = (
             ROOT

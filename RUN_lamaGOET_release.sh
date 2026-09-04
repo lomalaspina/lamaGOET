@@ -914,6 +914,17 @@ TONTO_BASIS_SET(){
 NOT_TONTO_BASIS_SET(){
 	local tonto_basis_name="$BASISSETG"
 	local candidate candidate_name
+	# Crystal23 calls an external/custom basis GEN in its .d12 syntax, but GEN
+	# is not a Tonto basis-library entry. Keep the periodic SCF input and the
+	# exact Tonto XML-reconstruction/reference basis as separate choices.
+	if [[ "$SCFCALCPROG" == "Crystal14" && "$GAUSGEN" == "true" ]]; then
+		tonto_basis_name=${CRYSTAL_TONTO_BASIS_NAME:-${BASISSETT:-STO-3G}}
+	fi
+	case "$(_lower "$tonto_basis_name")" in
+		""|gen|external)
+			tonto_basis_name=${BASISSETT:-STO-3G}
+			;;
+	esac
 	if [[ ! -f "$BASISSETDIR/$tonto_basis_name" && -d "$BASISSETDIR" ]]; then
 		while IFS= read -r candidate; do
 			candidate_name=${candidate##*/}
@@ -3689,7 +3700,7 @@ run_script(){
 	date >> $JOBNAME.lst
 	echo "User Inputs: " >> $JOBNAME.lst
 	echo "Tonto executable	: $TONTO"  >> $JOBNAME.lst 
-	echo "$($TONTO -v)" >> $JOBNAME.lst 
+	"$TONTO" --version >> "$JOBNAME.lst"
 	echo "SCF program		: $SCFCALCPROG" >> $JOBNAME.lst
 	if [ "$SCFCALCPROG" != "Tonto" ]; then 
 		echo "SCF executable		: $SCFCALC_BIN" >> $JOBNAME.lst

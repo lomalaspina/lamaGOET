@@ -515,6 +515,7 @@ def main() -> int:
             'SCFCALCPROG="Crystal14"\n'
             'METHOD="HSE06"\n'
             'BASISSETG="POB-TZVP-REV2"\n'
+            'CRYSTAL_TONTO_BASIS_NAME="def2-TZVP"\n'
             'PARTITION_MODEL="oc-observed"\n'
             'OBSERVED_DENSITY_SHRINKAGE="0.4"\n'
             'OBSERVED_DENSITY_MIN_TF="0.05"\n'
@@ -537,6 +538,23 @@ def main() -> int:
         assert crystal_window.cluster_group.isHidden()
         assert crystal_window.method.currentText() == "HSE06"
         assert crystal_window.basis.currentText() == "POB-TZVP-REV2"
+        assert crystal_window.crystal_tonto_basis.isHidden()
+        crystal_window.external_basis.setChecked(True)
+        assert not crystal_window.crystal_tonto_basis.isHidden()
+        assert crystal_window.crystal_tonto_basis.currentText() == "def2-TZVP"
+        assert (
+            crystal_window._current_values()["CRYSTAL_TONTO_BASIS_NAME"]
+            == "def2-TZVP"
+        )
+        crystal_window.crystal_tonto_basis.setEditText("")
+        try:
+            crystal_window._current_values()
+        except ValueError as exc:
+            assert "exact matching Tonto library basis name" in str(exc)
+        else:
+            raise AssertionError(
+                "external Crystal23 basis accepted without a Tonto basis name"
+            )
         crystal_window.close()
     app.processEvents()
     print("Qt GUI off-screen smoke test passed")

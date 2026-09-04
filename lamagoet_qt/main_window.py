@@ -515,6 +515,19 @@ class MainWindow(QMainWindow):
         )
         self.bse_button.clicked.connect(self.choose_basis_exchange)
         external_layout.addWidget(self.bse_button, 2, 2)
+        self.crystal_tonto_basis_label = QLabel(
+            "Tonto reference basis for Crystal23 HAR"
+        )
+        self.crystal_tonto_basis = _editable_combo()
+        self.crystal_tonto_basis.addItems(TONTO_BASIS)
+        self.crystal_tonto_basis.setToolTip(
+            "An external Crystal23 basis is written as GEN in the .d12 file, "
+            "but GEN is not a Tonto library basis name. Select the matching "
+            "named Tonto library basis with the same contractions; Tonto uses "
+            "it for exact XML reconstruction and free-atom references."
+        )
+        external_layout.addWidget(self.crystal_tonto_basis_label, 3, 0)
+        external_layout.addWidget(self.crystal_tonto_basis, 3, 1, 1, 2)
         layout.addWidget(self.external_basis_group)
 
         self.gaussian_features = QGroupBox("Gaussian options")
@@ -1736,6 +1749,10 @@ class MainWindow(QMainWindow):
         )
         self.extra_keywords.setText(self._option("EXTRAKEY"))
         self.external_basis.setChecked(self._bool_option("GAUSGEN"))
+        self._set_combo_text(
+            self.crystal_tonto_basis,
+            self._option("CRYSTAL_TONTO_BASIS_NAME"),
+        )
         basis_definition = self.option_path.parent / "basis_gen.txt"
         self.basis_definition_path.setText(
             str(basis_definition) if basis_definition.exists() else ""
@@ -2164,6 +2181,9 @@ class MainWindow(QMainWindow):
         enabled = self.external_basis.isChecked()
         self.basis_definition_path.setEnabled(enabled)
         self.edit_basis_button.setEnabled(enabled)
+        crystal_reference = enabled and self.program.currentData() == "Crystal14"
+        self.crystal_tonto_basis_label.setVisible(crystal_reference)
+        self.crystal_tonto_basis.setVisible(crystal_reference)
 
     def _cluster_controls_changed(self) -> None:
         charge_enabled = self.sc_charges.isChecked()
@@ -2337,6 +2357,7 @@ class MainWindow(QMainWindow):
         )
         self._partition_model_changed()
         self._cluster_controls_changed()
+        self._external_basis_changed()
         # Some Linux Qt themes leave this popup visible while the dependent
         # controls are being rebuilt. Explicitly close it after selection.
         QTimer.singleShot(0, self.program.hidePopup)
@@ -2709,6 +2730,18 @@ class MainWindow(QMainWindow):
             self.xcw_mode.currentData() == "periodic"
             and (self.xcw_only.isChecked() or self.xray_restrained.isChecked())
         )
+        if program == "Crystal14" and self.external_basis.isChecked():
+            crystal_tonto_basis = self.crystal_tonto_basis.currentText().strip()
+            if not crystal_tonto_basis or crystal_tonto_basis.casefold() in {
+                "gen",
+                "external",
+            }:
+                raise ValueError(
+                    "An external Crystal23 basis requires the exact matching "
+                    "Tonto library basis name. Select it under External/custom "
+                    "basis definition; GEN is Crystal23 input syntax, not a "
+                    "Tonto basis name."
+                )
         if periodic_xcw_requested:
             if self.charge.value() != 0 or self.multiplicity.value() != 1:
                 raise ValueError(
@@ -2809,6 +2842,9 @@ class MainWindow(QMainWindow):
             "DEFRAGNETW": _bool_text(self.network_compound.isChecked()),
             "USEGUESS": _bool_text(self.use_previous_crystal_guess.isChecked()),
             "CRYSTAL_SETTING": self.crystal_setting.currentData(),
+            "CRYSTAL_TONTO_BASIS_NAME": (
+                self.crystal_tonto_basis.currentText().strip()
+            ),
             "PARTITION_MODEL": partition_model,
             "PERIODIC_WAVEFUNCTION_EXPORT": _bool_text(
                 self.periodic_wavefunction_export.isChecked()
@@ -3553,6 +3589,35 @@ class MainWindow(QMainWindow):
         self.external_basis.setChecked(True)
         if program in {"Gaussian", "optgaussian", "Crystal14"}:
             self._set_combo_text(self.basis, "gen")
+            if program == "Crystal14":
+                self.crystal_tonto_basis.setEditText("")
+                selected_names = {
+                    name.casefold(): name for name in selections.values()
+                }
+                if len(selected_names) == 1:
+                    selected_name = next(iter(selected_names.values()))
+                    matching_tonto_name = next(
+                        (
+                            name
+                            for name in TONTO_BASIS
+                            if name.casefold() == selected_name.casefold()
+                        ),
+                        "",
+                    )
+                    if matching_tonto_name:
+                        self._set_combo_text(
+                            self.crystal_tonto_basis, matching_tonto_name
+                        )
+                if not self.crystal_tonto_basis.currentText().strip():
+                    QMessageBox.warning(
+                        self,
+                        "Matching Tonto basis required",
+                        "The selected Crystal23 basis combination has no single "
+                        "matching basis in lamaGOET's standard Tonto list. "
+                        "Install an exact combined Tonto library entry, then "
+                        "enter its name in 'Tonto reference basis for Crystal23 "
+                        "HAR' before saving or running the job.",
+                    )
         elif program in {"Orca", "optorca"}:
             self._set_combo_text(self.basis, "External")
         elif program == "CP2K":
