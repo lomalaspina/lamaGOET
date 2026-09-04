@@ -94,6 +94,7 @@ Two ways, and they are not the same thing:
 | [docs/PERIODIC_WAVEFUNCTION_EXPORT.md](docs/PERIODIC_WAVEFUNCTION_EXPORT.md) | exact CP2K/Crystal23 TREXIO export and finite `.47`/WFN/WFX cluster recalculation |
 | [docs/HIRSHFELD_ATOM_CUBES.md](docs/HIRSHFELD_ATOM_CUBES.md) | per-independent-atom density cubes from the live Hirshfeld partition |
 | [docs/OBSERVED_DENSITY_RECONSTRUCTION.md](docs/OBSERVED_DENSITY_RECONSTRUCTION.md) | ADP-aware constrained observed-density reconstruction and its legacy alternative |
+| [docs/PERIODIC_XCW.md](docs/PERIODIC_XCW.md) | fixed-geometry periodic XCW and sequential HAR+XCW (XWR) |
 | [CLAUDE.md](CLAUDE.md) | what to know before changing the code |
 | [examples/](examples/) | worked examples with published numbers |
 

@@ -55,6 +55,68 @@ def main() -> int:
             "extreme", "best",
         ]
         assert window.becke_accuracy.currentText() == "extreme"
+        assert window.xcw_mode.currentData() == "molecular"
+        assert not window.molecular_xcw_options.isHidden()
+        assert window.periodic_xcw_options.isHidden()
+        window.xcw_mode.setCurrentIndex(window.xcw_mode.findData("periodic"))
+        window.xcw_only.setChecked(True)
+        assert window.molecular_xcw_options.isHidden()
+        assert not window.periodic_xcw_options.isHidden()
+        assert not window.periodic_xcw_custom_basis.isChecked()
+        assert window.periodic_xcw_reference_basis.isEnabled()
+        window.periodic_xcw_reference_dft.setCurrentText("PBE")
+        window.periodic_xcw_reference_basis.setEditText("pob-TZVP-rev2")
+        crystal_basis = Path(directory) / "custom-crystal-basis.txt"
+        crystal_basis.write_text(
+            "6 1\n0 0 1 2.0 1.0\n1.0 1.0\n99 0\n",
+            encoding="utf-8",
+        )
+        tonto_basis = Path(directory) / "core-decontracted-carbon"
+        tonto_basis.write_text("exact sidecar\n", encoding="utf-8")
+        window.periodic_xcw_custom_basis.setChecked(True)
+        window.periodic_xcw_crystal_basis_file.setText(str(crystal_basis))
+        window.periodic_xcw_tonto_basis_file.setText(str(tonto_basis))
+        window.periodic_xcw_tonto_basis_name.setText("core-decontracted-carbon")
+        assert not window.periodic_xcw_reference_basis.isEnabled()
+        window.periodic_xcw_grid.setText("20 22 24")
+        window.periodic_xcw_density_radius.setValue(2)
+        window.periodic_xcw_convergence.setText("2.5E-7")
+        window.periodic_xcw_damping.setValue(0.35)
+        window.periodic_xcw_max_iterations.setValue(44)
+        window.periodic_xcw_r_free.setValue(15)
+        window.periodic_xcw_restart.setChecked(True)
+        periodic_values = window._current_values()
+        assert periodic_values["XCW_MODE"] == "periodic"
+        assert periodic_values["PERIODIC_XCW_REFERENCE_DFT"] == "PBE"
+        assert periodic_values["PERIODIC_XCW_REFERENCE_BASIS"] == "pob-TZVP-rev2"
+        assert periodic_values["PERIODIC_XCW_CRYSTAL_BASIS_FILE"] == str(
+            crystal_basis
+        )
+        assert periodic_values["PERIODIC_XCW_TONTO_BASIS_FILE"] == str(
+            tonto_basis
+        )
+        assert (
+            periodic_values["PERIODIC_XCW_TONTO_BASIS_NAME"]
+            == "core-decontracted-carbon"
+        )
+        window._prepare_periodic_xcw_basis_pair()
+        assert window.periodic_xcw_crystal_basis_file.text() == (
+            "./periodic_xcw_crystal_basis.txt"
+        )
+        assert window.periodic_xcw_tonto_basis_file.text() == (
+            "./periodic_xcw_tonto_basis.sidecar"
+        )
+        assert (Path(directory) / "periodic_xcw_crystal_basis.txt").is_file()
+        assert (Path(directory) / "periodic_xcw_tonto_basis.sidecar").is_file()
+        assert periodic_values["PERIODIC_XCW_GRID"] == "20 22 24"
+        assert periodic_values["PERIODIC_XCW_DENSITY_RADIUS"] == 2
+        assert periodic_values["PERIODIC_XCW_CONVERGENCE"] == "2.5E-7"
+        assert periodic_values["PERIODIC_XCW_DAMPING"] == 0.35
+        assert periodic_values["PERIODIC_XCW_MAX_ITERATIONS"] == 44
+        assert periodic_values["PERIODIC_XCW_R_FREE_PERCENTAGE"] == 15
+        assert periodic_values["PERIODIC_XCW_RESTART"] == "true"
+        window.xcw_only.setChecked(False)
+        window.xcw_mode.setCurrentIndex(window.xcw_mode.findData("molecular"))
         window.merg_code.setCurrentIndex(window.merg_code.findData(4))
         assert "anomalous-scattering" in window.merg_description.toPlainText()
         window.merg_code.setCurrentIndex(window.merg_code.findData(2))

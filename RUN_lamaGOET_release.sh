@@ -79,10 +79,11 @@ fi
 	if [[ "${SCFCALCPROG:-}" == "CP2K" ]]; then
 		LAMAGOET_MONOLITHIC=${LAMAGOET_MONOLITHIC:-}
 		if [[ -z "$LAMAGOET_MONOLITHIC" ]]; then
-			if command -v lamaGOET >/dev/null 2>&1; then
+			_lamagoet_runner_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+			if [[ -f "$_lamagoet_runner_dir/lamaGOET.sh" ]]; then
+				LAMAGOET_MONOLITHIC="$_lamagoet_runner_dir/lamaGOET.sh"
+			elif command -v lamaGOET >/dev/null 2>&1; then
 				LAMAGOET_MONOLITHIC=$(command -v lamaGOET)
-			else
-				LAMAGOET_MONOLITHIC="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lamaGOET.sh"
 			fi
 		fi
 		if [[ ! -f "$LAMAGOET_MONOLITHIC" ]]; then
@@ -908,6 +909,25 @@ TONTO_BASIS_SET(){
 	echo "" >> stdin
 }
 
+# Imported Crystal23 density matrices must be reconstructed in the exact AO
+# basis used by Crystal, not in the independent basis selected for a Tonto SCF.
+NOT_TONTO_BASIS_SET(){
+	local tonto_basis_name="$BASISSETG"
+	local candidate candidate_name
+	if [[ ! -f "$BASISSETDIR/$tonto_basis_name" && -d "$BASISSETDIR" ]]; then
+		while IFS= read -r candidate; do
+			candidate_name=${candidate##*/}
+			if [[ "$(_lower "$candidate_name")" == "$(_lower "$tonto_basis_name")" ]]; then
+				tonto_basis_name=$candidate_name
+				break
+			fi
+		done < <(find "$BASISSETDIR" -maxdepth 1 -type f -print)
+	fi
+	echo "   basis_directory= $BASISSETDIR" >> stdin
+	echo "   basis_name= $tonto_basis_name" >> stdin
+	echo "" >> stdin
+}
+
 TONTO_OBSERVED_DENSITY_INPUT(){
 	[[ "$SCFCALCPROG" == "Tonto" && ( "${PARTITION_MODEL:-oc-hirshfeld}" == "observed" || "${PARTITION_MODEL:-oc-hirshfeld}" == "oc-observed" ) ]]
 }
@@ -1404,6 +1424,26 @@ BECKE_GRID(){
 		echo "" >> stdin
 }
 
+PERIODIC_XCW_BECKE_GRID(){
+	local xcw_accuracy
+	xcw_accuracy=$(_lower "${ACCURACY:-extreme}")
+	case "$xcw_accuracy" in
+		extreme|best) ;;
+		*)
+			echo "lamaGOET: periodic XCW promotes Becke accuracy '$xcw_accuracy' to the validated minimum 'extreme'." | tee -a "$JOBNAME.lst" >&2
+			xcw_accuracy=extreme
+			;;
+	esac
+	{
+		echo "   ! Imported periodic densities require at least the validated extreme grid"
+		echo "   becke_grid= {"
+		echo "      accuracy= $xcw_accuracy"
+		echo "      basis_function_cutoff= 1.0e-16"
+		echo "   }"
+		echo ""
+	} >> stdin
+}
+
 SCF_BLOCK_NOT_TONTO(){
 	if [[ "$SCCHARGES" == "true" && "$SCFCALCPROG" != "elmodb" ]]; then 
 		echo "     ! SC cluster charge SCF" >> stdin
@@ -1745,7 +1785,7 @@ SCF_TO_TONTO(){
 		PROCESS_CIF
 		DEFINE_JOB_NAME
                if [[ "$SCFCALCPROG" == "Crystal14" ]]; then
-                        TONTO_BASIS_SET
+			NOT_TONTO_BASIS_SET
         	        CHARGE_MULT
         	        READ_CRYSTAL_WFN
                fi
@@ -1834,7 +1874,9 @@ SCF_TO_TONTO(){
 		cp $JOBNAME'.archive.fcf' $J.tonto_cycle.$JOBNAME/$J.$JOBNAME.archive.fcf
 		cp stdin $J.tonto_cycle.$JOBNAME/$J.stdin
 		cp stdout $J.tonto_cycle.$JOBNAME/$J.stdout
-		cp $JOBNAME.residual_density,cell.cube $J.tonto_cycle.$JOBNAME/$J.residual_density,cell.cube
+		if [[ -f "$JOBNAME.residual_density,cell.cube" ]]; then
+			cp "$JOBNAME.residual_density,cell.cube" "$J.tonto_cycle.$JOBNAME/$J.residual_density,cell.cube"
+		fi
                 if [[ "$POWDER_HAR" == "true" ]]; then
 		        cp $JOBNAME.hkl $J.tonto_cycle.$JOBNAME/$J.$JOBNAME.hkl
                 fi
@@ -1906,7 +1948,9 @@ SCF_TO_TONTO(){
 		cp stdin $J.tonto_cycle.$JOBNAME/$J.stdin
 		cp stdout $J.tonto_cycle.$JOBNAME/$J.stdout
 		if [[ "$SCFCALCPROG" == "Crystal14" ]]; then
-			cp $JOBNAME.residual_density,cell.cube $J.tonto_cycle.$JOBNAME/$J.$JOBNAME.residual_density,cell.cube
+			if [[ -f "$JOBNAME.residual_density,cell.cube" ]]; then
+				cp "$JOBNAME.residual_density,cell.cube" "$J.tonto_cycle.$JOBNAME/$J.$JOBNAME.residual_density,cell.cube"
+			fi
 		fi
 		if [[ "$SCFCALCPROG" != "optgaussian" ]]; then
 	                if [ -f $JOBNAME.fractional.cif1 ]; then
@@ -2024,6 +2068,7 @@ TONTO_TO_GAUSSIAN(){
 }
 
 TONTO_TO_CRYSTAL(){
+	local crystal_basis_input=${CRYSTAL_EXTERNAL_BASIS_FILE:-basis_gen.txt}
 	I=$[ $I + 1 ]
         if [[ "$SPACEGROUPHM" == "" ]]; then
                 SPACEGROUPHM=$( awk '/_symmetry_space_group_name_H-M/ {print $0}' 0.tonto_cycle.$JOBNAME/0.$JOBNAME.cartesian.cif2 | sed "s/'/\:/g" | awk -F ":" '{print $2}' )
@@ -2091,8 +2136,10 @@ TONTO_TO_CRYSTAL(){
 #       echo "1 0 0 0"  >> $JOBNAME.d12
         if [[ "$GAUSGEN" == "true" || "$BASISSETG" == "gen" ]]; then
                 echo "END"  >> $JOBNAME.d12
-                cat basis_gen.txt >>  $JOBNAME.d12
-                echo "99 0"  >> $JOBNAME.d12
+                cat "$crystal_basis_input" >>  $JOBNAME.d12
+                # The Crystal-format basis renderer writes the one required
+                # final `99 0` terminator.  Adding another one here makes the
+                # generated d12 invalid (INPBAS: KEYWORD 99 0 NOT ALLOWED).
                 echo "ENDBS"  >> $JOBNAME.d12
         else
                 echo "BASISSET"  >> $JOBNAME.d12
@@ -2617,7 +2664,7 @@ GET_RESIDUALS(){
 		DISPERSION_COEF
 	fi
 	if [ "$SCFCALCPROG" = "Crystal14" ]; then
-		TONTO_BASIS_SET
+		NOT_TONTO_BASIS_SET
 	fi
 		CHARGE_MULT
 	if [ "$SCFCALCPROG" = "Crystal14" ]; then
@@ -2759,7 +2806,9 @@ GET_RESIDUALS(){
 	cp $JOBNAME'.archive.cif' $J.tonto_cycle.$JOBNAME/$J.$JOBNAME.archive.cif
 	cp $JOBNAME'.archive.fcf' $J.tonto_cycle.$JOBNAME/$J.$JOBNAME.archive.fcf
 	cp $JOBNAME'.archive.fco' $J.tonto_cycle.$JOBNAME/$J.$JOBNAME.archive.fco
-	cp $JOBNAME'.residual_density,cell.cube' $J.tonto_cycle.$JOBNAME/$J.$JOBNAME.residual_density,cell.cube
+	if [[ -f "$JOBNAME.residual_density,cell.cube" ]]; then
+		cp "$JOBNAME.residual_density,cell.cube" "$J.tonto_cycle.$JOBNAME/$J.$JOBNAME.residual_density,cell.cube"
+	fi
 	if [[ "$export_final_wavefunction" == "true" ]]; then
 		for wavefunction_artifact in "$JOBNAME.47" "$JOBNAME.wfn" "$JOBNAME.wfx"; do
 			cp -- "$wavefunction_artifact" "$J.tonto_cycle.$JOBNAME/$J.$wavefunction_artifact"
@@ -2772,6 +2821,362 @@ GET_RESIDUALS(){
 		done
 	fi
 }
+
+PERIODIC_XCW_PREPARE_INPUT_GEOMETRY(){
+	# Recreate Crystal23's atomic-number XYZ and cell summary from the exact CIF
+	# selected for XCW.  This is required for XCW-only and also prevents an XWR
+	# from reusing a stale XYZ left by the preceding HAR loop.
+	TONTO_HEADER
+	{
+		echo "   CIF= { file_name= $CIF }"
+		echo "   process_CIF"
+		# TONTO_TO_CRYSTAL reads the crystallographic cell and setting from
+		# stdout.  process_CIF alone is intentionally quiet in current Tonto;
+		# put emits that information without changing the structure.
+		echo "   put"
+		echo "   name= $JOBNAME"
+		echo "   write_xtal23_xyz_file"
+		echo "}"
+	} >> stdin
+	if [[ "${NUMPROCTONTO:-1}" != "1" ]]; then
+		mpirun -n "$NUMPROCTONTO" "$TONTO"
+	else
+		"$TONTO"
+	fi
+	if [[ ! -s "$JOBNAME.xyz" ]] || ! grep -q 'Wall-clock time taken' stdout; then
+		echo "ERROR: Tonto could not prepare the periodic-XCW input geometry." | tee -a "$JOBNAME.lst" >&2
+		return 1
+	fi
+}
+
+PERIODIC_XCW_PREPARE_CUSTOM_BASIS(){
+	local crystal_file=${PERIODIC_XCW_CRYSTAL_BASIS_FILE:-}
+	local tonto_file=${PERIODIC_XCW_TONTO_BASIS_FILE:-}
+	local tonto_name=${PERIODIC_XCW_TONTO_BASIS_NAME:-}
+	local combined_dir terminator_count last_record
+
+	PERIODIC_XCW_ACTIVE_CRYSTAL_BASIS_FILE=""
+	PERIODIC_XCW_ACTIVE_TONTO_BASIS_DIR=""
+	PERIODIC_XCW_ACTIVE_TONTO_BASIS_NAME=""
+	if [[ -z "$crystal_file" && -z "$tonto_file" && -z "$tonto_name" ]]; then
+		return 0
+	fi
+	if [[ -z "$crystal_file" || -z "$tonto_file" ]]; then
+		echo "ERROR: A custom periodic-XCW reference requires both the CRYSTAL basis block and the matching Tonto sidecar." | tee -a "$JOBNAME.lst" >&2
+		return 1
+	fi
+	[[ -s "$crystal_file" ]] || {
+		echo "ERROR: Periodic-XCW CRYSTAL basis file was not found: $crystal_file" | tee -a "$JOBNAME.lst" >&2
+		return 1
+	}
+	[[ -s "$tonto_file" ]] || {
+		echo "ERROR: Periodic-XCW Tonto basis sidecar was not found: $tonto_file" | tee -a "$JOBNAME.lst" >&2
+		return 1
+	}
+	tonto_name=${tonto_name:-${tonto_file##*/}}
+	[[ "$tonto_name" != "." && "$tonto_name" != ".." && "$tonto_name" != *[[:space:]/]* ]] || {
+		echo "ERROR: Periodic-XCW Tonto basis name must be one file name without spaces: $tonto_name" | tee -a "$JOBNAME.lst" >&2
+		return 1
+	}
+	terminator_count=$(awk 'NF == 2 && $1 == 99 && $2 == 0 { count++ } END { print count+0 }' "$crystal_file")
+	last_record=$(awk 'NF && $1 !~ /^[#!]/ { record=(NF == 2 ? $1 " " $2 : "INVALID") } END { print record }' "$crystal_file")
+	if [[ "$terminator_count" != "1" || "$last_record" != "99 0" ]]; then
+		echo "ERROR: Custom periodic-XCW CRYSTAL basis must contain exactly one final '99 0' terminator." | tee -a "$JOBNAME.lst" >&2
+		return 1
+	fi
+	[[ -d "$BASISSETDIR" ]] || {
+		echo "ERROR: Tonto basis library directory was not found: $BASISSETDIR" | tee -a "$JOBNAME.lst" >&2
+		return 1
+	}
+	combined_dir="periodic_xcw_basis_sets.${JOBNAME}"
+	mkdir -p "$combined_dir"
+	cp -a "$BASISSETDIR/." "$combined_dir/" || return 1
+	cp "$tonto_file" "$combined_dir/$tonto_name" || return 1
+	PERIODIC_XCW_ACTIVE_CRYSTAL_BASIS_FILE=$crystal_file
+	PERIODIC_XCW_ACTIVE_TONTO_BASIS_DIR="$PWD/$combined_dir"
+	PERIODIC_XCW_ACTIVE_TONTO_BASIS_NAME=$tonto_name
+	export PERIODIC_XCW_ACTIVE_CRYSTAL_BASIS_FILE \
+		PERIODIC_XCW_ACTIVE_TONTO_BASIS_DIR \
+		PERIODIC_XCW_ACTIVE_TONTO_BASIS_NAME
+	echo "Periodic XCW custom basis pair: CRYSTAL=$crystal_file; Tonto=$tonto_name" | tee -a "$JOBNAME.lst"
+}
+
+PERIODIC_XCW_WRITE_TONTO_BASIS(){
+	if [[ -n "${PERIODIC_XCW_ACTIVE_TONTO_BASIS_NAME:-}" ]]; then
+		{
+			echo "   basis_directory= $PERIODIC_XCW_ACTIVE_TONTO_BASIS_DIR"
+			echo "   basis_name= $PERIODIC_XCW_ACTIVE_TONTO_BASIS_NAME"
+			echo ""
+		} >> stdin
+	else
+		NOT_TONTO_BASIS_SET
+	fi
+}
+
+PERIODIC_XCW_PREPARE_CRYSTAL_REFERENCE(){
+	# A periodic XCW reference must provide a mutually compatible S(k), F0(k),
+	# P0(k), basis and k mesh. CP2K's bridge XML intentionally contains only a
+	# density, so both Crystal23- and CP2K-derived geometries receive one fresh
+	# native Crystal23 calculation here.
+	local SCFCALCPROG="Crystal14"
+	local SCFCALC_BIN="${CRYSTAL_BIN:-runcry23}"
+	local METHOD="${PERIODIC_XCW_REFERENCE_DFT:-BLYP}"
+	local BASISSETG="${PERIODIC_XCW_REFERENCE_BASIS:-POB-TZVP-REV2}"
+	local GAUSGEN=false
+	local USEGUESS=false
+	local XTALSETTING="${XTALSETTING:-0}"
+	local I="${I:-0}"
+	local crystal_runner_path crystal_utils_dir
+	local CRYSTAL_EXTERNAL_BASIS_FILE=""
+	if [[ -n "${PERIODIC_XCW_ACTIVE_CRYSTAL_BASIS_FILE:-}" ]]; then
+		GAUSGEN=true
+		BASISSETG=gen
+		CRYSTAL_EXTERNAL_BASIS_FILE=$PERIODIC_XCW_ACTIVE_CRYSTAL_BASIS_FILE
+	fi
+	# The GUI stages the exact CIF setting.  Prefer it over reparsing formatted
+	# program output, then retain stdout as a command-line fallback.
+	if [[ -z "${SPACEGROUPHM:-}" && -s spacegroup.txt ]]; then
+		SPACEGROUPHM=$(awk -F'=' 'NR == 1 { gsub(/^[[:space:]]+|[[:space:]]+$/, "", $2); print $2 }' spacegroup.txt)
+	fi
+	if [[ -z "${SPACEGROUPHM:-}" && -f stdout ]]; then
+		SPACEGROUPHM=$(sed -n 's/^Hermann-Mauguin symbol[ .]*//p' stdout | head -n 1)
+	fi
+	if [[ -z "${SPACEGROUPHM:-}" ]]; then
+		echo "ERROR: Tonto did not report a Hermann-Mauguin space-group symbol for periodic XCW." | tee -a "$JOBNAME.lst" >&2
+		return 1
+	fi
+	if [[ "${CRYSTAL_SETTING:-auto}" == "r" ]]; then
+		XTALSETTING=1
+	fi
+	METHOD=$(_upper "$METHOD")
+	case "$METHOD" in
+		BLYP|PBE) ;;
+		*)
+			echo "ERROR: Periodic XCW currently supports only native BLYP or PBE references." | tee -a "$JOBNAME.lst" >&2
+			return 1
+			;;
+	esac
+	[[ -x "$SCFCALC_BIN" || -n "$(command -v "$SCFCALC_BIN" 2>/dev/null)" ]] || {
+		echo "ERROR: Crystal23 executable not found for the periodic-XCW reference: $SCFCALC_BIN" | tee -a "$JOBNAME.lst" >&2
+		return 1
+	}
+	case "$SCFCALC_BIN" in
+		*/*) crystal_runner_path=$(realpath "$SCFCALC_BIN") ;;
+		*) crystal_runner_path=$(command -v "$SCFCALC_BIN") ;;
+	esac
+	crystal_utils_dir=$(dirname "$crystal_runner_path")
+	# The official runcry23/runprop23 scripts depend on variables from the
+	# installation's cry23.bashrc.  Batch shells do not read a user's .bashrc,
+	# so load the matching installation file when those variables are absent.
+	if [[ ( -z "${CRY23_EXEDIR:-}" || -z "${CRY23_SCRDIR:-}" ) && -r "$crystal_utils_dir/cry23.bashrc" ]]; then
+		# shellcheck disable=SC1090
+		source "$crystal_utils_dir/cry23.bashrc" >/dev/null
+	fi
+	PATH="$crystal_utils_dir${CRY23_UTILS:+:$CRY23_UTILS}:$PATH"
+	export PATH CRY23_EXEDIR CRY23_SCRDIR CRY23_UTILS VERSION
+	if [[ -z "${CRY23_EXEDIR:-}" || -z "${CRY23_SCRDIR:-}" ]]; then
+		echo "ERROR: Crystal23 environment is incomplete. Set CRY23_EXEDIR and CRY23_SCRDIR, or keep cry23.bashrc beside $crystal_runner_path." | tee -a "$JOBNAME.lst" >&2
+		return 1
+	fi
+	if ! mkdir -p "$CRY23_SCRDIR" 2>/dev/null; then
+		echo "ERROR: Crystal23 scratch directory is not writable: $CRY23_SCRDIR" | tee -a "$JOBNAME.lst" >&2
+		return 1
+	fi
+	if [[ "${NUMPROC:-1}" == "1" ]] && ! command -v runprop23 >/dev/null 2>&1; then
+		echo "ERROR: runprop23 was not found beside the configured Crystal23 runner." | tee -a "$JOBNAME.lst" >&2
+		return 1
+	fi
+	echo "Preparing native Crystal23 reference for fixed-geometry periodic XCW" | tee -a "$JOBNAME.lst"
+	# CRYAPI_OUT alone provides only finite-range direct-space matrices.  NEWK
+	# makes CRYSTAL write the formatted full-zone KRED eigenvectors required for
+	# an exact lambda-zero periodic-XCW determinant.  Recreate these explicitly
+	# so a stale properties file or KRED result can never be reused.
+	rm -f GenerateXML.XML GenerateXML_dat.KRED
+	{
+		echo "NEWK"
+		echo "${SHRINKA:-6} ${SHRINKB:-6}"
+		echo "1 0"
+		echo "CRYAPI_OUT"
+		echo "END"
+	} > GenerateXML.d3
+	TONTO_TO_CRYSTAL || return 1
+	[[ -s GenerateXML.XML ]] || {
+		echo "ERROR: Crystal23 did not produce GenerateXML.XML for periodic XCW." | tee -a "$JOBNAME.lst" >&2
+		return 1
+	}
+	[[ -s GenerateXML_dat.KRED ]] || {
+		echo "ERROR: Crystal23 did not produce GenerateXML_dat.KRED. The periodic-XCW properties input must run NEWK before CRYAPI_OUT." | tee -a "$JOBNAME.lst" >&2
+		return 1
+	}
+}
+
+PERIODIC_XCW_CRYSTAL_BLOCK(){
+	echo "   crystal= {" >> stdin
+	echo "      spacegroup= { hermann_mauguin_symbol= \"$SPACEGROUPHM\" }" >> stdin
+	echo "      r_free_percentage= ${PERIODIC_XCW_R_FREE_PERCENTAGE:-10}" >> stdin
+	echo "      r_free_selection= deterministic" >> stdin
+	echo "      xray_data= {" >> stdin
+	echo "         partition_model= oc-crystal23" >> stdin
+	echo "         stockholder_model= ${STOCKHOLDER_MODEL:-periodic}" >> stdin
+	echo "         output_Hirshfeld_atom_cubes= ${OUTPUT_HIRSHFELD_ATOM_CUBES:-false}" >> stdin
+	if [[ -n "${HIRSHFELD_ATOM_CUBE_LABEL:-}" ]]; then
+		echo "         Hirshfeld_atom_cube_label= ${HIRSHFELD_ATOM_CUBE_LABEL}" >> stdin
+	fi
+	echo "         correct_dispersion= ${DISP:-no}" >> stdin
+	echo "         optimise_scale_factor= true" >> stdin
+	WRITE_EXTINCTION_OPTIONS
+	echo "         wavelength= ${WAVE:-0.71073} Angstrom" >> stdin
+	if [[ "${ISFCF:-false}" == "true" ]]; then
+		echo "         read_fcf_file $HKL" >> stdin
+	else
+		echo "         REDIRECT $HKL" >> stdin
+	fi
+	echo "         merg_code= ${MERGCODE:-2}" >> stdin
+	if [[ "${FCUT:-0}" != "0" ]]; then
+		echo "         f_sigma_cutoff= $FCUT" >> stdin
+	fi
+	echo "         max_iterations= ${MAXLSCYCLE:-30}" >> stdin
+	echo "         do_residual_cube= true" >> stdin
+	echo "      }"
+	echo "   }"
+} >> stdin
+
+PERIODIC_XCW_SCFDATA(){
+	echo "   scfdata= {" >> stdin
+	echo "      kind= rks" >> stdin
+	case "$(_upper "${PERIODIC_XCW_REFERENCE_DFT:-BLYP}")" in
+		BLYP)
+			echo "      dft_exchange_functional= becke88" >> stdin
+			echo "      dft_correlation_functional= lyp" >> stdin
+			;;
+		PBE)
+			echo "      dft_exchange_functional= pbex" >> stdin
+			echo "      dft_correlation_functional= pbec" >> stdin
+			;;
+	esac
+	echo "   }" >> stdin
+}
+
+PERIODIC_XCW(){
+	local xcw_job="${JOBNAME}.periodic_XCW"
+	local xcw_cif
+	local CIF="${CIF:-}"
+	local BASISSETG="${PERIODIC_XCW_REFERENCE_BASIS:-POB-TZVP-REV2}"
+	local tonto_status=0 artifact archive_dir
+	if [[ "${XCWONLY:-false}" == "true" && ! -s "$JOBNAME.lst" ]]; then
+		{
+			echo "###############################################################################################"
+			echo "                         lamaGOET FIXED-GEOMETRY PERIODIC XCW"
+			echo "###############################################################################################"
+			echo "Job started on: $(date)"
+			echo "Input CIF: $CIF"
+			echo "Input reflections: $HKL"
+			echo "Reference: ${PERIODIC_XCW_REFERENCE_DFT:-BLYP}/${PERIODIC_XCW_REFERENCE_BASIS:-POB-TZVP-REV2}"
+			echo "Geometry and ADPs are fixed."
+		} > "$JOBNAME.lst"
+	fi
+
+	if [[ "${CHARGE:-0}" != "0" || "${MULTIPLICITY:-1}" != "1" ]]; then
+		echo "ERROR: Fixed-geometry periodic XCW currently requires a neutral, closed-shell Crystal23 reference (charge 0, multiplicity 1)." | tee -a "$JOBNAME.lst" >&2
+		return 1
+	fi
+
+	if [[ "${XCWONLY:-false}" == "true" ]]; then
+		xcw_cif="$CIF"
+	else
+		xcw_cif="${JOBNAME}.fractional.cif1"
+		[[ -s "$xcw_cif" ]] || xcw_cif="${JOBNAME}.cartesian.cif2"
+		[[ -s "$xcw_cif" ]] || {
+			echo "ERROR: No final HAR geometry is available for periodic XWR." | tee -a "$JOBNAME.lst" >&2
+			return 1
+		}
+	fi
+
+	# Bash locals are dynamically scoped, so the nested Crystal input builder
+	# also reads this selected final-HAR CIF for its cell and space-group data.
+	CIF="$xcw_cif"
+	PERIODIC_XCW_PREPARE_INPUT_GEOMETRY || return 1
+	PERIODIC_XCW_PREPARE_CUSTOM_BASIS || return 1
+	PERIODIC_XCW_PREPARE_CRYSTAL_REFERENCE || return 1
+	TONTO_HEADER
+	{
+		echo "   name= $xcw_job"
+		echo "   CIF= { file_name= $xcw_cif }"
+	} >> stdin
+	# Resolve capitalization against Tonto's installed basis library while
+	# retaining the same mathematical basis requested from Crystal23.
+	PERIODIC_XCW_WRITE_TONTO_BASIS
+	CHARGE_MULT
+	PERIODIC_XCW_SCFDATA
+	{
+		echo "   c23_XML_file_name= GenerateXML.XML"
+		echo "   periodic_xcw_KRED_file_name= GenerateXML_dat.KRED"
+		echo "   process_cif_and_c23_xml"
+		echo "   prepare_periodic_xcw_reference"
+		echo "   periodic_xcw_density_radius= ${PERIODIC_XCW_DENSITY_RADIUS:-1}"
+		echo "   set_periodic_xcw_density"
+	} >> stdin
+	PERIODIC_XCW_CRYSTAL_BLOCK
+	PERIODIC_XCW_BECKE_GRID
+	{
+		echo "   make_ha_info"
+		echo "   make_structure_factors"
+		echo "   periodic_xcw_grid= ${PERIODIC_XCW_GRID:-24 24 24}"
+		echo "   prepare_periodic_xcw_ks_grid"
+		echo "   periodic_xcw_initial_lambda= ${LAMBDAINITIAL:-0}"
+		echo "   periodic_xcw_lambda_step= ${LAMBDASTEP:-0.1}"
+		echo "   periodic_xcw_lambda_max= ${LAMBDAMAX:-1}"
+		echo "   periodic_xcw_reference_dft= $(_lower "${PERIODIC_XCW_REFERENCE_DFT:-BLYP}")"
+		echo "   periodic_xcw_convergence= ${PERIODIC_XCW_CONVERGENCE:-1.0E-6}"
+		echo "   periodic_xcw_damping= ${PERIODIC_XCW_DAMPING:-0.5}"
+		echo "   periodic_xcw_max_iterations= ${PERIODIC_XCW_MAX_ITERATIONS:-20}"
+		echo "   periodic_xcw_restart= ${PERIODIC_XCW_RESTART:-false}"
+		echo "   periodic_xcw_write_checkpoint= ${PERIODIC_XCW_WRITE_CHECKPOINT:-true}"
+		echo "   periodic_xcw"
+		echo "}"
+	} >> stdin
+
+	echo "Running fixed-geometry periodic XCW with Tonto" | tee -a "$JOBNAME.lst"
+	if [[ "${NUMPROCTONTO:-1}" != "1" ]]; then
+		mpirun -n "$NUMPROCTONTO" "$TONTO" || tonto_status=$?
+	else
+		"$TONTO" || tonto_status=$?
+	fi
+	if [[ "$tonto_status" -ne 0 ]] || ! grep -q '^Periodic XCW completed' stdout; then
+		echo "ERROR: periodic XCW failed; inspect stdin and stdout." | tee -a "$JOBNAME.lst" >&2
+		return 1
+	fi
+
+	archive_dir="periodic_XCW.${JOBNAME}"
+	mkdir -p "$archive_dir"
+	cp stdin "$archive_dir/stdin"
+	cp stdout "$archive_dir/stdout"
+	cp GenerateXML.d3 "$archive_dir/GenerateXML.d3"
+	gzip -c GenerateXML.XML > "$archive_dir/GenerateXML.XML.gz"
+	gzip -c GenerateXML_dat.KRED > "$archive_dir/GenerateXML_dat.KRED.gz"
+	for artifact in \
+		"$xcw_job.cartesian.cif2" "$xcw_job.fractional.cif1" \
+		"$xcw_job.archive.cif" "$xcw_job.archive.fcf" \
+		"$xcw_job.archive.fco" "$xcw_job.residual_density,cell.cube" \
+		"$xcw_job.periodic_xcw_projector" "$xcw_job.periodic_xcw_orbitals" \
+		"$xcw_job.periodic_xcw_lambda" "$xcw_job.periodic_xcw_converged" \
+		"$xcw_job.periodic_xcw_nbf" "$xcw_job.periodic_xcw_nk" \
+		"$xcw_job.periodic_xcw_nelectron" \
+		"$xcw_job.periodic_xcw_reference_signature"
+	do
+		[[ -f "$artifact" ]] && cp "$artifact" "$archive_dir/$artifact"
+	done
+	{
+		echo ""
+		echo "###############################################################################################"
+		echo "                              FIXED-GEOMETRY PERIODIC XCW RESULTS"
+		echo "###############################################################################################"
+		awk '/^Periodic XCW completed/{show=1} show{print} /^Wall-clock time taken for job/{show=0}' stdout
+		echo ""
+		awk '/^Residual density data/{show=1} show{print} /^Wall-clock time taken for job/{show=0}' stdout
+	} >> "$JOBNAME.lst"
+}
+
 
 XCW_SCF_BLOCK(){
 	echo "   ! More accuracy" >> stdin
@@ -2983,7 +3388,11 @@ PLOTS(){
 }
 
 RUN_XWR(){
-	XCW	
+	if [[ "${XCW_MODE:-molecular}" == "periodic" ]]; then
+		PERIODIC_XCW || return 1
+		return 0
+	fi
+	XCW || return 1
 	echo "" >> $JOBNAME.lst
 	echo "###############################################################################################" >> $JOBNAME.lst
 	echo "                                     RESIDUALS AFTER XCW                                       " >> $JOBNAME.lst
@@ -3257,9 +3666,12 @@ run_script(){
 		exit
 	fi	
 	if [[ "$XCWONLY" == "true" ]]; then
-		XCW
+		if [[ "${XCW_MODE:-molecular}" == "periodic" ]]; then
+			PERIODIC_XCW || exit 1
+		else
+			XCW || exit 1
+		fi
 		exit 0
-		exit
 	fi
 	if [[ ("$SCFCALCPROG" == "Gaussian" || "$SCFCALCPROG" == "Orca" || "$SCFCALCPROG" == "OCC") && "$SCCHARGES" == "true" ]]; then
 		DOUBLE_SCF="true"
@@ -3981,6 +4393,17 @@ if [ "$GAUSSREL" = "true" ]; then
 fi
 
 source ./job_options.txt
+: "${XCW_MODE:=molecular}"
+: "${PERIODIC_XCW_REFERENCE_DFT:=BLYP}"
+: "${PERIODIC_XCW_REFERENCE_BASIS:=POB-TZVP-REV2}"
+: "${PERIODIC_XCW_GRID:=24 24 24}"
+: "${PERIODIC_XCW_DENSITY_RADIUS:=1}"
+: "${PERIODIC_XCW_CONVERGENCE:=1.0E-6}"
+: "${PERIODIC_XCW_DAMPING:=0.5}"
+: "${PERIODIC_XCW_MAX_ITERATIONS:=20}"
+: "${PERIODIC_XCW_R_FREE_PERCENTAGE:=10}"
+: "${PERIODIC_XCW_RESTART:=false}"
+: "${PERIODIC_XCW_WRITE_CHECKPOINT:=true}"
 
 if [[ "$GAUSGEN" == "true" ]]; then
         if [[ "$SCFCALCPROG" == "Orca" || "$SCFCALCPROG" == "optorca" ]]; then
@@ -4000,9 +4423,9 @@ fi
 VALIDATE_OBSERVED_DENSITY_MOTION_MODEL || exit 2
 
 
-if [[ "$SCFCALCPROG" == "Crystal14" ]]; then
+if [[ "$SCFCALCPROG" == "Crystal14" || ( "${XCW_MODE:-molecular}" == "periodic" && ( "${XCWONLY:-false}" == "true" || "${XWR:-false}" == "true" ) ) ]]; then
         if [[ ! -f "spacegroup.txt"  ]]; then
-                echo "RUN_lamaGOET: Crystal23 requires spacegroup.txt from the submitting GUI." >&2
+                echo "RUN_lamaGOET: Crystal23 or periodic XCW requires spacegroup.txt from the submitting GUI." >&2
                 echo "Open and resubmit the job with GUI_lamaGOET_qt.sh so the CIF setting is staged." >&2
                 exit 1
         fi

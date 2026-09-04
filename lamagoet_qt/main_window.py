@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections import OrderedDict
+import math
 import os
 import platform
 from pathlib import Path
@@ -1321,24 +1322,157 @@ class MainWindow(QMainWindow):
         form.addRow(self.xcw_only)
         self.xray_restrained = QCheckBox("Perform XWR (HAR+XCW) job")
         form.addRow(self.xray_restrained)
+
+        self.xcw_mode = QComboBox()
+        self.xcw_mode.addItem("Molecular XCW (legacy Tonto constrained SCF)", "molecular")
+        self.xcw_mode.addItem(
+            "Experimental periodic XCW (fixed geometry, native Crystal23 orbitals)",
+            "periodic",
+        )
+        self.xcw_mode.currentIndexChanged.connect(self._xcw_mode_changed)
+        form.addRow("XCW implementation", self.xcw_mode)
+
+        self.xcw_mode_explanation = QLabel()
+        self.xcw_mode_explanation.setWordWrap(True)
+        form.addRow(self.xcw_mode_explanation)
+
+        self.molecular_xcw_options = QGroupBox("Molecular XCW controls")
+        molecular_form = QFormLayout(self.molecular_xcw_options)
         self.method_xcw = _editable_combo()
         self.method_xcw.addItems(METHODS["Tonto"])
-        form.addRow("XCW method", self.method_xcw)
+        molecular_form.addRow("XCW method", self.method_xcw)
         self.basis_xcw = _editable_combo()
         self.basis_xcw.addItems(TONTO_BASIS)
-        form.addRow("XCW basis", self.basis_xcw)
+        molecular_form.addRow("XCW basis", self.basis_xcw)
         self.xcw_sc_charges = QCheckBox("Use SC cluster charges in XCW")
-        form.addRow(self.xcw_sc_charges)
+        molecular_form.addRow(self.xcw_sc_charges)
         self.xcw_sc_radius = QLineEdit("8")
-        form.addRow("XCW cluster radius (Å)", self.xcw_sc_radius)
+        molecular_form.addRow("XCW cluster radius (Å)", self.xcw_sc_radius)
         self.xcw_defragment = QCheckBox("Complete XCW cluster molecules")
-        form.addRow(self.xcw_defragment)
+        molecular_form.addRow(self.xcw_defragment)
+        form.addRow(self.molecular_xcw_options)
+
+        self.periodic_xcw_options = QGroupBox(
+            "Experimental fixed-geometry periodic XCW controls"
+        )
+        periodic_form = QFormLayout(self.periodic_xcw_options)
+        self.periodic_xcw_reference_dft = QComboBox()
+        self.periodic_xcw_reference_dft.addItems(CP2K_FUNCTIONALS)
+        periodic_form.addRow("Native reference functional", self.periodic_xcw_reference_dft)
+        self.periodic_xcw_reference_basis = _editable_combo()
+        self.periodic_xcw_reference_basis.addItems(BASIS["Crystal14"])
+        periodic_form.addRow("Crystal23/Tonto all-electron basis", self.periodic_xcw_reference_basis)
+        self.periodic_xcw_custom_basis = QCheckBox(
+            "Use an exact paired custom Crystal23/Tonto basis"
+        )
+        self.periodic_xcw_custom_basis.toggled.connect(
+            self._periodic_xcw_custom_basis_changed
+        )
+        periodic_form.addRow(self.periodic_xcw_custom_basis)
+
+        self.periodic_xcw_crystal_basis_row = QWidget()
+        crystal_basis_layout = QHBoxLayout(self.periodic_xcw_crystal_basis_row)
+        crystal_basis_layout.setContentsMargins(0, 0, 0, 0)
+        self.periodic_xcw_crystal_basis_file = QLineEdit()
+        self.periodic_xcw_crystal_basis_file.setPlaceholderText(
+            "CRYSTAL shell block ending with one 99 0"
+        )
+        crystal_basis_layout.addWidget(self.periodic_xcw_crystal_basis_file)
+        crystal_basis_button = QPushButton("Browse…")
+        crystal_basis_button.clicked.connect(
+            self.choose_periodic_xcw_crystal_basis
+        )
+        crystal_basis_layout.addWidget(crystal_basis_button)
+        periodic_form.addRow(
+            "Custom Crystal23 basis block",
+            self.periodic_xcw_crystal_basis_row,
+        )
+
+        self.periodic_xcw_tonto_basis_row = QWidget()
+        tonto_basis_layout = QHBoxLayout(self.periodic_xcw_tonto_basis_row)
+        tonto_basis_layout.setContentsMargins(0, 0, 0, 0)
+        self.periodic_xcw_tonto_basis_file = QLineEdit()
+        self.periodic_xcw_tonto_basis_file.setPlaceholderText(
+            "Exact Tonto basis-library sidecar"
+        )
+        tonto_basis_layout.addWidget(self.periodic_xcw_tonto_basis_file)
+        tonto_basis_button = QPushButton("Browse…")
+        tonto_basis_button.clicked.connect(
+            self.choose_periodic_xcw_tonto_basis
+        )
+        tonto_basis_layout.addWidget(tonto_basis_button)
+        periodic_form.addRow(
+            "Matching Tonto basis sidecar",
+            self.periodic_xcw_tonto_basis_row,
+        )
+        self.periodic_xcw_tonto_basis_name = QLineEdit()
+        self.periodic_xcw_tonto_basis_name.setPlaceholderText(
+            "e.g. core-decontracted-carbon"
+        )
+        periodic_form.addRow(
+            "Tonto basis name",
+            self.periodic_xcw_tonto_basis_name,
+        )
+        custom_basis_note = QLabel(
+            "Use this only for an explicitly matched pair, such as the retained "
+            "46-AO Diamond core-decontracted test. Tonto rejects an AO-count or "
+            "central-overlap mismatch. A larger AO count is not automatically a "
+            "better density; the standard validated basis remains the default."
+        )
+        custom_basis_note.setWordWrap(True)
+        periodic_form.addRow(custom_basis_note)
+        self.periodic_xcw_grid = QLineEdit("24 24 24")
+        self.periodic_xcw_grid.setPlaceholderText("Nx Ny Nz")
+        periodic_form.addRow("Periodic KS grid", self.periodic_xcw_grid)
+        self.periodic_xcw_density_radius = QSpinBox()
+        self.periodic_xcw_density_radius.setRange(1, 100)
+        self.periodic_xcw_density_radius.setValue(1)
+        periodic_form.addRow("Direct-density lattice radius", self.periodic_xcw_density_radius)
+        self.periodic_xcw_convergence = QLineEdit("1.0E-6")
+        periodic_form.addRow("Objective/projector tolerance", self.periodic_xcw_convergence)
+        self.periodic_xcw_damping = QDoubleSpinBox()
+        self.periodic_xcw_damping.setRange(0.0, 0.99)
+        self.periodic_xcw_damping.setDecimals(3)
+        self.periodic_xcw_damping.setSingleStep(0.05)
+        self.periodic_xcw_damping.setValue(0.5)
+        periodic_form.addRow("Old-iterate damping", self.periodic_xcw_damping)
+        self.periodic_xcw_max_iterations = QSpinBox()
+        self.periodic_xcw_max_iterations.setRange(2, 10000)
+        self.periodic_xcw_max_iterations.setValue(20)
+        periodic_form.addRow("Maximum iterations per lambda", self.periodic_xcw_max_iterations)
+        self.periodic_xcw_r_free = QSpinBox()
+        self.periodic_xcw_r_free.setRange(0, 50)
+        self.periodic_xcw_r_free.setSuffix(" %")
+        self.periodic_xcw_r_free.setValue(10)
+        periodic_form.addRow("Deterministic held-out reflections", self.periodic_xcw_r_free)
+        self.periodic_xcw_restart = QCheckBox("Restart from this job's periodic-XCW checkpoint")
+        periodic_form.addRow(self.periodic_xcw_restart)
+        self.periodic_xcw_write_checkpoint = QCheckBox("Write restart checkpoint after each iteration")
+        self.periodic_xcw_write_checkpoint.setChecked(True)
+        periodic_form.addRow(self.periodic_xcw_write_checkpoint)
+        periodic_note = QLabel(
+            "Periodic XCW optimizes only Tonto's k-resolved orbitals; "
+            "atomic coordinates and displacement parameters remain fixed. A "
+            "fresh Crystal23 NEWK+CRYAPI_OUT reference is calculated at that "
+            "geometry: XML supplies the basis and direct-lattice matrices, and "
+            "KRED supplies the native full-zone Bloch orbitals. Tonto validates "
+            "the mesh, occupations, metric, projector, time reversal and space-"
+            "group covariance before XCW starts. For CP2K XWR the fresh "
+            "Crystal23 step is required because the CP2K bridge has no "
+            "compatible orbital/overlap/Fock state."
+        )
+        periodic_note.setWordWrap(True)
+        periodic_form.addRow(periodic_note)
+        form.addRow(self.periodic_xcw_options)
+        self._periodic_xcw_custom_basis_changed(False)
+
         self.lambda_initial = QLineEdit("0")
         self.lambda_step = QLineEdit("0.1")
         self.lambda_max = QLineEdit("1")
         form.addRow("Initial lambda", self.lambda_initial)
         form.addRow("Lambda step", self.lambda_step)
         form.addRow("Maximum lambda", self.lambda_max)
+        self._xcw_mode_changed()
         return self._form_scroll(form)
 
     def _plots_panel(self) -> QScrollArea:
@@ -1780,6 +1914,10 @@ class MainWindow(QMainWindow):
         self.manual_residue.setPlainText(self._option("MANUALRESIDUE"))
         self.xcw_only.setChecked(self._bool_option("XCWONLY"))
         self.xray_restrained.setChecked(self._bool_option("XWR"))
+        xcw_mode_index = self.xcw_mode.findData(
+            self._option("XCW_MODE", "molecular")
+        )
+        self.xcw_mode.setCurrentIndex(max(0, xcw_mode_index))
         self._set_combo_text(self.method_xcw, self._option("METHODXCW", "rhf"))
         self._set_combo_text(
             self.basis_xcw, self._option("BASISSETTXCW", "STO-3G")
@@ -1790,6 +1928,55 @@ class MainWindow(QMainWindow):
         self.lambda_initial.setText(self._option("LAMBDAINITIAL", "0"))
         self.lambda_step.setText(self._option("LAMBDASTEP", "0.1"))
         self.lambda_max.setText(self._option("LAMBDAMAX", "1"))
+        self._set_combo_text(
+            self.periodic_xcw_reference_dft,
+            self._option("PERIODIC_XCW_REFERENCE_DFT", "BLYP"),
+        )
+        self._set_combo_text(
+            self.periodic_xcw_reference_basis,
+            self._option("PERIODIC_XCW_REFERENCE_BASIS", "POB-TZVP-REV2"),
+        )
+        self.periodic_xcw_crystal_basis_file.setText(
+            self._option("PERIODIC_XCW_CRYSTAL_BASIS_FILE")
+        )
+        self.periodic_xcw_tonto_basis_file.setText(
+            self._option("PERIODIC_XCW_TONTO_BASIS_FILE")
+        )
+        self.periodic_xcw_tonto_basis_name.setText(
+            self._option("PERIODIC_XCW_TONTO_BASIS_NAME")
+        )
+        custom_periodic_basis = bool(
+            self.periodic_xcw_crystal_basis_file.text().strip()
+            or self.periodic_xcw_tonto_basis_file.text().strip()
+            or self.periodic_xcw_tonto_basis_name.text().strip()
+        )
+        self.periodic_xcw_custom_basis.setChecked(custom_periodic_basis)
+        self._periodic_xcw_custom_basis_changed(custom_periodic_basis)
+        self.periodic_xcw_grid.setText(
+            self._option("PERIODIC_XCW_GRID", "24 24 24")
+        )
+        self.periodic_xcw_density_radius.setValue(
+            self._int_option("PERIODIC_XCW_DENSITY_RADIUS", 1)
+        )
+        self.periodic_xcw_convergence.setText(
+            self._option("PERIODIC_XCW_CONVERGENCE", "1.0E-6")
+        )
+        self.periodic_xcw_damping.setValue(
+            self._float_option("PERIODIC_XCW_DAMPING", 0.5)
+        )
+        self.periodic_xcw_max_iterations.setValue(
+            self._int_option("PERIODIC_XCW_MAX_ITERATIONS", 20)
+        )
+        self.periodic_xcw_r_free.setValue(
+            self._int_option("PERIODIC_XCW_R_FREE_PERCENTAGE", 10)
+        )
+        self.periodic_xcw_restart.setChecked(
+            self._bool_option("PERIODIC_XCW_RESTART")
+        )
+        self.periodic_xcw_write_checkpoint.setChecked(
+            self._bool_option("PERIODIC_XCW_WRITE_CHECKPOINT", True)
+        )
+        self._xcw_mode_changed()
         self.plot_tonto.setChecked(self._bool_option("PLOT_TONTO"))
         self.plot_deformation.setChecked(self._bool_option("DEFDEN"))
         self.plot_dft_xc.setChecked(self._bool_option("DFTXCPOT"))
@@ -2069,6 +2256,31 @@ class MainWindow(QMainWindow):
         uses_vdw = mode == "vdw"
         self.vdw_tolerance_label.setVisible(uses_vdw)
         self.vdw_tolerance.setVisible(uses_vdw)
+
+    def _xcw_mode_changed(self, *_args) -> None:
+        periodic = self.xcw_mode.currentData() == "periodic"
+        self.molecular_xcw_options.setVisible(not periodic)
+        self.periodic_xcw_options.setVisible(periodic)
+        if periodic:
+            self.xcw_mode_explanation.setText(
+                "Experimental periodic XCW is a fixed-geometry Tonto orbital "
+                "refinement initialized from validated native Crystal23 full-"
+                "zone orbitals. "
+                "Use XCW-only for the supplied geometry, or XWR after a "
+                "Crystal23/CP2K HAR. It is distinct from the legacy finite-"
+                "cluster constrained-SCF implementation."
+            )
+        else:
+            self.xcw_mode_explanation.setText(
+                "Molecular XCW uses Tonto's established finite-cluster "
+                "xray_* constrained-SCF implementation."
+            )
+
+    def _periodic_xcw_custom_basis_changed(self, enabled: bool) -> None:
+        self.periodic_xcw_crystal_basis_row.setEnabled(enabled)
+        self.periodic_xcw_tonto_basis_row.setEnabled(enabled)
+        self.periodic_xcw_tonto_basis_name.setEnabled(enabled)
+        self.periodic_xcw_reference_basis.setEnabled(not enabled)
 
     @staticmethod
     def _set_combo_text(combo: QComboBox, text: str) -> None:
@@ -2491,6 +2703,76 @@ class MainWindow(QMainWindow):
             and self.observed_reconstruction.currentData() == "constrained"
             and self.observed_motion_model.currentData() == "dynamic"
         )
+        if self.xcw_only.isChecked() and self.xray_restrained.isChecked():
+            raise ValueError("Select either XCW-only or XWR, not both.")
+        periodic_xcw_requested = (
+            self.xcw_mode.currentData() == "periodic"
+            and (self.xcw_only.isChecked() or self.xray_restrained.isChecked())
+        )
+        if periodic_xcw_requested:
+            if self.charge.value() != 0 or self.multiplicity.value() != 1:
+                raise ValueError(
+                    "Periodic XCW currently requires charge 0 and multiplicity 1 "
+                    "because the implemented periodic reference is restricted closed-shell DFT."
+                )
+            if self.xray_restrained.isChecked() and program not in {
+                "Crystal14",
+                "CP2K",
+            }:
+                raise ValueError(
+                    "Periodic XWR currently requires a Crystal23 or CP2K HAR."
+                )
+            try:
+                periodic_grid = [
+                    int(value) for value in self.periodic_xcw_grid.text().split()
+                ]
+            except ValueError as exc:
+                raise ValueError(
+                    "The periodic XCW grid must contain three integer dimensions."
+                ) from exc
+            if len(periodic_grid) != 3 or any(value < 4 for value in periodic_grid):
+                raise ValueError(
+                    "The periodic XCW grid must contain three integers of at least 4."
+                )
+            if (
+                not self.periodic_xcw_custom_basis.isChecked()
+                and not self.periodic_xcw_reference_basis.currentText().strip()
+            ):
+                raise ValueError(
+                    "Select the common all-electron Crystal23/Tonto reference basis."
+                )
+            if self.periodic_xcw_custom_basis.isChecked():
+                if not self.periodic_xcw_crystal_basis_file.text().strip():
+                    raise ValueError(
+                        "Select the custom Crystal23 basis block for periodic XCW."
+                    )
+                if not self.periodic_xcw_tonto_basis_file.text().strip():
+                    raise ValueError(
+                        "Select the exact matching Tonto basis sidecar for periodic XCW."
+                    )
+                custom_name = self.periodic_xcw_tonto_basis_name.text().strip()
+                if not custom_name:
+                    raise ValueError(
+                        "Enter the Tonto basis name used by the custom sidecar."
+                    )
+                if custom_name in {".", ".."} or any(
+                    character.isspace() for character in custom_name
+                ) or any(character in custom_name for character in "/\\"):
+                    raise ValueError(
+                        "The custom Tonto basis name must be one file name without spaces."
+                    )
+            try:
+                periodic_convergence = float(
+                    self.periodic_xcw_convergence.text().strip()
+                )
+            except ValueError as exc:
+                raise ValueError(
+                    "The periodic XCW convergence tolerance must be a positive number."
+                ) from exc
+            if not math.isfinite(periodic_convergence) or periodic_convergence <= 0:
+                raise ValueError(
+                    "The periodic XCW convergence tolerance must be a positive finite number."
+                )
         result: dict[str, object] = {
             "SCFCALCPROG": program,
             "JOBNAME": self.job_name.text().strip() or "my_job",
@@ -2667,6 +2949,7 @@ class MainWindow(QMainWindow):
             "MANUALRESIDUE": self.manual_residue.toPlainText(),
             "XCWONLY": _bool_text(self.xcw_only.isChecked()),
             "XWR": _bool_text(self.xray_restrained.isChecked()),
+            "XCW_MODE": self.xcw_mode.currentData(),
             "METHODXCW": self.method_xcw.currentText().strip(),
             "BASISSETTXCW": self.basis_xcw.currentText().strip(),
             "SCCHARGESXCW": _bool_text(self.xcw_sc_charges.isChecked()),
@@ -2675,6 +2958,47 @@ class MainWindow(QMainWindow):
             "LAMBDAINITIAL": self.lambda_initial.text().strip(),
             "LAMBDASTEP": self.lambda_step.text().strip(),
             "LAMBDAMAX": self.lambda_max.text().strip(),
+            "PERIODIC_XCW_REFERENCE_DFT": (
+                self.periodic_xcw_reference_dft.currentText().strip()
+            ),
+            "PERIODIC_XCW_REFERENCE_BASIS": (
+                self.periodic_xcw_reference_basis.currentText().strip()
+            ),
+            "PERIODIC_XCW_CRYSTAL_BASIS_FILE": (
+                self.periodic_xcw_crystal_basis_file.text().strip()
+                if self.periodic_xcw_custom_basis.isChecked()
+                else ""
+            ),
+            "PERIODIC_XCW_TONTO_BASIS_FILE": (
+                self.periodic_xcw_tonto_basis_file.text().strip()
+                if self.periodic_xcw_custom_basis.isChecked()
+                else ""
+            ),
+            "PERIODIC_XCW_TONTO_BASIS_NAME": (
+                self.periodic_xcw_tonto_basis_name.text().strip()
+                if self.periodic_xcw_custom_basis.isChecked()
+                else ""
+            ),
+            "PERIODIC_XCW_GRID": self.periodic_xcw_grid.text().strip(),
+            "PERIODIC_XCW_DENSITY_RADIUS": (
+                self.periodic_xcw_density_radius.value()
+            ),
+            "PERIODIC_XCW_CONVERGENCE": (
+                self.periodic_xcw_convergence.text().strip()
+            ),
+            "PERIODIC_XCW_DAMPING": self.periodic_xcw_damping.value(),
+            "PERIODIC_XCW_MAX_ITERATIONS": (
+                self.periodic_xcw_max_iterations.value()
+            ),
+            "PERIODIC_XCW_R_FREE_PERCENTAGE": (
+                self.periodic_xcw_r_free.value()
+            ),
+            "PERIODIC_XCW_RESTART": _bool_text(
+                self.periodic_xcw_restart.isChecked()
+            ),
+            "PERIODIC_XCW_WRITE_CHECKPOINT": _bool_text(
+                self.periodic_xcw_write_checkpoint.isChecked()
+            ),
             "PLOT_TONTO": _bool_text(self.plot_tonto.isChecked()),
             "DEFDEN": _bool_text(self.plot_deformation.isChecked()),
             "DFTXCPOT": _bool_text(self.plot_dft_xc.isChecked()),
@@ -2761,7 +3085,11 @@ class MainWindow(QMainWindow):
     def _prepare_crystal_spacegroup(self) -> None:
         """Stage the Crystal23 setting chosen in Qt for local/PBS runners."""
 
-        if self.program.currentData() != "Crystal14":
+        needs_periodic_xcw_reference = (
+            self.xcw_mode.currentData() == "periodic"
+            and (self.xcw_only.isChecked() or self.xray_restrained.isChecked())
+        )
+        if self.program.currentData() != "Crystal14" and not needs_periodic_xcw_reference:
             return
         structure = self.structure
         if structure is None:
@@ -2795,9 +3123,78 @@ class MainWindow(QMainWindow):
             newline="\n",
         )
 
+    def _prepare_periodic_xcw_basis_pair(self) -> None:
+        """Validate and stage an inseparable Crystal23/Tonto custom basis pair."""
+
+        if not self.periodic_xcw_custom_basis.isChecked():
+            return
+
+        def source_path(widget: QLineEdit, description: str) -> Path:
+            value = widget.text().strip()
+            if not value:
+                raise OSError(f"Select the {description}.")
+            source = Path(value).expanduser()
+            if not source.is_absolute():
+                source = self.option_path.parent / source
+            if not source.is_file():
+                raise OSError(f"{description.capitalize()} was not found: {source}")
+            return source.resolve()
+
+        crystal_source = source_path(
+            self.periodic_xcw_crystal_basis_file,
+            "custom Crystal23 basis block",
+        )
+        tonto_source = source_path(
+            self.periodic_xcw_tonto_basis_file,
+            "matching Tonto basis sidecar",
+        )
+        name = self.periodic_xcw_tonto_basis_name.text().strip()
+        if not name:
+            name = tonto_source.name
+            self.periodic_xcw_tonto_basis_name.setText(name)
+        if name in {".", ".."} or any(
+            character.isspace() for character in name
+        ) or any(character in name for character in "/\\"):
+            raise OSError(
+                "The custom Tonto basis name must be one file name without spaces."
+            )
+
+        records: list[list[str]] = []
+        for line in crystal_source.read_text(
+            encoding="utf-8", errors="replace"
+        ).splitlines():
+            stripped = line.strip()
+            if stripped and not stripped.startswith(("#", "!")):
+                records.append(stripped.split())
+        terminators = [
+            record
+            for record in records
+            if record == ["99", "0"]
+        ]
+        if (
+            len(terminators) != 1
+            or not records
+            or records[-1] != ["99", "0"]
+        ):
+            raise OSError(
+                "The custom Crystal23 basis must contain exactly one final “99 0” terminator."
+            )
+
+        crystal_target = self.option_path.parent / "periodic_xcw_crystal_basis.txt"
+        tonto_target = self.option_path.parent / "periodic_xcw_tonto_basis.sidecar"
+        for source, target in (
+            (crystal_source, crystal_target),
+            (tonto_source, tonto_target),
+        ):
+            if source != target.resolve():
+                shutil.copy2(source, target)
+        self.periodic_xcw_crystal_basis_file.setText(f"./{crystal_target.name}")
+        self.periodic_xcw_tonto_basis_file.setText(f"./{tonto_target.name}")
+
     def save_options(self) -> Path | None:
         try:
             self._prepare_basis_definition()
+            self._prepare_periodic_xcw_basis_pair()
             self._prepare_crystal_spacegroup()
             output = save_job_options(
                 self.option_path,
@@ -2993,6 +3390,32 @@ class MainWindow(QMainWindow):
         if filename:
             self.basis_definition_path.setText(filename)
             self.external_basis.setChecked(True)
+
+    def choose_periodic_xcw_crystal_basis(self) -> None:
+        filename, _ = QFileDialog.getOpenFileName(
+            self,
+            "Open custom Crystal23 basis block",
+            str(self.option_path.parent),
+            "Basis definition files (*.txt *.d12);;All files (*)",
+            options=_dialog_options(),
+        )
+        if filename:
+            self.periodic_xcw_crystal_basis_file.setText(filename)
+            self.periodic_xcw_custom_basis.setChecked(True)
+
+    def choose_periodic_xcw_tonto_basis(self) -> None:
+        filename, _ = QFileDialog.getOpenFileName(
+            self,
+            "Open matching Tonto basis sidecar",
+            str(self.option_path.parent),
+            "Tonto basis files (*);;All files (*)",
+            options=_dialog_options(),
+        )
+        if filename:
+            self.periodic_xcw_tonto_basis_file.setText(filename)
+            if not self.periodic_xcw_tonto_basis_name.text().strip():
+                self.periodic_xcw_tonto_basis_name.setText(Path(filename).name)
+            self.periodic_xcw_custom_basis.setChecked(True)
 
     def edit_external_basis(self) -> None:
         dialog = QDialog(self)

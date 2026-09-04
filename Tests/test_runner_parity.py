@@ -112,6 +112,57 @@ class RunnerParityTest(unittest.TestCase):
             with self.subTest(runner=runner.name):
                 self.assertIn("lamagoet_shell_env.sh", read(runner))
 
+    def test_periodic_xcw_is_available_in_both_runners(self):
+        required = (
+            "PERIODIC_XCW_PREPARE_INPUT_GEOMETRY",
+            "PERIODIC_XCW_PREPARE_CUSTOM_BASIS",
+            "PERIODIC_XCW_WRITE_TONTO_BASIS",
+            "PERIODIC_XCW_PREPARE_CRYSTAL_REFERENCE",
+            "PERIODIC_XCW_CRYSTAL_BLOCK",
+            "PERIODIC_XCW_SCFDATA",
+            "PERIODIC_XCW_BECKE_GRID",
+            "PERIODIC_XCW",
+        )
+        for runner in RUNNERS:
+            text = read(runner)
+            with self.subTest(runner=runner.name):
+                for function in required:
+                    self.assertRegex(text, rf"(?m)^{function}\(\)\s*\{{")
+                self.assertIn('"${XCW_MODE:-molecular}" == "periodic"', text)
+                self.assertIn("r_free_selection= deterministic", text)
+                self.assertIn("periodic_xcw_restart=", text)
+                self.assertIn("periodic_xcw_write_checkpoint=", text)
+                self.assertIn("periodic_xcw_KRED_file_name= GenerateXML_dat.KRED", text)
+                self.assertIn("GenerateXML_dat.KRED.gz", text)
+
+    def test_periodic_xcw_basis_selection_is_centralized(self):
+        for runner in RUNNERS:
+            text = read(runner)
+            match = re.search(
+                r"PERIODIC_XCW\(\)\{(?P<body>.*?)\n\}\s*\nXCW_SCF_BLOCK",
+                text,
+                re.S,
+            )
+            with self.subTest(runner=runner.name):
+                self.assertIsNotNone(match)
+                body = match.group("body")
+                self.assertEqual(body.count("PERIODIC_XCW_WRITE_TONTO_BASIS"), 1)
+                self.assertNotIn("NOT_TONTO_BASIS_SET", body)
+                self.assertNotIn('echo "   basis_directory= $BASISSETDIR"', body)
+                helper = re.search(
+                    r"PERIODIC_XCW_WRITE_TONTO_BASIS\(\)\{(?P<body>.*?)\n\}",
+                    text,
+                    re.S,
+                )
+                self.assertIsNotNone(helper)
+                self.assertEqual(
+                    helper.group("body").count("NOT_TONTO_BASIS_SET"), 1
+                )
+                self.assertIn(
+                    "PERIODIC_XCW_ACTIVE_TONTO_BASIS_DIR",
+                    helper.group("body"),
+                )
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -48,6 +48,209 @@ class RunnerRegressionTest(unittest.TestCase):
                 self.assertIn('dft_correlation_functional= pbec', body)
                 self.assertIn('METHOD" == "upbe', body)
 
+    def test_retained_diamond_46_ao_pair_has_one_crystal_terminator(self):
+        example = (
+            ROOT
+            / "examples"
+            / "periodic_xcw"
+            / "diamond_core_decontracted_46"
+        )
+        crystal_records = [
+            line.split()
+            for line in (example / "crystal23_basis.txt").read_text(
+                encoding="utf-8"
+            ).splitlines()
+            if line.strip() and not line.lstrip().startswith(("#", "!"))
+        ]
+        self.assertEqual(
+            sum(record[:2] == ["99", "0"] for record in crystal_records),
+            1,
+        )
+        self.assertEqual(crystal_records[-1][:2], ["99", "0"])
+        sidecar = (example / "core-decontracted-carbon").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn("C:core-decontracted-carbon", sidecar)
+        self.assertEqual(sidecar.count("1   s"), 8)
+
+    def test_periodic_xcw_input_and_dispatch_are_explicit(self):
+        for name, text in self.runner_text.items():
+            with self.subTest(runner=name):
+                geometry = function_body(text, "PERIODIC_XCW_PREPARE_INPUT_GEOMETRY")
+                self.assertIn('echo "   process_CIF"', geometry)
+                self.assertIn('echo "   put"', geometry)
+                self.assertIn('echo "   write_xtal23_xyz_file"', geometry)
+                reference = function_body(
+                    text, "PERIODIC_XCW_PREPARE_CRYSTAL_REFERENCE"
+                )
+                self.assertIn("spacegroup.txt", reference)
+                self.assertIn("cry23.bashrc", reference)
+                self.assertIn("crystal_utils_dir", reference)
+                self.assertIn("command -v runprop23", reference)
+                self.assertIn('echo "NEWK"', reference)
+                self.assertIn('echo "1 0"', reference)
+                self.assertIn('echo "CRYAPI_OUT"', reference)
+                self.assertIn("GenerateXML_dat.KRED", reference)
+                body = function_body(text, "PERIODIC_XCW")
+                self.assertRegex(
+                    body,
+                    r'CIF="\$xcw_cif"\s+PERIODIC_XCW_PREPARE_INPUT_GEOMETRY',
+                )
+                self.assertIn("process_cif_and_c23_xml", body)
+                self.assertIn("periodic_xcw_KRED_file_name= GenerateXML_dat.KRED", body)
+                self.assertIn("prepare_periodic_xcw_reference", body)
+                self.assertIn("set_periodic_xcw_density", body)
+                self.assertLess(
+                    body.index("periodic_xcw_density_radius="),
+                    body.index("set_periodic_xcw_density"),
+                )
+                self.assertIn("prepare_periodic_xcw_ks_grid", body)
+                self.assertIn("periodic_xcw_restart=", body)
+                self.assertIn("periodic_xcw_write_checkpoint=", body)
+                self.assertIn("neutral, closed-shell Crystal23 reference", body)
+                self.assertIn("GenerateXML_dat.KRED.gz", body)
+                dispatch = function_body(text, "RUN_XWR")
+                self.assertIn('${XCW_MODE:-molecular}', dispatch)
+                self.assertIn("PERIODIC_XCW", dispatch)
+                self.assertIn("XCW", dispatch)
+
+    @unittest.skipUnless(
+        os.name == "posix" and shutil.which("bash"),
+        "generated periodic-XCW input test requires bash",
+    )
+    def test_periodic_xcw_grid_has_validated_extreme_minimum(self):
+        for runner, text in self.runner_text.items():
+            definition = (
+                "_lower(){ tr '[:upper:]' '[:lower:]' <<< \"$1\"; }\n"
+                "PERIODIC_XCW_BECKE_GRID(){\n"
+                + function_body(text, "PERIODIC_XCW_BECKE_GRID")
+            )
+            for requested, expected in (
+                ("low", "extreme"),
+                ("extreme", "extreme"),
+                ("best", "best"),
+            ):
+                with self.subTest(
+                    runner=runner, requested=requested
+                ), tempfile.TemporaryDirectory() as directory:
+                    script = (
+                        definition
+                        + f'\nACCURACY="{requested}"\n'
+                        + 'JOBNAME="grid-test"\n'
+                        + "PERIODIC_XCW_BECKE_GRID\n"
+                        + "cat stdin\n"
+                    )
+                    result = subprocess.run(
+                        ["bash", "-c", script],
+                        cwd=directory,
+                        text=True,
+                        capture_output=True,
+                        check=True,
+                    )
+                self.assertIn(f"accuracy= {expected}", result.stdout)
+                self.assertIn("basis_function_cutoff= 1.0e-16", result.stdout)
+                if requested == "low":
+                    self.assertIn("promotes Becke accuracy", result.stderr)
+
+    @unittest.skipUnless(
+        os.name == "posix" and shutil.which("bash"),
+        "generated periodic-XCW custom-basis test requires bash",
+    )
+    def test_periodic_xcw_custom_basis_pair_is_exact_and_additive(self):
+        for runner, text in self.runner_text.items():
+            definition = (
+                "PERIODIC_XCW_PREPARE_CUSTOM_BASIS(){\n"
+                + function_body(text, "PERIODIC_XCW_PREPARE_CUSTOM_BASIS")
+                + "\nPERIODIC_XCW_WRITE_TONTO_BASIS(){\n"
+                + function_body(text, "PERIODIC_XCW_WRITE_TONTO_BASIS")
+            )
+            with self.subTest(runner=runner), tempfile.TemporaryDirectory() as directory:
+                work = Path(directory)
+                library = work / "library"
+                library.mkdir()
+                (library / "Thakkar").write_text("atomic references\n")
+                crystal = work / "crystal-basis.txt"
+                crystal.write_text(
+                    "6 2\n0 0 1 2.0 1.0\n1.0 1.0\n99 0\n",
+                    encoding="utf-8",
+                )
+                sidecar = work / "core-decontracted-carbon"
+                sidecar.write_text("exact Tonto sidecar\n", encoding="utf-8")
+                script = (
+                    definition
+                    + f'\nBASISSETDIR="{library}"\n'
+                    + f'PERIODIC_XCW_CRYSTAL_BASIS_FILE="{crystal}"\n'
+                    + f'PERIODIC_XCW_TONTO_BASIS_FILE="{sidecar}"\n'
+                    + 'PERIODIC_XCW_TONTO_BASIS_NAME="core-decontracted-carbon"\n'
+                    + 'JOBNAME="paired"\n'
+                    + "PERIODIC_XCW_PREPARE_CUSTOM_BASIS\n"
+                    + "PERIODIC_XCW_WRITE_TONTO_BASIS\n"
+                    + "cat stdin\n"
+                    + 'test -s "periodic_xcw_basis_sets.paired/Thakkar"\n'
+                    + 'test -s "periodic_xcw_basis_sets.paired/core-decontracted-carbon"\n'
+                )
+                result = subprocess.run(
+                    ["bash", "-c", script],
+                    cwd=directory,
+                    text=True,
+                    capture_output=True,
+                    check=True,
+                )
+                generated = (work / "stdin").read_text(encoding="utf-8")
+                self.assertIn("basis_name= core-decontracted-carbon", generated)
+                self.assertIn("periodic_xcw_basis_sets.paired", generated)
+                self.assertIn("custom basis pair", result.stdout)
+
+    @unittest.skipUnless(
+        os.name == "posix" and shutil.which("bash"),
+        "generated periodic-XCW custom-basis test requires bash",
+    )
+    def test_periodic_xcw_rejects_nonfinal_or_repeated_crystal_terminator(self):
+        for runner, text in self.runner_text.items():
+            definition = (
+                "PERIODIC_XCW_PREPARE_CUSTOM_BASIS(){\n"
+                + function_body(text, "PERIODIC_XCW_PREPARE_CUSTOM_BASIS")
+            )
+            for contents in (
+                "6 1\n99 0\nEND\n",
+                "6 1\n99 0\n7 1\n99 0\n",
+            ):
+                with self.subTest(runner=runner), tempfile.TemporaryDirectory() as directory:
+                    work = Path(directory)
+                    library = work / "library"
+                    library.mkdir()
+                    crystal = work / "bad-crystal-basis.txt"
+                    crystal.write_text(contents, encoding="utf-8")
+                    sidecar = work / "basis-sidecar"
+                    sidecar.write_text("sidecar\n", encoding="utf-8")
+                    script = (
+                        definition
+                        + f'\nBASISSETDIR="{library}"\n'
+                        + f'PERIODIC_XCW_CRYSTAL_BASIS_FILE="{crystal}"\n'
+                        + f'PERIODIC_XCW_TONTO_BASIS_FILE="{sidecar}"\n'
+                        + 'PERIODIC_XCW_TONTO_BASIS_NAME="basis-sidecar"\n'
+                        + 'JOBNAME="bad"\n'
+                        + "PERIODIC_XCW_PREPARE_CUSTOM_BASIS\n"
+                    )
+                    result = subprocess.run(
+                        ["bash", "-c", script],
+                        cwd=directory,
+                        text=True,
+                        capture_output=True,
+                        check=False,
+                    )
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn("exactly one final '99 0'", result.stderr)
+
+    def test_cp2k_xwr_enters_periodic_xcw_only(self):
+        text = self.runner_text["lamaGOET.sh"]
+        validation = function_body(text, "CP2K_VALIDATE_LAMAGOET_MODE")
+        self.assertNotIn("PLOT_TONTO XWR", validation)
+        self.assertIn("CP2K XWR requires XCW_MODE=periodic", validation)
+        cp2k_har = function_body(text, "CP2K_RUN_HAR")
+        self.assertIn("Periodic CP2K HAR finished", cp2k_har)
+        self.assertIn("RUN_XWR || return 1", cp2k_har)
+
     def test_extinction_selection_reaches_iam_and_har_inputs(self):
         for name, text in self.runner_text.items():
             with self.subTest(runner=name, block="IAM"):

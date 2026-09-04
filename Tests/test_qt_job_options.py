@@ -77,6 +77,18 @@ class JobOptionsTest(unittest.TestCase):
         self.assertEqual(values["OBSERVED_DENSITY_MAX_ITERATIONS"], "12")
         self.assertEqual(values["OBSERVED_ZERO_PHASE_SIGN"], "0")
         self.assertEqual(values["MERGCODE"], "2")
+        self.assertEqual(values["XCW_MODE"], "molecular")
+        self.assertEqual(values["PERIODIC_XCW_REFERENCE_DFT"], "BLYP")
+        self.assertEqual(
+            values["PERIODIC_XCW_REFERENCE_BASIS"], "POB-TZVP-REV2"
+        )
+        self.assertEqual(values["PERIODIC_XCW_CRYSTAL_BASIS_FILE"], "")
+        self.assertEqual(values["PERIODIC_XCW_TONTO_BASIS_FILE"], "")
+        self.assertEqual(values["PERIODIC_XCW_TONTO_BASIS_NAME"], "")
+        self.assertEqual(values["PERIODIC_XCW_GRID"], "24 24 24")
+        self.assertEqual(values["PERIODIC_XCW_R_FREE_PERCENTAGE"], "10")
+        self.assertEqual(values["PERIODIC_XCW_RESTART"], "false")
+        self.assertEqual(values["PERIODIC_XCW_WRITE_CHECKPOINT"], "true")
 
     def test_schema_contains_every_original_gtkdialog_variable(self):
         self.assertFalse(ORIGINAL_GUI_VARIABLES - set(OPTION_DEFAULTS))
@@ -192,6 +204,53 @@ class JobOptionsTest(unittest.TestCase):
         self.assertEqual(result["OBSERVED_DENSITY_STEP_SIZE"], "0.4")
         self.assertEqual(result["OBSERVED_DENSITY_MAX_ITERATIONS"], "20")
         self.assertEqual(result["OBSERVED_ZERO_PHASE_SIGN"], "-1")
+
+    def test_periodic_xcw_options_round_trip(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "job_options.txt"
+            save_job_options(
+                path,
+                {
+                    "XCW_MODE": "periodic",
+                    "PERIODIC_XCW_REFERENCE_DFT": "PBE",
+                    "PERIODIC_XCW_REFERENCE_BASIS": "pob-TZVP-rev2",
+                    "PERIODIC_XCW_CRYSTAL_BASIS_FILE": "./crystal-basis.txt",
+                    "PERIODIC_XCW_TONTO_BASIS_FILE": "./tonto-basis.sidecar",
+                    "PERIODIC_XCW_TONTO_BASIS_NAME": "core-decontracted-carbon",
+                    "PERIODIC_XCW_GRID": "20 22 24",
+                    "PERIODIC_XCW_DENSITY_RADIUS": "2",
+                    "PERIODIC_XCW_CONVERGENCE": "2.5E-7",
+                    "PERIODIC_XCW_DAMPING": "0.35",
+                    "PERIODIC_XCW_MAX_ITERATIONS": "44",
+                    "PERIODIC_XCW_R_FREE_PERCENTAGE": "15",
+                    "PERIODIC_XCW_RESTART": "true",
+                    "PERIODIC_XCW_WRITE_CHECKPOINT": "false",
+                },
+            )
+            result = load_job_options(path)
+        self.assertEqual(result["XCW_MODE"], "periodic")
+        self.assertEqual(result["PERIODIC_XCW_REFERENCE_DFT"], "PBE")
+        self.assertEqual(result["PERIODIC_XCW_REFERENCE_BASIS"], "pob-TZVP-rev2")
+        self.assertEqual(
+            result["PERIODIC_XCW_CRYSTAL_BASIS_FILE"],
+            "./crystal-basis.txt",
+        )
+        self.assertEqual(
+            result["PERIODIC_XCW_TONTO_BASIS_FILE"],
+            "./tonto-basis.sidecar",
+        )
+        self.assertEqual(
+            result["PERIODIC_XCW_TONTO_BASIS_NAME"],
+            "core-decontracted-carbon",
+        )
+        self.assertEqual(result["PERIODIC_XCW_GRID"], "20 22 24")
+        self.assertEqual(result["PERIODIC_XCW_DENSITY_RADIUS"], "2")
+        self.assertEqual(result["PERIODIC_XCW_CONVERGENCE"], "2.5E-7")
+        self.assertEqual(result["PERIODIC_XCW_DAMPING"], "0.35")
+        self.assertEqual(result["PERIODIC_XCW_MAX_ITERATIONS"], "44")
+        self.assertEqual(result["PERIODIC_XCW_R_FREE_PERCENTAGE"], "15")
+        self.assertEqual(result["PERIODIC_XCW_RESTART"], "true")
+        self.assertEqual(result["PERIODIC_XCW_WRITE_CHECKPOINT"], "false")
 
 
 if __name__ == "__main__":
