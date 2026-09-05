@@ -1073,6 +1073,16 @@ class MainWindow(QMainWindow):
         self.cp2k_functional = QComboBox()
         self.cp2k_functional.addItems(CP2K_FUNCTIONALS)
         cp2k_form.addRow("XC functional", self.cp2k_functional)
+        self.cp2k_density_interface = QComboBox()
+        self.cp2k_density_interface.addItem("Native CP2K (density, overlap and Fock)", "native")
+        self.cp2k_density_interface.addItem("Legacy XML bridge", "xml")
+        self.cp2k_density_interface.setToolTip(
+            "Native: Tonto reads CP2K MO_KP, output and real-space P/S/KS matrices "
+            "directly, including the Kohn–Sham/Fock matrix. Requires a current "
+            "native-reader Tonto and restricted all-electron CP2K calculation. "
+            "Legacy XML retains the previous Python bridge for compatibility."
+        )
+        cp2k_form.addRow("Density interface", self.cp2k_density_interface)
         self.kpoints = QLineEdit("2 2 2")
         cp2k_form.addRow("k-point grid", self.kpoints)
         self.cp2k_cutoff = QLineEdit("1200")
@@ -2041,6 +2051,10 @@ class MainWindow(QMainWindow):
             self._option("CP2K_BASIS_SET_FILE") or self._guess_cp2k_basis_file()
         )
         self.kpoints.setText(self._option("CP2K_KPOINT_GRID", "2 2 2"))
+        density_interface_index = self.cp2k_density_interface.findData(
+            self._option("CP2K_DENSITY_INTERFACE", "native").lower()
+        )
+        self.cp2k_density_interface.setCurrentIndex(max(0, density_interface_index))
         self.cp2k_cutoff.setText(self._option("CP2K_CUTOFF", "1200"))
         self.cp2k_rel_cutoff.setText(self._option("CP2K_REL_CUTOFF", "80"))
         self.cp2k_max_scf.setValue(self._int_option("CP2K_MAX_SCF", 100))
@@ -3091,6 +3105,7 @@ class MainWindow(QMainWindow):
                     "CP2K_BASIS_SET_FILE": self.cp2k_basis_file.text().strip(),
                     "CP2K_BASIS_SET": self.cp2k_basis.currentText().strip(),
                     "CP2K_XC_FUNCTIONAL": self.cp2k_functional.currentText(),
+                    "CP2K_DENSITY_INTERFACE": self.cp2k_density_interface.currentData(),
                     "CP2K_KPOINT_GRID": self.kpoints.text().strip(),
                     "CP2K_CELL_CHARGE": self.charge.value(),
                     "CP2K_CELL_MULTIPLICITY": self.multiplicity.value(),

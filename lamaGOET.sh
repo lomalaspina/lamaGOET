@@ -553,6 +553,19 @@ _cp2k_float_gt() {
 
 CP2K_VALIDATE_LAMAGOET_MODE() {
     local name value
+    case "$(_lower "${CP2K_DENSITY_INTERFACE:-native}")" in
+        native)
+            if [[ "${CP2K_CELL_MULTIPLICITY:-1}" != "1" ]] || [[ "$(_lower "${METHOD:-}")" == u* ]]; then
+                _cp2k_error "the native CP2K reader currently requires a restricted closed-shell calculation; select CP2K_DENSITY_INTERFACE=xml for the legacy interface"
+                return 1
+            fi
+            ;;
+        xml) ;;
+        *)
+            _cp2k_error "CP2K_DENSITY_INTERFACE must be native or xml"
+            return 1
+            ;;
+    esac
     for name in POWDER_HAR SCCHARGES COMPLETESTRUCT EXPLICITMOL DEFRAGNETW XCWONLY PLOT_TONTO; do
         eval "value=\${$name:-false}"
         if [[ "$(_lower "$value")" == "true" ]]; then
@@ -683,13 +696,31 @@ EOF_CP2K
 _cp2k_write_input() {
     local output=$1 project=$2 basis_file=$3 charge=$4 multiplicity=$5
     local functional=$6 subsys=$7 scf_guess=$8 restart_file=${9:-}
-    local uks_line="" restart_line=""
+    local uks_line="" restart_line="" matrix_print="" matrix_kind
 
     if [ "$multiplicity" -gt 1 ] 2>/dev/null || [[ "$(_lower "$METHOD")" == u* ]]; then
         uks_line="    UKS T"
     fi
     if [ -n "$restart_file" ]; then
         restart_line="    WFN_RESTART_FILE_NAME $restart_file"
+    fi
+
+    if [[ "$(_lower "${CP2K_DENSITY_INTERFACE:-native}")" == "native" ]]; then
+        # P(R), S(R), and the Kohn-Sham/Fock matrix must come directly from
+        # CP2K. Do not inverse-transform an aliased finite-k density instead.
+        # ./ suppresses CP2K's project-name prefix; '=' would overwrite images.
+        for matrix_kind in P S KS; do
+            matrix_print+="      &${matrix_kind}_CSR_WRITE ON
+        REAL_SPACE T
+        BINARY F
+        UPPER_TRIANGULAR F
+        THRESHOLD 0.0
+        FILENAME ./native
+        COMMON_ITERATION_LEVELS 100
+        ADD_LAST NO
+      &END ${matrix_kind}_CSR_WRITE
+"
+        done
     fi
 
     cat > "$output" <<EOF_CP2K
@@ -759,6 +790,7 @@ $restart_line
         FILENAME =$project.mokp
         ADD_LAST NO
       &END MO_KP
+$matrix_print
     &END PRINT
   &END DFT
   @INCLUDE '$subsys'
@@ -880,7 +912,8 @@ _cp2k_run_unwanted_terminal_output() {
     return "$rc"
 }
 
-# Generate one periodic CP2K density and convert *.kp + *.mokp to Tonto XML.
+# Generate one periodic CP2K density. Tonto reads native output directly by
+# default; the optional XML bridge remains available for legacy installations.
 TONTO_TO_CP2K() {
     local cp2k_bin bridge cif_converter basis_file basis_label functional geometry
     local cycle_dir previous_dir subsys input output scf_guess restart_file=""
@@ -897,7 +930,10 @@ TONTO_TO_CP2K() {
     basis_file=${CP2K_BASIS_SET_FILE:-}
     basis_label=${CP2K_BASIS_SET:-${BASISSETG:-}}
 
-    _cp2k_require_file "$bridge" || return 1
+    if [[ "$(_lower "${CP2K_DENSITY_INTERFACE:-native}")" == "xml" ]]; then
+        _cp2k_require_file "$bridge" || return 1
+        bridge=$(_cp2k_abspath "$bridge") || return 1
+    fi
     _cp2k_require_file "$cif_converter" || return 1
     [ -n "$basis_file" ] || {
         _cp2k_error "CP2K_BASIS_SET_FILE must name an all-electron CP2K basis file"
@@ -909,7 +945,6 @@ TONTO_TO_CP2K() {
         return 1
     }
 
-    bridge=$(_cp2k_abspath "$bridge") || return 1
     cif_converter=$(_cp2k_abspath "$cif_converter") || return 1
     basis_file=$(_cp2k_abspath "$basis_file") || return 1
     geometry=$(_cp2k_geometry_cif) || return 1
@@ -960,7 +995,7 @@ TONTO_TO_CP2K() {
         "${CP2K_CELL_CHARGE:-0}" "${CP2K_CELL_MULTIPLICITY:-1}" \
         "$functional" "$subsys" "$scf_guess" "$restart_file" || return 1
 
-    CP2K_LAST_CYCLE_DIR=$cycle_di
+    CP2K_LAST_CYCLE_DIR=$cycle_dir
     CP2K_LAST_INPUT=$input
     export CP2K_LAST_CYCLE_DIR CP2K_LAST_INPUT I
 
@@ -989,34 +1024,43 @@ TONTO_TO_CP2K() {
 
     kp_file=$(find "$cycle_dir" -maxdepth 1 -type f -name '*RESTART*.kp' -print | sort | tail -1)
     mokp_file=$(find "$cycle_dir" -maxdepth 1 -type f -name '*.mokp' -print | sort | tail -1)
-    [ -n "$kp_file" ] || {
+    if [[ "$(_lower "${CP2K_DENSITY_INTERFACE:-native}")" == "xml" ]] && [ -z "$kp_file" ]; then
         _cp2k_error "CP2K did not produce a *RESTART*.kp density restart"
         return 1
-    }
+    fi
     [ -n "$mokp_file" ] || {
-        _cp2k_error "CP2K did not produce MO_KP .mokp metadata; use CP2K 2026.2+ and a non-Gamma k-point calculation"
+        _cp2k_error "CP2K did not produce MO_KP .mokp metadata; use CP2K with MO_KP support and an explicit &KPOINTS section"
         return 1
     }
 
-    CP2K_PERIODIC_XML="$cycle_dir/${I}.${JOBNAME}.cp2k.xml"
     CP2K_TONTO_BASIS_DIR="$cycle_dir"
-    CP2K_TONTO_BASIS_NAME=${CP2K_TONTO_BASIS_NAME:-cp2k-generated}
-    CP2K_TONTO_BASIS_FILE="$cycle_dir/$CP2K_TONTO_BASIS_NAME"
-    CP2K_PERIODIC_MANIFEST="$cycle_dir/${I}.${JOBNAME}.cp2k-tonto.json"
     CP2K_LAST_OUTPUT=$output
-
-    bridge_log="$cycle_dir/${I}.${JOBNAME}.cp2k-tonto-bridge.log"
-    if ! python3 "$bridge" \
-        --kp "$kp_file" \
-        --mokp "$mokp_file" \
-        --xml "$CP2K_PERIODIC_XML" \
-        --basis "$CP2K_TONTO_BASIS_FILE" \
-        --basis-name "$CP2K_TONTO_BASIS_NAME" \
-        --reference-cif "$geometry" \
-        --manifest "$CP2K_PERIODIC_MANIFEST" > "$bridge_log" 2>&1; then
-        tail -n 20 "$bridge_log" >&2
-        _cp2k_error "CP2K-to-Tonto conversion failed; inspect $bridge_log"
-        return 1
+    CP2K_MOKP_FILE=$mokp_file
+    if [[ "$(_lower "${CP2K_DENSITY_INTERFACE:-native}")" == "native" ]]; then
+        CP2K_CSR_PREFIX="$cycle_dir/native-"
+        CP2K_TONTO_BASIS_NAME=cp2k-native
+        CP2K_TONTO_BASIS_FILE="$cycle_dir/$CP2K_TONTO_BASIS_NAME"
+        CP2K_PERIODIC_XML=""
+        CP2K_PERIODIC_MANIFEST=""
+        _cp2k_require_native_matrices || return 1
+    else
+        CP2K_PERIODIC_XML="$cycle_dir/${I}.${JOBNAME}.cp2k.xml"
+        CP2K_TONTO_BASIS_NAME=${CP2K_TONTO_BASIS_NAME:-cp2k-generated}
+        CP2K_TONTO_BASIS_FILE="$cycle_dir/$CP2K_TONTO_BASIS_NAME"
+        CP2K_PERIODIC_MANIFEST="$cycle_dir/${I}.${JOBNAME}.cp2k-tonto.json"
+        bridge_log="$cycle_dir/${I}.${JOBNAME}.cp2k-tonto-bridge.log"
+        if ! python3 "$bridge" \
+            --kp "$kp_file" \
+            --mokp "$mokp_file" \
+            --xml "$CP2K_PERIODIC_XML" \
+            --basis "$CP2K_TONTO_BASIS_FILE" \
+            --basis-name "$CP2K_TONTO_BASIS_NAME" \
+            --reference-cif "$geometry" \
+            --manifest "$CP2K_PERIODIC_MANIFEST" > "$bridge_log" 2>&1; then
+            tail -n 20 "$bridge_log" >&2
+            _cp2k_error "CP2K-to-Tonto conversion failed; inspect $bridge_log"
+            return 1
+        fi
     fi
 
     CP2K_LAST_ENERGY=$(awk '/ENERGY\| Total FORCE_EVAL/{value=$NF} END{print value}' "$output")
@@ -1028,22 +1072,46 @@ TONTO_TO_CP2K() {
 
     export CP2K_PERIODIC_XML CP2K_TONTO_BASIS_DIR CP2K_TONTO_BASIS_NAME
     export CP2K_TONTO_BASIS_FILE CP2K_PERIODIC_MANIFEST CP2K_LAST_OUTPUT
+    export CP2K_MOKP_FILE CP2K_CSR_PREFIX
     export CP2K_LAST_ENERGY CP2K_LAST_RMSD
+}
+
+_cp2k_require_native_matrices() {
+    local matrix_kind candidate
+    [ -n "${CP2K_CSR_PREFIX:-}" ] || {
+        _cp2k_error "CP2K_CSR_PREFIX is unset; run TONTO_TO_CP2K first"
+        return 1
+    }
+    for matrix_kind in P S KS; do
+        candidate="${CP2K_CSR_PREFIX}${matrix_kind}_SPIN_1_R_1.csr"
+        if [ ! -s "$candidate" ]; then
+            _cp2k_error "CP2K native ${matrix_kind}(R) output is missing: $candidate"
+            _cp2k_error "native HAR requires the complete density, overlap and Kohn-Sham/Fock CSR export; no XML fallback was made"
+            return 1
+        fi
+    done
 }
 
 CP2K_TONTO_PERIODIC_SETUP() {
     local slater_name slater_source
     local tonto_exec tonto_root candidate
 
-    [ -n "${CP2K_PERIODIC_XML:-}" ] || {
-        _cp2k_error "CP2K_PERIODIC_XML is unset; run TONTO_TO_CP2K first"
-        return 1
-    }
+    if [[ "$(_lower "${CP2K_DENSITY_INTERFACE:-native}")" == "native" ]]; then
+        _cp2k_require_file "${CP2K_MOKP_FILE:-}" || return 1
+        _cp2k_require_file "${CP2K_LAST_OUTPUT:-}" || return 1
+        _cp2k_require_native_matrices || return 1
+        # Tonto creates the exact Gaussian library from MO_KP on first read.
+        # It does not exist yet when this input is being written.
+    else
+        [ -n "${CP2K_PERIODIC_XML:-}" ] || {
+            _cp2k_error "CP2K_PERIODIC_XML is unset; run TONTO_TO_CP2K first"
+            return 1
+        }
+        _cp2k_require_file "$CP2K_PERIODIC_XML" || return 1
+        _cp2k_require_file "$CP2K_TONTO_BASIS_FILE" || return 1
+    fi
 
-    _cp2k_require_file "$CP2K_PERIODIC_XML" || return 1
-    _cp2k_require_file "$CP2K_TONTO_BASIS_FILE" || return 1
-
-    # The CP2K bridge creates a Gaussian AO basis.  Tonto additionally
+    # The native reader or legacy bridge creates a Gaussian AO basis. Tonto additionally
     # requires a Slater pro-atom library for Hirshfeld references.
     slater_name=${CP2K_TONTO_SLATER_BASIS_NAME:-Thakkar}
     slater_source=${CP2K_TONTO_SLATER_BASIS_FILE:-}
@@ -1101,12 +1169,14 @@ CP2K_TONTO_PERIODIC_SETUP() {
 
     # basis_directory applies to both Gaussian and Slater libraries.
     # Stage both files in the CP2K cycle directory.
-    cp -f -- \
-        "$slater_source" \
-        "$CP2K_TONTO_BASIS_DIR/$slater_name" || {
-        _cp2k_error "could not stage Slater basis $slater_source"
-        return 1
-    }
+    if ! [ "$slater_source" -ef "$CP2K_TONTO_BASIS_DIR/$slater_name" ]; then
+        cp -f -- \
+            "$slater_source" \
+            "$CP2K_TONTO_BASIS_DIR/$slater_name" || {
+            _cp2k_error "could not stage Slater basis $slater_source"
+            return 1
+        }
+    fi
 
     CP2K_TONTO_SLATER_BASIS_NAME=$slater_name
     CP2K_TONTO_SLATER_BASIS_FILE="$CP2K_TONTO_BASIS_DIR/$slater_name"
@@ -1118,10 +1188,19 @@ CP2K_TONTO_PERIODIC_SETUP() {
     {
         echo "   ! Periodic all-electron density generated by CP2K"
         echo "   basis_directory= $CP2K_TONTO_BASIS_DIR"
-        echo "   basis_name= $CP2K_TONTO_BASIS_NAME"
+        if [[ "$(_lower "${CP2K_DENSITY_INTERFACE:-native}")" == "xml" ]]; then
+            echo "   basis_name= $CP2K_TONTO_BASIS_NAME"
+        fi
         echo "   slaterbasis_name= $CP2K_TONTO_SLATER_BASIS_NAME"
-        echo "   c23_xml_file_name= $CP2K_PERIODIC_XML"
-        echo "   process_cif_and_c23_xml"
+        if [[ "$(_lower "${CP2K_DENSITY_INTERFACE:-native}")" == "native" ]]; then
+            echo "   cp2k_mokp_file_name= $CP2K_MOKP_FILE"
+            echo "   cp2k_output_file_name= $CP2K_LAST_OUTPUT"
+            echo "   cp2k_csr_prefix= $CP2K_CSR_PREFIX"
+            echo "   process_cif_and_cp2k_native"
+        else
+            echo "   c23_xml_file_name= $CP2K_PERIODIC_XML"
+            echo "   process_cif_and_c23_xml"
+        fi
         echo ""
     } >> stdin
 

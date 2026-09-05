@@ -46,6 +46,7 @@ OPTION_DEFAULTS: dict[str, str] = {
     "CP2K_CELL_CHARGE": "0",
     "CP2K_CELL_MULTIPLICITY": "1",
     "CP2K_CUTOFF": "1200",
+    "CP2K_DENSITY_INTERFACE": "native",
     "CP2K_EPS_DEFAULT": "1.0E-12",
     "CP2K_EPS_SCF": "1.0E-8",
     "CP2K_KPOINT_GRID": "2 2 2",

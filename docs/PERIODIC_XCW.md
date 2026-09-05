@@ -63,12 +63,15 @@ GRED+KRED for periodic XCW. KRED alone remains scientifically insufficient.
 The legacy XML reader remains available in Tonto. lamaGOET also falls back to
 that path for unrestricted Crystal23 HAR jobs, which are outside the current
 native GRED reader contract; `LAMAGOET_CRYSTAL_DENSITY_INTERFACE=xml` provides
-an explicit compatibility override. CP2K continues to use its XML bridge
-because that is a separate interchange format.
+an explicit compatibility override. CP2K HAR has a separate
+[native MO_KP/CSR interface](CP2K_NATIVE_INTERFACE.md), with its original XML
+bridge retained as an explicit legacy option.
 
-This remains necessary when the preceding HAR used CP2K: the CP2K bridge XML
-does not contain a Crystal-compatible orbital/overlap/Fock state, so lamaGOET
-builds a fresh native Crystal23 reference at the final CP2K-HAR geometry.
+This remains necessary when the preceding HAR used CP2K: neither a CP2K
+native HAR import nor its legacy bridge is yet a validated CP2K-only reference
+for the periodic-XCW solver. The native HAR interface also imports CP2K's
+overlap and Kohn-Sham/Fock matrices, but lamaGOET still builds a fresh native
+Crystal23 reference at the final CP2K-HAR geometry for this XCW workflow.
 
 ## Supported experimental scope
 

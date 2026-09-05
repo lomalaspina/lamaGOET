@@ -170,7 +170,7 @@ class RunnerRegressionTest(unittest.TestCase):
                 self.assertIn("PERIODIC_XCW", dispatch)
                 self.assertIn("XCW", dispatch)
 
-    def test_crystal_har_uses_compact_gred_but_cp2k_keeps_xml_bridge(self):
+    def test_crystal_har_uses_compact_gred_and_cp2k_keeps_legacy_xml(self):
         for name, text in self.runner_text.items():
             with self.subTest(runner=name):
                 support = function_body(text, "CRYSTAL_GRED_IMPORT_SUPPORTED")
@@ -185,6 +185,8 @@ class RunnerRegressionTest(unittest.TestCase):
                 self.assertIn("process_cif_and_c23_xml", crystal)
                 if "CP2K_TONTO_PERIODIC_SETUP()" in text:
                     cp2k = function_body(text, "CP2K_TONTO_PERIODIC_SETUP")
+                    self.assertIn("CP2K_DENSITY_INTERFACE", cp2k)
+                    self.assertIn("process_cif_and_cp2k_native", cp2k)
                     self.assertIn("c23_xml_file_name= $CP2K_PERIODIC_XML", cp2k)
                     self.assertIn("process_cif_and_c23_xml", cp2k)
                 retention = function_body(text, "CRYSTAL_XML_RETENTION_ENABLED")

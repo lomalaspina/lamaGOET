@@ -365,6 +365,16 @@ def main() -> int:
         assert cp2k_window.cp2k_basis.currentText() == "DZVP-MOLOPT-GTH-q4"
         assert cp2k_window.cp2k_basis.count() == 4
         assert cp2k_window.cp2k_functional.currentText() == "PBE"
+        assert cp2k_window.cp2k_density_interface.currentData() == "native"
+        assert cp2k_window._current_values()["CP2K_DENSITY_INTERFACE"] == "native"
+        cp2k_window.cp2k_density_interface.setCurrentIndex(
+            cp2k_window.cp2k_density_interface.findData("xml")
+        )
+        assert cp2k_window._current_values()["CP2K_DENSITY_INTERFACE"] == "xml"
+        cp2k_window.save_options()
+        cp2k_reloaded = MainWindow(cp2k_options)
+        assert cp2k_reloaded.cp2k_density_interface.currentData() == "xml"
+        cp2k_reloaded.close()
         assert not cp2k_window.stockholder_group.isHidden()
         assert cp2k_window.partition_model.isHidden()
         assert cp2k_window.observed_shrinkage.isHidden()

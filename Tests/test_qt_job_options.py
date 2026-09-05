@@ -52,6 +52,7 @@ class JobOptionsTest(unittest.TestCase):
         self.assertEqual(values["SCFCALCPROG"], "Gaussian")
         self.assertEqual(values["SCFCALC_BIN"], "g09")
         self.assertEqual(values["TONTO"], "tonto")
+        self.assertEqual(values["CP2K_DENSITY_INTERFACE"], "native")
         self.assertEqual(values["ACCURACY"], "extreme")
         self.assertEqual(values["PLOT_TONTO"], "false")
         self.assertEqual(values["EXTI"], "no")
