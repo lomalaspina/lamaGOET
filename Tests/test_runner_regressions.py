@@ -143,13 +143,15 @@ class RunnerRegressionTest(unittest.TestCase):
                 self.assertIn('echo "NEWK"', reference)
                 self.assertIn('echo "1 0"', reference)
                 self.assertIn('echo "CRYAPI_OUT"', reference)
+                self.assertIn("GenerateXML_dat.GRED", reference)
                 self.assertIn("GenerateXML_dat.KRED", reference)
                 body = function_body(text, "PERIODIC_XCW")
                 self.assertRegex(
                     body,
                     r'CIF="\$xcw_cif"\s+PERIODIC_XCW_PREPARE_INPUT_GEOMETRY',
                 )
-                self.assertIn("process_cif_and_c23_xml", body)
+                self.assertIn("c23_GRED_file_name= GenerateXML_dat.GRED", body)
+                self.assertIn("process_cif_and_c23_gred", body)
                 self.assertIn("periodic_xcw_KRED_file_name= GenerateXML_dat.KRED", body)
                 self.assertIn("prepare_periodic_xcw_reference", body)
                 self.assertIn("set_periodic_xcw_density", body)
@@ -161,11 +163,85 @@ class RunnerRegressionTest(unittest.TestCase):
                 self.assertIn("periodic_xcw_restart=", body)
                 self.assertIn("periodic_xcw_write_checkpoint=", body)
                 self.assertIn("neutral, closed-shell Crystal23 reference", body)
+                self.assertIn("GenerateXML_dat.GRED.gz", body)
                 self.assertIn("GenerateXML_dat.KRED.gz", body)
                 dispatch = function_body(text, "RUN_XWR")
                 self.assertIn('${XCW_MODE:-molecular}', dispatch)
                 self.assertIn("PERIODIC_XCW", dispatch)
                 self.assertIn("XCW", dispatch)
+
+    def test_crystal_har_uses_compact_gred_but_cp2k_keeps_xml_bridge(self):
+        for name, text in self.runner_text.items():
+            with self.subTest(runner=name):
+                support = function_body(text, "CRYSTAL_GRED_IMPORT_SUPPORTED")
+                self.assertIn("LAMAGOET_CRYSTAL_DENSITY_INTERFACE", support)
+                self.assertIn('MULTIPLICITY:-1', support)
+                self.assertIn("uhf|uks|ublyp", support)
+                crystal = function_body(text, "READ_CRYSTAL_WFN")
+                self.assertIn("if CRYSTAL_GRED_IMPORT_SUPPORTED", crystal)
+                self.assertIn("c23_GRED_file_name= GenerateXML_dat.GRED", crystal)
+                self.assertIn("process_cif_and_c23_gred", crystal)
+                self.assertIn("c23_XML_file_name= GenerateXML.XML", crystal)
+                self.assertIn("process_cif_and_c23_xml", crystal)
+                if "CP2K_TONTO_PERIODIC_SETUP()" in text:
+                    cp2k = function_body(text, "CP2K_TONTO_PERIODIC_SETUP")
+                    self.assertIn("c23_xml_file_name= $CP2K_PERIODIC_XML", cp2k)
+                    self.assertIn("process_cif_and_c23_xml", cp2k)
+                retention = function_body(text, "CRYSTAL_XML_RETENTION_ENABLED")
+                self.assertIn("LAMAGOET_KEEP_CRYSTAL_XML", retention)
+                self.assertIn("! CRYSTAL_GRED_IMPORT_SUPPORTED", retention)
+
+    @unittest.skipUnless(
+        os.name == "posix" and shutil.which("bash"),
+        "generated Crystal23 interface-selection test requires bash",
+    )
+    def test_crystal_har_interface_falls_back_to_xml_for_unsupported_cases(self):
+        cases = (
+            ({"METHOD": "BLYP", "MULTIPLICITY": "1"}, "GRED"),
+            ({"METHOD": "UHF", "MULTIPLICITY": "1"}, "XML"),
+            ({"METHOD": "BLYP", "MULTIPLICITY": "3"}, "XML"),
+            (
+                {
+                    "METHOD": "BLYP",
+                    "MULTIPLICITY": "1",
+                    "LAMAGOET_CRYSTAL_DENSITY_INTERFACE": "xml",
+                },
+                "XML",
+            ),
+        )
+        for runner, text in self.runner_text.items():
+            definitions = (
+                '_lower(){ tr "[:upper:]" "[:lower:]" <<< "$1"; }\n'
+                "CRYSTAL_GRED_IMPORT_SUPPORTED(){\n"
+                + function_body(text, "CRYSTAL_GRED_IMPORT_SUPPORTED")
+                + "READ_CRYSTAL_WFN(){\n"
+                + function_body(text, "READ_CRYSTAL_WFN")
+            )
+            for environment, expected in cases:
+                with self.subTest(runner=runner, environment=environment):
+                    with tempfile.TemporaryDirectory() as directory:
+                        assignments = "".join(
+                            f"{key}={value!r}\n" for key, value in environment.items()
+                        )
+                        script = (
+                            definitions
+                            + assignments
+                            + "JOBNAME=test_job\n"
+                            + "READ_CRYSTAL_WFN\n"
+                            + "cat stdin\n"
+                        )
+                        result = subprocess.run(
+                            ["bash", "-c", script],
+                            cwd=directory,
+                            text=True,
+                            capture_output=True,
+                            check=True,
+                        )
+                    self.assertIn(f"process_cif_and_c23_{expected.lower()}", result.stdout)
+                    other = "XML" if expected == "GRED" else "GRED"
+                    self.assertNotIn(
+                        f"process_cif_and_c23_{other.lower()}", result.stdout
+                    )
 
     @unittest.skipUnless(
         os.name == "posix" and shutil.which("bash"),

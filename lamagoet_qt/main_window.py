@@ -524,7 +524,7 @@ class MainWindow(QMainWindow):
             "An external Crystal23 basis is written as GEN in the .d12 file, "
             "but GEN is not a Tonto library basis name. Select the matching "
             "named Tonto library basis with the same contractions; Tonto uses "
-            "it for exact XML reconstruction and free-atom references."
+            "it for exact GRED reconstruction and free-atom references."
         )
         external_layout.addWidget(self.crystal_tonto_basis_label, 3, 0)
         external_layout.addWidget(self.crystal_tonto_basis, 3, 1, 1, 2)
@@ -1467,10 +1467,12 @@ class MainWindow(QMainWindow):
             "Periodic XCW optimizes only Tonto's k-resolved orbitals; "
             "atomic coordinates and displacement parameters remain fixed. A "
             "fresh Crystal23 NEWK+CRYAPI_OUT reference is calculated at that "
-            "geometry: XML supplies the basis and direct-lattice matrices, and "
+            "geometry: compact GRED supplies the direct-lattice matrices, and "
             "KRED supplies the native full-zone Bloch orbitals. Tonto validates "
             "the mesh, occupations, metric, projector, time reversal and space-"
-            "group covariance before XCW starts. For CP2K XWR the fresh "
+            "group covariance before XCW starts. KRED alone cannot replace GRED: "
+            "a finite k mesh does not uniquely determine the off-cell density "
+            "blocks needed for real-space partitioning. For CP2K XWR the fresh "
             "Crystal23 step is required because the CP2K bridge has no "
             "compatible orbital/overlap/Fock state."
         )

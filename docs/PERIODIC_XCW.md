@@ -9,13 +9,62 @@ lamaGOET distinguishes three calculations:
 - **XWR** runs HAR first and then XCW at the final HAR geometry.
 
 The periodic XCW option is a Tonto calculation. lamaGOET runs Crystal23
-`NEWK` plus `CRYAPI_OUT` at the selected fixed geometry. The resulting XML
-supplies the compatible basis and direct-lattice overlap/density/Fock blocks,
+`NEWK` plus `CRYAPI_OUT` at the selected fixed geometry. The formatted GRED
+file supplies the geometry and direct-lattice overlap/density/Fock blocks,
 while formatted KRED supplies the native complex eigenvectors, energies and
-occupations at every full-zone k point. Tonto validates mesh completeness,
+occupations at every full-zone k point. Tonto validates the exact matching
+Tonto basis against GRED's central overlap before checking mesh completeness,
 occupations, overlap orthonormality, electron count, projector idempotency,
 stationarity, time reversal and full crystallographic covariance before XCW
 can start.
+
+## Why periodic XCW uses both GRED and KRED
+
+KRED and GRED carry complementary information. KRED is the authoritative
+source of the complex Bloch orbitals used as periodic-XCW variational
+parameters, but it is not a self-describing real-space density file. It omits
+the direct-lattice `S(R)`, `P(R)` and `F(R)` blocks required by Tonto's
+atom-centred density evaluation and partitioning. GRED is CRYSTAL23's compact,
+official formatted direct-lattice interface and supplies those blocks together
+with the primitive cell, atoms and basis-shell metadata.
+
+More importantly, a finite k mesh determines only Born-von Karman alias sums.
+A direct inverse transform of KRED's `P(k)` cannot distinguish `P(R)` from
+`P(R+nN)`. On the Natrolite 2x2x2 reference this apparently harmless
+replacement changed the direct density-matrix blocks by 1.424 in relative
+Frobenius norm. Tonto therefore retains the exact GRED `P0(R)` at lambda zero
+and applies only the inverse-transformed change `Delta P(k)` produced by XCW.
+This is a physical boundary condition, not merely a file-format limitation.
+
+The complex static structure factors reconstructed from the direct CRYAPI
+matrices were checked
+against Crystal23 XFAC values using the same geometry and basis. After the
+single crystallographic origin/Fourier-convention alignment, the results were:
+
+| System | Reflections | Amplitude R1 | Relative complex RMS |
+|---|---:|---:|---:|
+| NH3 (non-centrosymmetric) | 81 | 0.0000690 | 0.0001535 |
+| Diamond | 57 | 0.0003888 | 0.0003534 |
+| Quartz (chiral) | 512 | 0.0001182 | 0.0001812 |
+| Natrolite (non-centrosymmetric) | 9,928 | 0.0001976 | 0.0002923 |
+
+These residual differences are at the precision of the printed XFAC/FCF
+values and do not show reflection-dependent phase corruption. For Natrolite,
+increasing the Crystal23 mesh from 2x2x2 to 4x4x4 changed amplitudes by only
+`2.02e-6` in R1 and complex factors by `3.13e-5` relative RMS over all 9,928
+reflections.
+
+The native GRED reader was then checked against the established XML reader.
+For Diamond, NH3 and chiral quartz it reproduced the complete Tonto FCF
+prediction exactly; the 46-AO Diamond periodic-XCW lambda-zero control also
+reproduced every reported R factor, goodness of fit, scale and extinction
+value exactly. Therefore lamaGOET now uses GRED for Crystal23 periodic HAR and
+GRED+KRED for periodic XCW. KRED alone remains scientifically insufficient.
+The legacy XML reader remains available in Tonto. lamaGOET also falls back to
+that path for unrestricted Crystal23 HAR jobs, which are outside the current
+native GRED reader contract; `LAMAGOET_CRYSTAL_DENSITY_INTERFACE=xml` provides
+an explicit compatibility override. CP2K continues to use its XML bridge
+because that is a separate interchange format.
 
 This remains necessary when the preceding HAR used CP2K: the CP2K bridge XML
 does not contain a Crystal-compatible orbital/overlap/Fock state, so lamaGOET
@@ -25,7 +74,7 @@ builds a fresh native Crystal23 reference at the final CP2K-HAR geometry.
 
 - neutral, restricted closed-shell cells (charge 0, multiplicity 1);
 - pure semilocal BLYP or PBE references;
-- one all-electron basis represented identically in Crystal23 XML and Tonto;
+- one all-electron basis represented identically in Crystal23 GRED and Tonto;
 - fixed coordinates and ADPs throughout XCW;
 - deterministic held-out reflections for independent validation.
 
@@ -62,7 +111,7 @@ paired custom Crystal23/Tonto basis** and supply both:
 The GUI stages both inputs with the job. The runners combine the sidecar with
 Tonto's ordinary basis library so neutral free-atom references remain
 available. Tonto then rejects an AO-count or central-overlap mismatch before
-using XML/KRED data.
+using GRED/KRED data.
 
 The retained carbon-only 46-AO Diamond pair is in
 `examples/periodic_xcw/diamond_core_decontracted_46/`. It is a reproducible
@@ -96,10 +145,15 @@ is rebuilt the same way from the converged projector, so a reflection excluded
 for one density is not permanently lost if it becomes nonzero later.
 
 The completed calculation writes the fixed-geometry CIFs, XCW FCF/FCO files,
-residual-density cube, work/free statistics, compressed XML and KRED reference
+residual-density cube, work/free statistics, compressed GRED and KRED reference
 files, and the checkpoint files into `periodic_XCW.<job-name>/`. These files
 are test artifacts, not evidence that grid or lambda convergence has been
 established automatically.
+
+By default lamaGOET deletes the much larger Crystal23 XML after confirming
+that GRED was written. It automatically retains XML when the legacy reader is
+needed. Set `LAMAGOET_KEEP_CRYSTAL_XML=true` for an additional legacy external
+workflow or when the optional TREXIO exporter still requires XML.
 
 ## Matched Diamond lambda-zero checkpoint
 

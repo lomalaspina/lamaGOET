@@ -2848,13 +2848,32 @@ READ_ORCA_FCHK(){
         echo "" >> stdin
 }
 
+CRYSTAL_GRED_IMPORT_SUPPORTED(){
+	# The compact native reader currently covers the all-electron restricted
+	# CRYSTAL23 contract.  Keep the established XML path for unrestricted jobs
+	# and as an explicit compatibility override.
+	case "$(_lower "${LAMAGOET_CRYSTAL_DENSITY_INTERFACE:-gred}")" in
+		xml) return 1 ;;
+	esac
+	[[ "${MULTIPLICITY:-1}" == "1" ]] || return 1
+	case "$(_lower "${METHOD:-rhf}")" in
+		uhf|uks|ublyp|ub3lyp|upbe|upbepbe|upbe0|upbe1pbe) return 1 ;;
+	esac
+	return 0
+}
+
 READ_CRYSTAL_WFN(){
         echo "" >> stdin
 #        echo "   read_molden_file $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.molden.input" >> stdin
 ##        echo "   read_CRYSTAL_XML_file $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.XML" >> stdin #this one was the one working before
 ##        echo "   c23_XML_file_name= $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.XML" >> stdin # this is the one working before, exchanging to use the one in the work folder to compat the files.
-        echo "   c23_XML_file_name= GenerateXML.XML" >> stdin 
-        echo "   process_cif_and_c23_xml" >> stdin 
+	if CRYSTAL_GRED_IMPORT_SUPPORTED; then
+	        echo "   c23_GRED_file_name= GenerateXML_dat.GRED" >> stdin
+	        echo "   process_cif_and_c23_gred" >> stdin
+	else
+	        echo "   c23_XML_file_name= GenerateXML.XML" >> stdin
+	        echo "   process_cif_and_c23_xml" >> stdin
+	fi
 #       echo "This routine is still being writen, come back later. " | tee -a $JOBNAME.lst
 #       unset MAIN_DIALOG
 #       exit 0
@@ -3054,6 +3073,19 @@ PERIODIC_WAVEFUNCTION_EXPORT_ENABLED(){
 			FINITE_WAVEFUNCTION_EXPORT_ENABLED
 			;;
 	esac
+}
+
+CRYSTAL_XML_RETENTION_ENABLED(){
+	# GRED is the production CRYSTAL23/Tonto interchange.  Keep the much
+	# larger XML only when an explicitly requested legacy/TREXIO export still
+	# needs it, or when a user asks to retain it for an external workflow.
+	case "${LAMAGOET_KEEP_CRYSTAL_XML:-false}" in
+		true|TRUE|yes|YES|1|on|ON) return 0 ;;
+	esac
+	if [[ "$SCFCALCPROG" == "Crystal14" ]] && ! CRYSTAL_GRED_IMPORT_SUPPORTED; then
+		return 0
+	fi
+	PERIODIC_WAVEFUNCTION_EXPORT_ENABLED
 }
 
 EXPORT_FINAL_PERIODIC_WAVEFUNCTION(){
@@ -4329,6 +4361,10 @@ TONTO_TO_CRYSTAL(){
 		echo "ERROR: Crystal job finished with error, please check the $I.th out file for more details" | tee -a $JOBNAME.lst
 		exit 1
 	fi
+	if [[ ! -s GenerateXML_dat.GRED ]]; then
+		echo "ERROR: Crystal23 did not produce GenerateXML_dat.GRED; CRYAPI_OUT is required." | tee -a "$JOBNAME.lst" >&2
+		exit 1
+	fi
         if [[ "$I" == "1" ]]; then
                 ENERGIA=$(grep "TOTAL ENERGY" $JOBNAME.out | tail -n1 | awk '{print $4}')
                 RMSD=$(grep "TOTAL ENERGY" $JOBNAME.out | tail -n1 | awk '{print $5}' | sed 's/DE//g' )
@@ -4346,8 +4382,12 @@ TONTO_TO_CRYSTAL(){
 	cp $JOBNAME.f98 $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.f98
 	cp $JOBNAME.f9 $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.f9
 #       cp $JOBNAME.d3 $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.d3
-        gzip -k GenerateXML.XML
-	mv GenerateXML.XML.gz $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.XML.gz
+	        gzip -c GenerateXML_dat.GRED > "$I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.GRED.gz"
+		if CRYSTAL_XML_RETENTION_ENABLED && [[ -s GenerateXML.XML ]]; then
+			gzip -c GenerateXML.XML > "$I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.XML.gz"
+		else
+			rm -f GenerateXML.XML
+		fi
 	cp $JOBNAME.out  $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.out
 }
 
@@ -5113,7 +5153,7 @@ PERIODIC_XCW_PREPARE_CRYSTAL_REFERENCE(){
 	# makes CRYSTAL write the formatted full-zone KRED eigenvectors required for
 	# an exact lambda-zero periodic-XCW determinant.  Recreate these explicitly
 	# so a stale properties file or KRED result can never be reused.
-	rm -f GenerateXML.XML GenerateXML_dat.KRED
+	rm -f GenerateXML.XML GenerateXML_dat.GRED GenerateXML_dat.KRED
 	{
 		echo "NEWK"
 		echo "${SHRINKA:-6} ${SHRINKB:-6}"
@@ -5122,14 +5162,17 @@ PERIODIC_XCW_PREPARE_CRYSTAL_REFERENCE(){
 		echo "END"
 	} > GenerateXML.d3
 	TONTO_TO_CRYSTAL || return 1
-	[[ -s GenerateXML.XML ]] || {
-		echo "ERROR: Crystal23 did not produce GenerateXML.XML for periodic XCW." | tee -a "$JOBNAME.lst" >&2
+	[[ -s GenerateXML_dat.GRED ]] || {
+		echo "ERROR: Crystal23 did not produce GenerateXML_dat.GRED for periodic XCW." | tee -a "$JOBNAME.lst" >&2
 		return 1
 	}
 	[[ -s GenerateXML_dat.KRED ]] || {
 		echo "ERROR: Crystal23 did not produce GenerateXML_dat.KRED. The periodic-XCW properties input must run NEWK before CRYAPI_OUT." | tee -a "$JOBNAME.lst" >&2
 		return 1
 	}
+	if ! CRYSTAL_XML_RETENTION_ENABLED; then
+		rm -f GenerateXML.XML
+	fi
 }
 
 PERIODIC_XCW_CRYSTAL_BLOCK(){
@@ -5231,9 +5274,9 @@ PERIODIC_XCW(){
 	CHARGE_MULT
 	PERIODIC_XCW_SCFDATA
 	{
-		echo "   c23_XML_file_name= GenerateXML.XML"
+		echo "   c23_GRED_file_name= GenerateXML_dat.GRED"
 		echo "   periodic_xcw_KRED_file_name= GenerateXML_dat.KRED"
-		echo "   process_cif_and_c23_xml"
+		echo "   process_cif_and_c23_gred"
 		echo "   prepare_periodic_xcw_reference"
 		echo "   periodic_xcw_density_radius= ${PERIODIC_XCW_DENSITY_RADIUS:-1}"
 		echo "   set_periodic_xcw_density"
@@ -5274,8 +5317,11 @@ PERIODIC_XCW(){
 	cp stdin "$archive_dir/stdin"
 	cp stdout "$archive_dir/stdout"
 	cp GenerateXML.d3 "$archive_dir/GenerateXML.d3"
-	gzip -c GenerateXML.XML > "$archive_dir/GenerateXML.XML.gz"
+	gzip -c GenerateXML_dat.GRED > "$archive_dir/GenerateXML_dat.GRED.gz"
 	gzip -c GenerateXML_dat.KRED > "$archive_dir/GenerateXML_dat.KRED.gz"
+	if [[ -s GenerateXML.XML ]]; then
+		gzip -c GenerateXML.XML > "$archive_dir/GenerateXML.XML.gz"
+	fi
 	for artifact in \
 		"$xcw_job.cartesian.cif2" "$xcw_job.fractional.cif1" \
 		"$xcw_job.archive.cif" "$xcw_job.archive.fcf" \
