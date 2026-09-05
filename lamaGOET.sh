@@ -4305,6 +4305,8 @@ TONTO_TO_GAUSSIAN(){
 
 TONTO_TO_CRYSTAL(){
 	local crystal_basis_input=${CRYSTAL_EXTERNAL_BASIS_FILE:-basis_gen.txt}
+	local crystal_uses_external_basis=false
+	local crystal_tolinteg=""
 	I=$[ $I + 1 ]
         if [[ "$SPACEGROUPHM" == "" ]]; then
                 SPACEGROUPHM=$( awk '/_symmetry_space_group_name_H-M/ {print $0}' 0.tonto_cycle.$JOBNAME/0.$JOBNAME.cartesian.cif2 | sed "s/'/\:/g" | awk -F ":" '{print $2}' )
@@ -4371,6 +4373,7 @@ TONTO_TO_CRYSTAL(){
 #       echo "1"  >> $JOBNAME.d12
 #       echo "1 0 0 0"  >> $JOBNAME.d12
         if [[ "$GAUSGEN" == "true" || "$BASISSETG" == "gen" ]]; then
+		crystal_uses_external_basis=true
                 echo "END"  >> $JOBNAME.d12
                 cat "$crystal_basis_input" >>  $JOBNAME.d12
 #               echo "99 0"  >> $JOBNAME.d12
@@ -4379,6 +4382,11 @@ TONTO_TO_CRYSTAL(){
                 echo "BASISSET"  >> $JOBNAME.d12
                 echo "$BASISSETG"  >> $JOBNAME.d12
         fi
+	if ! crystal_tolinteg=$(_lamagoet_crystal_tolinteg \
+		"${CRYSTAL_TOLINTEG:-auto}" "$crystal_uses_external_basis"); then
+		echo "ERROR: invalid Crystal23 integral-screening setting" | tee -a "$JOBNAME.lst" >&2
+		exit 1
+	fi
         if [[ "$METHOD" != "rhf" ]]; then
                 if [[ "$METHOD" == "uhf" ]]; then
                         echo "$METHOD"  >> $JOBNAME.d12
@@ -4397,6 +4405,10 @@ TONTO_TO_CRYSTAL(){
 #       echo "40000000"  >> $JOBNAME.d12
         echo "SHRINK"  >> $JOBNAME.d12
         echo "$SHRINKA $SHRINKB"  >> $JOBNAME.d12
+	if [[ -n "$crystal_tolinteg" ]]; then
+		echo "TOLINTEG" >> "$JOBNAME.d12"
+		echo "$crystal_tolinteg" >> "$JOBNAME.d12"
+	fi
 #       echo "LEVSHIFT"  >> $JOBNAME.d12
 #       echo "6 1"  >> $JOBNAME.d12
 #       echo "TOLINTEG"  >> $JOBNAME.d12
@@ -4422,8 +4434,16 @@ TONTO_TO_CRYSTAL(){
 		else
 		        $SCFCALC_BIN $JOBNAME
 		fi
-        fi
+	fi
 	echo "Crystal cycle number $I ended"
+	if ! grep -q 'SCF ENDED - CONVERGENCE ON ENERGY' "$JOBNAME.out"; then
+		if grep -q 'RHOLSK.*BASIS SET LINEARLY DEPENDENT\|CHOLSK.*BASIS SET LINEARLY DEPENDENT' "$JOBNAME.out"; then
+			echo "ERROR: Crystal23 found a numerically linearly dependent periodic basis. For an external basis, use CRYSTAL_TOLINTEG=auto (tested as 8 8 8 8 16) or choose a periodic-optimized basis." | tee -a "$JOBNAME.lst" >&2
+		else
+			echo "ERROR: Crystal job finished with error, please check the $I.th out file for more details" | tee -a "$JOBNAME.lst" >&2
+		fi
+		exit 1
+	fi
         if [[ ! -f GenerateXML.d3  ]]; then
                 echo "CRYAPI_OUT"  > GenerateXML.d3
 	fi
@@ -4436,10 +4456,6 @@ TONTO_TO_CRYSTAL(){
                 runprop23 GenerateXML $JOBNAME
         fi
 	echo "Crystal properties, cycle number $I ended" 
-	if ! grep -q 'SCF ENDED - CONVERGENCE ON ENERGY' "$JOBNAME.out"; then
-		echo "ERROR: Crystal job finished with error, please check the $I.th out file for more details" | tee -a $JOBNAME.lst
-		exit 1
-	fi
 	if [[ ! -s GenerateXML_dat.GRED ]]; then
 		echo "ERROR: Crystal23 did not produce GenerateXML_dat.GRED; CRYAPI_OUT is required." | tee -a "$JOBNAME.lst" >&2
 		exit 1

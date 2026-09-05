@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import unittest
+from decimal import Decimal
 
 try:
     import basis_set_exchange  # noqa: F401
@@ -36,6 +37,83 @@ def crystal_element_shells(text, atomic_number):
 
 @unittest.skipIf(basis_set_exchange is None, "basis_set_exchange is not installed")
 class BasisExchangeTest(unittest.TestCase):
+    def test_crystal_natrolite_def2_format_and_exact_contractions(self):
+        """CRYSTAL23 manual 2.2.1: radial shell input, not AO components.
+
+        Compare against raw BSE JSON, independently of BSE's CRYSTAL writer.
+        Retain coefficient/exponent pairing, signs, complete contractions, all
+        functions, neutral CHE and the single final mixed-basis terminator.
+        This also protects the Natrolite format audit against regressions.
+        """
+        symbols = {1: "H", 8: "O", 11: "Na", 13: "Al", 14: "Si"}
+        expected_aos = {1: 6, 8: 31, 11: 32, 13: 37, 14: 37}
+        text, _ = render_mixed_basis(
+            "Crystal14", {symbol: "def2-TZVP" for symbol in symbols.values()}
+        )
+        raw = basis_set_exchange.get_basis("def2-TZVP", elements=list(symbols))
+        lines = text.splitlines()
+        self.assertEqual(sum(line.split() == ["99", "0"] for line in lines), 1)
+        self.assertEqual(lines[-1], "99 0")
+        index = 0
+        seen = set()
+        decimal = lambda value: Decimal(value.replace("D", "E").replace("d", "e"))
+        while index < len(lines) - 1:
+            atom_header = lines[index].split()
+            self.assertEqual(len(atom_header), 2)
+            z, shell_count = map(int, atom_header)
+            self.assertNotIn(z, seen)
+            seen.add(z)
+            index += 1
+            shells = []
+            charge = Decimal(0)
+            aos = 0
+            for _ in range(shell_count):
+                header = lines[index].split()
+                self.assertEqual(len(header), 5)
+                ityb, lat, ng = map(int, header[:3])
+                self.assertEqual(ityb, 0)
+                # These def2-TZVP elements contain S/P/D/F only. CRYSTAL
+                # internally expands D/F into five/seven spherical AOs.
+                self.assertIn(lat, (0, 2, 3, 4))
+                self.assertGreater(ng, 0)
+                if lat <= 2:
+                    self.assertLessEqual(ng, 10)
+                elif lat == 3:
+                    self.assertLessEqual(ng, 6)
+                self.assertEqual(decimal(header[4]), 1)
+                shell_charge = decimal(header[3])
+                self.assertGreaterEqual(shell_charge, 0)
+                self.assertLessEqual(shell_charge, {0: 2, 2: 6, 3: 10, 4: 14}[lat])
+                charge += shell_charge
+                aos += {0: 1, 2: 3, 3: 5, 4: 7}[lat]
+                primitives = []
+                for row in lines[index + 1:index + 1 + ng]:
+                    fields = row.split()
+                    self.assertEqual(len(fields), 2)
+                    exponent, coefficient = map(decimal, fields)
+                    self.assertGreater(exponent, 0)
+                    primitives.append((exponent, coefficient))
+                shells.append((0 if lat == 0 else lat - 1, primitives))
+                index += ng + 1
+            source_shells = []
+            for shell in raw["elements"][str(z)]["electron_shells"]:
+                self.assertEqual(len(shell["angular_momentum"]), 1)
+                self.assertEqual(len(shell["coefficients"]), 1)
+                source_shells.append((shell["angular_momentum"][0], [
+                    (decimal(exponent), decimal(coefficient))
+                    for exponent, coefficient in zip(
+                        shell["exponents"], shell["coefficients"][0]
+                    )
+                ]))
+            # BSE orders complete shells compact-to-diffuse for each angular
+            # momentum; it may therefore permute the raw JSON shell list.
+            # CRYSTAL input contains radial contractions, not explicit px/py/
+            # pz or d/f Cartesian components that should be reordered here.
+            self.assertCountEqual(shells, source_shells, symbols[z])
+            self.assertEqual(charge, z)
+            self.assertEqual(aos, expected_aos[z])
+        self.assertEqual(seen, set(symbols))
+
     def test_light_element_keeps_valid_def2_basis_but_filters_ecp_records(self):
         nitrogen = all_electron_basis_names("N")
         self.assertIn("def2-TZVP", nitrogen)

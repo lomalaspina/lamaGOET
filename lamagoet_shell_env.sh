@@ -146,7 +146,54 @@ _lamagoet_gaussian_method_keyword() {
     esac
 }
 
-export -f _upper _lower _lamagoet_gaussian_method_keyword
+# Resolve CRYSTAL23's five TOLINTEG values.  Molecular bases exported by BSE
+# can contain diffuse functions whose periodic overlap matrix is sensitive to
+# CRYSTAL's integral-screening accuracy.  ``auto`` keeps the program default
+# for built-in/periodic bases, but uses the Natrolite-validated 8 8 8 8 16 for
+# an explicitly supplied basis.  This changes only numerical screening: it
+# does not delete, reorder, or recontract any basis function.
+_lamagoet_crystal_tolinteg() {
+    local requested=${1:-auto}
+    local external_basis=${2:-false}
+    local resolved field
+
+    case "$(_lower "$requested")" in
+        auto)
+            case "$(_lower "$external_basis")" in
+                true|yes|1) resolved="8 8 8 8 16" ;;
+                *) return 0 ;;
+            esac
+            ;;
+        default|none|off) return 0 ;;
+        *) resolved=$requested ;;
+    esac
+
+    # Deliberately use shell word splitting after rejecting every character
+    # except digits and whitespace.  This remains compatible with macOS bash
+    # 3.2 and prevents an option file from injecting CRYSTAL records.
+    case "$resolved" in
+        *[!0-9[:space:]]*)
+            printf 'lamaGOET: invalid CRYSTAL_TOLINTEG: %s (expected five positive integers, auto, or default)\n' "$requested" >&2
+            return 2
+            ;;
+    esac
+    # shellcheck disable=SC2086
+    set -- $resolved
+    if [ "$#" -ne 5 ]; then
+        printf 'lamaGOET: invalid CRYSTAL_TOLINTEG: %s (expected five positive integers, auto, or default)\n' "$requested" >&2
+        return 2
+    fi
+    for field in "$@"; do
+        if [ "$field" -lt 1 ] || [ "$field" -gt 99 ]; then
+            printf 'lamaGOET: invalid CRYSTAL_TOLINTEG component: %s (allowed range 1-99)\n' "$field" >&2
+            return 2
+        fi
+    done
+    printf '%s %s %s %s %s\n' "$1" "$2" "$3" "$4" "$5"
+}
+
+export -f _upper _lower _lamagoet_gaussian_method_keyword \
+    _lamagoet_crystal_tolinteg
 
 LAMAGOET_SHELL_ENV_LOADED=1
 export LAMAGOET_SHELL_ENV_LOADED

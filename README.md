@@ -91,6 +91,7 @@ Two ways, and they are not the same thing:
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | how the pieces fit together |
 | [docs/TESTING.md](docs/TESTING.md) | running the tests |
 | [docs/TONTO_COMPATIBILITY.md](docs/TONTO_COMPATIBILITY.md) | which Tonto to build, and what has changed |
+| [docs/CRYSTAL23_BSE_FORMAT_AUDIT_20260905.md](docs/CRYSTAL23_BSE_FORMAT_AUDIT_20260905.md) | CRYSTAL23 external-basis format, overlap diagnosis and `TOLINTEG` handling |
 | [docs/PERIODIC_WAVEFUNCTION_EXPORT.md](docs/PERIODIC_WAVEFUNCTION_EXPORT.md) | exact CP2K/Crystal23 TREXIO export and finite `.47`/WFN/WFX cluster recalculation |
 | [docs/HIRSHFELD_ATOM_CUBES.md](docs/HIRSHFELD_ATOM_CUBES.md) | per-independent-atom density cubes from the live Hirshfeld partition |
 | [docs/OBSERVED_DENSITY_RECONSTRUCTION.md](docs/OBSERVED_DENSITY_RECONSTRUCTION.md) | ADP-aware constrained observed-density reconstruction and its legacy alternative |

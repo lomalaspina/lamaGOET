@@ -60,6 +60,7 @@ OPTION_DEFAULTS: dict[str, str] = {
     "CP2K_XC_FUNCTIONAL": "BLYP",
     "CRYSTAL_BIN": "runcry23",
     "CRYSTAL_SETTING": "auto",
+    "CRYSTAL_TOLINTEG": "auto",
     "CRYSTAL_TONTO_BASIS_NAME": "",
     "DEFDEN": "false",
     "DEFRAG": "false",

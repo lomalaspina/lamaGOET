@@ -610,6 +610,19 @@ class MainWindow(QMainWindow):
         self.crystal_setting.addItem("Hexagonal axes", "h")
         self.crystal_setting.addItem("Rhombohedral axes", "r")
         crystal_layout.addWidget(self.crystal_setting)
+        crystal_layout.addWidget(QLabel("Integral screening (TOLINTEG)"))
+        self.crystal_tolinteg = QComboBox()
+        self.crystal_tolinteg.setEditable(True)
+        self.crystal_tolinteg.addItems(
+            ["auto", "default", "8 8 8 8 16", "10 10 10 10 20"]
+        )
+        self.crystal_tolinteg.setToolTip(
+            "CRYSTAL23 TOLINTEG values. 'auto' keeps CRYSTAL defaults for "
+            "built-in bases and uses 8 8 8 8 16 for an external/Basis Set "
+            "Exchange basis. This retains every basis function while using "
+            "more accurate periodic overlap and integral screening."
+        )
+        crystal_layout.addWidget(self.crystal_tolinteg)
         layout.addWidget(self.crystal_group)
 
         self.stockholder_group = QGroupBox("Density partition")
@@ -1915,6 +1928,10 @@ class MainWindow(QMainWindow):
         self.supercon.setChecked(self._bool_option("SUPERCON"))
         self.shrink_a.setValue(self._int_option("SHRINKA", 2))
         self.shrink_b.setValue(self._int_option("SHRINKB", 2))
+        self._set_combo_text(
+            self.crystal_tolinteg,
+            self._option("CRYSTAL_TOLINTEG", "auto"),
+        )
         self.max_phar_cycles.setValue(self._int_option("MAXPHARCYCLE", 10))
         self.nsa2_accuracy.setValue(self._int_option("NSA2ACC", 2))
         self.minimum_correlation.setText(self._option("MINCORCOEF"))
@@ -2982,6 +2999,7 @@ class MainWindow(QMainWindow):
             "SUPERCON": _bool_text(self.supercon.isChecked()),
             "SHRINKA": self.shrink_a.value(),
             "SHRINKB": self.shrink_b.value(),
+            "CRYSTAL_TOLINTEG": self.crystal_tolinteg.currentText().strip(),
             "MAXPHARCYCLE": self.max_phar_cycles.value(),
             "NSA2ACC": self.nsa2_accuracy.value(),
             "MINCORCOEF": self.minimum_correlation.text().strip(),
