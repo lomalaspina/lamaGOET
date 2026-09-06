@@ -3061,6 +3061,32 @@ PROCESS_CIF(){
 #	fi
 }
 
+PROCESS_FINAL_REFINED_CIF(){
+	# The external wavefunction for cycle I is calculated from the Cartesian
+	# geometry written by the preceding Tonto fit cycle J.  Re-reading the
+	# fractional CIF here loses digits because its coordinates are printed with
+	# crystallographic esds (for example 0.21073(6)); the imported C/epsilon
+	# matrices then no longer belong to the overlap matrix that Tonto rebuilds.
+	# The Cartesian CIF contains exactly the coordinates written to the external
+	# SCF input, while retaining the refined cell, ADPs and crystal metadata.
+	local final_cartesian_cif="${J}.tonto_cycle.${JOBNAME}/${J}.${JOBNAME}.cartesian.cif2"
+	case "$SCFCALCPROG" in
+		Gaussian|Orca|OCC|elmodb)
+			if [[ "${POWDER_HAR:-false}" != "true" && "${J:-0}" -gt 0 && -s "$final_cartesian_cif" ]]; then
+				echo "   ! Process the final refined Cartesian CIF without coordinate rounding" >> stdin
+				echo "   CIF= {" >> stdin
+				echo "       file_name= $final_cartesian_cif" >> stdin
+				echo "    }" >> stdin
+				echo "" >> stdin
+				echo "   process_CIF" >> stdin
+				echo "" >> stdin
+				return 0
+			fi
+			;;
+	esac
+	PROCESS_CIF
+}
+
 TONTO_BASIS_SET(){
 	echo "   basis_directory= $BASISSETDIR" >> stdin
 	echo "   basis_name= $BASISSETT" >> stdin
@@ -4914,7 +4940,7 @@ GET_RESIDUALS(){
 		DEFINE_JOB_NAME
 	fi
 	echo "" >> stdin
-		PROCESS_CIF
+		PROCESS_FINAL_REFINED_CIF
 		DEFINE_JOB_NAME
 	if [ "$SCFCALCPROG" = "Tonto" ]; then 
 		TONTO_BASIS_SET

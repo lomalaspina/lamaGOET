@@ -750,6 +750,57 @@ class RunnerRegressionTest(unittest.TestCase):
                 self.assertNotIn('echo "   put_cif"', body)
                 self.assertIn("put_minmax_residual_density", body)
 
+    @unittest.skipUnless(
+        os.name == "posix" and shutil.which("bash"),
+        "final Cartesian CIF selection test requires bash",
+    )
+    def test_final_wavefunction_exports_use_the_exact_external_scf_geometry(self):
+        """Do not round final coordinates through the fractional CIF.
+
+        The wavefunction from external cycle I was evaluated at the Cartesian
+        coordinates emitted by Tonto cycle J.  The final residual/export input
+        must therefore reload J's Cartesian CIF; its fractional counterpart is
+        deliberately formatted to crystallographic precision and can change S
+        while retaining C and the MO energies from the external calculation.
+        """
+        for runner, text in self.runner_text.items():
+            helper = function_body(text, "PROCESS_FINAL_REFINED_CIF")
+            residuals = function_body(text, "GET_RESIDUALS")
+            with self.subTest(runner=runner):
+                self.assertIn("PROCESS_FINAL_REFINED_CIF", residuals)
+                self.assertNotIn("\n\t\tPROCESS_CIF\n", residuals)
+                self.assertIn(".cartesian.cif2", helper)
+                self.assertNotIn(".fractional.cif1", helper)
+
+                definition = (
+                    "PROCESS_CIF(){ printf 'fallback\\n' >> stdin; }\n"
+                    "PROCESS_FINAL_REFINED_CIF(){\n" + helper
+                )
+                with tempfile.TemporaryDirectory() as directory:
+                    cycle = Path(directory) / "9.tonto_cycle.job"
+                    cycle.mkdir()
+                    (cycle / "9.job.cartesian.cif2").write_text(
+                        "data_job\n", encoding="utf-8"
+                    )
+                    script = (
+                        definition
+                        + '\ncd "$1"\n'
+                        + 'SCFCALCPROG="Gaussian"\n'
+                        + 'POWDER_HAR="false"\nJ=9\nJOBNAME="job"\n'
+                        + ': > stdin\nPROCESS_FINAL_REFINED_CIF\ncat stdin\n'
+                    )
+                    result = subprocess.run(
+                        ["bash", "-c", script, "bash", directory],
+                        text=True,
+                        capture_output=True,
+                        check=True,
+                    )
+                    self.assertIn(
+                        "file_name= 9.tonto_cycle.job/9.job.cartesian.cif2",
+                        result.stdout,
+                    )
+                    self.assertNotIn("fallback", result.stdout)
+
     def test_known_option_name_mismatches_are_absent(self):
         for name, text in self.runner_text.items():
             with self.subTest(runner=name):

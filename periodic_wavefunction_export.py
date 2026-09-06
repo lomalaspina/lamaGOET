@@ -312,11 +312,13 @@ def _read_crystal_triangular_blocks(
         opposite = tuple(-value for value in lattice)
         if opposite not in raw:
             raise ExportError(f"{parent_tag} has {lattice} but not its {-np.asarray(lattice)} pair")
-        # CRYSTAL packs the upper triangle of M(R) in the R record and the
-        # lower triangle in the -R record.  This is the same pairing used by
-        # Tonto's historical unzip_triangles implementation.
-        lower = _unzip_lower(raw[opposite], n)
-        upper_source = _unzip_lower(values, n)
+        # Each CRYSTAL record contains the lower triangle of the matrix whose
+        # direct-lattice vector labels that record.  Hermiticity supplies the
+        # upper triangle of M(R) from M(-R)^T.  Keep the R label attached to
+        # its own lower triangle; swapping these records reconstructs M(-R)
+        # and consequently evaluates the Bloch operator at -k.
+        lower = _unzip_lower(values, n)
+        upper_source = _unzip_lower(raw[opposite], n)
         blocks[lattice] = lower + np.tril(upper_source, -1).T
     return blocks
 
