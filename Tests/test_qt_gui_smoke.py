@@ -321,12 +321,71 @@ def main() -> int:
         latest.write_bytes((ROOT / "Tests" / "inputs" / "calc.cif").read_bytes())
         window._refresh_latest_cif()
         assert window._displayed_cif == latest.resolve()
+        refined_uij = {
+            atom.label: atom.u_aniso
+            for atom in window.structure.asymmetric_atoms
+            if atom.u_aniso is not None
+        }
+        refined_fractional = window.structure.asymmetric_atoms[0].fractional
+        final_residual = Path(directory) / "2.my_job.cartesian.cif2"
+        final_text = (ROOT / "Tests" / "inputs" / "calc.cif").read_text(
+            encoding="utf-8"
+        )
+        final_text = final_text.split("loop_\n_atom_site_aniso_label", 1)[0]
+        final_text = final_text.replace("0.5992(7)", "0.5993(7)", 1)
+        final_residual.write_text(final_text, encoding="utf-8")
+        os.utime(final_residual, ns=(latest.stat().st_mtime_ns + 1,) * 2)
+        window._refresh_latest_cif()
+        assert window._displayed_cif == final_residual.resolve()
+        assert window.structure.asymmetric_atoms[0].fractional != refined_fractional
+        assert {
+            atom.label: atom.u_aniso
+            for atom in window.structure.asymmetric_atoms
+            if atom.u_aniso is not None
+        } == refined_uij
+        assert "retained last refinement ADPs" in window.statusBar().currentMessage()
         screenshot = os.environ.get("LAMAGOET_QT_SCREENSHOT")
         if screenshot:
             window.show()
             app.processEvents()
             if not window.grab().save(screenshot):
                 raise RuntimeError(f"could not save Qt screenshot to {screenshot}")
+        # Opening another CIF manually starts a new viewing session.  A later
+        # ADP-free automatic update must not inherit tensors from the old job.
+        window._load_structure(final_residual)
+        assert window._last_structure_with_adps is None
+        next_job_output = Path(directory) / "3.my_job.cartesian.cif2"
+        next_text = final_text.replace("0.5993(7)", "0.5994(7)", 1)
+        next_job_output.write_text(next_text, encoding="utf-8")
+        os.utime(
+            next_job_output,
+            ns=(final_residual.stat().st_mtime_ns + 1,) * 2,
+        )
+        window._refresh_latest_cif()
+        assert window._displayed_cif == next_job_output.resolve()
+        assert not window.structure.has_displacement_parameters()
+
+        # If a complete refinement and the following ADP-free theoretical
+        # output arrive between timer ticks, the intermediate refined CIF is
+        # still used as the ADP source for the newest geometry.
+        batch_refined = Path(directory) / "4.my_job.fractional.cif1"
+        batch_refined.write_bytes(
+            (ROOT / "Tests" / "inputs" / "calc.cif").read_bytes()
+        )
+        batch_final = Path(directory) / "5.my_job.cartesian.cif2"
+        batch_final.write_text(
+            final_text.replace("0.5993(7)", "0.5995(7)", 1),
+            encoding="utf-8",
+        )
+        batch_time = next_job_output.stat().st_mtime_ns + 10
+        os.utime(batch_refined, ns=(batch_time,) * 2)
+        os.utime(batch_final, ns=(batch_time + 1,) * 2)
+        window._refresh_latest_cif()
+        assert window._displayed_cif == batch_final.resolve()
+        assert window.structure.has_displacement_parameters()
+        assert "retained last refinement ADPs" in window.statusBar().currentMessage()
+        window._refresh_latest_cif()
+        assert window._displayed_cif == batch_final.resolve()
         window.close()
 
         cluster_directory = Path(directory) / "cluster"

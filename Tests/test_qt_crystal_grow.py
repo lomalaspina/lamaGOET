@@ -6,6 +6,7 @@ import unittest
 
 from lamagoet_qt.crystal import (
     adp_principal_axes,
+    AtomSite,
     Cell,
     CifError,
     CrystalStructure,
@@ -142,6 +143,49 @@ class CrystalGrowTest(unittest.TestCase):
 
     def test_adp_principal_axes_reject_non_positive_tensor(self):
         self.assertIsNone(adp_principal_axes((0.02, -0.01, 0.03, 0.0, 0.0, 0.0)))
+
+    def test_final_geometry_can_retain_adps_from_last_refinement(self):
+        previous = self.structure
+        final_atoms = [
+            AtomSite(
+                atom.label,
+                atom.element,
+                (
+                    atom.fractional[0] + 0.0001,
+                    atom.fractional[1],
+                    atom.fractional[2],
+                ),
+                atom.occupancy,
+                None,
+                None,
+                atom.disorder_group,
+            )
+            for atom in previous.asymmetric_atoms
+        ]
+        final = CrystalStructure(
+            previous.cell,
+            final_atoms,
+            previous.symmetry_operations,
+            previous.space_group_name,
+            previous.space_group_number,
+            Path("final-residual.cif"),
+            previous.space_group_hall,
+        )
+
+        self.assertFalse(final.has_displacement_parameters())
+        displayed, copied = final.with_displacement_parameters_from(previous)
+
+        self.assertEqual(copied, len(final_atoms))
+        self.assertTrue(displayed.has_displacement_parameters())
+        self.assertEqual(
+            displayed.asymmetric_atoms[0].fractional,
+            final.asymmetric_atoms[0].fractional,
+        )
+        self.assertEqual(
+            displayed.asymmetric_atoms[0].u_aniso,
+            previous.asymmetric_atoms[0].u_aniso,
+        )
+        self.assertEqual(displayed.source_path, final.source_path)
 
     def test_exported_geometry_retains_symmetry_and_can_be_reloaded(self):
         visible = self.structure.complete_molecules()

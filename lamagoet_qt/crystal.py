@@ -535,6 +535,68 @@ class CrystalStructure:
     source_path: Path | None = None
     space_group_hall: str = "P 1"
 
+    def has_displacement_parameters(self) -> bool:
+        """Return whether the CIF supplies an ADP for at least one atom."""
+
+        return any(
+            atom.u_aniso is not None or atom.u_iso is not None
+            for atom in self.asymmetric_atoms
+        )
+
+    def with_displacement_parameters_from(
+        self, previous: "CrystalStructure"
+    ) -> tuple["CrystalStructure", int]:
+        """Copy missing ADPs from a preceding structure by atom label.
+
+        The coordinates, cell, symmetry, occupancies and source path always
+        remain those of ``self``.  This is used by the live viewer for a final
+        theoretical/residual CIF, which intentionally has no refined ADPs,
+        while retaining the tensors from the last Tonto refinement cycle.
+        """
+
+        previous_atoms = {
+            (atom.label.casefold(), atom.element.casefold()): atom
+            for atom in previous.asymmetric_atoms
+            if atom.u_aniso is not None or atom.u_iso is not None
+        }
+        copied = 0
+        atoms: list[AtomSite] = []
+        for atom in self.asymmetric_atoms:
+            source = previous_atoms.get(
+                (atom.label.casefold(), atom.element.casefold())
+            )
+            if (
+                source is not None
+                and atom.u_aniso is None
+                and atom.u_iso is None
+            ):
+                atoms.append(
+                    AtomSite(
+                        atom.label,
+                        atom.element,
+                        atom.fractional,
+                        atom.occupancy,
+                        source.u_iso,
+                        source.u_aniso,
+                        atom.disorder_group,
+                    )
+                )
+                copied += 1
+            else:
+                atoms.append(atom)
+        return (
+            CrystalStructure(
+                self.cell,
+                atoms,
+                self.symmetry_operations,
+                self.space_group_name,
+                self.space_group_number,
+                self.source_path,
+                self.space_group_hall,
+            ),
+            copied,
+        )
+
     @classmethod
     def from_cif(cls, path: str | Path) -> "CrystalStructure":
         cif_path = Path(path)

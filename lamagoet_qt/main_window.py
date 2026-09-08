@@ -238,6 +238,7 @@ class MainWindow(QMainWindow):
         self.option_path = Path(option_path).resolve()
         self.saved_options: "OrderedDict[str, str]" = OrderedDict()
         self.structure: CrystalStructure | None = None
+        self._last_structure_with_adps: CrystalStructure | None = None
         self.visible_atoms: list[DisplayAtom] = []
         self.current_grow_description = "asymmetric unit"
         self._displayed_cif: Path | None = None
@@ -2519,6 +2520,25 @@ class MainWindow(QMainWindow):
 
     def _load_structure(self, path: Path, *, automatic: bool = False) -> None:
         structure = CrystalStructure.from_cif(path)
+        retained_adps = 0
+        incoming_has_adps = structure.has_displacement_parameters()
+        if (
+            automatic
+            and not incoming_has_adps
+            and self._last_structure_with_adps is not None
+        ):
+            structure, retained_adps = structure.with_displacement_parameters_from(
+                self._last_structure_with_adps
+            )
+        if automatic:
+            if incoming_has_adps:
+                self._last_structure_with_adps = structure
+        else:
+            # A manually opened CIF starts a new viewing session.  Never let
+            # tensors from the preceding job leak into it.
+            self._last_structure_with_adps = (
+                structure if incoming_has_adps else None
+            )
         atoms = structure.asymmetric_unit()
         self.structure = structure
         self.visible_atoms = atoms
@@ -2531,9 +2551,14 @@ class MainWindow(QMainWindow):
             self._reset_cif_watch_baseline()
         self.viewer.set_structure(structure.cell, atoms)
         prefix = "Automatically refreshed" if automatic else "Loaded"
+        adp_note = (
+            f"; retained last refinement ADPs for {retained_adps} atoms"
+            if retained_adps
+            else ""
+        )
         self.statusBar().showMessage(
             f"{prefix} {path.name}: {len(atoms)} asymmetric-unit atoms; "
-            f"{len(structure.symmetry_operations)} symmetry operations",
+            f"{len(structure.symmetry_operations)} symmetry operations{adp_note}",
             10000,
         )
 
@@ -2583,7 +2608,26 @@ class MainWindow(QMainWindow):
             stamp = (newest.resolve(), modified)
             if stamp == self._latest_cif_stamp:
                 return
+            # A fast external-SCF/residual sequence can create the refined
+            # (ADP-bearing) CIF and the final theoretical CIF between two
+            # timer events.  Remember the newest ADP-bearing member of that
+            # batch before displaying the newest geometry.
+            for candidate, _ in sorted(
+                changed, key=lambda item: item[1], reverse=True
+            ):
+                try:
+                    candidate_structure = CrystalStructure.from_cif(candidate)
+                except (CifError, OSError, ValueError):
+                    continue
+                if candidate_structure.has_displacement_parameters():
+                    self._last_structure_with_adps = candidate_structure
+                    break
             self._load_structure(newest, automatic=True)
+            # The whole batch has now been considered.  Mark every member as
+            # seen so later timer events do not walk backwards through older
+            # CIFs from the same calculation step.
+            for candidate, candidate_modified in changed:
+                self._cif_watch_baseline[candidate.resolve()] = candidate_modified
             self._latest_cif_stamp = stamp
         except (CifError, OSError, ValueError):
             # A Tonto CIF can briefly be incomplete while it is being written.
