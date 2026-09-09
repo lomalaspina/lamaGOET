@@ -598,20 +598,32 @@ class MainWindow(QMainWindow):
         layout.addWidget(physical)
 
         self.crystal_group = QGroupBox("Crystal23 structure options")
-        crystal_layout = QHBoxLayout(self.crystal_group)
+        crystal_layout = QVBoxLayout(self.crystal_group)
+
+        self.crystal_flags_row = QWidget()
+        crystal_flags_layout = QHBoxLayout(self.crystal_flags_row)
+        crystal_flags_layout.setContentsMargins(0, 0, 0, 0)
         self.use_hm_symbol = QCheckBox("Use Hermann–Mauguin symbol")
         self.network_compound = QCheckBox("Network compound outputs")
         self.use_previous_crystal_guess = QCheckBox("Reuse previous-cycle guess")
-        crystal_layout.addWidget(self.use_hm_symbol)
-        crystal_layout.addWidget(self.network_compound)
-        crystal_layout.addWidget(self.use_previous_crystal_guess)
-        crystal_layout.addWidget(QLabel("Rhombohedral setting"))
+        crystal_flags_layout.addWidget(self.use_hm_symbol)
+        crystal_flags_layout.addWidget(self.network_compound)
+        crystal_flags_layout.addWidget(self.use_previous_crystal_guess)
+        crystal_flags_layout.addStretch(1)
+        crystal_layout.addWidget(self.crystal_flags_row)
+
+        self.crystal_parameters_row = QWidget()
+        crystal_parameters_layout = QHBoxLayout(self.crystal_parameters_row)
+        crystal_parameters_layout.setContentsMargins(0, 0, 0, 0)
+        crystal_parameters_layout.addWidget(QLabel("Rhombohedral setting"))
         self.crystal_setting = QComboBox()
         self.crystal_setting.addItem("Automatic from CIF cell", "auto")
         self.crystal_setting.addItem("Hexagonal axes", "h")
         self.crystal_setting.addItem("Rhombohedral axes", "r")
-        crystal_layout.addWidget(self.crystal_setting)
-        crystal_layout.addWidget(QLabel("Integral screening (TOLINTEG)"))
+        crystal_parameters_layout.addWidget(self.crystal_setting)
+        crystal_parameters_layout.addWidget(
+            QLabel("Integral screening (TOLINTEG)")
+        )
         self.crystal_tolinteg = QComboBox()
         self.crystal_tolinteg.setEditable(True)
         self.crystal_tolinteg.addItems(
@@ -623,7 +635,9 @@ class MainWindow(QMainWindow):
             "Exchange basis. This retains every basis function while using "
             "more accurate periodic overlap and integral screening."
         )
-        crystal_layout.addWidget(self.crystal_tolinteg)
+        crystal_parameters_layout.addWidget(self.crystal_tolinteg)
+        crystal_parameters_layout.addStretch(1)
+        crystal_layout.addWidget(self.crystal_parameters_row)
         layout.addWidget(self.crystal_group)
 
         self.stockholder_group = QGroupBox("Density partition")

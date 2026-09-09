@@ -802,12 +802,23 @@ CRYSTAL_GRED_IMPORT_SUPPORTED(){
 	return 0
 }
 
+CRYSTAL_GRED_TONTO_PROATOM_BASIS(){
+	local slater_name=${CRYSTAL_TONTO_SLATER_BASIS_NAME:-Thakkar}
+	# GRED supplies the exact atom-resolved Gaussian AO basis.  Tonto still
+	# needs its independent Slater library for spherical Hirshfeld pro-atoms;
+	# deliberately do not write basis_name here.
+	echo "   basis_directory= $BASISSETDIR" >> stdin
+	echo "   slaterbasis_name= $slater_name" >> stdin
+	echo "" >> stdin
+}
+
 READ_CRYSTAL_WFN(){
         echo "" >> stdin
 #        echo "   read_molden_file $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.molden.input" >> stdin
 ##        echo "   read_CRYSTAL_XML_file $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.XML" >> stdin #this one was the one working before
 ##        echo "   c23_XML_file_name= $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.XML" >> stdin # this is the one working before, exchanging to use the one in the work folder to compat the files.
 	if CRYSTAL_GRED_IMPORT_SUPPORTED; then
+	        CRYSTAL_GRED_TONTO_PROATOM_BASIS
 	        echo "   c23_GRED_file_name= GenerateXML_dat.GRED" >> stdin
 	        echo "   process_cif_and_c23_gred" >> stdin
 	else
@@ -1854,7 +1865,11 @@ SCF_TO_TONTO(){
 		PROCESS_CIF
 		DEFINE_JOB_NAME
                if [[ "$SCFCALCPROG" == "Crystal14" ]]; then
-			NOT_TONTO_BASIS_SET
+			# Native GRED carries the exact atom-resolved Gaussian basis.
+			# Retain the separate Tonto basis only for legacy XML imports.
+			if ! CRYSTAL_GRED_IMPORT_SUPPORTED; then
+				NOT_TONTO_BASIS_SET
+			fi
         	        CHARGE_MULT
         	        READ_CRYSTAL_WFN
                fi
@@ -2757,7 +2772,9 @@ GET_RESIDUALS(){
 		DISPERSION_COEF
 	fi
 	if [ "$SCFCALCPROG" = "Crystal14" ]; then
-		NOT_TONTO_BASIS_SET
+		if ! CRYSTAL_GRED_IMPORT_SUPPORTED; then
+			NOT_TONTO_BASIS_SET
+		fi
 	fi
 		CHARGE_MULT
 	if [ "$SCFCALCPROG" = "Crystal14" ]; then

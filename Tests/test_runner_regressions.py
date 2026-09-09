@@ -177,8 +177,15 @@ class RunnerRegressionTest(unittest.TestCase):
                 self.assertIn("LAMAGOET_CRYSTAL_DENSITY_INTERFACE", support)
                 self.assertIn('MULTIPLICITY:-1', support)
                 self.assertIn("uhf|uks|ublyp", support)
+                proatom = function_body(
+                    text, "CRYSTAL_GRED_TONTO_PROATOM_BASIS"
+                )
+                self.assertIn("basis_directory= $BASISSETDIR", proatom)
+                self.assertIn("slaterbasis_name= $slater_name", proatom)
+                self.assertNotIn('echo "   basis_name=', proatom)
                 crystal = function_body(text, "READ_CRYSTAL_WFN")
                 self.assertIn("if CRYSTAL_GRED_IMPORT_SUPPORTED", crystal)
+                self.assertIn("CRYSTAL_GRED_TONTO_PROATOM_BASIS", crystal)
                 self.assertIn("c23_GRED_file_name= GenerateXML_dat.GRED", crystal)
                 self.assertIn("process_cif_and_c23_gred", crystal)
                 self.assertIn("c23_XML_file_name= GenerateXML.XML", crystal)
@@ -216,6 +223,8 @@ class RunnerRegressionTest(unittest.TestCase):
                 '_lower(){ tr "[:upper:]" "[:lower:]" <<< "$1"; }\n'
                 "CRYSTAL_GRED_IMPORT_SUPPORTED(){\n"
                 + function_body(text, "CRYSTAL_GRED_IMPORT_SUPPORTED")
+                + "CRYSTAL_GRED_TONTO_PROATOM_BASIS(){\n"
+                + function_body(text, "CRYSTAL_GRED_TONTO_PROATOM_BASIS")
                 + "READ_CRYSTAL_WFN(){\n"
                 + function_body(text, "READ_CRYSTAL_WFN")
             )

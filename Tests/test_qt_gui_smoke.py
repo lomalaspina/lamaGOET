@@ -598,6 +598,29 @@ def main() -> int:
         assert not crystal_window.basis.isHidden()
         assert crystal_window.cp2k_group.isHidden()
         assert not crystal_window.crystal_group.isHidden()
+        crystal_layout = crystal_window.crystal_group.layout()
+        assert crystal_layout.indexOf(crystal_window.crystal_flags_row) == 0
+        assert crystal_layout.indexOf(crystal_window.crystal_parameters_row) == 1
+        assert (
+            crystal_window.crystal_setting.parent()
+            is crystal_window.crystal_parameters_row
+        )
+        assert (
+            crystal_window.crystal_tolinteg.parent()
+            is crystal_window.crystal_parameters_row
+        )
+        assert (
+            crystal_window.use_hm_symbol.parent()
+            is crystal_window.crystal_flags_row
+        )
+        assert (
+            crystal_window.network_compound.parent()
+            is crystal_window.crystal_flags_row
+        )
+        assert (
+            crystal_window.use_previous_crystal_guess.parent()
+            is crystal_window.crystal_flags_row
+        )
         assert not crystal_window.stockholder_group.isHidden()
         assert crystal_window.partition_model.isHidden()
         assert not crystal_window.stockholder_model.isHidden()
