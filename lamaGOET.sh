@@ -26,7 +26,9 @@ _lamagoet_publish_latest_cif() {
     local server=${LAMAGOET_LIVE_CIF_SERVER:-}
     local directory=${LAMAGOET_LIVE_CIF_DIRECTORY:-}
     local port=${LAMAGOET_LIVE_CIF_PORT:-2244}
+    local cycle=${1:-${J:-}}
     local candidate
+    local suffix
 
     [[ -n "$server" && -n "$directory" ]] || return 0
     command -v scp >/dev/null 2>&1 || return 0
@@ -36,6 +38,20 @@ _lamagoet_publish_latest_cif() {
         "${JOBNAME}.archive.cif"
     do
         [[ -s "$candidate" ]] || continue
+        case "$candidate" in
+            *.cartesian.cif2) suffix=cartesian.cif2 ;;
+            *.fractional.cif1) suffix=fractional.cif1 ;;
+            *) suffix=archive.cif ;;
+        esac
+        # Keep an immutable, cycle-numbered snapshot as well as the legacy
+        # latest marker. This prevents two fast cluster cycles from becoming
+        # indistinguishable when the same remote file is overwritten.
+        if [[ "$cycle" =~ ^[0-9]+$ ]]; then
+            scp -q -o BatchMode=yes -o ConnectTimeout=10 -P "$port" "$candidate" \
+                "${server}:${directory}/${cycle}.${JOBNAME}.${suffix}" || {
+                printf 'lamaGOET: warning: could not publish Tonto CIF for cycle %s\n' "$cycle" >&2
+            }
+        fi
         scp -q -o BatchMode=yes -o ConnectTimeout=10 -P "$port" "$candidate" \
             "${server}:${directory}/${JOBNAME}.latest_tonto.cif" || {
             printf 'lamaGOET: warning: could not publish the latest Tonto CIF to the submitting computer\n' >&2
@@ -1477,6 +1493,7 @@ CP2K_FINAL_RESIDUALS() {
     done
     awk '{a[NR]=$0}/^Residual density data/{b=NR}/^Wall-clock time taken for job/{c=NR}END{for(d=b-2;d<c-1;++d)print a[d]}' stdout >> "${JOBNAME}.lst"
     echo "Final molecular .47/.wfn/.wfx export skipped: a periodic CP2K wavefunction is represented by TREXIO instead." >> "${JOBNAME}.lst"
+    _lamagoet_publish_latest_cif final
 }
 
 CP2K_RUN_HAR() {
@@ -5120,6 +5137,7 @@ GET_RESIDUALS(){
 			cp -- "$periodic_artifact" "$J.tonto_cycle.$JOBNAME/$J.$periodic_artifact"
 		done
 	fi
+	_lamagoet_publish_latest_cif final
 }
 
 PERIODIC_XCW_PREPARE_INPUT_GEOMETRY(){

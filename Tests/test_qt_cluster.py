@@ -55,7 +55,9 @@ class ClusterSubmissionTest(unittest.TestCase):
         for filename in ("RUN_lamaGOET_release.sh", "lamaGOET.sh"):
             text = (root / filename).read_text(encoding="utf-8")
             self.assertIn("_lamagoet_publish_latest_cif()", text)
-            self.assertEqual(text.count("_lamagoet_publish_latest_cif"), 2)
+            self.assertGreaterEqual(text.count("_lamagoet_publish_latest_cif"), 3)
+            self.assertIn("_lamagoet_publish_latest_cif final", text)
+            self.assertIn("${cycle}.${JOBNAME}.${suffix}", text)
             self.assertIn("${JOBNAME}.latest_tonto.cif", text)
             self.assertIn("BatchMode=yes", text)
 

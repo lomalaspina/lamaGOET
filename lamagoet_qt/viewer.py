@@ -5,7 +5,7 @@ from __future__ import annotations
 import math
 from typing import Sequence
 
-from PySide6.QtCore import QPoint, QPointF, Qt, Signal
+from PySide6.QtCore import QPoint, QPointF, QRectF, Qt, Signal
 from PySide6.QtGui import (
     QColor,
     QImage,
@@ -109,7 +109,7 @@ class StructureView(QWidget):
         self._last_mouse = QPoint()
         self._drag_button = Qt.MouseButton.NoButton
         self._projected: list[tuple[float, float, float, float]] = []
-        self.selected_index: int | None = None
+        self._selected_indices: list[int] = []
         self.show_cell = True
         self.show_labels = False
         self.show_ellipsoids = False
@@ -123,7 +123,8 @@ class StructureView(QWidget):
         self.cell = cell
         self.atoms = list(atoms)
         self.bonds = infer_bonds(self.atoms) if len(self.atoms) <= 1400 else []
-        self.selected_index = None
+        self._selected_indices.clear()
+        self.atom_selected.emit(None)
         if refit:
             self.reset_view()
         else:
@@ -136,27 +137,55 @@ class StructureView(QWidget):
         self.pan = QPointF(0.0, 0.0)
         self.update()
 
+    @property
+    def selected_indices(self) -> tuple[int, ...]:
+        """Return the selected atom indices in click order."""
+
+        return tuple(self._selected_indices)
+
+    @property
+    def selected_index(self) -> int | None:
+        """Return the most recently selected index for single-atom callers."""
+
+        return self._selected_indices[-1] if self._selected_indices else None
+
+    @selected_index.setter
+    def selected_index(self, index: int | None) -> None:
+        """Retain compatibility with callers that set one selected index."""
+
+        self._selected_indices = [] if index is None else [index]
+
+    def selected_atoms(self) -> list[DisplayAtom]:
+        """Return selected atoms in click order."""
+
+        return [
+            self.atoms[index]
+            for index in self._selected_indices
+            if 0 <= index < len(self.atoms)
+        ]
+
     def selected_atom(self) -> DisplayAtom | None:
-        if self.selected_index is None or self.selected_index >= len(self.atoms):
-            return None
-        return self.atoms[self.selected_index]
+        selected = self.selected_atoms()
+        return selected[-1] if selected else None
 
     def clear_selection(self) -> None:
-        self.selected_index = None
+        self._selected_indices.clear()
         self.atom_selected.emit(None)
         self.update()
 
     def select_index(self, index: int) -> None:
-        """Select an atom, or toggle it off when it is already selected."""
+        """Add an atom to the ordered selection, or toggle it off."""
 
-        if index == self.selected_index:
-            self.clear_selection()
-            return
         if not 0 <= index < len(self.atoms):
             self.clear_selection()
             return
-        self.selected_index = index
-        self.atom_selected.emit(self.atoms[index])
+        if index in self._selected_indices:
+            self._selected_indices.remove(index)
+        elif len(self._selected_indices) >= 3:
+            self._selected_indices = [index]
+        else:
+            self._selected_indices.append(index)
+        self.atom_selected.emit(self.selected_atom())
         self.update()
 
     def _center_and_extent(self) -> tuple[tuple[float, float, float], float]:
@@ -578,7 +607,7 @@ class StructureView(QWidget):
                 painter.drawPolyline(QPolygonF(visible_run))
 
         if len(hull) >= 3:
-            if index == self.selected_index:
+            if index in self._selected_indices:
                 painter.setPen(QPen(QColor("#ffd35a"), 3.0))
             else:
                 outline = QColor(color).darker(185)
@@ -653,7 +682,7 @@ class StructureView(QWidget):
                     label_extent = rendered_extent
                     ellipsoid_drawn = True
             if not ellipsoid_drawn:
-                if index == self.selected_index:
+                if index in self._selected_indices:
                     painter.setPen(QPen(QColor("#ffd35a"), 3.0))
                 else:
                     painter.setPen(QPen(color.lighter(145), 1.0))
@@ -671,6 +700,30 @@ class StructureView(QWidget):
                 painter.setPen(QColor("#edf3f7"))
                 painter.drawText(
                     QPointF(x + label_extent + 2, y - label_extent), atom.label
+                )
+            if index in self._selected_indices:
+                # Number the picks on the structure itself so the A-B-C order
+                # remains unambiguous, including when symmetry-related images
+                # carry the same crystallographic atom label.
+                selection_order = self._selected_indices.index(index) + 1
+                badge_radius = 8.0
+                badge_x = x - label_extent - badge_radius * 0.35
+                badge_y = y - label_extent - badge_radius * 0.35
+                painter.setPen(QPen(QColor("#5c4300"), 1.0))
+                painter.setBrush(QColor("#ffd35a"))
+                painter.drawEllipse(
+                    QPointF(badge_x, badge_y), badge_radius, badge_radius
+                )
+                painter.setPen(QColor("#241b00"))
+                painter.drawText(
+                    QRectF(
+                        badge_x - badge_radius,
+                        badge_y - badge_radius,
+                        badge_radius * 2.0,
+                        badge_radius * 2.0,
+                    ),
+                    Qt.AlignmentFlag.AlignCenter,
+                    str(selection_order),
                 )
         painter.end()
 

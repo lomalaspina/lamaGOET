@@ -2,6 +2,7 @@
 """Construct every main widget and exercise growth without showing a window."""
 
 from pathlib import Path
+import math
 import os
 import sys
 import tempfile
@@ -20,6 +21,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 from lamagoet_qt.main_window import MainWindow
+from lamagoet_qt.crystal import Cell, DisplayAtom
 from lamagoet_qt.job_options import load_job_options
 
 
@@ -231,16 +233,61 @@ def main() -> int:
             for atom in window.visible_atoms
         }
         assert vdw_coordinates.issubset(completed_coordinates)
+        measurement_atoms = [
+            DisplayAtom("A", "C", (0.0, 0.0, 0.0), (0.0, 0.0, 0.0), 0, 0),
+            DisplayAtom("B", "C", (0.1, 0.0, 0.0), (1.0, 0.0, 0.0), 1, 0),
+            DisplayAtom("C", "C", (0.1, 0.1, 0.0), (1.0, 1.0, 0.0), 2, 0),
+            DisplayAtom("D", "C", (0.0, 0.1, 0.0), (0.0, 1.0, 0.0), 3, 0),
+        ]
+        window.viewer.set_structure(
+            Cell.from_parameters(10.0, 10.0, 10.0, 90.0, 90.0, 90.0),
+            measurement_atoms,
+        )
         window.viewer.select_index(0)
-        assert window.viewer.selected_index == 0
-        window.viewer.select_index(0)
-        assert window.viewer.selected_index is None
+        window.viewer.select_index(1)
+        assert window.viewer.selected_indices == (0, 1)
+        assert [atom.label for atom in window.viewer.selected_atoms()] == ["A", "B"]
+        assert "Distance A–B" in window.atom_status.text()
+        assert "1.0000 Å" in window.atom_status.text()
+        window.viewer.select_index(2)
+        assert window.viewer.selected_indices == (0, 1, 2)
+        assert [atom.label for atom in window.viewer.selected_atoms()] == [
+            "A",
+            "B",
+            "C",
+        ]
+        assert "Angle A–B–C" in window.atom_status.text()
+        assert "vertex B" in window.atom_status.text()
+        assert "90.000°" in window.atom_status.text()
+        window.viewer.select_index(3)
+        assert window.viewer.selected_indices == (3,)
+        assert "Selected 1: D" in window.atom_status.text()
+        window.viewer.select_index(3)
+        assert window.viewer.selected_indices == ()
         assert window.atom_status.text() == "No atom selected"
-        window.viewer.select_index(0)
+
+        for index in (0, 2, 1):
+            window.viewer.select_index(index)
+        assert window.viewer.selected_indices == (0, 2, 1)
+        assert [atom.label for atom in window.viewer.selected_atoms()] == [
+            "A",
+            "C",
+            "B",
+        ]
+        assert "Angle A–C–B" in window.atom_status.text()
+        assert "vertex C" in window.atom_status.text()
+        assert "45.000°" in window.atom_status.text()
         window.viewer.keyPressEvent(
             QKeyEvent(QEvent.Type.KeyPress, Qt.Key.Key_Escape, Qt.KeyboardModifier.NoModifier)
         )
         assert window.viewer.selected_index is None
+        assert window.viewer.selected_indices == ()
+        assert window.viewer.selected_atoms() == []
+        assert window.atom_status.text() == "No atom selected"
+
+        # Restore the crystallographic model after the synthetic measurement
+        # geometry so radius growth still exercises the loaded CIF.
+        window._load_cif_from_field()
         window.viewer.selected_index = 0
         window.grow_mode.setCurrentIndex(window.grow_mode.findData("radius"))
         window.apply_grow()
@@ -365,9 +412,9 @@ def main() -> int:
         assert window._displayed_cif == next_job_output.resolve()
         assert not window.structure.has_displacement_parameters()
 
-        # If a complete refinement and the following ADP-free theoretical
-        # output arrive between timer ticks, the intermediate refined CIF is
-        # still used as the ADP source for the newest geometry.
+        # If two numbered cycle outputs arrive between timer ticks, show both
+        # in order. The ADP-bearing refinement is then also the tensor source
+        # for the following ADP-free theoretical geometry.
         batch_refined = Path(directory) / "4.my_job.fractional.cif1"
         batch_refined.write_bytes(
             (ROOT / "Tests" / "inputs" / "calc.cif").read_bytes()
@@ -381,12 +428,67 @@ def main() -> int:
         os.utime(batch_refined, ns=(batch_time,) * 2)
         os.utime(batch_final, ns=(batch_time + 1,) * 2)
         window._refresh_latest_cif()
+        assert window._displayed_cif == batch_refined.resolve()
+        assert window.structure.has_displacement_parameters()
+        assert "Tonto cycle 4" in window.structure_status.text()
+        window._refresh_latest_cif()
         assert window._displayed_cif == batch_final.resolve()
         assert window.structure.has_displacement_parameters()
+        assert "Tonto cycle 5" in window.structure_status.text()
         assert "retained last refinement ADPs" in window.statusBar().currentMessage()
         window._refresh_latest_cif()
         assert window._displayed_cif == batch_final.resolve()
         window.close()
+
+        # A remotely running calculation overwrites one stable live-CIF path
+        # on every cycle.  Exercise three such updates, including same-size
+        # contents with an intentionally unchanged modification timestamp.
+        refresh_directory = Path(directory) / "same-path-live-refresh"
+        refresh_directory.mkdir()
+        refresh_window = MainWindow(refresh_directory / "job_options.txt")
+        refresh_window.job_name.setText("my_job")
+        refresh_window.cif_path.setText(str(ROOT / "Tests" / "inputs" / "calc.cif"))
+        refresh_window._load_cif_from_field()
+        refresh_window.viewer.select_index(0)
+        refresh_window.viewer.select_index(1)
+        assert "Distance" in refresh_window.atom_status.text()
+
+        live_cif = refresh_directory / "my_job.latest_tonto.cif"
+        source_text = (ROOT / "Tests" / "inputs" / "calc.cif").read_text(
+            encoding="utf-8"
+        )
+        cycle_texts = [
+            source_text.replace("0.5992(7)", f"0.599{cycle}(7)", 1)
+            for cycle in (3, 4, 5)
+        ]
+        assert len({len(text.encode("utf-8")) for text in cycle_texts}) == 1
+        forced_mtime = (ROOT / "Tests" / "inputs" / "calc.cif").stat().st_mtime_ns
+        for cycle, (expected_x, cycle_text) in enumerate(
+            zip((0.5993, 0.5994, 0.5995), cycle_texts),
+            start=1,
+        ):
+            live_cif.write_text(cycle_text, encoding="utf-8")
+            os.utime(live_cif, ns=(forced_mtime, forced_mtime))
+            refresh_window._refresh_latest_cif()
+
+            assert refresh_window._displayed_cif == live_cif.resolve()
+            assert math.isclose(
+                refresh_window.structure.asymmetric_atoms[0].fractional[0],
+                expected_x,
+            )
+            assert math.isclose(refresh_window.visible_atoms[0].fractional[0], expected_x)
+            assert math.isclose(
+                refresh_window.viewer.atoms[0].fractional[0], expected_x
+            )
+            assert refresh_window.viewer.selected_indices == ()
+            assert refresh_window.viewer.selected_atoms() == []
+            assert refresh_window.atom_status.text() == "No atom selected"
+            assert (
+                f"Live structure update {cycle}"
+                in refresh_window.structure_status.text()
+            )
+            assert live_cif.name in refresh_window.structure_status.text()
+        refresh_window.close()
 
         cluster_directory = Path(directory) / "cluster"
         cluster_directory.mkdir()

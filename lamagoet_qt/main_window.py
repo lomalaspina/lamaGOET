@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections import OrderedDict
+import hashlib
 import math
 import os
 import platform
@@ -242,9 +243,10 @@ class MainWindow(QMainWindow):
         self.visible_atoms: list[DisplayAtom] = []
         self.current_grow_description = "asymmetric unit"
         self._displayed_cif: Path | None = None
-        self._latest_cif_stamp: tuple[Path, int] | None = None
+        self._latest_cif_stamp: tuple[Path, tuple[int, int, str | None]] | None = None
         self._initial_cif: Path | None = None
-        self._cif_watch_baseline: dict[Path, int] = {}
+        self._cif_watch_baseline: dict[Path, tuple[int, int, str | None]] = {}
+        self._live_cif_update_count = 0
         self.local_process: subprocess.Popen | None = None
         self.cluster_job_id: str | None = None
         self._build_ui()
@@ -1711,11 +1713,18 @@ class MainWindow(QMainWindow):
         self.follow_latest_cif = QCheckBox("Follow latest Tonto CIF")
         self.follow_latest_cif.setChecked(True)
         self.follow_latest_cif.setToolTip(
-            "Reloads the newest local *.cif or *.cif2 written in the calculation tree."
+            "Reloads the newest local *.cif or *.cif2 written after each completed "
+            "Tonto fit cycle. The structure source shown below confirms each reload."
         )
         display_controls.addWidget(self.follow_latest_cif, 1, 3, 1, 2)
+        self.structure_status = QLabel("Structure: no CIF loaded")
+        self.structure_status.setTextInteractionFlags(
+            Qt.TextInteractionFlag.TextSelectableByMouse
+        )
+        display_controls.addWidget(self.structure_status, 2, 0, 1, 5)
         self.atom_status = QLabel("No atom selected")
-        display_controls.addWidget(self.atom_status, 2, 0, 1, 5)
+        self.atom_status.setWordWrap(True)
+        display_controls.addWidget(self.atom_status, 3, 0, 1, 5)
         display_controls.setColumnStretch(3, 1)
         layout.addWidget(self._control_strip(display_controls))
 
@@ -1727,7 +1736,10 @@ class MainWindow(QMainWindow):
         bottom = QHBoxLayout()
         help_text = QLabel(
             "Left-drag rotates • wheel zooms • right/middle-drag pans • click an "
-            "atom to use radius growth. Export keeps the source unit cell and space "
+            "atom to select it. Two ordered clicks measure a distance; three measure "
+            "A–B–C with B as the angle vertex. A fourth atom starts a new selection; "
+            "Esc clears it. The last selected atom is used for radius growth. Export "
+            "keeps the source unit cell and space "
             "group while adding the displayed atoms to the QM starting fragment."
         )
         help_text.setWordWrap(True)
@@ -2559,12 +2571,26 @@ class MainWindow(QMainWindow):
         self.current_grow_description = self.UNGROWN_DESCRIPTION
         self._displayed_cif = path.resolve()
         if automatic:
-            self._cif_watch_baseline[path.resolve()] = path.stat().st_mtime_ns
+            self._cif_watch_baseline[path.resolve()] = self._cif_file_stamp(path)
         else:
             self._initial_cif = path.resolve()
+            self._live_cif_update_count = 0
             self._reset_cif_watch_baseline()
-        self.viewer.set_structure(structure.cell, atoms)
+        # During a running refinement preserve the user's orientation, zoom,
+        # and pan.  Small coordinate changes were previously easy to miss
+        # because every automatic reload reset the camera to the same view.
+        self.viewer.set_structure(structure.cell, atoms, refit=not automatic)
         prefix = "Automatically refreshed" if automatic else "Loaded"
+        if automatic:
+            self._live_cif_update_count += 1
+            cycle = self._cif_cycle_number(path)
+            cycle_text = f" — Tonto cycle {cycle}" if cycle is not None else ""
+            self.structure_status.setText(
+                f"Live structure update {self._live_cif_update_count}{cycle_text}: "
+                f"{path.name}"
+            )
+        else:
+            self.structure_status.setText(f"Initial structure: {path.name}")
         adp_note = (
             f"; retained last refinement ADPs for {retained_adps} atoms"
             if retained_adps
@@ -2574,6 +2600,64 @@ class MainWindow(QMainWindow):
             f"{prefix} {path.name}: {len(atoms)} asymmetric-unit atoms; "
             f"{len(structure.symmetry_operations)} symmetry operations{adp_note}",
             10000,
+        )
+
+    @staticmethod
+    def _cif_cycle_number(path: Path) -> int | None:
+        """Return the Tonto cycle encoded in an output path, if present."""
+
+        for value in (path.name, *(parent.name for parent in path.parents[:2])):
+            match = re.match(r"^(\d+)\.", value)
+            if match:
+                return int(match.group(1))
+        return None
+
+    def _cif_file_stamp(self, path: Path) -> tuple[int, int, str | None]:
+        """Create a stable change signature for a watched Tonto CIF.
+
+        Numbered cycle snapshots are immutable, so their metadata is enough.
+        The root output and cluster ``latest_tonto`` marker are overwritten in
+        place; include a compact content digest so an equal-size rewrite with a
+        preserved/coarse filesystem timestamp is still detected.
+        """
+
+        details = path.stat()
+        numbered_snapshot = re.match(r"^\d+\.", path.name) is not None
+        digest = None if numbered_snapshot else self._cif_content_digest(path)
+        return details.st_mtime_ns, details.st_size, digest
+
+    @staticmethod
+    def _cif_content_digest(path: Path) -> str:
+        checksum = hashlib.blake2b(digest_size=16)
+        with path.open("rb") as stream:
+            for block in iter(lambda: stream.read(1024 * 1024), b""):
+                checksum.update(block)
+        return checksum.hexdigest()
+
+    @staticmethod
+    def _cif_format_priority(path: Path) -> int:
+        lower_name = path.name.lower()
+        if lower_name.endswith("cartesian.cif2"):
+            return 3
+        if lower_name.endswith("fractional.cif1"):
+            return 2
+        if lower_name.endswith("archive.cif"):
+            return 1
+        return 0
+
+    @classmethod
+    def _cif_candidate_rank(
+        cls, item: tuple[Path, tuple[int, int, str | None]]
+    ) -> tuple[int, int, int, str]:
+        """Order changed CIFs deterministically, including timestamp ties."""
+
+        path, stamp = item
+        cycle = cls._cif_cycle_number(path)
+        return (
+            stamp[0],
+            cycle if cycle is not None else -1,
+            cls._cif_format_priority(path),
+            str(path),
         )
 
     def _tonto_output_candidates(self) -> list[Path]:
@@ -2598,10 +2682,10 @@ class MainWindow(QMainWindow):
 
     def _reset_cif_watch_baseline(self) -> None:
         self._latest_cif_stamp = None
-        baseline: dict[Path, int] = {}
+        baseline: dict[Path, tuple[int, int, str | None]] = {}
         try:
             for path in self._tonto_output_candidates():
-                baseline[path.resolve()] = path.stat().st_mtime_ns
+                baseline[path.resolve()] = self._cif_file_stamp(path)
         except OSError:
             pass
         self._cif_watch_baseline = baseline
@@ -2610,24 +2694,65 @@ class MainWindow(QMainWindow):
         if not self.follow_latest_cif.isChecked() or self._initial_cif is None:
             return
         try:
-            changed: list[tuple[Path, int]] = []
+            changed: list[tuple[Path, tuple[int, int, str | None]]] = []
             for path in self._tonto_output_candidates():
                 resolved = path.resolve()
-                modified = path.stat().st_mtime_ns
-                if self._cif_watch_baseline.get(resolved) != modified:
-                    changed.append((path, modified))
+                stamp = self._cif_file_stamp(path)
+                if self._cif_watch_baseline.get(resolved) != stamp:
+                    changed.append((path, stamp))
             if not changed:
                 return
-            newest, modified = max(changed, key=lambda item: item[1])
-            stamp = (newest.resolve(), modified)
-            if stamp == self._latest_cif_stamp:
+
+            # A cluster runner now publishes immutable numbered snapshots.  If
+            # several cycles arrive between timer ticks, consume the oldest
+            # unseen cycle first instead of collapsing the whole batch to the
+            # newest file. Root/latest aliases identical to that snapshot are
+            # marked with it; a different alias (for example final residuals)
+            # remains pending for the next tick.
+            numbered_cycles = sorted(
+                {
+                    cycle
+                    for path, _ in changed
+                    if (cycle := self._cif_cycle_number(path)) is not None
+                }
+            )
+            if numbered_cycles:
+                selected_cycle = numbered_cycles[0]
+                considered = [
+                    item
+                    for item in changed
+                    if self._cif_cycle_number(item[0]) == selected_cycle
+                ]
+                newest, newest_stamp = max(
+                    considered,
+                    key=lambda item: (
+                        self._cif_format_priority(item[0]),
+                        item[1][0],
+                        str(item[0]),
+                    ),
+                )
+                selected_digest = self._cif_content_digest(newest)
+                considered.extend(
+                    item
+                    for item in changed
+                    if self._cif_cycle_number(item[0]) is None
+                    and item[1][2] == selected_digest
+                )
+            else:
+                considered = changed
+                newest, newest_stamp = max(
+                    considered, key=self._cif_candidate_rank
+                )
+
+            display_stamp = (newest.resolve(), newest_stamp)
+            if display_stamp == self._latest_cif_stamp:
                 return
             # A fast external-SCF/residual sequence can create the refined
             # (ADP-bearing) CIF and the final theoretical CIF between two
             # timer events.  Remember the newest ADP-bearing member of that
             # batch before displaying the newest geometry.
             for candidate, _ in sorted(
-                changed, key=lambda item: item[1], reverse=True
+                considered, key=self._cif_candidate_rank, reverse=True
             ):
                 try:
                     candidate_structure = CrystalStructure.from_cif(candidate)
@@ -2640,9 +2765,9 @@ class MainWindow(QMainWindow):
             # The whole batch has now been considered.  Mark every member as
             # seen so later timer events do not walk backwards through older
             # CIFs from the same calculation step.
-            for candidate, candidate_modified in changed:
+            for candidate, candidate_modified in considered:
                 self._cif_watch_baseline[candidate.resolve()] = candidate_modified
-            self._latest_cif_stamp = stamp
+            self._latest_cif_stamp = display_stamp
         except (CifError, OSError, ValueError):
             # A Tonto CIF can briefly be incomplete while it is being written.
             # The next timer event retries after the file settles.
@@ -3839,12 +3964,48 @@ class MainWindow(QMainWindow):
         self.statusBar().showMessage("Job termination requested", 10000)
 
     def _atom_selected(self, atom: DisplayAtom | None) -> None:
-        if atom is None:
+        selected = self.viewer.selected_atoms()
+        if not selected:
             self.atom_status.setText("No atom selected")
             return
-        x, y, z = atom.fractional
+        if len(selected) == 1:
+            atom = selected[0]
+            x, y, z = atom.fractional
+            self.atom_status.setText(
+                f"Selected 1: {atom.label} ({atom.element})  "
+                f"[{x:.4f}, {y:.4f}, {z:.4f}]"
+            )
+            return
+        if len(selected) == 2:
+            left, right = selected
+            distance = math.dist(left.cartesian, right.cartesian)
+            self.atom_status.setText(
+                f"Distance {left.label}–{right.label}: {distance:.4f} Å"
+            )
+            return
+
+        first, vertex, third = selected
+        left_vector = tuple(
+            first.cartesian[axis] - vertex.cartesian[axis] for axis in range(3)
+        )
+        right_vector = tuple(
+            third.cartesian[axis] - vertex.cartesian[axis] for axis in range(3)
+        )
+        left_length = math.sqrt(sum(value * value for value in left_vector))
+        right_length = math.sqrt(sum(value * value for value in right_vector))
+        if left_length <= 1.0e-12 or right_length <= 1.0e-12:
+            self.atom_status.setText(
+                f"Angle {first.label}–{vertex.label}–{third.label} "
+                f"(vertex {vertex.label}): undefined for coincident atoms"
+            )
+            return
+        cosine = sum(
+            left_vector[axis] * right_vector[axis] for axis in range(3)
+        ) / (left_length * right_length)
+        angle = math.degrees(math.acos(max(-1.0, min(1.0, cosine))))
         self.atom_status.setText(
-            f"Selected {atom.label} ({atom.element})  [{x:.4f}, {y:.4f}, {z:.4f}]"
+            f"Angle {first.label}–{vertex.label}–{third.label} "
+            f"(vertex {vertex.label}): {angle:.3f}°"
         )
 
     def _display_changed(self) -> None:

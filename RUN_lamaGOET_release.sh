@@ -18,7 +18,9 @@ _lamagoet_publish_latest_cif() {
 	local server=${LAMAGOET_LIVE_CIF_SERVER:-}
 	local directory=${LAMAGOET_LIVE_CIF_DIRECTORY:-}
 	local port=${LAMAGOET_LIVE_CIF_PORT:-2244}
+	local cycle=${1:-${J:-}}
 	local candidate
+	local suffix
 
 	[[ -n "$server" && -n "$directory" ]] || return 0
 	command -v scp >/dev/null 2>&1 || return 0
@@ -28,6 +30,19 @@ _lamagoet_publish_latest_cif() {
 		"${JOBNAME}.archive.cif"
 	do
 		[[ -s "$candidate" ]] || continue
+		case "$candidate" in
+			*.cartesian.cif2) suffix=cartesian.cif2 ;;
+			*.fractional.cif1) suffix=fractional.cif1 ;;
+			*) suffix=archive.cif ;;
+		esac
+		# Keep an immutable, cycle-numbered snapshot as well as the legacy
+		# latest marker so the submitting GUI can distinguish every fit.
+		if [[ "$cycle" =~ ^[0-9]+$ ]]; then
+			scp -q -o BatchMode=yes -o ConnectTimeout=10 -P "$port" "$candidate" \
+				"${server}:${directory}/${cycle}.${JOBNAME}.${suffix}" || {
+				printf 'lamaGOET: warning: could not publish Tonto CIF for cycle %s\n' "$cycle" >&2
+			}
+		fi
 		scp -q -o BatchMode=yes -o ConnectTimeout=10 -P "$port" "$candidate" \
 			"${server}:${directory}/${JOBNAME}.latest_tonto.cif" || {
 			printf 'lamaGOET: warning: could not publish the latest Tonto CIF to the submitting computer\n' >&2
@@ -2930,6 +2945,7 @@ GET_RESIDUALS(){
 			cp -- "$periodic_artifact" "$J.tonto_cycle.$JOBNAME/$J.$periodic_artifact"
 		done
 	fi
+	_lamagoet_publish_latest_cif final
 }
 
 PERIODIC_XCW_PREPARE_INPUT_GEOMETRY(){
