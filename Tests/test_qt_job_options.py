@@ -54,6 +54,8 @@ class JobOptionsTest(unittest.TestCase):
         self.assertEqual(values["TONTO"], "tonto")
         self.assertEqual(values["CP2K_DENSITY_INTERFACE"], "native")
         self.assertEqual(values["CRYSTAL_TOLINTEG"], "auto")
+        self.assertEqual(values["BIPOSIZE"], "")
+        self.assertEqual(values["ILASIZE"], "")
         self.assertEqual(values["ACCURACY"], "extreme")
         self.assertEqual(values["PLOT_TONTO"], "false")
         self.assertEqual(values["EXTI"], "no")

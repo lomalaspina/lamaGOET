@@ -4457,10 +4457,16 @@ TONTO_TO_CRYSTAL(){
 ##      echo "END"  >> $JOBNAME.d12 is this extra??
 #       echo "XLGRID"  >> $JOBNAME.d12
 #       echo "SCFDIR"  >> $JOBNAME.d12
-#       echo "BIPOSIZE"  >> $JOBNAME.d12
-#       echo "60000000"  >> $JOBNAME.d12
 #       echo "EXCHSIZE"  >> $JOBNAME.d12
 #       echo "40000000"  >> $JOBNAME.d12
+	if ! _lamagoet_write_crystal_size "$JOBNAME.d12" BIPOSIZE "${BIPOSIZE:-}"; then
+		echo "ERROR: invalid Crystal23 BIPOSIZE setting" | tee -a "$JOBNAME.lst" >&2
+		exit 1
+	fi
+	if ! _lamagoet_write_crystal_size "$JOBNAME.d12" ILASIZE "${ILASIZE:-}"; then
+		echo "ERROR: invalid Crystal23 ILASIZE setting" | tee -a "$JOBNAME.lst" >&2
+		exit 1
+	fi
         echo "SHRINK"  >> $JOBNAME.d12
         echo "$SHRINKA $SHRINKB"  >> $JOBNAME.d12
 	if [[ -n "$crystal_tolinteg" ]]; then

@@ -31,6 +31,8 @@ def main() -> int:
         options = Path(directory) / "job_options.txt"
         window = MainWindow(options)
         assert window.program.currentData() == "Gaussian"
+        assert window.crystal_biposize.text() == ""
+        assert window.crystal_ilasize.text() == ""
         gaussian_methods = {
             window.method.itemText(index) for index in range(window.method.count())
         }
@@ -328,6 +330,8 @@ def main() -> int:
         window.relativistic.setChecked(True)
         window.h_adp.setChecked(True)
         window.dispersion_correction.setChecked(True)
+        window.crystal_biposize.setText("6340350")
+        window.crystal_ilasize.setText("12000")
         os.environ["LAMAGOET_QT_DRY_RUN"] = "true"
         window.submit_job()
         os.environ.pop("LAMAGOET_QT_DRY_RUN", None)
@@ -351,11 +355,15 @@ def main() -> int:
             "BASISSETDIR",
             "GAUSSIAN_BIN",
             "ORCA_BIN",
+            "BIPOSIZE",
+            "ILASIZE",
         ):
             assert name in saved
         assert saved["GAUSGEN"] == "true"
         assert saved["HADP"] == "yes"
         assert saved["DISP"] == "yes"
+        assert saved["BIPOSIZE"] == "6340350"
+        assert saved["ILASIZE"] == "12000"
         # All fields are emitted, including hidden/default fields needed by
         # shell conditionals. Local mode simply leaves EMAIL empty.
         assert saved["EMAIL"] == ""
@@ -686,6 +694,8 @@ def main() -> int:
             'SCFCALCPROG="Crystal14"\n'
             'METHOD="HSE06"\n'
             'BASISSETG="POB-TZVP-REV2"\n'
+            'BIPOSIZE="6340350"\n'
+            'ILASIZE="12000"\n'
             'CRYSTAL_TONTO_BASIS_NAME="def2-TZVP"\n'
             'PARTITION_MODEL="oc-observed"\n'
             'OBSERVED_DENSITY_SHRINKAGE="0.4"\n'
@@ -732,6 +742,10 @@ def main() -> int:
         assert crystal_window.cluster_group.isHidden()
         assert crystal_window.method.currentText() == "HSE06"
         assert crystal_window.basis.currentText() == "POB-TZVP-REV2"
+        assert crystal_window.crystal_biposize.text() == "6340350"
+        assert crystal_window.crystal_ilasize.text() == "12000"
+        assert crystal_window._current_values()["BIPOSIZE"] == "6340350"
+        assert crystal_window._current_values()["ILASIZE"] == "12000"
         assert crystal_window.crystal_tonto_basis.isHidden()
         crystal_window.external_basis.setChecked(True)
         assert not crystal_window.crystal_tonto_basis.isHidden()

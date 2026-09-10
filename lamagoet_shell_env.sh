@@ -192,8 +192,41 @@ _lamagoet_crystal_tolinteg() {
     printf '%s %s %s %s %s\n' "$1" "$2" "$3" "$4" "$5"
 }
 
+# Validate and append an optional positive-integer CRYSTAL23 size control.
+# Empty values deliberately produce no input record, leaving CRYSTAL's own
+# compiled default in force.  Restrict the keyword name as well as the value
+# because job_options.txt is user-editable and this helper writes input text.
+_lamagoet_write_crystal_size() {
+    local output_file=${1:-}
+    local keyword=${2:-}
+    local requested=${3:-}
+
+    [ -n "$requested" ] || return 0
+    case "$keyword" in
+        BIPOSIZE|ILASIZE) ;;
+        *)
+            printf 'lamaGOET: invalid CRYSTAL23 size keyword: %s\n' "$keyword" >&2
+            return 2
+            ;;
+    esac
+    case "$requested" in
+        *[!0-9]*|"")
+            printf 'lamaGOET: invalid %s: %s (expected a positive integer or blank)\n' \
+                "$keyword" "$requested" >&2
+            return 2
+            ;;
+        *[1-9]*) ;;
+        *)
+            printf 'lamaGOET: invalid %s: %s (expected a positive integer or blank)\n' \
+                "$keyword" "$requested" >&2
+            return 2
+            ;;
+    esac
+    printf '%s\n%s\n' "$keyword" "$requested" >> "$output_file"
+}
+
 export -f _upper _lower _lamagoet_gaussian_method_keyword \
-    _lamagoet_crystal_tolinteg
+    _lamagoet_crystal_tolinteg _lamagoet_write_crystal_size
 
 LAMAGOET_SHELL_ENV_LOADED=1
 export LAMAGOET_SHELL_ENV_LOADED

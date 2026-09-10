@@ -14,7 +14,7 @@ import shutil
 import subprocess
 
 from PySide6.QtCore import QTimer, Qt
-from PySide6.QtGui import QAction, QGuiApplication, QIcon, QPixmap
+from PySide6.QtGui import QAction, QGuiApplication, QIcon, QIntValidator, QPixmap
 from PySide6.QtWidgets import (
     QApplication,
     QButtonGroup,
@@ -1293,6 +1293,26 @@ class MainWindow(QMainWindow):
         form.addRow(self.max_ls_cycles_label, self.max_ls_cycles)
         self.max_xtal_cycles = QLineEdit()
         form.addRow("Maximum Crystal cycles (blank = automatic)", self.max_xtal_cycles)
+        self.crystal_biposize = QLineEdit()
+        self.crystal_biposize.setValidator(
+            QIntValidator(1, 2_147_483_647, self.crystal_biposize)
+        )
+        self.crystal_biposize.setPlaceholderText("blank = CRYSTAL23 default")
+        self.crystal_biposize.setToolTip(
+            "Optional CRYSTAL23 BIPOSIZE buffer length in words. Use the value "
+            "recommended by a GENBUD warning; blank omits the keyword."
+        )
+        form.addRow("Crystal BIPOSIZE", self.crystal_biposize)
+        self.crystal_ilasize = QLineEdit()
+        self.crystal_ilasize.setValidator(
+            QIntValidator(1, 2_147_483_647, self.crystal_ilasize)
+        )
+        self.crystal_ilasize.setPlaceholderText("blank = CRYSTAL23 default (6000)")
+        self.crystal_ilasize.setToolTip(
+            "Optional CRYSTAL23 ILASIZE for the Coulomb-integral ILA array. "
+            "Use a value above the reported limit; blank omits the keyword."
+        )
+        form.addRow("Crystal ILASIZE", self.crystal_ilasize)
         self.supercon = QCheckBox("Use Crystal SUPERCON")
         form.addRow(self.supercon)
         shrink_row = QWidget()
@@ -1952,6 +1972,8 @@ class MainWindow(QMainWindow):
         self.linear_dependence.setText(self._option("LINEDEP"))
         self.max_ls_cycles.setValue(self._int_option("MAXLSCYCLE", 30))
         self.max_xtal_cycles.setText(self._option("MAXXTALCYCLE"))
+        self.crystal_biposize.setText(self._option("BIPOSIZE"))
+        self.crystal_ilasize.setText(self._option("ILASIZE"))
         self.supercon.setChecked(self._bool_option("SUPERCON"))
         self.shrink_a.setValue(self._int_option("SHRINKA", 2))
         self.shrink_b.setValue(self._int_option("SHRINKB", 2))
@@ -3179,6 +3201,8 @@ class MainWindow(QMainWindow):
             "LINEDEP": self.linear_dependence.text().strip(),
             "MAXLSCYCLE": self.max_ls_cycles.value(),
             "MAXXTALCYCLE": self.max_xtal_cycles.text().strip(),
+            "BIPOSIZE": self.crystal_biposize.text().strip(),
+            "ILASIZE": self.crystal_ilasize.text().strip(),
             "SUPERCON": _bool_text(self.supercon.isChecked()),
             "SHRINKA": self.shrink_a.value(),
             "SHRINKB": self.shrink_b.value(),
