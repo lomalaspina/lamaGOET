@@ -42,21 +42,37 @@ full-electron wavefunction.
 ## Crystal23
 
 Crystal23 XML contains the direct-lattice overlap and Fock/Kohn–Sham matrices,
-but not canonical MO coefficients or Gaussian exponents. The exporter:
+but not Gaussian exponents or contractions. The matching formatted GRED file
+does contain the exact atom-resolved basis actually used by Crystal23. The
+exporter therefore:
 
 1. Fourier transforms the paired direct-lattice matrices to each irreducible
    k point.
-2. Solves `F(k) C(k) = S(k) C(k) epsilon(k)` by a Hermitian Cholesky
-   transformation.
-3. Verifies the reconstructed coefficients are overlap-orthonormal.
-4. Combines them with the exact Tonto/Crystal basis-library file selected in
-   the job.
+2. Reads the primitive cell, atoms, shell ordering, exponents and contractions
+   from the matching GRED file. This also supports mixed external/Basis Set
+   Exchange definitions and never treats Crystal23's `GEN` input sentinel as a
+   basis filename.
+3. Solves `F(k) C(k) = S(k) C(k) epsilon(k)` by a Hermitian Cholesky
+   transformation for a full-rank basis.
+4. If and only if the Crystal23 SCF explicitly used `LDREMO=n`, applies the
+   same `n x 10^-5` overlap-rank threshold and exports the common retained
+   orbital subspace. It does not invent virtual orbitals in removed null-space
+   directions.
+5. Verifies the reconstructed coefficients are overlap-orthonormal and checks
+   that XML and GRED have the same cell, atoms and AO dimensions.
 
-The export is rejected if the basis expands to a different number of AOs than
-the XML. The current implementation supports the restricted, one-spin
+The legacy command-line path can still take an exact matching Tonto basis file,
+but lamaGOET jobs use GRED. The export is rejected if the GRED basis expands to
+a different number of AOs than the XML. The current implementation supports the restricted, one-spin
 Crystal23 XML written by the lamaGOET workflow. An unrestricted Crystal23 XML
 is rejected explicitly until both spin matrix blocks have a validated test
 case.
+
+All-electron and periodic suitability are separate requirements. A molecular
+or Basis Set Exchange basis may be all-electron yet contain diffuse functions
+that are numerically linearly dependent in a solid. Prefer a periodic-optimized
+basis and validate the Crystal23 overlap/SCF diagnostics; importing a basis
+manually does not make it periodic-conditioned.
 
 ## Files
 

@@ -101,6 +101,21 @@ class RunnerRegressionTest(unittest.TestCase):
             self.assertIn("basis_name= def2-TZVP", result.stdout)
             self.assertNotIn("basis_name= gen", result.stdout)
 
+    def test_periodic_crystal_export_reads_exact_gred_basis_not_gen_sentinel(self):
+        for name, text in self.runner_text.items():
+            with self.subTest(runner=name):
+                body = function_body(text, "EXPORT_FINAL_PERIODIC_WAVEFUNCTION")
+                self.assertIn("--gred GenerateXML_dat.GRED", body)
+                self.assertIn('--overlap-cutoff "${CRYSTAL_LDREMO}e-5"', body)
+                self.assertNotIn("--basis-file", body)
+                self.assertNotIn('${BASISSETDIR%/}/${BASISSETG}', body)
+
+                finite = function_body(text, "EXPORT_FINAL_FINITE_WAVEFUNCTION")
+                self.assertIn("periodic_file=GenerateXML_dat.GRED", finite)
+                self.assertIn("CRYSTAL_TONTO_BASIS_NAME", finite)
+                self.assertIn('""|gen|external)', finite)
+                self.assertIn("GEN/External are input sentinels", finite)
+
     def test_retained_diamond_46_ao_pair_has_one_crystal_terminator(self):
         example = (
             ROOT
@@ -199,6 +214,58 @@ class RunnerRegressionTest(unittest.TestCase):
                 retention = function_body(text, "CRYSTAL_XML_RETENTION_ENABLED")
                 self.assertIn("LAMAGOET_KEEP_CRYSTAL_XML", retention)
                 self.assertIn("! CRYSTAL_GRED_IMPORT_SUPPORTED", retention)
+                artifact = function_body(text, "CRYSTAL_DENSITY_ARTIFACT_READY")
+                self.assertIn("if CRYSTAL_GRED_IMPORT_SUPPORTED", artifact)
+                self.assertIn("GenerateXML_dat.GRED", artifact)
+                self.assertIn("GenerateXML.XML", artifact)
+                crystal_cycle = function_body(text, "TONTO_TO_CRYSTAL")
+                self.assertIn("CRYSTAL_DENSITY_ARTIFACT_READY", crystal_cycle)
+                self.assertIn(
+                    "did not produce GenerateXML.XML for the legacy XML density interface",
+                    crystal_cycle,
+                )
+
+    @unittest.skipUnless(
+        os.name == "posix" and shutil.which("bash"),
+        "Crystal23 artifact-selection test requires bash",
+    )
+    def test_crystal_har_requires_the_selected_density_artifact(self):
+        cases = (
+            ("gred", "GenerateXML_dat.GRED", "ready"),
+            ("gred", "GenerateXML.XML", "missing"),
+            ("xml", "GenerateXML.XML", "ready"),
+            ("xml", "GenerateXML_dat.GRED", "missing"),
+        )
+        for runner, text in self.runner_text.items():
+            definitions = (
+                '_lower(){ tr "[:upper:]" "[:lower:]" <<< "$1"; }\n'
+                "CRYSTAL_GRED_IMPORT_SUPPORTED(){\n"
+                + function_body(text, "CRYSTAL_GRED_IMPORT_SUPPORTED")
+                + "CRYSTAL_DENSITY_ARTIFACT_READY(){\n"
+                + function_body(text, "CRYSTAL_DENSITY_ARTIFACT_READY")
+            )
+            for interface, artifact, expected in cases:
+                with self.subTest(
+                    runner=runner, interface=interface, artifact=artifact
+                ), tempfile.TemporaryDirectory() as directory:
+                    script = (
+                        definitions
+                        + "METHOD=BLYP\n"
+                        + "MULTIPLICITY=1\n"
+                        + f"LAMAGOET_CRYSTAL_DENSITY_INTERFACE={interface!r}\n"
+                        + f"mkdir -p {str(Path(artifact).parent)!r}\n"
+                        + f"printf artifact > {artifact!r}\n"
+                        + "if CRYSTAL_DENSITY_ARTIFACT_READY; then "
+                        + "echo ready; else echo missing; fi\n"
+                    )
+                    result = subprocess.run(
+                        ["bash", "-c", script],
+                        cwd=directory,
+                        text=True,
+                        capture_output=True,
+                        check=True,
+                    )
+                self.assertEqual(result.stdout.strip(), expected)
 
     @unittest.skipUnless(
         os.name == "posix" and shutil.which("bash"),

@@ -817,6 +817,16 @@ CRYSTAL_GRED_IMPORT_SUPPORTED(){
 	return 0
 }
 
+CRYSTAL_DENSITY_ARTIFACT_READY(){
+	# Validate the artifact selected for Tonto, rather than requiring GRED even
+	# when the user explicitly requested the retained legacy XML interface.
+	if CRYSTAL_GRED_IMPORT_SUPPORTED; then
+		[[ -s GenerateXML_dat.GRED ]]
+	else
+		[[ -s GenerateXML.XML ]]
+	fi
+}
+
 CRYSTAL_GRED_TONTO_PROATOM_BASIS(){
 	local slater_name=${CRYSTAL_TONTO_SLATER_BASIS_NAME:-Thakkar}
 	# GRED supplies the exact atom-resolved Gaussian AO basis.  Tonto still
@@ -988,7 +998,7 @@ NOT_TONTO_BASIS_SET(){
 	# Crystal23 calls an external/custom basis GEN in its .d12 syntax, but GEN
 	# is not a Tonto basis-library entry. Keep the periodic SCF input and the
 	# exact Tonto XML-reconstruction/reference basis as separate choices.
-	if [[ "$SCFCALCPROG" == "Crystal14" && "$GAUSGEN" == "true" ]]; then
+	if [[ "$SCFCALCPROG" == "Crystal14" && "${GAUSGEN:-false}" == "true" ]]; then
 		tonto_basis_name=${CRYSTAL_TONTO_BASIS_NAME:-${BASISSETT:-STO-3G}}
 	fi
 	case "$(_lower "$tonto_basis_name")" in
@@ -1110,7 +1120,8 @@ CRYSTAL_XML_RETENTION_ENABLED(){
 EXPORT_FINAL_PERIODIC_WAVEFUNCTION(){
 	PERIODIC_WAVEFUNCTION_EXPORT_ENABLED || return 0
 	local exporter=${PERIODIC_WAVEFUNCTION_EXPORTER:-$_lamagoet_env_dir/periodic_wavefunction_export.py}
-	local resolved_exporter support_dir python_command output log_file mokp_file basis_file
+	local resolved_exporter support_dir python_command output log_file mokp_file
+	local -a crystal_export_options
 	if [[ ! -f "$exporter" ]] && command -v lamaGOET_periodic_wavefunction_export >/dev/null 2>&1; then
 		exporter=$(command -v lamaGOET_periodic_wavefunction_export)
 	fi
@@ -1141,10 +1152,25 @@ EXPORT_FINAL_PERIODIC_WAVEFUNCTION(){
 				--mokp "$mokp_file" --output "$output" > "$log_file" 2>&1
 			;;
 		Crystal14)
-			basis_file="${BASISSETDIR%/}/${BASISSETG}"
+			if [[ ! -s GenerateXML.XML || ! -s GenerateXML_dat.GRED ]]; then
+				echo "ERROR: Crystal23 periodic export requires the matching final XML and GRED files" | tee -a "$JOBNAME.lst" >&2
+				return 1
+			fi
+			# GRED carries the exact atom-resolved basis used by Crystal23.  In
+			# particular, never interpret the Crystal input sentinel GEN as a
+			# Tonto basis-library file name.
+			crystal_export_options=(
+				--xml GenerateXML.XML
+				--gred GenerateXML_dat.GRED
+				--output "$output"
+			)
+			if [[ -n "${CRYSTAL_LDREMO:-}" ]]; then
+				crystal_export_options+=(
+					--overlap-cutoff "${CRYSTAL_LDREMO}e-5"
+				)
+			fi
 			"$python_command" "$resolved_exporter" crystal23 \
-				--xml GenerateXML.XML --basis-file "$basis_file" \
-				--output "$output" > "$log_file" 2>&1
+				"${crystal_export_options[@]}" > "$log_file" 2>&1
 			;;
 	esac
 	local export_status=$?
@@ -1192,7 +1218,7 @@ EXPORT_FINAL_FINITE_WAVEFUNCTION(){
 			;;
 		Crystal14)
 			source=crystal23
-			periodic_file=GenerateXML.XML
+			periodic_file=GenerateXML_dat.GRED
 			method_value=${FINITE_WAVEFUNCTION_METHOD:-${METHOD:-BLYP}}
 			;;
 	esac
@@ -1201,7 +1227,22 @@ EXPORT_FINAL_FINITE_WAVEFUNCTION(){
 		return 1
 	fi
 	basis_directory=${FINITE_WAVEFUNCTION_BASIS_DIR:-$BASISSETDIR}
-	basis_name=${FINITE_WAVEFUNCTION_BASIS_NAME:-$BASISSETG}
+	basis_name=${FINITE_WAVEFUNCTION_BASIS_NAME:-}
+	case "$(_lower "$basis_name")" in
+		""|gen|external)
+			if [[ "$SCFCALCPROG" == "Crystal14" && "${GAUSGEN:-false}" == "true" ]]; then
+				basis_name=${CRYSTAL_TONTO_BASIS_NAME:-${BASISSETT:-}}
+			else
+				basis_name=${BASISSETT:-${BASISSETG:-}}
+			fi
+			;;
+	esac
+	case "$(_lower "$basis_name")" in
+		""|gen|external)
+			echo "ERROR: select a real full-electron Tonto basis name for the finite calculation; GEN/External are input sentinels, not basis files" | tee -a "$JOBNAME.lst" >&2
+			return 1
+			;;
+	esac
 	if [[ -z "$basis_directory" || -z "$basis_name" ]]; then
 		echo "ERROR: select a full-electron Tonto basis directory and name for the finite calculation" | tee -a "$JOBNAME.lst" >&2
 		return 1
@@ -2280,6 +2321,11 @@ TONTO_TO_CRYSTAL(){
 		echo "TOLINTEG" >> "$JOBNAME.d12"
 		echo "$crystal_tolinteg" >> "$JOBNAME.d12"
 	fi
+	if ! _lamagoet_write_crystal_ldremo "$JOBNAME.d12" \
+		"${CRYSTAL_LDREMO:-}"; then
+		echo "ERROR: invalid Crystal23 LDREMO setting" | tee -a "$JOBNAME.lst" >&2
+		exit 1
+	fi
 #       echo "LEVSHIFT"  >> $JOBNAME.d12
 #       echo "6 1"  >> $JOBNAME.d12
 #       echo "TOLINTEG"  >> $JOBNAME.d12
@@ -2296,39 +2342,51 @@ TONTO_TO_CRYSTAL(){
        	echo "END"  >> $JOBNAME.d12
 #       I=$"1"
 	echo "Running Crystal, cycle number $I" 
-        if [[ "$NUMPROC" != "1" ]]; then
-                cp $JOBNAME.d12 INPUT
-        	mpirun -n $NUMPROC $SCFCALC_BIN >& $JOBNAME.out 	
-        else
-        	if [[ $I -ge 2 && "$USEGUESS" == "true" ]]; then
-	        	$SCFCALC_BIN $JOBNAME $JOBNAME
-		else
-		        $SCFCALC_BIN $JOBNAME
-		fi
+	crystal_restart=""
+	if [[ $I -ge 2 && "$USEGUESS" == "true" ]]; then
+		crystal_restart=$JOBNAME
+	fi
+	if ! _lamagoet_run_crystal23 "$SCFCALC_BIN" "$NUMPROC" \
+		"$JOBNAME" "$crystal_restart"; then
+		echo "ERROR: Crystal23 launcher failed for cycle $I" | tee -a "$JOBNAME.lst" >&2
+		exit 1
 	fi
 	echo "Crystal cycle number $I ended"
 	if ! grep -q 'SCF ENDED - CONVERGENCE ON ENERGY' "$JOBNAME.out"; then
 		if grep -q 'RHOLSK.*BASIS SET LINEARLY DEPENDENT\|CHOLSK.*BASIS SET LINEARLY DEPENDENT' "$JOBNAME.out"; then
-			echo "ERROR: Crystal23 found a numerically linearly dependent periodic basis. For an external basis, use CRYSTAL_TOLINTEG=auto (tested as 8 8 8 8 16) or choose a periodic-optimized basis." | tee -a "$JOBNAME.lst" >&2
+			echo "ERROR: Crystal23 found a numerically linearly dependent periodic basis. CRYSTAL_TOLINTEG=auto provides a screening baseline but cannot condition every molecular basis. Use a periodic-optimized basis (recommended), or inspect a serial EIGS diagnostic and explicitly set CRYSTAL_LDREMO (4 is CRYSTAL's suggested starting diagnostic); LDREMO removes low-overlap directions and changes the effective basis." | tee -a "$JOBNAME.lst" >&2
 		else
-			echo "ERROR: Crystal job finished with error, please check the $I.th out file for more details" | tee -a "$JOBNAME.lst" >&2
+			echo "ERROR: Crystal job finished with error; check $JOBNAME.out and .lamagoet_crystal_mpi/$JOBNAME.scf-wrapper.log" | tee -a "$JOBNAME.lst" >&2
 		fi
 		exit 1
 	fi
         if [[ ! -f GenerateXML.d3  ]]; then
                 echo "CRYAPI_OUT"  > GenerateXML.d3
 	fi
+	# Never accept a properties result left by the preceding HAR cycle.
+	rm -f GenerateXML_dat.GRED GenerateXML_dat.KRED GenerateXML.XML
         echo "Running Crystal properties, cycle number $I" 
         if [[ "$NUMPROC" != "1" ]]; then
-                cp fort.9 $JOBNAME.f9
-                cp fort.98 $JOBNAME.f98
-                runPprop23 $NUMPROC GenerateXML $JOBNAME
+		crystal_parallel_properties_ok=true
+		_lamagoet_run_crystal23_properties "$SCFCALC_BIN" "$NUMPROC" \
+			GenerateXML "$JOBNAME" || crystal_parallel_properties_ok=false
+		if [[ "$crystal_parallel_properties_ok" != "true" ]] || ! CRYSTAL_DENSITY_ARTIFACT_READY; then
+			echo "WARNING: parallel Crystal23 properties failed; retrying properties with one CPU" | tee -a "$JOBNAME.lst" >&2
+			rm -f GenerateXML_dat.GRED GenerateXML_dat.KRED GenerateXML.XML
+			_lamagoet_run_crystal23_properties "$SCFCALC_BIN" 1 \
+				GenerateXML "$JOBNAME"
+		fi
         else
-                runprop23 GenerateXML $JOBNAME
+		_lamagoet_run_crystal23_properties "$SCFCALC_BIN" 1 \
+			GenerateXML "$JOBNAME"
         fi
 	echo "Crystal properties, cycle number $I ended" 
-	if [[ ! -s GenerateXML_dat.GRED ]]; then
-		echo "ERROR: Crystal23 did not produce GenerateXML_dat.GRED; CRYAPI_OUT is required." | tee -a "$JOBNAME.lst" >&2
+	if ! CRYSTAL_DENSITY_ARTIFACT_READY; then
+		if CRYSTAL_GRED_IMPORT_SUPPORTED; then
+			echo "ERROR: Crystal23 did not produce GenerateXML_dat.GRED; check .lamagoet_crystal_mpi/GenerateXML.properties-wrapper.log (CRYAPI_OUT is required)." | tee -a "$JOBNAME.lst" >&2
+		else
+			echo "ERROR: Crystal23 did not produce GenerateXML.XML for the legacy XML density interface; check .lamagoet_crystal_mpi/GenerateXML.properties-wrapper.log." | tee -a "$JOBNAME.lst" >&2
+		fi
 		exit 1
 	fi
         if [[ "$I" == "1" ]]; then
@@ -2348,7 +2406,9 @@ TONTO_TO_CRYSTAL(){
 	cp $JOBNAME.f98 $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.f98
 	cp $JOBNAME.f9 $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.f9
 #       cp $JOBNAME.d3 $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.d3
-	        gzip -c GenerateXML_dat.GRED > "$I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.GRED.gz"
+		if [[ -s GenerateXML_dat.GRED ]]; then
+			gzip -c GenerateXML_dat.GRED > "$I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.GRED.gz"
+		fi
 		if CRYSTAL_XML_RETENTION_ENABLED && [[ -s GenerateXML.XML ]]; then
 			gzip -c GenerateXML.XML > "$I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.XML.gz"
 		else

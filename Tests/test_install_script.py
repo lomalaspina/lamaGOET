@@ -30,6 +30,7 @@ class InstallScriptTest(unittest.TestCase):
         for package in (
             "bc",
             "gawk",
+            "openmpi-bin",
             "python3-venv",
             "libegl1",
             "libgl1",

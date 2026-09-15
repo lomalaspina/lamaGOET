@@ -22,7 +22,7 @@ sys.path.insert(0, str(ROOT))
 
 from lamagoet_qt.main_window import MainWindow
 from lamagoet_qt.crystal import Cell, DisplayAtom
-from lamagoet_qt.job_options import load_job_options
+from lamagoet_qt.job_options import load_job_options, save_job_options
 
 
 def main() -> int:
@@ -33,6 +33,16 @@ def main() -> int:
         assert window.program.currentData() == "Gaussian"
         assert window.crystal_biposize.text() == ""
         assert window.crystal_ilasize.text() == ""
+        assert window.crystal_density_interface.currentData() == "gred"
+        assert window.crystal_ldremo.text() == ""
+        assert window.crystal_group.isHidden()
+        assert window.advanced_har_tab.widget().isAncestorOf(window.crystal_group)
+        assert window.crystal_parallel_bin.text() == ""
+        window.crystal_parallel_bin.setText("/apps/crystal23/runPcry23")
+        assert (
+            window._current_values()["CRYSTAL_PARALLEL_BIN"]
+            == "/apps/crystal23/runPcry23"
+        )
         gaussian_methods = {
             window.method.itemText(index) for index in range(window.method.count())
         }
@@ -160,7 +170,12 @@ def main() -> int:
         assert saved_extinction["EXTINCTION_DISTRIBUTION"] == "lorentzian"
         assert saved_extinction["EXTINCTION_ANISOTROPIC"] == "true"
         assert saved_extinction["EXTINCTION_MEAN_PATH_MM"] == "0.425"
+        assert (
+            saved_extinction["CRYSTAL_PARALLEL_BIN"]
+            == "/apps/crystal23/runPcry23"
+        )
         reloaded = MainWindow(options)
+        assert reloaded.crystal_parallel_bin.text() == "/apps/crystal23/runPcry23"
         assert reloaded.extinction_correction.isChecked()
         assert reloaded.extinction_model.currentData() == "becker-coppens"
         assert reloaded.extinction_type.currentData() == "type-2"
@@ -530,6 +545,7 @@ def main() -> int:
         cp2k_window = MainWindow(cp2k_options)
         assert cp2k_window.program.currentData() == "CP2K"
         assert not cp2k_window.cp2k_group.isHidden()
+        assert not cp2k_window.periodic_basis_warning.isHidden()
         assert cp2k_window.cluster_group.isHidden()
         assert cp2k_window.cp2k_basis.currentText() == "DZVP-MOLOPT-GTH-q4"
         assert cp2k_window.cp2k_basis.count() == 4
@@ -696,6 +712,8 @@ def main() -> int:
             'BASISSETG="POB-TZVP-REV2"\n'
             'BIPOSIZE="6340350"\n'
             'ILASIZE="12000"\n'
+            'CRYSTAL_LDREMO="4"\n'
+            'LAMAGOET_CRYSTAL_DENSITY_INTERFACE="xml"\n'
             'CRYSTAL_TONTO_BASIS_NAME="def2-TZVP"\n'
             'PARTITION_MODEL="oc-observed"\n'
             'OBSERVED_DENSITY_SHRINKAGE="0.4"\n'
@@ -710,9 +728,30 @@ def main() -> int:
         assert not crystal_window.basis.isHidden()
         assert crystal_window.cp2k_group.isHidden()
         assert not crystal_window.crystal_group.isHidden()
+        assert crystal_window.advanced_har_tab.widget().isAncestorOf(
+            crystal_window.crystal_group
+        )
         crystal_layout = crystal_window.crystal_group.layout()
         assert crystal_layout.indexOf(crystal_window.crystal_flags_row) == 0
         assert crystal_layout.indexOf(crystal_window.crystal_parameters_row) == 1
+        assert (
+            crystal_layout.indexOf(crystal_window.crystal_density_interface_row)
+            == 2
+        )
+        assert crystal_layout.indexOf(crystal_window.crystal_ldremo_row) == 3
+        assert crystal_layout.indexOf(crystal_window.crystal_advanced_fields) == 4
+        assert crystal_window.crystal_group.isAncestorOf(
+            crystal_window.max_xtal_cycles
+        )
+        assert crystal_window.crystal_group.isAncestorOf(
+            crystal_window.crystal_biposize
+        )
+        assert crystal_window.crystal_group.isAncestorOf(
+            crystal_window.crystal_ilasize
+        )
+        assert crystal_window.crystal_group.isAncestorOf(crystal_window.supercon)
+        assert crystal_window.crystal_group.isAncestorOf(crystal_window.shrink_a)
+        assert crystal_window.crystal_group.isAncestorOf(crystal_window.shrink_b)
         assert (
             crystal_window.crystal_setting.parent()
             is crystal_window.crystal_parameters_row
@@ -721,6 +760,8 @@ def main() -> int:
             crystal_window.crystal_tolinteg.parent()
             is crystal_window.crystal_parameters_row
         )
+        assert crystal_window.crystal_density_interface.currentData() == "xml"
+        assert crystal_window.crystal_ldremo.text() == "4"
         assert (
             crystal_window.use_hm_symbol.parent()
             is crystal_window.crystal_flags_row
@@ -742,10 +783,14 @@ def main() -> int:
         assert crystal_window.cluster_group.isHidden()
         assert crystal_window.method.currentText() == "HSE06"
         assert crystal_window.basis.currentText() == "POB-TZVP-REV2"
+        assert not crystal_window.periodic_basis_warning.isHidden()
+        assert "all-electron is required" in crystal_window.periodic_basis_warning.text()
+        assert "manual import does not make a basis periodic-safe" in crystal_window.periodic_basis_warning.text()
         assert crystal_window.crystal_biposize.text() == "6340350"
         assert crystal_window.crystal_ilasize.text() == "12000"
         assert crystal_window._current_values()["BIPOSIZE"] == "6340350"
         assert crystal_window._current_values()["ILASIZE"] == "12000"
+        assert crystal_window._current_values()["CRYSTAL_LDREMO"] == "4"
         assert crystal_window.crystal_tonto_basis.isHidden()
         crystal_window.external_basis.setChecked(True)
         assert not crystal_window.crystal_tonto_basis.isHidden()
@@ -754,6 +799,20 @@ def main() -> int:
             crystal_window._current_values()["CRYSTAL_TONTO_BASIS_NAME"]
             == "def2-TZVP"
         )
+        assert (
+            crystal_window._current_values()[
+                "LAMAGOET_CRYSTAL_DENSITY_INTERFACE"
+            ]
+            == "xml"
+        )
+        save_job_options(crystal_options, crystal_window._current_values())
+        assert (
+            load_job_options(crystal_options)[
+                "LAMAGOET_CRYSTAL_DENSITY_INTERFACE"
+            ]
+            == "xml"
+        )
+        assert load_job_options(crystal_options)["CRYSTAL_LDREMO"] == "4"
         crystal_window.crystal_tonto_basis.setEditText("")
         try:
             crystal_window._current_values()
@@ -763,6 +822,22 @@ def main() -> int:
             raise AssertionError(
                 "external Crystal23 basis accepted without a Tonto basis name"
             )
+        crystal_window.crystal_density_interface.setCurrentIndex(
+            crystal_window.crystal_density_interface.findData("gred")
+        )
+        assert crystal_window.crystal_tonto_basis.isHidden()
+        native_crystal_values = crystal_window._current_values()
+        assert (
+            native_crystal_values["LAMAGOET_CRYSTAL_DENSITY_INTERFACE"]
+            == "gred"
+        )
+        assert native_crystal_values["CRYSTAL_TONTO_BASIS_NAME"] == ""
+        crystal_window.program.setCurrentIndex(
+            crystal_window.program.findData("Gaussian")
+        )
+        app.processEvents()
+        assert crystal_window.crystal_group.isHidden()
+        assert crystal_window.periodic_basis_warning.isHidden()
         crystal_window.close()
     app.processEvents()
     print("Qt GUI off-screen smoke test passed")

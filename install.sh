@@ -59,6 +59,7 @@ run_admin env DEBIAN_FRONTEND=noninteractive apt-get install -y \
     grep \
     gzip \
     locales \
+    openmpi-bin \
     openssh-client \
     python3 \
     python3-pip \

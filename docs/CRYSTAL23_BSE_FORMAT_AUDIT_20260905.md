@@ -94,6 +94,12 @@ behaviour is deliberately narrow:
 - `default` explicitly suppresses the record, and five custom positive integer
   values may be entered in the GUI.
 
+`auto` is an integral-screening baseline, not a universal basis conditioner.
+The value above removes the sampled negative overlap eigenvalues for the exact
+Natrolite input audited here, but the result is structure- and basis-dependent.
+In particular, a molecular basis that is too diffuse for a compact periodic
+lattice can remain linearly dependent even when this tighter screening is used.
+
 This is the smallest tested accuracy that makes every sampled overlap matrix
 positive. It does not silently remove functions with `LDREMO`, alter exponents,
 combine S and P shells, or replace the user's chosen basis. The runners also
@@ -128,3 +134,33 @@ git diff --check
 2026-09-05: all 10 basis-export tests passed; all 23 test files in the full
 lamaGOET suite passed, with no skips. Shell syntax, Python compilation and
 `git diff --check` passed. Changes are local and uncommitted.
+
+## Diamond molecular-def2-TZVP follow-up (2026-09-14)
+
+The separate Diamond test
+`Lolo_tests/Sep7/diamond/diamond_PBE_def2tzvp` is not a recurrence of the basis
+renderer defect. The generated input contains the requested
+`TOLINTEG 8 8 8 8 16`, and CRYSTAL reads 22 shells and 62 spherical AOs for the
+two-carbon primitive cell before reporting `RHOLSK: BASIS SET LINEARLY
+DEPENDENT`.
+
+Isolated EIGS/SCF probes established the following boundary:
+
+- `8 8 8 8 16`, `10 10 10 10 20`, and `11 11 11 11 22` retain negative overlap
+  eigenvalues or fail RHOLSK/CHOLSK;
+- `12 12 12 12 24` removes the sampled negative overlap eigenvalues, but this
+  CRYSTAL executable then reaches its compiled `LATVEC` capacity during the
+  much larger integral classification;
+- explicit `LDREMO 4` with `8 8 8 8 16` passes RHOLSK/CHOLSK and enters SCF,
+  but an isolated 300-second diagnostic stopped at SCF cycle 3. It did not
+  complete SCF, properties, GRED, KRED, or a HAR cycle.
+
+Consequently, lamaGOET does not silently enable `LDREMO` or replace the basis.
+The preferred correction is a basis optimized/conditioned for periodic
+Diamond, such as CRYSTAL's `POB-TZVP-REV2`, or a separately validated paired
+custom periodic basis. `CRYSTAL_LDREMO` is available as an explicit expert
+control and is blank by default. For an integer `n`, CRYSTAL developer guidance
+describes it as projecting overlap eigenvectors below `n x 10^-5` and suggests
+starting at 4. It changes the effective variational space and must therefore be
+validated through a completed SCF and the selected GRED/KRED or legacy-XML
+handoff before it is used for production HAR.

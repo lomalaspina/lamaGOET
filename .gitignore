@@ -21,6 +21,7 @@ cluster_charges
 stdin
 stdout
 stde
+.lamagoet_crystal_mpi/
 
 # Tonto-generated structures
 *.archive.cif

@@ -9,9 +9,10 @@ Crystal23 orbitals are reconstructed by solving
     F(k) C(k) = S(k) C(k) epsilon(k)
 
 from the direct-lattice overlap and Fock/Kohn--Sham matrices in its XML file.
-The Gaussian exponents/contractions for Crystal23 are taken from the exact
-Tonto basis-library file selected by lamaGOET; the XML contains AO labels but
-does not contain those radial basis data.
+The preferred Crystal23 path takes the exact atom-resolved Gaussian basis from
+the matching formatted GRED file.  A separately selected Tonto basis-library
+file remains available only for legacy data sets; the XML contains AO labels
+but does not contain radial exponents or contractions.
 """
 
 from __future__ import annotations
@@ -31,7 +32,23 @@ import numpy as np
 from cp2k_tonto_bridge import AtomRecord, BridgeError, ShellRecord, read_mokp
 
 
-EXPORT_VERSION = "1.0.0"
+EXPORT_VERSION = "1.1.0"
+
+
+_ELEMENT_SYMBOLS = (
+    "", "H", "He", "Li", "Be", "B", "C", "N", "O", "F", "Ne",
+    "Na", "Mg", "Al", "Si", "P", "S", "Cl", "Ar", "K", "Ca",
+    "Sc", "Ti", "V", "Cr", "Mn", "Fe", "Co", "Ni", "Cu", "Zn",
+    "Ga", "Ge", "As", "Se", "Br", "Kr", "Rb", "Sr", "Y", "Zr",
+    "Nb", "Mo", "Tc", "Ru", "Rh", "Pd", "Ag", "Cd", "In", "Sn",
+    "Sb", "Te", "I", "Xe", "Cs", "Ba", "La", "Ce", "Pr", "Nd",
+    "Pm", "Sm", "Eu", "Gd", "Tb", "Dy", "Ho", "Er", "Tm", "Yb",
+    "Lu", "Hf", "Ta", "W", "Re", "Os", "Ir", "Pt", "Au", "Hg",
+    "Tl", "Pb", "Bi", "Po", "At", "Rn", "Fr", "Ra", "Ac", "Th",
+    "Pa", "U", "Np", "Pu", "Am", "Cm", "Bk", "Cf", "Es", "Fm",
+    "Md", "No", "Lr", "Rf", "Db", "Sg", "Bh", "Hs", "Mt", "Ds",
+    "Rg", "Cn", "Nh", "Fl", "Mc", "Lv", "Ts", "Og",
+)
 
 
 class ExportError(RuntimeError):
@@ -99,6 +116,16 @@ class PeriodicOrbitals:
             )
         if not np.all(np.isfinite(self.coefficients)):
             raise ExportError("MO coefficients contain non-finite values")
+
+
+@dataclasses.dataclass(frozen=True)
+class CrystalGredBasis:
+    """The exact all-electron atom basis and primitive cell stored by GRED."""
+
+    cell_bohr: np.ndarray
+    atoms: list[AtomRecord]
+    shells_by_atom: list[list[ShellRecord]]
+    nao: int
 
 
 def _cp2k_to_trexio_permutation(shells_by_atom: list[list[ShellRecord]]) -> np.ndarray:
@@ -249,6 +276,227 @@ def resolve_basis_file(directory: Path, name: str) -> Path:
     raise ExportError(f"could not find basis {name!r} in {directory}")
 
 
+class _GredCursor:
+    """Small bounds-checked cursor over the formatted CRYAPI numeric stream."""
+
+    def __init__(self, values: np.ndarray, path: Path):
+        self.values = values
+        self.path = path
+        self.index = 0
+
+    def take(self, count: int, section: str) -> np.ndarray:
+        if count < 0 or self.index + count > self.values.size:
+            raise ExportError(
+                f"truncated Crystal23 GRED {section} in {self.path}: "
+                f"need {count} values at offset {self.index}, "
+                f"only {self.values.size - self.index} remain"
+            )
+        result = self.values[self.index : self.index + count]
+        self.index += count
+        return result
+
+    def integers(self, count: int, section: str) -> np.ndarray:
+        values = self.take(count, section)
+        rounded = np.rint(values)
+        if not np.all(np.isfinite(values)) or not np.allclose(
+            values, rounded, rtol=0.0, atol=1.0e-8
+        ):
+            raise ExportError(f"non-integer value in Crystal23 GRED {section}")
+        return rounded.astype(np.int64)
+
+
+def _crystal_gred_contraction(
+    angular: int, exponents: np.ndarray, coefficients: np.ndarray
+) -> tuple[float, ...]:
+    """Undo CRYSTAL's primitive normalization, up to a shell-wide factor.
+
+    The remaining common contraction factor is immaterial because
+    :func:`_basis_arrays` normalizes every contracted shell before writing it.
+    This is the same transformation used by Tonto's native GRED reader.
+    """
+
+    if not np.all(np.isfinite(exponents)) or np.any(exponents <= 0.0):
+        raise ExportError("Crystal23 GRED contains invalid Gaussian exponents")
+    if not np.all(np.isfinite(coefficients)) or np.max(np.abs(coefficients)) <= 1.0e-14:
+        raise ExportError("Crystal23 GRED contains an empty shell contraction")
+    factor = math.sqrt(_double_factorial(angular)) / (
+        4.0 * exponents
+    ) ** (0.5 * angular + 0.75)
+    return tuple(float(value) for value in coefficients * factor)
+
+
+def read_crystal23_gred_basis(path: Path) -> CrystalGredBasis:
+    """Read the exact atom-resolved all-electron Gaussian basis from GRED.
+
+    Only the documented CRYAPI prefix through the shell-to-atom map is needed.
+    The large direct-space matrices later in the file are deliberately not
+    interpreted here; the matching XML remains the source of S(R) and F(R).
+    """
+
+    try:
+        with path.open("r", encoding="utf-8", errors="strict") as stream:
+            title = stream.readline()
+            numeric_text = stream.read().replace("D", "E").replace("d", "e")
+    except OSError as exc:
+        raise ExportError(f"could not read Crystal23 GRED {path}: {exc}") from exc
+    if not title:
+        raise ExportError(f"empty Crystal23 GRED file: {path}")
+    values = np.fromstring(numeric_text, sep=" ", dtype=np.float64)
+    cursor = _GredCursor(values, path)
+    dimensions = cursor.integers(3, "dimension header")
+    luminf, lumtol, lumpar = map(int, dimensions)
+    if luminf < 145 or lumtol <= 0 or lumpar <= 0:
+        raise ExportError(f"invalid Crystal23 GRED dimensions in {path}")
+    inf = cursor.integers(luminf, "INF control array")
+    cursor.take(lumtol, "ITOL control array")
+    cursor.take(lumpar, "PAR control array")
+
+    n_sym = int(inf[1])
+    n_stars = int(inf[4])
+    n_basis = int(inf[6])
+    n_shells = int(inf[19])
+    n_atoms = int(inf[23])
+    n_primitives = int(inf[74])
+    n_lattice = int(inf[78])
+    n_spin = int(inf[63]) + 1
+    if min(n_sym, n_basis, n_shells, n_atoms, n_primitives, n_lattice) <= 0:
+        raise ExportError(f"invalid Crystal23 GRED system dimensions in {path}")
+    if int(inf[30]) != 0:
+        raise ExportError(
+            "Crystal23 periodic wavefunction export requires an all-electron basis (no ECP)"
+        )
+    if n_spin != 1:
+        raise ExportError(
+            "Crystal23 periodic wavefunction export currently supports closed-shell GRED only"
+        )
+
+    cell = cursor.take(9, "direct lattice").reshape((3, 3), order="F")
+    cursor.take(9, "crystallographic-to-primitive transform")
+    cursor.take(n_sym, "inverse symmetry operators")
+    cursor.take(48 * 48, "symmetry multiplication table")
+    cursor.take(9 * n_sym, "Cartesian symmetry operators")
+    cursor.take(3 * n_sym, "symmetry translations")
+    cursor.take(n_stars + 1, "direct-vector star radii")
+    cursor.take(3 * n_lattice, "Cartesian direct vectors")
+    cursor.take(n_stars + 1, "direct-vector star starts")
+    cursor.take(n_stars + 1, "direct-vector star ranges")
+    cursor.take(n_lattice, "inverse direct-vector indices")
+    cursor.take(3 * n_lattice, "integer direct vectors")
+
+    cursor.take(n_atoms, "nuclear charges")
+    positions = cursor.take(3 * n_atoms, "atom positions").reshape(
+        (3, n_atoms), order="F"
+    )
+    cursor.take(n_shells, "formal shell charges")
+    cursor.take(n_shells, "adjoined shell exponents")
+    cursor.take(3 * n_shells, "shell positions")
+    primitive_exponents = cursor.take(n_primitives, "primitive exponents")
+    contraction_s = cursor.take(n_primitives, "s contraction coefficients")
+    contraction_sp = cursor.take(n_primitives, "sp contraction coefficients")
+    contraction_high_l = cursor.take(
+        n_primitives, "higher-l contraction coefficients"
+    )
+    cursor.take(n_primitives, "maximum contraction coefficients")
+    cursor.take(n_primitives, "old-normalization p coefficients")
+    cursor.take(n_primitives, "old-normalization higher-l coefficients")
+    atomic_numbers = cursor.integers(n_atoms, "atomic numbers") % 100
+    shell_first_for_atom = cursor.integers(
+        n_atoms + 1, "first shell for atoms"
+    )
+    primitive_first_for_shell = cursor.integers(
+        n_shells + 1, "first primitive for shells"
+    )
+    primitives_per_shell = cursor.integers(
+        n_shells, "primitives per shell"
+    )
+    shell_kind = cursor.integers(n_shells, "shell types")
+    lattice_aos = cursor.integers(n_shells, "atomic orbitals per shell")
+    ao_first_for_shell = cursor.integers(
+        n_shells + 1, "first atomic orbital per shell"
+    )
+    atom_for_shell = cursor.integers(n_shells, "shell-to-atom map")
+
+    if np.any((atomic_numbers < 1) | (atomic_numbers >= len(_ELEMENT_SYMBOLS))):
+        raise ExportError("Crystal23 GRED contains an unsupported atomic number")
+    if primitive_first_for_shell[0] != 1 or primitive_first_for_shell[-1] != n_primitives + 1:
+        raise ExportError("Crystal23 GRED primitive offsets are inconsistent")
+    if shell_first_for_atom[0] != 1 or shell_first_for_atom[-1] != n_shells + 1:
+        raise ExportError("Crystal23 GRED atom-shell offsets are inconsistent")
+    if ao_first_for_shell[0] != 0 or ao_first_for_shell[-1] != n_basis:
+        raise ExportError("Crystal23 GRED AO offsets are inconsistent")
+    if np.any((atom_for_shell < 1) | (atom_for_shell > n_atoms)):
+        raise ExportError("Crystal23 GRED shell-to-atom map is invalid")
+
+    shells_by_atom: list[list[ShellRecord]] = [[] for _ in range(n_atoms)]
+    for shell_index in range(n_shells):
+        first = int(primitive_first_for_shell[shell_index]) - 1
+        count = int(primitives_per_shell[shell_index])
+        last = first + count
+        if (
+            count <= 0
+            or first < 0
+            or last > n_primitives
+            or int(primitive_first_for_shell[shell_index + 1]) != last + 1
+        ):
+            raise ExportError("Crystal23 GRED primitive ranges are inconsistent")
+        kind = int(shell_kind[shell_index])
+        if kind < 0 or kind > 5:
+            raise ExportError(f"unsupported Crystal23 GRED shell type {kind}")
+        exponents = primitive_exponents[first:last]
+        if kind == 0:
+            parts = ((0, contraction_s[first:last]),)
+        elif kind == 1:
+            parts = (
+                (0, contraction_s[first:last]),
+                (1, contraction_sp[first:last]),
+            )
+        elif kind == 2:
+            parts = ((1, contraction_sp[first:last]),)
+        else:
+            parts = ((kind - 1, contraction_high_l[first:last]),)
+        expected_aos = sum(2 * angular + 1 for angular, _ in parts)
+        if int(lattice_aos[shell_index]) != expected_aos:
+            raise ExportError(
+                "Crystal23 GRED shell type and AO count are inconsistent"
+            )
+        atom_index = int(atom_for_shell[shell_index]) - 1
+        for angular, raw_coefficients in parts:
+            shells_by_atom[atom_index].append(
+                ShellRecord(
+                    angular,
+                    tuple(float(value) for value in exponents),
+                    _crystal_gred_contraction(
+                        angular, exponents, raw_coefficients
+                    ),
+                )
+            )
+
+    expanded = [sum(2 * shell.l + 1 for shell in shells) for shells in shells_by_atom]
+    if sum(expanded) != n_basis or any(count <= 0 for count in expanded):
+        raise ExportError(
+            "Crystal23 GRED basis-function count disagrees with its shell metadata"
+        )
+    atoms: list[AtomRecord] = []
+    first_ao = 1
+    for index, (z, position, atom_nao) in enumerate(
+        zip(atomic_numbers, positions.T, expanded, strict=True), start=1
+    ):
+        z_value = int(z)
+        atoms.append(
+            AtomRecord(
+                index,
+                _ELEMENT_SYMBOLS[z_value],
+                z_value,
+                z_value,
+                tuple(float(value) for value in position),
+                first_ao,
+                first_ao + atom_nao - 1,
+            )
+        )
+        first_ao += atom_nao
+    return CrystalGredBasis(cell, atoms, shells_by_atom, n_basis)
+
+
 def _parse_xml(path: Path) -> ET.Element:
     if path.suffix.lower() == ".gz":
         with gzip.open(path, "rb") as stream:
@@ -332,28 +580,68 @@ def _fourier_matrix(
     return 0.5 * (matrix + matrix.conj().T)
 
 
-def _generalized_eigh(fock: np.ndarray, overlap: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
-    try:
-        chol = np.linalg.cholesky(overlap)
-    except np.linalg.LinAlgError as exc:
-        smallest = float(np.linalg.eigvalsh(overlap).min())
-        raise ExportError(
-            f"Crystal23 overlap matrix is not positive definite (minimum eigenvalue {smallest:.3e})"
-        ) from exc
-    left = np.linalg.solve(chol, fock)
-    transformed = np.linalg.solve(chol.conj(), left.T).T
-    transformed = 0.5 * (transformed + transformed.conj().T)
-    energies, vectors_orthogonal = np.linalg.eigh(transformed)
-    coefficients = np.linalg.solve(chol.conj().T, vectors_orthogonal)
+def _generalized_eigh(
+    fock: np.ndarray,
+    overlap: np.ndarray,
+    overlap_cutoff: float | None = None,
+) -> tuple[np.ndarray, np.ndarray]:
+    if overlap_cutoff is None:
+        try:
+            chol = np.linalg.cholesky(overlap)
+        except np.linalg.LinAlgError as exc:
+            smallest = float(np.linalg.eigvalsh(overlap).min())
+            raise ExportError(
+                "Crystal23 overlap matrix is not positive definite "
+                f"(minimum eigenvalue {smallest:.3e}); if the SCF explicitly "
+                "used LDREMO, pass its n x 10^-5 threshold as --overlap-cutoff"
+            ) from exc
+        left = np.linalg.solve(chol, fock)
+        transformed = np.linalg.solve(chol.conj(), left.T).T
+        transformed = 0.5 * (transformed + transformed.conj().T)
+        energies, vectors_orthogonal = np.linalg.eigh(transformed)
+        coefficients = np.linalg.solve(chol.conj().T, vectors_orthogonal)
+    else:
+        if not math.isfinite(overlap_cutoff) or overlap_cutoff <= 0.0:
+            raise ExportError("Crystal23 overlap cutoff must be a positive finite number")
+        overlap_values, overlap_vectors = np.linalg.eigh(overlap)
+        retained = overlap_values > overlap_cutoff
+        if not np.any(retained):
+            raise ExportError(
+                "Crystal23 overlap cutoff removes every AO direction "
+                f"(cutoff {overlap_cutoff:.3e})"
+            )
+        orthogonalizer = overlap_vectors[:, retained] / np.sqrt(
+            overlap_values[retained]
+        )[np.newaxis, :]
+        transformed = orthogonalizer.conj().T @ fock @ orthogonalizer
+        transformed = 0.5 * (transformed + transformed.conj().T)
+        energies, vectors_orthogonal = np.linalg.eigh(transformed)
+        coefficients = orthogonalizer @ vectors_orthogonal
+    expected_identity = np.eye(coefficients.shape[1])
     error = float(
-        np.max(np.abs(coefficients.conj().T @ overlap @ coefficients - np.eye(overlap.shape[0])))
+        np.max(
+            np.abs(
+                coefficients.conj().T @ overlap @ coefficients
+                - expected_identity
+            )
+        )
     )
     if error > 1.0e-8:
         raise ExportError(f"reconstructed Crystal23 MOs are not S-orthonormal (error {error:.3e})")
     return energies, coefficients
 
 
-def read_crystal23_orbitals(xml_path: Path, basis_path: Path) -> PeriodicOrbitals:
+def read_crystal23_orbitals(
+    xml_path: Path,
+    basis_path: Path | None = None,
+    *,
+    gred_path: Path | None = None,
+    overlap_cutoff: float | None = None,
+) -> PeriodicOrbitals:
+    if (basis_path is None) == (gred_path is None):
+        raise ExportError(
+            "select exactly one Crystal23 radial-basis source: GRED or a legacy Tonto basis file"
+        )
     root = _parse_xml(xml_path)
     nspin = int(_required_text(root, ".//NUMBER_OF_SPIN_COMPONENTS"))
     if nspin != 1:
@@ -378,7 +666,7 @@ def read_crystal23_orbitals(xml_path: Path, basis_path: Path) -> PeriodicOrbital
     atom_parent = root.find(".//CARTESIAN_COORDINATES")
     if atom_parent is None:
         raise ExportError("Crystal23 XML has no Cartesian atom list")
-    atoms: list[AtomRecord] = []
+    xml_atoms: list[AtomRecord] = []
     first_ao = 1
     atom_shell_counts: list[int] = []
     ao_parent = root.find(".//ATOMIC_ORBITALS")
@@ -394,15 +682,44 @@ def read_crystal23_orbitals(xml_path: Path, basis_path: Path) -> PeriodicOrbital
         symbol = node.attrib["atomic_symbol"].strip().capitalize()
         z = int(node.attrib["atomic_number"])
         position = tuple(float(value.replace("D", "E")) for value in (node.text or "").split())
-        atoms.append(AtomRecord(index, symbol, z, z, position, first_ao, first_ao + atom_nao - 1))
+        xml_atoms.append(AtomRecord(index, symbol, z, z, position, first_ao, first_ao + atom_nao - 1))
         first_ao += atom_nao
 
-    basis_by_element = read_tonto_basis(basis_path, {atom.element for atom in atoms})
-    shells_by_atom = [basis_by_element[atom.element] for atom in atoms]
+    if gred_path is not None:
+        gred_basis = read_crystal23_gred_basis(gred_path)
+        if gred_basis.nao != nao:
+            raise ExportError(
+                f"Crystal23 GRED has {gred_basis.nao} AOs but XML has {nao}"
+            )
+        if not np.allclose(gred_basis.cell_bohr, cell, rtol=0.0, atol=1.0e-8):
+            raise ExportError("Crystal23 GRED and XML primitive cells differ")
+        if len(gred_basis.atoms) != len(xml_atoms):
+            raise ExportError("Crystal23 GRED and XML atom counts differ")
+        for gred_atom, xml_atom in zip(gred_basis.atoms, xml_atoms, strict=True):
+            if gred_atom.z_nuc != xml_atom.z_nuc or not np.allclose(
+                gred_atom.position_bohr,
+                xml_atom.position_bohr,
+                rtol=0.0,
+                atol=1.0e-8,
+            ):
+                raise ExportError(
+                    "Crystal23 GRED and XML atom ordering or coordinates differ"
+                )
+        atoms = gred_basis.atoms
+        shells_by_atom = gred_basis.shells_by_atom
+        basis_description = f"exact atom-resolved basis from {gred_path.name}"
+    else:
+        assert basis_path is not None
+        atoms = xml_atoms
+        basis_by_element = read_tonto_basis(
+            basis_path, {atom.element for atom in atoms}
+        )
+        shells_by_atom = [basis_by_element[atom.element] for atom in atoms]
+        basis_description = f"legacy Tonto basis {basis_path.name}"
     expanded_by_atom = [sum(2 * shell.l + 1 for shell in shells) for shells in shells_by_atom]
     if expanded_by_atom != atom_shell_counts:
         raise ExportError(
-            "selected Tonto basis does not match the Crystal23 XML AO layout: "
+            "selected Crystal23 basis does not match the XML AO layout: "
             f"basis {expanded_by_atom}, XML {atom_shell_counts}"
         )
 
@@ -423,18 +740,30 @@ def read_crystal23_orbitals(xml_path: Path, basis_path: Path) -> PeriodicOrbital
         root, "DIRECT_FOCK_KOHN-SHAM_MATRIX", nao
     )
     nk = len(kpoints)
-    eigenvalues = np.zeros((nk, 1, nao), dtype=np.float64)
-    occupations = np.zeros((nk, 1, nao), dtype=np.float64)
-    coefficients = np.zeros((nk, 1, nao, nao), dtype=np.complex128)
+    solved: list[tuple[np.ndarray, np.ndarray]] = []
     permutation = _crystal_to_trexio_permutation(shells_by_atom)
     noccupied = nelectron // 2
     for ik, kpoint in enumerate(kpoint_array):
         overlap = _fourier_matrix(overlap_blocks, kpoint)
         fock = _fourier_matrix(fock_blocks, kpoint)
-        energies, crystal_coefficients = _generalized_eigh(fock, overlap)
-        eigenvalues[ik, 0, :] = energies
+        energies, crystal_coefficients = _generalized_eigh(
+            fock, overlap, overlap_cutoff
+        )
+        solved.append((energies, crystal_coefficients))
+
+    nmo = min(coefficients_at_k.shape[1] for _, coefficients_at_k in solved)
+    if nmo < noccupied:
+        raise ExportError(
+            f"Crystal23 overlap projection leaves only {nmo} orbitals, "
+            f"fewer than the {noccupied} occupied orbitals"
+        )
+    eigenvalues = np.zeros((nk, 1, nmo), dtype=np.float64)
+    occupations = np.zeros((nk, 1, nmo), dtype=np.float64)
+    coefficients = np.zeros((nk, 1, nao, nmo), dtype=np.complex128)
+    for ik, (energies, crystal_coefficients) in enumerate(solved):
+        eigenvalues[ik, 0, :] = energies[:nmo]
         occupations[ik, 0, :noccupied] = 2.0
-        coefficients[ik, 0, :, :] = crystal_coefficients[permutation, :]
+        coefficients[ik, 0, :, :] = crystal_coefficients[permutation, :nmo]
 
     result = PeriodicOrbitals(
         source="Crystal23",
@@ -448,9 +777,15 @@ def read_crystal23_orbitals(xml_path: Path, basis_path: Path) -> PeriodicOrbital
         coefficients=coefficients,
         description=(
             f"Periodic Crystal23 canonical orbitals reconstructed from {xml_path.name} "
-            f"using direct-lattice S and F/Kohn-Sham matrices and basis {basis_path.name}."
+            "using direct-lattice S and F/Kohn-Sham matrices and "
+            f"{basis_description}."
         ),
     )
+    if nmo < nao:
+        result.description += (
+            f" Crystal23 LDREMO overlap projection retained {nmo} of {nao} "
+            "linearly independent orbital directions at every stored k point."
+        )
     result.validate()
     return result
 
@@ -692,9 +1027,26 @@ def _parser() -> argparse.ArgumentParser:
     cp2k = subparsers.add_parser("cp2k", help="export a CP2K MO_KP .mokp file")
     cp2k.add_argument("--mokp", required=True, type=Path)
     cp2k.add_argument("--output", required=True, type=Path)
-    crystal = subparsers.add_parser("crystal23", help="reconstruct orbitals from Crystal23 XML")
+    crystal = subparsers.add_parser(
+        "crystal23", help="reconstruct orbitals from Crystal23 CRYAPI data"
+    )
     crystal.add_argument("--xml", required=True, type=Path)
-    crystal.add_argument("--basis-file", required=True, type=Path)
+    basis_source = crystal.add_mutually_exclusive_group(required=True)
+    basis_source.add_argument(
+        "--gred",
+        type=Path,
+        help="matching formatted GRED file carrying the exact atom-resolved basis",
+    )
+    basis_source.add_argument(
+        "--basis-file",
+        type=Path,
+        help="legacy exact-matching Tonto basis-library file",
+    )
+    crystal.add_argument(
+        "--overlap-cutoff",
+        type=float,
+        help="rank threshold used by an explicitly LDREMO-conditioned Crystal23 SCF",
+    )
     crystal.add_argument("--output", required=True, type=Path)
     validate = subparsers.add_parser("validate", help="validate an existing TREXIO file")
     validate.add_argument("path", type=Path)
@@ -711,9 +1063,14 @@ def main(argv: list[str] | None = None) -> int:
             orbitals = read_cp2k_orbitals(arguments.mokp)
         else:
             basis_path = arguments.basis_file
-            if not basis_path.is_file():
+            if basis_path is not None and not basis_path.is_file():
                 basis_path = resolve_basis_file(basis_path.parent, basis_path.name)
-            orbitals = read_crystal23_orbitals(arguments.xml, basis_path)
+            orbitals = read_crystal23_orbitals(
+                arguments.xml,
+                basis_path,
+                gred_path=arguments.gred,
+                overlap_cutoff=arguments.overlap_cutoff,
+            )
         write_trexio(orbitals, arguments.output, text_backend=arguments.text)
         validation = validate_trexio(arguments.output, orbitals)
         manifest = _write_manifest(arguments.output, orbitals, validation)
@@ -721,11 +1078,18 @@ def main(argv: list[str] | None = None) -> int:
         print(f"Validated {validation['mo_num']} periodic MOs on {validation['k_point_num']} k points")
         print(f"Wrote {manifest}")
         if orbitals.nmo < orbitals.nao:
-            print(
-                "WARNING: the CP2K virtual space is truncated; use CP2K ADDED_MOS=-1 "
-                "for all available virtual orbitals.",
-                file=sys.stderr,
-            )
+            if orbitals.source == "CP2K":
+                warning = (
+                    "the CP2K virtual space is truncated; use CP2K ADDED_MOS=-1 "
+                    "for all available virtual orbitals"
+                )
+            else:
+                warning = (
+                    "the Crystal23 TREXIO contains the common LDREMO-retained "
+                    "orbital subspace; discarded linearly dependent directions "
+                    "were not represented as invented virtual orbitals"
+                )
+            print(f"WARNING: {warning}.", file=sys.stderr)
         return 0
     except (BridgeError, ExportError, OSError, ET.ParseError, ValueError) as exc:
         print(f"periodic_wavefunction_export: error: {exc}", file=sys.stderr)

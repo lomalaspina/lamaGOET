@@ -38,7 +38,7 @@ otherwise leave the private Python environment owned by root. The installer
 also protects against this when it is accidentally invoked through `sudo`.
 
 Safe to run more than once. It refreshes the package metadata, installs the GNU
-tools, Python, XCB, Wayland, OpenGL, `zenity`, and the remaining native Qt
+tools, Python, Open MPI, XCB, Wayland, OpenGL, `zenity`, and the remaining native Qt
 libraries; installs the lamaGOET desktop identity and taskbar icon; and builds
 and tests the private Python environment. It reports success only after Qt has
 initialized the current display backend.
@@ -48,7 +48,7 @@ If you would rather not use it, install the corresponding packages manually:
 ```bash
 sudo apt-get update
 sudo apt-get install bc ca-certificates coreutils desktop-file-utils findutils
-sudo apt-get install gawk grep gzip locales openssh-client python3 python3-pip
+sudo apt-get install gawk grep gzip locales openmpi-bin openssh-client python3 python3-pip
 sudo apt-get install python3-venv sed zenity libegl1 libfontconfig1 libgl1
 sudo apt-get install libgl1-mesa-dri libglib2.0-0 libopengl0 libwayland-client0
 sudo apt-get install libwayland-cursor0 libwayland-egl1 libx11-6 libx11-xcb1
@@ -138,6 +138,21 @@ alone.
 | OCC | free | [github.com/peterspackman/occ](https://github.com/peterspackman/occ) |
 | GAMESS-US | free; overlap integrals for ELMOdb | [msg.chem.iastate.edu/gamess](https://www.msg.chem.iastate.edu/gamess/) |
 | ELMOdb | no public download — contact Alessandro Genoni | — |
+
+For a parallel CRYSTAL23 calculation, keep **Crystal23 executable** set to the
+serial driver `runcry23`.  lamaGOET automatically selects the sibling
+`runPcry23` driver when **SCF processors** is greater than one and calls it as
+`runPcry23 NPROC JOB [RESTART]`.  A site-specific driver can instead be set in
+`CRYSTAL_PARALLEL_BIN` in `job_options.txt`.  The parallel CRYSTAL executable
+and its MPI libraries remain part of the separately licensed CRYSTAL23
+installation; `install.sh` supplies the Ubuntu/WSL Open MPI launcher but cannot
+install CRYSTAL itself.
+
+During a CRYSTAL HAR, lamaGOET leaves only its concise cycle markers on the
+terminal.  The vendor driver's duplicated startup messages are captured in
+`.lamagoet_crystal_mpi/JOB.scf-wrapper.log` (and the corresponding properties
+wrapper log), while the complete scientific calculation remains in `JOB.out`.
+Driver errors are still shown on the terminal.
 
 For viewing results, [VESTA](https://jp-minerals.org/vesta/en/download.html)
 reads the Gaussian cube file of the residual density that lamaGOET writes, and

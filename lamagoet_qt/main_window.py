@@ -491,6 +491,20 @@ class MainWindow(QMainWindow):
         self.basis_label = QLabel("Basis set")
         self.basis = _editable_combo()
         job_form.addRow(self.basis_label, self.basis)
+        self.periodic_basis_warning = QLabel(
+            "Periodic-basis warning: all-electron is required, but it is not "
+            "sufficient. A molecular, Tonto-library, or Basis Set Exchange "
+            "basis can contain diffuse functions that become linearly "
+            "dependent in a solid. Prefer a periodic-optimized basis and "
+            "validate the overlap/SCF diagnostics in Crystal23 or CP2K; "
+            "manual import does not make a basis periodic-safe."
+        )
+        self.periodic_basis_warning.setObjectName("periodicBasisWarning")
+        self.periodic_basis_warning.setWordWrap(True)
+        self.periodic_basis_warning.setStyleSheet(
+            "QLabel#periodicBasisWarning { color: #8a4b00; }"
+        )
+        job_form.addRow(self.periodic_basis_warning)
         self.extra_keywords_label = QLabel("Extra Gaussian keywords")
         self.extra_keywords = QLineEdit()
         job_form.addRow(self.extra_keywords_label, self.extra_keywords)
@@ -526,8 +540,9 @@ class MainWindow(QMainWindow):
         self.crystal_tonto_basis.setToolTip(
             "An external Crystal23 basis is written as GEN in the .d12 file, "
             "but GEN is not a Tonto library basis name. Select the matching "
-            "named Tonto library basis with the same contractions; Tonto uses "
-            "it for exact GRED reconstruction and free-atom references."
+            "named Tonto library basis with the same contractions when using "
+            "the legacy XML interface. Native GRED imports the atom-resolved "
+            "Crystal23 basis directly and does not use this field."
         )
         external_layout.addWidget(self.crystal_tonto_basis_label, 3, 0)
         external_layout.addWidget(self.crystal_tonto_basis, 3, 1, 1, 2)
@@ -635,12 +650,63 @@ class MainWindow(QMainWindow):
             "CRYSTAL23 TOLINTEG values. 'auto' keeps CRYSTAL defaults for "
             "built-in bases and uses 8 8 8 8 16 for an external/Basis Set "
             "Exchange basis. This retains every basis function while using "
-            "more accurate periodic overlap and integral screening."
+            "more accurate periodic overlap and integral screening, but it "
+            "cannot guarantee that a molecular basis is well conditioned in "
+            "every periodic lattice."
         )
         crystal_parameters_layout.addWidget(self.crystal_tolinteg)
         crystal_parameters_layout.addStretch(1)
         crystal_layout.addWidget(self.crystal_parameters_row)
-        layout.addWidget(self.crystal_group)
+
+        self.crystal_density_interface_row = QWidget()
+        crystal_density_interface_layout = QHBoxLayout(
+            self.crystal_density_interface_row
+        )
+        crystal_density_interface_layout.setContentsMargins(0, 0, 0, 0)
+        crystal_density_interface_layout.addWidget(
+            QLabel("Crystal23 density interface")
+        )
+        self.crystal_density_interface = QComboBox()
+        self.crystal_density_interface.addItem(
+            "Native GRED (recommended)", "gred"
+        )
+        self.crystal_density_interface.addItem("Legacy XML", "xml")
+        self.crystal_density_interface.setToolTip(
+            "Native GRED imports Crystal23's atom-resolved periodic basis and "
+            "density directly. Legacy XML retains the former compatibility "
+            "path and requires a matching Tonto library basis for external "
+            "Crystal23 basis definitions."
+        )
+        self.crystal_density_interface.currentIndexChanged.connect(
+            self._external_basis_changed
+        )
+        crystal_density_interface_layout.addWidget(
+            self.crystal_density_interface
+        )
+        crystal_density_interface_layout.addStretch(1)
+        crystal_layout.addWidget(self.crystal_density_interface_row)
+
+        self.crystal_ldremo_row = QWidget()
+        crystal_ldremo_layout = QHBoxLayout(self.crystal_ldremo_row)
+        crystal_ldremo_layout.setContentsMargins(0, 0, 0, 0)
+        crystal_ldremo_layout.addWidget(
+            QLabel("Overlap-eigenvector removal (LDREMO)")
+        )
+        self.crystal_ldremo = QLineEdit()
+        self.crystal_ldremo.setValidator(QIntValidator(1, 99, self))
+        self.crystal_ldremo.setPlaceholderText("blank (disabled)")
+        self.crystal_ldremo.setMaximumWidth(180)
+        self.crystal_ldremo.setToolTip(
+            "Expert-only CRYSTAL23 linear-dependence control. A positive "
+            "integer n removes overlap eigenvectors below n x 10^-5 and "
+            "therefore changes the effective variational space. CRYSTAL's "
+            "developer guidance suggests starting at 4. Leave blank unless "
+            "the chosen basis has been diagnosed and the resulting model will "
+            "be validated; lamaGOET never enables it silently."
+        )
+        crystal_ldremo_layout.addWidget(self.crystal_ldremo)
+        crystal_ldremo_layout.addStretch(1)
+        crystal_layout.addWidget(self.crystal_ldremo_row)
 
         self.stockholder_group = QGroupBox("Density partition")
         stockholder_form = QFormLayout(self.stockholder_group)
@@ -1258,7 +1324,8 @@ class MainWindow(QMainWindow):
         tabs = QTabWidget()
         tabs.setDocumentMode(True)
         tabs.addTab(scroll, "HAR")
-        tabs.addTab(self._advanced_har_panel(), "Advanced HAR")
+        self.advanced_har_tab = self._advanced_har_panel()
+        tabs.addTab(self.advanced_har_tab, "Advanced HAR")
         self.elmo_advanced_tab = self._elmo_advanced_panel()
         tabs.addTab(self.elmo_advanced_tab, "ELMO advanced")
         tabs.addTab(self._xcw_panel(), "XCW")
@@ -1281,18 +1348,17 @@ class MainWindow(QMainWindow):
         form.addRow("Energy convergence", self.energy_convergence)
         self.linear_dependence = QLineEdit()
         form.addRow("Tonto linear-dependence tolerance", self.linear_dependence)
-        self.max_ls_cycles = QSpinBox()
-        self.max_ls_cycles.setRange(1, 10000)
-        self.max_ls_cycles.setValue(30)
-        self.max_ls_cycles_label = QLabel("Maximum least-squares cycles")
-        self.max_ls_cycles.setToolTip(
-            "For dynamic observed density this limits the phase-updated "
-            "density-shape outer cycles; no structural least-squares matrix "
-            "is solved."
-        )
-        form.addRow(self.max_ls_cycles_label, self.max_ls_cycles)
+
+        # Keep every HAR-level Crystal23 control together in Advanced HAR. The
+        # executable path remains in Settings, while XCW-only/shared periodic
+        # export controls remain in their own purpose-specific sections.
+        self.crystal_advanced_fields = QWidget()
+        crystal_advanced_form = QFormLayout(self.crystal_advanced_fields)
+        crystal_advanced_form.setContentsMargins(0, 0, 0, 0)
         self.max_xtal_cycles = QLineEdit()
-        form.addRow("Maximum Crystal cycles (blank = automatic)", self.max_xtal_cycles)
+        crystal_advanced_form.addRow(
+            "Maximum Crystal cycles (blank = automatic)", self.max_xtal_cycles
+        )
         self.crystal_biposize = QLineEdit()
         self.crystal_biposize.setValidator(
             QIntValidator(1, 2_147_483_647, self.crystal_biposize)
@@ -1302,19 +1368,21 @@ class MainWindow(QMainWindow):
             "Optional CRYSTAL23 BIPOSIZE buffer length in words. Use the value "
             "recommended by a GENBUD warning; blank omits the keyword."
         )
-        form.addRow("Crystal BIPOSIZE", self.crystal_biposize)
+        crystal_advanced_form.addRow("Crystal BIPOSIZE", self.crystal_biposize)
         self.crystal_ilasize = QLineEdit()
         self.crystal_ilasize.setValidator(
             QIntValidator(1, 2_147_483_647, self.crystal_ilasize)
         )
-        self.crystal_ilasize.setPlaceholderText("blank = CRYSTAL23 default (6000)")
+        self.crystal_ilasize.setPlaceholderText(
+            "blank = CRYSTAL23 default (6000)"
+        )
         self.crystal_ilasize.setToolTip(
             "Optional CRYSTAL23 ILASIZE for the Coulomb-integral ILA array. "
             "Use a value above the reported limit; blank omits the keyword."
         )
-        form.addRow("Crystal ILASIZE", self.crystal_ilasize)
+        crystal_advanced_form.addRow("Crystal ILASIZE", self.crystal_ilasize)
         self.supercon = QCheckBox("Use Crystal SUPERCON")
-        form.addRow(self.supercon)
+        crystal_advanced_form.addRow(self.supercon)
         shrink_row = QWidget()
         shrink_layout = QHBoxLayout(shrink_row)
         shrink_layout.setContentsMargins(0, 0, 0, 0)
@@ -1328,7 +1396,20 @@ class MainWindow(QMainWindow):
         shrink_layout.addWidget(self.shrink_a)
         shrink_layout.addWidget(QLabel("SHRINK B"))
         shrink_layout.addWidget(self.shrink_b)
-        form.addRow("Crystal k-point shrinking", shrink_row)
+        crystal_advanced_form.addRow("Crystal k-point shrinking", shrink_row)
+        self.crystal_group.layout().addWidget(self.crystal_advanced_fields)
+        form.addRow(self.crystal_group)
+
+        self.max_ls_cycles = QSpinBox()
+        self.max_ls_cycles.setRange(1, 10000)
+        self.max_ls_cycles.setValue(30)
+        self.max_ls_cycles_label = QLabel("Maximum least-squares cycles")
+        self.max_ls_cycles.setToolTip(
+            "For dynamic observed density this limits the phase-updated "
+            "density-shape outer cycles; no structural least-squares matrix "
+            "is solved."
+        )
+        form.addRow(self.max_ls_cycles_label, self.max_ls_cycles)
         self.max_phar_cycles = QSpinBox()
         self.max_phar_cycles.setRange(1, 10000)
         self.max_phar_cycles.setValue(10)
@@ -1624,6 +1705,14 @@ class MainWindow(QMainWindow):
         self.orca_bin = QLineEdit("orca")
         self.occ_bin = QLineEdit("occ")
         self.crystal_bin = QLineEdit("runcry23")
+        self.crystal_parallel_bin = QLineEdit()
+        self.crystal_parallel_bin.setPlaceholderText(
+            "blank = runPcry23 beside the serial driver"
+        )
+        self.crystal_parallel_bin.setToolTip(
+            "Optional site-specific CRYSTAL23 parallel driver. Leave blank to "
+            "derive runPcry23 automatically from the configured runcry23 path."
+        )
         self.elmodb_bin = QLineEdit("elmodb")
         self.gamess_bin = QLineEdit("gamess_int")
         self.jana_bin = QLineEdit("jana2006")
@@ -1633,6 +1722,7 @@ class MainWindow(QMainWindow):
             ("ORCA executable", self.orca_bin),
             ("OCC executable", self.occ_bin),
             ("Crystal23 executable", self.crystal_bin),
+            ("Crystal23 parallel driver", self.crystal_parallel_bin),
             ("ELMOdb executable", self.elmodb_bin),
             ("GAMESS-US interface", self.gamess_bin),
             ("Jana executable", self.jana_bin),
@@ -1981,6 +2071,13 @@ class MainWindow(QMainWindow):
             self.crystal_tolinteg,
             self._option("CRYSTAL_TOLINTEG", "auto"),
         )
+        crystal_density_interface_index = self.crystal_density_interface.findData(
+            self._option("LAMAGOET_CRYSTAL_DENSITY_INTERFACE", "gred").lower()
+        )
+        self.crystal_density_interface.setCurrentIndex(
+            max(0, crystal_density_interface_index)
+        )
+        self.crystal_ldremo.setText(self._option("CRYSTAL_LDREMO"))
         self.max_phar_cycles.setValue(self._int_option("MAXPHARCYCLE", 10))
         self.nsa2_accuracy.setValue(self._int_option("NSA2ACC", 2))
         self.minimum_correlation.setText(self._option("MINCORCOEF"))
@@ -2098,6 +2195,7 @@ class MainWindow(QMainWindow):
         self.orca_bin.setText(self._option("ORCA_BIN", "orca"))
         self.occ_bin.setText(self._option("OCC_BIN", "occ"))
         self.crystal_bin.setText(self._option("CRYSTAL_BIN", "runcry23"))
+        self.crystal_parallel_bin.setText(self._option("CRYSTAL_PARALLEL_BIN"))
         self.elmodb_bin.setText(self._option("ELMODB_BIN", "elmodb"))
         self.gamess_bin.setText(self._option("GAMESS", "gamess_int"))
         self.jana_bin.setText(self._option("JANAEXE", "jana2006"))
@@ -2263,7 +2361,11 @@ class MainWindow(QMainWindow):
         enabled = self.external_basis.isChecked()
         self.basis_definition_path.setEnabled(enabled)
         self.edit_basis_button.setEnabled(enabled)
-        crystal_reference = enabled and self.program.currentData() == "Crystal14"
+        crystal_reference = (
+            enabled
+            and self.program.currentData() == "Crystal14"
+            and self.crystal_density_interface.currentData() == "xml"
+        )
         self.crystal_tonto_basis_label.setVisible(crystal_reference)
         self.crystal_tonto_basis.setVisible(crystal_reference)
 
@@ -2416,6 +2518,9 @@ class MainWindow(QMainWindow):
         self.method_label.setVisible(legacy_method)
         self.basis.setVisible(program != "CP2K")
         self.basis_label.setVisible(program != "CP2K")
+        self.periodic_basis_warning.setVisible(
+            program in {"Crystal14", "CP2K"}
+        )
         gaussian = program in {"Gaussian", "optgaussian"}
         self.extra_keywords.setVisible(gaussian)
         self.extra_keywords_label.setVisible(gaussian)
@@ -2968,7 +3073,11 @@ class MainWindow(QMainWindow):
             self.xcw_mode.currentData() == "periodic"
             and (self.xcw_only.isChecked() or self.xray_restrained.isChecked())
         )
-        if program == "Crystal14" and self.external_basis.isChecked():
+        if (
+            program == "Crystal14"
+            and self.external_basis.isChecked()
+            and self.crystal_density_interface.currentData() == "xml"
+        ):
             crystal_tonto_basis = self.crystal_tonto_basis.currentText().strip()
             if not crystal_tonto_basis or crystal_tonto_basis.casefold() in {
                 "gen",
@@ -3080,6 +3189,10 @@ class MainWindow(QMainWindow):
             "DEFRAGNETW": _bool_text(self.network_compound.isChecked()),
             "USEGUESS": _bool_text(self.use_previous_crystal_guess.isChecked()),
             "CRYSTAL_SETTING": self.crystal_setting.currentData(),
+            "CRYSTAL_LDREMO": self.crystal_ldremo.text().strip(),
+            "LAMAGOET_CRYSTAL_DENSITY_INTERFACE": (
+                self.crystal_density_interface.currentData()
+            ),
             "CRYSTAL_TONTO_BASIS_NAME": (
                 self.crystal_tonto_basis.currentText().strip()
             ),
@@ -3302,6 +3415,7 @@ class MainWindow(QMainWindow):
             "ORCA_BIN": self.orca_bin.text().strip(),
             "OCC_BIN": self.occ_bin.text().strip(),
             "CRYSTAL_BIN": self.crystal_bin.text().strip(),
+            "CRYSTAL_PARALLEL_BIN": self.crystal_parallel_bin.text().strip(),
             "ELMODB_BIN": self.elmodb_bin.text().strip(),
             "GAMESS": self.gamess_bin.text().strip(),
             "JANAEXE": self.jana_bin.text().strip(),
@@ -3850,7 +3964,10 @@ class MainWindow(QMainWindow):
                         self._set_combo_text(
                             self.crystal_tonto_basis, matching_tonto_name
                         )
-                if not self.crystal_tonto_basis.currentText().strip():
+                if (
+                    self.crystal_density_interface.currentData() == "xml"
+                    and not self.crystal_tonto_basis.currentText().strip()
+                ):
                     QMessageBox.warning(
                         self,
                         "Matching Tonto basis required",

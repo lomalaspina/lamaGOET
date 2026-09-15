@@ -16,9 +16,12 @@ sys.path.insert(0, str(REPO))
 
 from periodic_wavefunction_export import (  # noqa: E402
     _fourier_matrix,
+    _generalized_eigh,
     _parse_xml,
     _read_crystal_triangular_blocks,
+    read_crystal23_gred_basis,
     read_crystal23_orbitals,
+    read_tonto_basis,
     validate_trexio,
     write_trexio,
 )
@@ -126,6 +129,20 @@ def _read_kred_full_zone_orbitals(
 
 
 class PeriodicWavefunctionExportTest(unittest.TestCase):
+    def test_ldremo_projection_removes_only_the_declared_overlap_null_space(self):
+        overlap = np.diag([1.0, 2.0, 2.0e-6])
+        fock = np.diag([-1.0, 1.0, 4.0e-6])
+        energies, coefficients = _generalized_eigh(
+            fock, overlap, overlap_cutoff=4.0e-5
+        )
+        self.assertEqual(coefficients.shape, (3, 2))
+        np.testing.assert_allclose(energies, [-1.0, 0.5], atol=1.0e-12)
+        np.testing.assert_allclose(
+            coefficients.T @ overlap @ coefficients,
+            np.eye(2),
+            atol=1.0e-12,
+        )
+
     def test_crystal_triangle_record_supplies_lower_triangle_for_its_own_lattice_vector(self):
         with tempfile.TemporaryDirectory() as directory:
             xml = Path(directory) / "paired.xml"
@@ -182,6 +199,55 @@ class PeriodicWavefunctionExportTest(unittest.TestCase):
             np.abs(np.imag(orbitals.coefficients[0, 0, :, :]))
         )
         self.assertLess(float(overlap_error), 1.0e-10)
+
+    def test_real_external_diamond_gred_carries_the_exact_def2_tzvp_basis(self):
+        root = Path(
+            "/home/lorraine/private_Tonto/Lolo_tests/Sep7/diamond/"
+            "diamond_PBE_def2tzvp"
+        )
+        gred_path = root / "GenerateXML_dat.GRED"
+        tonto_path = Path("/home/lorraine/tonto/basis_sets/def2-TZVP")
+        if not gred_path.is_file() or not tonto_path.is_file():
+            self.skipTest("local external-basis Diamond validation data are not present")
+        gred = read_crystal23_gred_basis(gred_path)
+        expected = read_tonto_basis(tonto_path, {"C"})["C"]
+        self.assertEqual(gred.nao, 62)
+        self.assertEqual([atom.element for atom in gred.atoms], ["C", "C"])
+        for atom_shells in gred.shells_by_atom:
+            self.assertEqual([shell.l for shell in atom_shells], [shell.l for shell in expected])
+            for actual_shell, expected_shell in zip(
+                atom_shells, expected, strict=True
+            ):
+                np.testing.assert_allclose(
+                    actual_shell.exponents,
+                    expected_shell.exponents,
+                    rtol=0.0,
+                    atol=1.0e-12,
+                )
+                actual = np.asarray(actual_shell.coefficients)
+                reference = np.asarray(expected_shell.coefficients)
+                actual /= np.linalg.norm(actual)
+                reference /= np.linalg.norm(reference)
+                np.testing.assert_allclose(actual, reference, atol=1.0e-12)
+
+    def test_real_external_diamond_ldremo_export_uses_gred_and_reduced_rank(self):
+        root = Path(
+            "/home/lorraine/private_Tonto/Lolo_tests/Sep7/diamond/"
+            "diamond_PBE_def2tzvp"
+        )
+        xml = root / "GenerateXML.XML"
+        gred = root / "GenerateXML_dat.GRED"
+        if not xml.is_file() or not gred.is_file():
+            self.skipTest("local LDREMO Diamond validation data are not present")
+        orbitals = read_crystal23_orbitals(
+            xml, gred_path=gred, overlap_cutoff=4.0e-5
+        )
+        self.assertEqual(orbitals.nao, 62)
+        self.assertEqual(orbitals.nmo, 55)
+        self.assertEqual(orbitals.eigenvalues.shape, (16, 1, 55))
+        self.assertTrue(np.all(np.isfinite(orbitals.coefficients)))
+        self.assertIn("exact atom-resolved basis", orbitals.description)
+        self.assertIn("LDREMO", orbitals.description)
 
     def test_real_diamond_direct_matrices_match_native_kred_orbitals(self):
         root_path = Path(

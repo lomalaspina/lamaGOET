@@ -149,9 +149,10 @@ _lamagoet_gaussian_method_keyword() {
 # Resolve CRYSTAL23's five TOLINTEG values.  Molecular bases exported by BSE
 # can contain diffuse functions whose periodic overlap matrix is sensitive to
 # CRYSTAL's integral-screening accuracy.  ``auto`` keeps the program default
-# for built-in/periodic bases, but uses the Natrolite-validated 8 8 8 8 16 for
-# an explicitly supplied basis.  This changes only numerical screening: it
-# does not delete, reorder, or recontract any basis function.
+# for built-in/periodic bases, but uses 8 8 8 8 16 as a conservative screening
+# baseline for an explicitly supplied basis.  This changes only numerical
+# screening: it does not delete, reorder, recontract, or guarantee linear
+# independence of the basis functions.
 _lamagoet_crystal_tolinteg() {
     local requested=${1:-auto}
     local external_basis=${2:-false}
@@ -192,6 +193,33 @@ _lamagoet_crystal_tolinteg() {
     printf '%s %s %s %s %s\n' "$1" "$2" "$3" "$4" "$5"
 }
 
+# Validate and append CRYSTAL23's optional LDREMO overlap-eigenvector removal
+# threshold.  CRYSTAL interprets integer n as n x 10^-5.  This is deliberately
+# opt-in: unlike TOLINTEG, LDREMO changes the effective variational space by
+# removing low-overlap directions.  A blank (or explicit default/none/off)
+# value leaves CRYSTAL's normal behaviour untouched.
+_lamagoet_write_crystal_ldremo() {
+    local output_file=${1:-}
+    local requested=${2:-}
+
+    case "$(_lower "$requested")" in
+        ""|default|none|off) return 0 ;;
+    esac
+    case "$requested" in
+        *[!0-9]*)
+            printf 'lamaGOET: invalid CRYSTAL_LDREMO: %s (expected an integer from 1 to 99, or blank)\n' \
+                "$requested" >&2
+            return 2
+            ;;
+    esac
+    if [ "$requested" -lt 1 ] || [ "$requested" -gt 99 ]; then
+        printf 'lamaGOET: invalid CRYSTAL_LDREMO: %s (allowed range 1-99, or blank)\n' \
+            "$requested" >&2
+        return 2
+    fi
+    printf 'LDREMO\n%s\n' "$requested" >> "$output_file"
+}
+
 # Validate and append an optional positive-integer CRYSTAL23 size control.
 # Empty values deliberately produce no input record, leaving CRYSTAL's own
 # compiled default in force.  Restrict the keyword name as well as the value
@@ -225,8 +253,281 @@ _lamagoet_write_crystal_size() {
     printf '%s\n%s\n' "$keyword" "$requested" >> "$output_file"
 }
 
+# Resolve an executable supplied either as a command name or as a path.  This
+# is kept separate from the Crystal launcher so it can be exercised with
+# harmless stub runners in the regression tests.
+_lamagoet_command_path() {
+    local requested=${1:-}
+    local resolved=""
+
+    [ -n "$requested" ] || return 1
+    case "$requested" in
+        */*)
+            [ -x "$requested" ] || return 1
+            resolved=$requested
+            ;;
+        *)
+            resolved=$(command -v "$requested" 2>/dev/null) || return 1
+            ;;
+    esac
+    printf '%s\n' "$resolved"
+}
+
+# Find the CRYSTAL23 parallel driver corresponding to the configured serial
+# driver.  CRYSTAL_BIN remains runcry23 because that is the correct one-CPU
+# interface; a multi-CPU calculation must invoke runPcry23 *once* and pass the
+# processor count as its first argument.  Launching N copies of runcry23 under
+# mpirun starts N independent serial wrappers and is never correct.
+_lamagoet_crystal_parallel_runner() {
+    local configured=${1:-}
+    local configured_path configured_dir configured_name parallel_name candidate
+
+    if [ -n "${CRYSTAL_PARALLEL_BIN:-}" ]; then
+        if candidate=$(_lamagoet_command_path "$CRYSTAL_PARALLEL_BIN"); then
+            printf '%s\n' "$candidate"
+            return 0
+        fi
+        printf 'lamaGOET: Crystal23 parallel runner was not found: %s\n' \
+            "$CRYSTAL_PARALLEL_BIN" >&2
+        return 2
+    fi
+
+    if ! configured_path=$(_lamagoet_command_path "$configured"); then
+        printf 'lamaGOET: Crystal23 runner was not found: %s\n' "$configured" >&2
+        return 2
+    fi
+    configured_dir=$(dirname "$configured_path")
+    configured_name=$(basename "$configured_path")
+
+    case "$configured_name" in
+        runcry23)       parallel_name=runPcry23 ;;
+        runcry23OMP)    parallel_name=runPcry23OMP ;;
+        runPcry23|runPcry23OMP|runMPPcry23|runMPPcry23OMP)
+            printf '%s\n' "$configured_path"
+            return 0
+            ;;
+        *)
+            printf '%s\n' \
+                "lamaGOET: cannot infer a parallel Crystal23 driver from '$configured'." \
+                "Set CRYSTAL_PARALLEL_BIN to runPcry23 (or the site's equivalent)." >&2
+            return 2
+            ;;
+    esac
+
+    candidate=$configured_dir/$parallel_name
+    if [ -x "$candidate" ]; then
+        printf '%s\n' "$candidate"
+        return 0
+    fi
+    if candidate=$(_lamagoet_command_path "$parallel_name"); then
+        printf '%s\n' "$candidate"
+        return 0
+    fi
+    printf 'lamaGOET: %s was not found beside %s or on PATH.\n' \
+        "$parallel_name" "$configured_path" >&2
+    return 2
+}
+
+# Some CRYSTAL23 runPcry23 distributions force a machines.LINUX file even for
+# a single-host MPI run.  Respect a site-provided file; otherwise make a small
+# job-local file.  PBS allocations retain their actual host/slot counts, while
+# an interactive Linux/WSL run uses the requested number of localhost slots.
+_lamagoet_prepare_crystal_machinefile() {
+    local parallel_runner=${1:-}
+    local nproc=${2:-}
+    local machine_dir machine_file
+
+    case "$nproc" in
+        *[!0-9]*|""|0|1) return 0 ;;
+    esac
+    [ -r "$parallel_runner" ] || return 0
+    grep -q 'CRY23P_MACH/machines.LINUX' "$parallel_runner" 2>/dev/null || return 0
+    if [ -n "${CRY23P_MACH:-}" ] && [ -s "$CRY23P_MACH/machines.LINUX" ]; then
+        return 0
+    fi
+
+    machine_dir=$PWD/.lamagoet_crystal_mpi
+    machine_file=$machine_dir/machines.LINUX
+    mkdir -p "$machine_dir" || {
+        printf 'lamaGOET: cannot create Crystal23 MPI host-file directory: %s\n' \
+            "$machine_dir" >&2
+        return 2
+    }
+    if [ -n "${PBS_NODEFILE:-}" ] && [ -s "$PBS_NODEFILE" ]; then
+        # One PBS_NODEFILE row represents one allocated slot.  Collapse rows
+        # into Open MPI's unambiguous "host slots=N" form without reordering
+        # the hosts selected by the scheduler.
+        awk '
+            !seen[$1]++ { order[++n] = $1 }
+            { slots[$1]++ }
+            END { for (i = 1; i <= n; i++) print order[i], "slots=" slots[order[i]] }
+        ' "$PBS_NODEFILE" > "$machine_file"
+    else
+        printf 'localhost slots=%s\n' "$nproc" > "$machine_file"
+    fi
+    if [ ! -s "$machine_file" ]; then
+        printf 'lamaGOET: Crystal23 MPI host file is empty: %s\n' "$machine_file" >&2
+        return 2
+    fi
+    CRY23P_MACH=$machine_dir
+    export CRY23P_MACH
+}
+
+# CRYSTAL's vendor drivers duplicate short launcher-status messages to standard
+# output and to their own output files.  Keep a successful HAR cycle quiet so
+# lamaGOET's "Running ..." / "... ended" markers remain easy to follow.  Leave
+# standard error live for MPI/shell failures; if a driver returns an error,
+# replay its captured standard output before returning the same status.
+_lamagoet_run_crystal_driver_quietly() {
+    local capture_file=${1:-}
+    local command_status
+
+    shift || true
+    [ -n "$capture_file" ] && [ "$#" -gt 0 ] || {
+        printf 'lamaGOET: Crystal23 quiet launcher received incomplete arguments.\n' >&2
+        return 2
+    }
+    if ! mkdir -p "$(dirname "$capture_file")"; then
+        printf 'lamaGOET: could not create the Crystal23 launcher-log directory.\n' >&2
+        return 2
+    fi
+    if "$@" >"$capture_file"; then
+        command_status=0
+    else
+        command_status=$?
+        if [ -s "$capture_file" ]; then
+            cat "$capture_file" >&2
+        fi
+    fi
+    return "$command_status"
+}
+
+# Run one CRYSTAL23 SCF calculation using the driver's actual command-line
+# contract.  The optional fourth argument is the restart prefix used by GUESSP.
+_lamagoet_run_crystal23() {
+    local configured=${1:-}
+    local nproc=${2:-1}
+    local job_name=${3:-}
+    local restart_name=${4:-}
+    local runner
+
+    case "$nproc" in
+        *[!0-9]*|""|0)
+            printf 'lamaGOET: invalid Crystal23 processor count: %s\n' "$nproc" >&2
+            return 2
+            ;;
+    esac
+    [ -n "$job_name" ] || {
+        printf 'lamaGOET: Crystal23 job name is empty.\n' >&2
+        return 2
+    }
+
+    if [ "$nproc" -eq 1 ]; then
+        if ! runner=$(_lamagoet_command_path "$configured"); then
+            printf 'lamaGOET: Crystal23 runner was not found: %s\n' "$configured" >&2
+            return 2
+        fi
+        if [ -n "$restart_name" ]; then
+            _lamagoet_run_crystal_driver_quietly \
+                ".lamagoet_crystal_mpi/$job_name.scf-wrapper.log" \
+                "$runner" "$job_name" "$restart_name"
+        else
+            _lamagoet_run_crystal_driver_quietly \
+                ".lamagoet_crystal_mpi/$job_name.scf-wrapper.log" \
+                "$runner" "$job_name"
+        fi
+        return $?
+    fi
+
+    runner=$(_lamagoet_crystal_parallel_runner "$configured") || return $?
+    _lamagoet_prepare_crystal_machinefile "$runner" "$nproc" || return $?
+    if grep -Eq 'set[[:space:]]+MPIDIR[[:space:]]*=[[:space:]]*/usr/bin' \
+        "$runner" 2>/dev/null && [ ! -x /usr/bin/mpirun ]; then
+        printf '%s\n' \
+            "lamaGOET: $runner requires /usr/bin/mpirun, but it is not installed." \
+            "Run lamaGOET's install.sh (or install Ubuntu's openmpi-bin package)," \
+            "then retry the Crystal23 calculation." >&2
+        return 2
+    fi
+    if [ -n "$restart_name" ]; then
+        _lamagoet_run_crystal_driver_quietly \
+            ".lamagoet_crystal_mpi/$job_name.scf-wrapper.log" \
+            "$runner" "$nproc" "$job_name" "$restart_name"
+    else
+        _lamagoet_run_crystal_driver_quietly \
+            ".lamagoet_crystal_mpi/$job_name.scf-wrapper.log" \
+            "$runner" "$nproc" "$job_name"
+    fi
+}
+
+_lamagoet_crystal_properties_runner() {
+    local configured=${1:-}
+    local parallel=${2:-false}
+    local configured_path configured_dir candidate runner_name
+
+    if ! configured_path=$(_lamagoet_command_path "$configured"); then
+        printf 'lamaGOET: Crystal23 runner was not found: %s\n' "$configured" >&2
+        return 2
+    fi
+    configured_dir=$(dirname "$configured_path")
+    if [ "$parallel" = true ]; then
+        runner_name=runPprop23
+    else
+        runner_name=runprop23
+    fi
+    candidate=$configured_dir/$runner_name
+    if [ -x "$candidate" ]; then
+        printf '%s\n' "$candidate"
+        return 0
+    fi
+    if candidate=$(_lamagoet_command_path "$runner_name"); then
+        printf '%s\n' "$candidate"
+        return 0
+    fi
+    printf 'lamaGOET: Crystal23 properties runner was not found: %s\n' \
+        "$runner_name" >&2
+    return 2
+}
+
+# Run CRYSTAL23 properties.  The parallel driver has the same leading NPROC
+# convention as runPcry23; the serial driver has no processor-count argument.
+_lamagoet_run_crystal23_properties() {
+    local configured=${1:-}
+    local nproc=${2:-1}
+    local input_name=${3:-}
+    local wavefunction_name=${4:-}
+    local runner parallel_runner
+
+    case "$nproc" in
+        *[!0-9]*|""|0)
+            printf 'lamaGOET: invalid Crystal23 properties processor count: %s\n' \
+                "$nproc" >&2
+            return 2
+            ;;
+    esac
+    if [ "$nproc" -eq 1 ]; then
+        runner=$(_lamagoet_crystal_properties_runner "$configured" false) || return $?
+        _lamagoet_run_crystal_driver_quietly \
+            ".lamagoet_crystal_mpi/$input_name.properties-wrapper.log" \
+            "$runner" "$input_name" "$wavefunction_name"
+        return $?
+    fi
+
+    parallel_runner=$(_lamagoet_crystal_parallel_runner "$configured") || return $?
+    _lamagoet_prepare_crystal_machinefile "$parallel_runner" "$nproc" || return $?
+    runner=$(_lamagoet_crystal_properties_runner "$parallel_runner" true) || return $?
+    _lamagoet_run_crystal_driver_quietly \
+        ".lamagoet_crystal_mpi/$input_name.properties-wrapper.log" \
+        "$runner" "$nproc" "$input_name" "$wavefunction_name"
+}
+
 export -f _upper _lower _lamagoet_gaussian_method_keyword \
-    _lamagoet_crystal_tolinteg _lamagoet_write_crystal_size
+    _lamagoet_crystal_tolinteg _lamagoet_write_crystal_ldremo \
+    _lamagoet_write_crystal_size \
+    _lamagoet_command_path _lamagoet_crystal_parallel_runner \
+    _lamagoet_prepare_crystal_machinefile \
+    _lamagoet_run_crystal_driver_quietly _lamagoet_run_crystal23 \
+    _lamagoet_crystal_properties_runner _lamagoet_run_crystal23_properties
 
 LAMAGOET_SHELL_ENV_LOADED=1
 export LAMAGOET_SHELL_ENV_LOADED

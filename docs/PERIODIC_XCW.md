@@ -63,7 +63,11 @@ GRED+KRED for periodic XCW. KRED alone remains scientifically insufficient.
 The legacy XML reader remains available in Tonto. lamaGOET also falls back to
 that path for unrestricted Crystal23 HAR jobs, which are outside the current
 native GRED reader contract; `LAMAGOET_CRYSTAL_DENSITY_INTERFACE=xml` provides
-an explicit compatibility override. CP2K HAR has a separate
+an explicit compatibility override. The Qt Crystal23 panel exposes the same
+choice as **Crystal23 density interface** with **Native GRED (recommended)**
+and **Legacy XML** entries. The runner validates the selected artifact, so the
+legacy path requires a fresh `GenerateXML.XML` instead of being rejected merely
+because a GRED file is absent. CP2K HAR has a separate
 [native MO_KP/CSR interface](CP2K_NATIVE_INTERFACE.md), with its original XML
 bridge retained as an explicit legacy option.
 
