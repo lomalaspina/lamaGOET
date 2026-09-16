@@ -1,0 +1,56 @@
+{
+  "schema_version": 1,
+  "provenance": "Retained outputs from the historical RUN_tests.sh suite. Values are archive evidence, not a claim that the current executable was rerun.",
+  "cases": {
+    "GlyAla": {
+      "program": "elmodb",
+      "purpose": "ELMO database HAR without self-consistent cluster charges",
+      "expected": {"R_factor_all": 0.0206, "wR_factor_all": 0.0167, "goodness_of_fit_all": 1.5517, "density_max": 0.1242, "density_min": -0.1373, "density_rms": 0.0296, "reflections_total": 2357}
+    },
+    "GlyAla_cluster_charges": {
+      "program": "elmodb",
+      "purpose": "ELMO database HAR with self-consistent cluster charges",
+      "expected": {"R_factor_all": 0.0206, "wR_factor_all": 0.0167, "goodness_of_fit_all": 1.5517, "density_max": 0.1242, "density_min": -0.1373, "density_rms": 0.0296, "reflections_total": 2357}
+    },
+    "nh3-Gaussian": {
+      "program": "Gaussian",
+      "purpose": "NH3 molecular HAR through Gaussian",
+      "expected": {"R_factor_all": 0.0272, "wR_factor_all": 0.0229, "goodness_of_fit_all": 5.0533, "density_max": 0.0661, "density_min": -0.0448, "density_rms": 0.0226, "reflections_total": 98}
+    },
+    "nh3-Tonto": {
+      "program": "Tonto",
+      "purpose": "NH3 molecular HAR with the internal Tonto SCF",
+      "expected": {"R_factor_all": 0.0272, "wR_factor_all": 0.0229, "goodness_of_fit_all": 5.0532, "density_max": 0.0661, "density_min": -0.0448, "density_rms": 0.0226, "reflections_total": 98}
+    },
+    "nh3-dispersion-Tonto": {
+      "program": "Tonto",
+      "purpose": "NH3 Tonto HAR with experimental dispersion correction",
+      "expected": {"R_factor_all": 0.0270, "wR_factor_all": 0.0228, "goodness_of_fit_all": 5.0204, "density_max": 0.0656, "density_min": -0.0444, "density_rms": 0.0224, "reflections_total": 98}
+    },
+    "nh3_cluster_charges-Gaussian": {
+      "program": "Gaussian",
+      "purpose": "NH3 Gaussian HAR with self-consistent cluster charges",
+      "expected": {"R_factor_all": 0.0272, "wR_factor_all": 0.0229, "goodness_of_fit_all": 5.0512, "density_max": 0.0659, "density_min": -0.0447, "density_rms": 0.0225, "reflections_total": 98}
+    },
+    "nh3_cluster_charges-Tonto": {
+      "program": "Tonto",
+      "purpose": "NH3 Tonto HAR with self-consistent cluster charges",
+      "expected": {"R_factor_all": 0.0270, "wR_factor_all": 0.0229, "goodness_of_fit_all": 5.0461, "density_max": 0.0655, "density_min": -0.0442, "density_rms": 0.0221, "reflections_total": 98}
+    },
+    "nh3_dispersion-Gaussian": {
+      "program": "Gaussian",
+      "purpose": "NH3 Gaussian HAR with experimental dispersion correction",
+      "expected": {"R_factor_all": 0.0270, "wR_factor_all": 0.0228, "goodness_of_fit_all": 5.0204, "density_max": 0.0656, "density_min": -0.0444, "density_rms": 0.0224, "reflections_total": 98}
+    },
+    "yellow-Gaussian": {
+      "program": "Gaussian",
+      "purpose": "Larger molecular Gaussian HAR regression",
+      "expected": {"R_factor_all": 0.0445, "wR_factor_all": 0.0274, "goodness_of_fit_all": 1.4648, "density_max": 0.1344, "density_min": -0.1299, "density_rms": 0.0312, "reflections_total": 904}
+    },
+    "yellow-Tonto": {
+      "program": "Tonto",
+      "purpose": "Larger molecular Tonto HAR regression",
+      "expected": {"R_factor_all": 0.0445, "wR_factor_all": 0.0274, "goodness_of_fit_all": 1.4648, "density_max": 0.1344, "density_min": -0.1299, "density_rms": 0.0312, "reflections_total": 904}
+    }
+  }
+}

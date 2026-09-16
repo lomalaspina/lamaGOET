@@ -2,7 +2,12 @@
 __pycache__/
 *.py[cod]
 .venv-qt*/
+.venv-docs/
 qt_smoke.png
+
+# Documentation build products
+docs/_build/
+output/
 
 # macOS
 .DS_Store
