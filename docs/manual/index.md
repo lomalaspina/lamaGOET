@@ -30,6 +30,7 @@ been scientifically validated.
 :::{rubric} Choose a workflow
 :::
 
+:::::{only} html
 ::::{grid} 2
 :gutter: 3
 
@@ -75,6 +76,33 @@ Configure Tonto density, deformation-density, Laplacian, promolecule, and
 exchange-correlation-potential grids. Current limitations are explicit.
 :::
 
+::::
+:::::
+
+::::{only} latex
+```{list-table}
+:widths: 31 69
+:header-rows: 0
+
+* - **{doc}`Molecular HAR <har>`**
+  - Iterate a molecular wavefunction and a Tonto aspherical-atom refinement
+    using Tonto, Gaussian, ORCA, OCC, or ELMOdb.
+* - **{doc}`Periodic HAR <periodic-har>`**
+  - Use Crystal23 or all-electron CP2K for a genuinely periodic density,
+    imported through native density interfaces or retained legacy XML paths.
+* - **{doc}`Molecular XCW and XWR <xcw>`**
+  - Optimize a Tonto wavefunction against diffraction data at fixed geometry,
+    or run HAR followed by XCW.
+* - **{doc}`Periodic XCW <periodic-xcw>`**
+  - Optimize k-resolved Tonto orbitals at fixed geometry using a matched
+    Crystal23 GRED+KRED reference. This path is experimental.
+* - **{doc}`Tonto SCCC optimizations <sccc>`**
+  - Run self-consistent cluster-charge theoretical optimizations with Gaussian
+    or ORCA coordinated by Tonto.
+* - **{doc}`Maps and plots <plots>`**
+  - Configure Tonto density, deformation-density, Laplacian, promolecule, and
+    exchange-correlation-potential grids. Current limitations are explicit.
+```
 ::::
 
 :::{rubric} Terminology used here
