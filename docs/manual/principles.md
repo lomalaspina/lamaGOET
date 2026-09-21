@@ -3,10 +3,12 @@
 ## From an IAM to Hirshfeld atoms
 
 In an independent-atom model (IAM), the calculated structure factor is built
-from spherical atomic form factors. Bonding and lone-pair redistribution are
-not represented explicitly. In HAR, a quantum calculation supplies an
-electron density $\rho(\mathbf r)$ appropriate to the current geometry and
-environment. A stockholder partition assigns it to atoms:
+from spherical atomic form factors. Which means that every density deformation
+caused by for example bonding or lone-pair redistribution are
+not represented explicitly. In HAR, a quantum mechanical calculation supplies an
+electron density $\rho(\mathbf r)$ though a wavefunction which is then appropriate
+to the current geometry and environment. A Hirsfeld stockholder partition then
+assigns it to atoms:
 
 $$
 w_A(\mathbf r)=\frac{\rho_A^0(\mathbf r)}
@@ -31,12 +33,16 @@ F_{\mathrm{calc}}(\mathbf h)=
 \exp(2\pi i\,\mathbf h\!\cdot\!\mathbf r_A).
 $$
 
-Tonto refines the selected structural parameters against the observations.
-Because those coordinates define the density calculation, lamaGOET then
-recomputes the wavefunction/density and repeats. Reusing atomic form factors
-from the first cycle would be scientifically wrong: the first geometry can
-contain IAM-biased X-H distances and every accepted geometry defines a new
-density.
+The new calculated aspherical structure factors is what Tonto  then uses to
+refine the selected structural parameters against the observations. However,
+after every refinement, a new geometry is obtains, and because those coordinates
+define the density calculation in the quantum mechanical step, lamaGOET then
+sets up new files to recompute the wavefunction/density with the selected software
+which will then be used again for a new partitioning and structure factor
+calculation, repeating the loop untill full convergency (in the QM step and geometry)
+is achieved. Reusing atomic form factors from the first cycle would be
+scientifically wrong: the first geometry can contain IAM-biased X-H distances and
+every accepted geometry defines a new density.
 
 ## Molecular and periodic densities
 
@@ -71,7 +77,8 @@ When unmerged observations are supplied, the implemented order is:
 
 This preprocessing is repeated from the **full unmerged set** whenever a new
 partition supplies new aspherical factors. A reflection can therefore leave or
-re-enter when its current aspherical prediction changes. Residual-density and
+re-enter the refinement when its current aspherical prediction changes (a
+good example here is the 222 reflection in diamond). Residual-density and
 final-artifact calculations repeat the same preprocessing instead of using the
 raw unmerged data directly.
 
@@ -95,7 +102,8 @@ while a weighted residual and goodness of fit contain the supplied standard
 uncertainties and the actual degrees of freedom. Do not compare a Tonto
 F-refinement scale, $R$, or goodness of fit directly with a SHELXL $F^2$
 refinement without first matching input normalization, selected observations,
-weights, refined parameters, and correction models.
+refined parameters, and correction models, remembering that the weigting scheme
+will always be different between the two.
 
 ## Scale and extinction
 
@@ -108,8 +116,7 @@ $$
 
 If intensities and their uncertainties are both multiplied by 100, amplitudes
 and their uncertainties scale by 10 and the fitted amplitude scale changes by
-10; dimensionless residuals should remain invariant. The retained Quartz
-normalization control demonstrates this behavior.
+10; dimensionless residuals should remain invariant.
 
 Two extinction families are exposed:
 

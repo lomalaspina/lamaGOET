@@ -1,0 +1,116 @@
+{
+  "schema_version": 1,
+  "provenance": "Current live control plus a separately labelled retained lecture result; retained values are not a claim that the historical calculation was freshly rerun.",
+  "validation_context": {
+    "date": "2026-09-20",
+    "platform": "Linux-6.18.33.2-microsoft-standard-WSL2",
+    "lamaGOET_revision": "295dab0cbde68f9d7d30610b6b650ccec9ce548e",
+    "tonto_version": "26.09.20",
+    "tonto_revision": "53bb2454317bc1bd4334691d9777cfdfaceaee21",
+    "compiler": "GNU 14.2.0",
+    "lapack": "3.12.0"
+  },
+  "fixtures": {
+    "cif": {
+      "path": "examples/1-epoxide/epoxide.cif",
+      "sha256": "60c6603991e72c88e540a037cb4caae20c9c6b52ca9f1455a901ca903f8b8013"
+    },
+    "hkl": {
+      "path": "examples/1-epoxide/epoxide.hkl",
+      "sha256": "f24b4bcac74f93267b2511abc02ed6d774ebd9434a5fc0a7d13799aab2661e20"
+    }
+  },
+  "current_control": {
+    "settings": {
+      "program": "Tonto",
+      "method": "rhf",
+      "basis": "def2-SVP",
+      "wavelength_angstrom": 0.71073,
+      "merg_code": 2,
+      "f_sigma_cutoff": 4,
+      "start_with_iam": true
+    },
+    "expected": {
+      "iam": {
+        "R_F": 0.035630,
+        "wR_F2": 0.073136,
+        "reflections": 1313,
+        "parameters": 44,
+        "GoF": 2.131635
+      },
+      "har": {
+        "R_F": 0.030272,
+        "wR_F2": 0.053130,
+        "reflections": 1313,
+        "parameters": 64,
+        "GoF": 1.551167
+      }
+    },
+    "absolute_tolerance": 0.0001
+  },
+  "historical_control": {
+    "source_artifacts": {
+      "hkl": {
+        "source": "workshop/epoxide_I_obs.hkl",
+        "sha256": "f7141b1374fc842740f42cbebd43cb26841dd5743df8e840db230ee7edaf9fb8"
+      },
+      "stdin": {
+        "source": "workshop/Tonto_HAR/1.tonto_cycle.1-epoxide_HAR/1.stdin",
+        "sha256": "73175af9e292420ac7fa29cff7ad0b85c0831c13f641bff3848ae223538ca881"
+      },
+      "stdout": {
+        "source": "workshop/Tonto_HAR/1.tonto_cycle.1-epoxide_HAR/1.stdout",
+        "sha256": "7f3a04e84334549818d093a8ba9061244985286fb8c45654eed49a2554117968"
+      }
+    },
+    "settings": {
+      "reflection_file": "epoxide_I_obs.hkl (already merged)",
+      "f_sigma_cutoff": 2,
+      "method": "rhf",
+      "basis": "def2-SVP"
+    },
+    "retained_har": {
+      "R_F": 0.030237,
+      "wR_F2": 0.052652,
+      "reflections": 1308,
+      "parameters": 64,
+      "GoF": 1.529226
+    },
+    "current_tonto_rerun": {
+      "R_F": 0.030247,
+      "wR_F2": 0.052663,
+      "reflections": 1308,
+      "parameters": 64,
+      "GoF": 1.529556,
+      "stdout_sha256": "025f771eb6548de498187d348d78c9b31a26e3163fda5a7b58534e9922d33e78"
+    }
+  },
+  "non_acceptance_diagnostic": {
+    "basis": "STO-3G",
+    "har": {
+      "R_F": 0.044052,
+      "wR_F2": 0.079555,
+      "reflections": 1313,
+      "parameters": 64
+    },
+    "interpretation": "The minimal basis makes this HAR worse than the IAM and must not be used as the installation acceptance target.",
+    "packaged_unmerged_hkl_at_cutoff_2": {
+      "iam": {
+        "R_F": 0.048148,
+        "wR_F2": 0.074553,
+        "reflections": 1601,
+        "parameters": 44,
+        "GoF": 1.987850
+      },
+      "har": {
+        "R_F": 0.042411,
+        "wR_F2": 0.054689,
+        "reflections": 1601,
+        "parameters": 64,
+        "GoF": 1.477804
+      },
+      "stdout_sha256": "395e9c7df5f19377d3eed6a07f8f4fe6b543b4928262a405eb723ddf47b22958",
+      "interpretation": "Changing only the packaged unmerged input to cutoff 2 does not reproduce the historical 1308-reflection population; the historical file has additional selection provenance."
+    }
+  }
+}

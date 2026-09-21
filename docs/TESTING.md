@@ -62,9 +62,12 @@ work. Run the files directly with `PYTHONPATH` set to the repository root.
 | `test_qt_discovery.py` | executable and local dependency discovery |
 | `test_documented_options.py` | every canonical `OPTION_DEFAULTS` key appears in the scientific manual |
 | `test_scientific_archives.py` | retained historical cases and exact CIF values match the explicit archival manifest |
+| `test_epoxide_control.py` | Epoxide control provenance, input hashes, documented settings, and optional live IAM→HAR numerical result |
 
-At the documentation baseline of 16 September 2026 this comprised 26 files:
-26 passed, 0 failed, 0 skipped on Linux x86-64.
+The Epoxide file always checks its manifest and documentation contract. Its
+live Tonto calculation is opt-in, so the licence-free default suite remains
+fast. On 20 September 2026 the default suite completed 27 files: 27 passed,
+0 failed, 0 skipped on Linux x86-64.
 
 ## What is not tested by the default suite
 
@@ -81,8 +84,25 @@ bash /path/to/lamaGOET/lamaGOET.sh --run-job-options ./job_options.txt
 grep -A8 "IAM refinement" my_job.lst
 ```
 
-Expect `R(F) 0.035630` with 44 parameters, against a published 0.0355. Takes
-about ten seconds and needs only Tonto.
+Use RHF/def2-SVP, MERG 2, and F/σ cutoff 4. Expect the IAM to give
+`R(F)=0.035630`, `wR(F²)=0.073136`, 1,313 reflections, and 44 parameters; the
+following HAR should give `R(F)=0.030272`, `wR(F²)=0.053130`, 1,313
+reflections, and 64 parameters. On the validation machine the complete run
+took about 20 seconds and needed only Tonto.
+
+Run the guarded numerical regression explicitly with:
+
+```bash
+LAMAGOET_RUN_EPOXIDE=1 \
+LAMAGOET_TONTO_BIN=/path/to/tonto \
+LAMAGOET_TONTO_BASIS_DIR=/path/to/tonto/basis_sets \
+PYTHONPATH=. .venv-qt/bin/python Tests/test_epoxide_control.py
+```
+
+The test stages a new temporary directory, checks the generated Tonto input,
+and requires the HAR R factors to improve over the IAM. R, wR, and GoF are
+accepted within an absolute `1×10⁻⁴`; reflection and parameter counts must
+match exactly. The test never modifies the example directory.
 
 Also untested: anything on a cluster (no `qsub` here), anything on Windows, and
 whether the interface paints correctly on any platform — the off-screen smoke

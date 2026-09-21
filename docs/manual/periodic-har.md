@@ -26,7 +26,7 @@ The **Crystal23 density interface** selector offers:
 ### Native GRED (recommended)
 
 lamaGOET runs Crystal23 properties and passes the formatted
-`GenerateXML_dat.GRED` file to Tonto. The native reader imports Crystal23's
+`<JOBNAME>.GRED` file to Tonto. The native reader imports Crystal23's
 atom-resolved periodic basis and direct-lattice density representation rather
 than asking Tonto to reconstruct it from a molecular-library basis name.
 

@@ -86,15 +86,14 @@ cluster launcher never starts the HAR on the submitting computer.
 
 Place or select:
 
-1. a CIF containing the unit cell, space group, atoms, coordinates, and ADPs;
-2. a reflection file readable by Tonto, normally intensities and standard
-   uncertainties; and
-3. any external basis definition or program-specific restart file requested by
-   the chosen workflow.
+1. a CIF containing the unit cell, space group, atoms, coordinates, and (ideally) ADPs;
+2. a reflection file readable by Tonto (ideally 5 collumns) or an fcf file; and
+3. if not running a pure IAM refinement: any external basis definition or program-specific
+   restart file requested by the chosen workflow.
 
 SHELX fixed-width HKL data can contain adjoining columns. lamaGOET/Tonto input
-must delimit `h`, `k`, `l`, intensity, and uncertainty unambiguously. Validate
-the number of observations and index limits printed by Tonto before accepting
+must delimit `h`, `k`, `l`, intensity (or Fs), and uncertainty unambiguously.
+Validate the number of observations and index limits printed by Tonto before accepting
 the refinement.
 
 ## First controlled run
@@ -102,18 +101,24 @@ the refinement.
 Use the epoxide teaching data in `examples/1-epoxide`:
 
 1. choose **Tonto**;
-2. set HF/STO-3G, wavelength 0.71073 Å, and F/σ cutoff 4;
+2. set RHF/def2-SVP, wavelength 0.71073 Å, MERG 2, and F/σ cutoff 4;
 3. select **Start with Tonto IAM**; and
 4. press **OK - run locally**.
 
-The retained teaching target is an IAM `R(F)` of 0.035630 with 44 parameters;
-the published comparison is 0.0355. Treat this as an installation check, not a
-general validation of a basis or method.
+With the packaged unmerged reflection file, the current control gives IAM
+`R(F)=0.035630`, `wR(F²)=0.073136`, 1,313 reflections, and 44 parameters,
+followed by HAR `R(F)=0.030272`, `wR(F²)=0.053130`, 1,313 reflections, and
+64 parameters. Treat this as an installation check, not a general validation
+of a basis or method. The retained calculation behind the older lecture table
+used an already merged file and a cutoff of 2; those different preprocessing
+choices must not be mixed with the packaged control.
 
 ## Before a production calculation
 
-- Verify element assignments, occupancies, charge, multiplicity, and the
-  selected space-group setting.
+- Verify that the starting geometry refines well for an IAM against the starting hkl
+  file, this prevents errors of for example different unit cell setting or hkl in F or I.
+- Make sure that the dataset contains chemical information left in the residual density
+  map after a regular IAM to justify the need for an improved refinement.
 - Complete a chemically meaningful fragment for a molecular calculation.
 - Check that the basis is all-electron. For periodic programs it must also be
   numerically suitable for the lattice; all-electron alone is insufficient.

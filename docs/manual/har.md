@@ -14,7 +14,7 @@ interchange format:
 | ORCA | Molden/ORCA-derived data | orbital convention and basis representation must be supported |
 | OCC | formatted checkpoint | OCC output and requested method must be supported by the runner |
 | ELMO database | transferred ELMOs, optional GAMESS-US overlap | protein/fragment-tail definitions require ELMO expertise |
-| SC cluster optimization: Gaussian + Tonto | geometry optimization with refreshed cluster field | theoretical optimization, not a crystallographic HAR; see {doc}`sccc` |
+| SC cluster optimization: Gaussian + Tonto | geometry optimization with refreshed self consisten cluster charges field | theoretical optimization, not a crystallographic HAR; see {doc}`sccc` |
 | SC cluster optimization: ORCA + Tonto | as above through ORCA | theoretical optimization, not a crystallographic HAR |
 
 Crystal23 and CP2K are periodic routes and are described in
@@ -29,13 +29,13 @@ For an external molecular program, lamaGOET performs:
 2. The selected program computes the current molecular wavefunction.
 3. Tonto reads that program's output, constructs Hirshfeld atoms, calculates
    aspherical form factors, preprocesses the observations, and performs
-   `ha_fit`.
+   the Hirshfeld atom fit (`ha_fit`).
 4. The cycle directory retains the electronic-structure input/output and
    Tonto input/output.
 5. The refined geometry becomes the next electronic-structure geometry.
-6. The loop ends when the maximum shift/s.u. is at or below `CONVTOL`, the
-   maximum cycle limit is reached, or the guarded stationary-wavefunction test
-   establishes that the external calculation is repeating.
+6. The loop ends when the maximum shift/s.u. is at or below the set convergency
+   tolerance (`CONVTOL`), the maximum cycle limit is reached, or when the guarded
+   stationary-wavefunction test establishes that the external calculation is repeating.
 7. A final theoretical calculation is run at the accepted final geometry, then
    Tonto calculates residual density and final artifacts.
 
@@ -51,7 +51,9 @@ Tonto. lamaGOET still writes and preserves the complete input and result set.
 If the asymmetric unit cuts through a molecule, select **Complete molecule(s)
 in CIF with Tonto**. Tonto's `defragment` path creates the finite fragment used
 by the electronic-structure calculation while the crystallographic asymmetric
-unit remains the object refined.
+unit remains the object refined. This option is never to be used with periodic
+compounds, as tonto will complete every conected atom to infinity until the
+computers memory is fully takes.
 
 The 3D viewer's manual grow modes serve a different purpose. They let the user
 inspect and export a chosen starting fragment:
@@ -60,17 +62,19 @@ inspect and export a chosen starting fragment:
 - **Short contacts** includes neighbors within a user distance; and
 - **van der Waals radii** uses radii plus a tolerance.
 
+Similar options are also available using the options to include explicit cluster.
+
 Export retains the source unit cell and symmetry. It does not convert the CIF
 to P1. Tonto still refines the asymmetric unit after reading the exported
-structure. Always inspect the export for duplicate atoms, incorrect disorder
-components, or an unintended polymeric expansion.
+structure. Always inspect the export for duplicate atoms like an unintended
+polymeric expansion.
 
 ## Method and basis
 
 The method and basis boxes are editable. Their menus are conservative
 program-specific suggestions, not an exhaustive statement of what an external
-program can execute. lamaGOET also has to reconstruct atomic form factors in
-Tonto, so an external method is suitable only when its exchange/correlation
+program can execute. Tonto has to reconstruct atomic form factors and
+therefore an external method is suitable only when its exchange/correlation
 content and the interchange file are supported at that boundary.
 
 For Gaussian, the GUI canonicalizes legacy PBE aliases:
@@ -82,17 +86,16 @@ For Gaussian, the GUI canonicalizes legacy PBE aliases:
 | `pbe0`, `pbe1pbe` | `PBE1PBE` |
 | `upbe0`, `upbe1pbe` | `uPBE1PBE` |
 
-Only choices known to have a matching Tonto treatment are suggested. The box
-remains editable for experts, but entering a keyword does not implement a
-missing Tonto functional.
+Only choices known to have a matching Tonto treatment are suggested (which are
+the ones shown as suggestions). The box remains editable for experts, but
+entering a keyword does not implement a missing Tonto functional.
 
 ### External and Basis Set Exchange definitions
 
 Select **Input external basis set manually** to stage `basis_gen.txt`. The
 Basis Set Exchange dialog selects an all-electron basis independently for each
 element found in the loaded CIF. lamaGOET renders the syntax expected by the
-selected program and writes one final program terminator, not one between
-element blocks.
+selected program and writes one final program terminator.
 
 An all-electron definition is necessary because Tonto forms a total electron
 density. Effective-core-potential valence-only bases are not equivalent. For a
@@ -168,9 +171,9 @@ the existing runner; retain the generated `stdin` as the authoritative record.
 
 Hydrogen positions and ADPs are separately selectable; **H atoms isotropic**
 uses isotropic hydrogen displacement parameters. An anharmonic model can be
-requested for named atoms at third and/or fourth order. The number of
-parameters grows quickly, so verify data resolution, parameter correlations,
-positive density/probability behavior, and significance.
+requested for named atoms at third and/or fourth order Gram-Charlier coefficients.
+The number of parameters grows quickly, so verify data resolution, parameter
+correlations, positive density/probability behavior, and significance.
 
 **Elongate X-H bond lengths** sets starting B-H, C-H, N-H, and O-H distances.
 These are starting-geometry controls, not restraints on the final HAR unless a

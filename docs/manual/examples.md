@@ -41,16 +41,37 @@ compatible Tonto executable.
 | Control | Value |
 |---|---|
 | SCF program | Tonto |
-| Method / basis | HF / STO-3G |
+| Method / basis | RHF / def2-SVP |
 | Wavelength | 0.71073 Å |
 | F/σ cut | 4 |
+| Reflection handling | packaged unmerged HKL; MERG 2 |
 | Structure completion | off; the asymmetric unit contains the molecule |
 | Starting model | Tonto IAM |
 
-The teaching notes report Tonto-IAM `R(F)=0.0355`, 1,308 reflections, and 44
-parameters; the corresponding SHELX-IAM comparison is `R(F)=0.0353`. Treat
-agreement at the printed precision as a control of the input/model path, not
-as a universal tolerance across compilers or future method changes.
+The current end-to-end control gives:
+
+| Stage | R(F) | wR(F²) | Reflections | Parameters |
+|---|---:|---:|---:|---:|
+| Tonto IAM | 0.035630 | 0.073136 | 1,313 | 44 |
+| Tonto HAR | 0.030272 | 0.053130 | 1,313 | 64 |
+
+The retained calculation behind the older lecture table used the already
+merged `epoxide_I_obs.hkl` file and an F/σ cutoff of 2. Its retained HAR values
+were `R(F)=0.030237`, `wR(F²)=0.052652`, 1,308 reflections, and 64 parameters.
+A rerun of that exact historical input with the validation executable
+reproduced them as 0.030247 and 0.052663. The historical and packaged targets
+use distinct reflection files and populations and are therefore not
+interchangeable; “already merged” and the nominal cutoff alone do not fully
+describe the earlier selection history.
+
+STO-3G is deliberately **not** the acceptance basis for this example. With
+the otherwise identical current input it produced HAR `R(F)=0.044052`, worse
+than the IAM. That is a useful basis-quality warning, not an installation
+target. Agreement with the def2-SVP control at the stated tolerance checks the
+input/model path; it is not a universal tolerance across compilers or future
+method changes. The automated harness accepts R, wR, and GoF within an absolute
+`1×10⁻⁴` of these targets and requires the reflection and parameter counts to
+match exactly.
 
 Useful variations are to lower the cut from 4 to 3 and to add
 self-consistent cluster charges. Record both the changed reflection count and

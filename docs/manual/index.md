@@ -4,13 +4,13 @@ orphan: false
 
 <div class="hero">
 
-# lamaGOET scientific manual
+# lamaGOET manual
 
 **Reproducible setup and execution of molecular and periodic Hirshfeld atom
-refinement, X-ray constrained wavefunction calculations, and related Tonto
-workflows.**
+refinement through Tonto, X-ray constrained wavefunction calculations, and
+related Tonto workflows.**
 
-This manual describes what lamaGOET calculates, how the graphical controls map
+This manual describes lamaGOET, how the graphical controls map
 to the generated inputs, what evidence supports each implementation, and where
 the present scientific and software boundaries lie.
 
@@ -108,18 +108,20 @@ exchange-correlation-potential grids. Current limitations are explicit.
 :::{rubric} Terminology used here
 :::
 
-- **HAR** refines structural parameters using theoretically calculated
-  wavefunctions and Hirshfeld atomic scattering factors.
+- **HAR** refines structural parameters using aspherical atomic form factos
+  based on theoretically calculated wavefunctions and Hirshfeld weights for
+  electron density partitioning.
 - **XCW** is performed by Tonto at a fixed geometry and optimizes a
   wavefunction under an X-ray restraint.
 - **XWR** is the sequence HAR followed by XCW.
 - **Periodic HAR** and **periodic XCW** preserve translational periodicity in
   their respective density or orbital representations.
-- **IAM** denotes an independent-atom model with spherical tabulated atoms.
+- **IAM** denotes an independent-atom model with spherical tabulated atomic
+  scatering factors.
 
-The terminology is deliberately strict: a CP2K or Crystal23 HAR is still HAR,
-not XCW; a fixed-geometry periodic orbital optimization is periodic XCW; and
-the sequence of the two is XWR.
+The terminology is deliberately strict: a CP2K or Crystal23 HAR is still HAR
+performed by Tonto using the CP2K or Crystal23 densities; a fixed-geometry
+periodic orbital optimization is periodic XCW; and the sequence of the two is XWR.
 
 ```{toctree}
 :maxdepth: 2

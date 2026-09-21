@@ -29,9 +29,9 @@ development tests relevant to the present interfaces.
 
 ## Current lamaGOET suite
 
-On 16 September 2026, `bash Tests/run_all.sh` completed **26 test files: 26
+On 20 September 2026, `bash Tests/run_all.sh` completed **27 test files: 27
 passed, 0 failed, 0 skipped** on Linux x86-64, Bash 5.2.21, using the
-repository `.venv-qt` Python. The suite included six shell tests and twenty
+repository `.venv-qt` Python. The suite included six shell tests and twenty-one
 Python tests.
 
 ### Why these tests exist
@@ -50,6 +50,47 @@ Python tests.
 
 The suite does not invoke licensed programs and does not prove numerical
 equivalence of a fresh HAR. Live scientific calculations remain opt-in.
+
+## Epoxide molecular HAR control
+
+**Question.** Does the shortest Tonto-only teaching workflow still reproduce
+an IAM and then improve it with a molecular HAR?
+
+**Design.** The packaged Epoxide CIF and unmerged HKL were run end to end with
+the current lamaGOET runner and Tonto, using RHF/def2-SVP, wavelength
+0.71073 Å, MERG 2, F/σ cutoff 4, and a starting Tonto IAM. A second run used
+the historical already merged HKL and cutoff 2 to distinguish implementation
+drift from a reflection-selection difference.
+
+The fresh controls used lamaGOET revision `295dab0` and Tonto 26.09.20 revision
+`53bb245`, compiled with GNU Fortran 14.2.0 and LAPACK 3.12.0 under WSL2 on
+20 September 2026. The exact full revisions and artifact hashes are recorded
+in `Tests/epoxide_control.json`.
+
+| Control | R(F) | wR(F²) | Reflections | Parameters | GoF |
+|---|---:|---:|---:|---:|---:|
+| Current packaged IAM | 0.035630 | 0.073136 | 1,313 | 44 | 2.131635 |
+| Current packaged HAR | 0.030272 | 0.053130 | 1,313 | 64 | 1.551167 |
+| Historical retained HAR | 0.030237 | 0.052652 | 1,308 | 64 | 1.529226 |
+| Exact historical input rerun | 0.030247 | 0.052663 | 1,308 | 64 | 1.529556 |
+
+The packaged CIF is byte-identical to the historical teaching CIF. The
+retained and rerun results agree to about 10⁻⁵ when the exact historical input
+and reflection file are reused. The packaged unmerged data are a distinct
+reflection population; they must not be treated as equivalent merely by
+choosing the same nominal cutoff. In contrast, replacing def2-SVP by STO-3G
+while holding the current packaged input fixed gave HAR `R(F)=0.044052` and
+`wR(F²)=0.079555`, worse than the IAM.
+
+As a direct check, applying cutoff 2 to the packaged unmerged file produced
+1,601 reflections, IAM `R(F)=0.048148`, and HAR `R(F)=0.042411`; it did not
+recreate the historical 1,308-reflection population. This confirms that the
+historical file carries selection provenance beyond the nominal cutoff.
+
+**Conclusion.** The HAR implementation has not regressed in this control. The
+failure arose because the manual accidentally paired the historical target
+with STO-3G. `Tests/test_epoxide_control.py` now protects the input hashes,
+documented settings, and (when explicitly enabled) the live numerical path.
 
 ## Historical ten-case lamaGOET archive
 
