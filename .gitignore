@@ -8,6 +8,7 @@ qt_smoke.png
 # Documentation build products
 docs/_build/
 output/
+*.swp
 
 # macOS
 .DS_Store
@@ -40,6 +41,7 @@ gtkdialog-0.8.3*
 # Downloaded example archives and stray installers
 examples/*.zip
 examples/**/*.exe
+/examples/1-epoxide/test/
 
 # Download staging area (large archives, not part of the repository)
 ex/
