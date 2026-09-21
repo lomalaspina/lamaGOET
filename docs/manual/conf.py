@@ -1,4 +1,4 @@
-"""Sphinx configuration for the lamaGOET scientific manual."""
+"""Sphinx configuration for the lamaGOET manual."""
 
 from __future__ import annotations
 
@@ -51,7 +51,7 @@ myst_enable_extensions = [
 myst_heading_anchors = 4
 
 html_theme = "furo"
-html_title = "lamaGOET scientific manual"
+html_title = "lamaGOET manual"
 html_short_title = "lamaGOET manual"
 html_logo = str(ROOT / "llama.png")
 html_favicon = str(ROOT / "Tonto_logo.png")
