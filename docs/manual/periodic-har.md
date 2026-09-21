@@ -179,17 +179,32 @@ periodic lattice. Both partition the same imported periodic density. The
 periodic choice is particularly relevant for extended networks; it does not
 substitute an observed density or change Crystal23/CP2K itself.
 
-The current periodic option is the neutral-proatom Hirshfeld model (H0), not a
-self-consistent Hirshfeld-I partition. H0 can nevertheless assign a non-integer
+The established `periodic` option is the neutral-proatom Hirshfeld model (H0).
+H0 can nevertheless assign a non-integer
 population and net partial charge to an atom because the periodic total density,
 not the neutral proatom density, is being divided. Its outputs are therefore
 environment-specific aspherical atom-in-crystal scattering factors, rather than
-tabulated spherical integer-ion factors. A future periodic Hirshfeld-I model
-could make the proatoms self-consistent with these populations and may be useful
-for ionic crystals, but it must be treated as a separately validated model and
-is not guaranteed to improve refinement statistics. The equations, physical
-interpretation, and validation requirements are given in
-{doc}`principles`.
+tabulated spherical integer-ion factors.
+
+Do not confuse the periodic orbital basis with Tonto's stockholder-reference
+library. For example, a Crystal23 input may use `POB-TZVP-REV2`; that basis is
+written in the `.d12` file and the corresponding ordered basis functions and
+density matrices are imported from GRED. The Tonto lines
+`basis_directory=...` and `slaterbasis_name=Thakkar` select the spherical
+free-atom densities used only to construct stockholder weights. `Thakkar` is
+therefore not a replacement for, or reinterpretation of, `POB-TZVP-REV2`.
+
+**Periodic Hirshfeld-I (experimental)** is the separate `periodic-hi` choice.
+It iterates population-adapted neutral/+1/-1 Thakkar references inside every
+partition while leaving the imported Crystal23 or CP2K source density
+unchanged. The default maximum is 50 inner iterations, the fixed-point charge
+tolerance is $5\times10^{-4}$ e (the convergence criterion used by Vanpoucke
+*et al.*), and charge mixing is 0.5. It fails rather than
+clamping when a required ion is unavailable or a charge leaves the supported
+[-1,+1] interval. It may be useful for ionic crystals, but is not guaranteed to
+improve refinement statistics and is not yet publication-validated. The
+equations, physical interpretation, and validation requirements are given in
+{doc}`principles` and {doc}`validation`.
 
 After partitioning, Tonto applies the crystallographic site-symmetry treatment
 so an atom on a special position produces a symmetry-compatible atomic density

@@ -158,8 +158,14 @@ genuinely periodic-density behavior.
 | NH3 | GRED and XML FCF files identical |
 | Chiral Quartz | GRED and XML FCF files identical |
 | Non-centrosymmetric Natrolite | GRED and XML FCF files identical; complete CIFs; empty stderr |
+| KHMAL multi-block CIF | publication-only `data_global` was skipped in favour of the structural `data_K_HAR_aniso` block; 48 atoms and the 740-function `POB-TZVP-REV2` GRED density, overlap, and Fock matrices imported successfully |
 | Diamond static prediction | R(F) 0.068526; R(F²) 0.104435; Rw(F) 0.092063; Rw(F²) 0.209767; GoF² 996.600747; extinction 2.972074; scale 1.013156 |
 | Diamond 46-AO periodic XCW at λ=0 | GRED+KRED and XML+KRED FCF identical; R(F) 0.006054; R(F²) 0.012090; Rw(F) 0.005287; Rw(F²) 0.010640; GoF² 3.287344 |
+
+The retained KHMAL directory name contains `PBE`, but its `job_options.txt`
+sets `METHOD="rhf"` and the Crystal23 output reports a Hartree-Fock
+Hamiltonian. It is therefore a multi-block-CIF and native-GRED import control,
+not evidence for a KHMAL PBE calculation.
 
 The matched one-cycle NH3 and Diamond refinements produced identical
 fractional CIF, XYZ, and FCF content after normalizing only the job name. The
@@ -172,6 +178,69 @@ NH3 XML, and 25,715,013 versus 845,153,190 bytes for Natrolite XML.
 route for these supported cases and greatly reduces input size. It does not
 remove the need for KRED in periodic XCW, nor establish unrestricted/relativistic
 support.
+
+## Periodic Hirshfeld-I validation plan
+
+**Status.** The `periodic-hi` implementation and lamaGOET controls are
+experimental. The items below are publication gates, not completed scientific
+results. Until the retained reports and artifacts exist, periodic H0 remains
+the reference/default periodic stockholder.
+
+The first retained implementation checks (21 September 2026) established the
+following narrower facts. They do not validate periodic Hirshfeld-I for HAR:
+
+| Check | Result | Interpretation |
+|---|---|---|
+| Source contract and Fortran build | both periodic-interface contracts passed; `run_molecule` built with gfortran-14 | keyword plumbing, symmetry mapping, fail-closed ion lookup, and the unchanged H0 branch are present in the generated program |
+| Diamond PBE/pob-TZVP null control | one charge iteration; C1 charge 0.000000 e; multiplicity-weighted cell charge 0.000000 e; population normalization 0.999882 | the symmetry-equivalent elemental solid does not acquire a spurious charge |
+| NH3 PBE/pob-TZVP polar control | cell charge remained 0.000000 e and normalization stayed between 0.999985 and 0.999993, but the iteration requested a nitrogen charge below -1 e and stopped at the adjacent-ion boundary | the current Thakkar neutral/+1/-1 library is insufficient even for this polar control; no NH3 Hirshfeld-I refinement result is claimed |
+
+The NH3 failure is intentional and fail-closed. Extrapolating the N- density,
+clamping its charge, or merely scaling a neutral atom would change the method
+and could produce a positive-looking but scientifically undefined result. A
+general periodic Hirshfeld-I implementation requires normalized radial
+references that bracket every population reached by the iteration, including
+multiple charge states for strongly ionic materials.
+
+The implementation must first pass model-internal tests that do not depend on
+an improved crystallographic fit:
+
+1. selecting `cluster` or `periodic` must reproduce pre-Hirshfeld-I inputs and
+   numerical outputs exactly;
+2. symmetry-equivalent sites must have identical converged parent charges, and
+   the multiplicity-weighted cell charge must be zero within the requested
+   tolerance;
+3. translated weights must sum to one wherever the procrystal is nonzero, and
+   recombined atom densities/form factors must reproduce the imported periodic
+   density/$F_{\mathrm{calc}}$ within grid and Fourier tolerances;
+4. charge residuals must converge reproducibly when the grid, lattice cutoff,
+   tolerance, and mixing are tightened;
+5. unavailable +1/-1 references and any $|q|>1$ iterate must stop with an
+   explicit diagnostic rather than silently falling back to H0; and
+6. per-atom cubes must integrate to the reported populations and retain the
+   required crystallographic site symmetry.
+
+The scientific comparison will then hold CIF, reflections, merging, source
+density, basis, functional, k mesh, grid, refinement parameters, and stopping
+rules fixed while changing only `periodic` H0 versus `periodic-hi`. The planned
+matrix is:
+
+| Control class | Purpose | Required comparison |
+|---|---|---|
+| NH3 molecular crystal | weakly ionic/polar regression | H0 and Hirshfeld-I charges, N-H distance/ADPs, R/wR/GoF, residual map |
+| Diamond | covalent null control | negligible scientifically material change; exact recombination and symmetry |
+| LiF and NaCl | formal +/-1 ionic crystals within the supported reference interval | charge convergence, density transfer, held-out factors, grid/mixing sensitivity |
+| Potassium hydrogen maleate (KHMAL) | available molecular salt with K+ and a hydrogen-bonded anion | multiplicity-weighted neutrality, K/anion charge transfer, site symmetry, H0-versus-HI residual maps |
+| Natrolite | available extended polar/ionic network and neutron comparison | long-run structural test after the smaller numerical gates pass; reject the case if any iterate requires an unsupported charge magnitude |
+| Ionic crystal with neutron geometry | structural relevance beyond agreement factors | X-H distances, ADP orientation/magnitude, uncertainties, residual features |
+
+Each case requires an IAM baseline, held-out-reflection statistics, complete
+charge-iteration logs, atom-population/cube integrals, and archived final CIF,
+FCF, maps, and software revisions. A lower conventional R factor alone is not
+an acceptance criterion; physically plausible charges, stable uncertainties,
+neutron agreement where available, and robustness to numerical controls must
+be considered together. If a system requires charges beyond +/-1, it is outside
+the present model and must not be represented by clamping.
 
 ## Crystal23 phase and k-mesh tests
 

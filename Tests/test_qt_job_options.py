@@ -69,6 +69,9 @@ class JobOptionsTest(unittest.TestCase):
         self.assertEqual(values["EXTINCTION_MEAN_PATH_MM"], "0.3")
         self.assertEqual(values["PARTITION_MODEL"], "oc-hirshfeld")
         self.assertEqual(values["STOCKHOLDER_MODEL"], "cluster")
+        self.assertEqual(values["HIRSHFELD_I_MAX_ITERATIONS"], "50")
+        self.assertEqual(values["HIRSHFELD_I_CHARGE_TOLERANCE"], "5.0E-4")
+        self.assertEqual(values["HIRSHFELD_I_MIXING"], "0.5")
         self.assertEqual(values["OUTPUT_HIRSHFELD_ATOM_CUBES"], "false")
         self.assertEqual(values["HIRSHFELD_ATOM_CUBE_LABEL"], "")
         self.assertEqual(values["OBSERVED_DENSITY_SHRINKAGE"], "0.5")
@@ -258,6 +261,25 @@ class JobOptionsTest(unittest.TestCase):
         self.assertEqual(result["PERIODIC_XCW_R_FREE_PERCENTAGE"], "15")
         self.assertEqual(result["PERIODIC_XCW_RESTART"], "true")
         self.assertEqual(result["PERIODIC_XCW_WRITE_CHECKPOINT"], "false")
+
+    def test_periodic_hirshfeld_i_options_round_trip(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "job_options.txt"
+            save_job_options(
+                path,
+                {
+                    "SCFCALCPROG": "Crystal14",
+                    "STOCKHOLDER_MODEL": "periodic-hi",
+                    "HIRSHFELD_I_MAX_ITERATIONS": "80",
+                    "HIRSHFELD_I_CHARGE_TOLERANCE": "2.5E-7",
+                    "HIRSHFELD_I_MIXING": "0.35",
+                },
+            )
+            result = load_job_options(path)
+        self.assertEqual(result["STOCKHOLDER_MODEL"], "periodic-hi")
+        self.assertEqual(result["HIRSHFELD_I_MAX_ITERATIONS"], "80")
+        self.assertEqual(result["HIRSHFELD_I_CHARGE_TOLERANCE"], "2.5E-7")
+        self.assertEqual(result["HIRSHFELD_I_MIXING"], "0.35")
 
 
 if __name__ == "__main__":

@@ -100,8 +100,9 @@ Hirshfeld atom
 Hirshfeld-I
 : Iterative stockholder partition in which charged or fractional-population
   proatom references are updated until their populations are self-consistent.
-  It is distinct from the outer HAR geometry/density cycle and is not the model
-  selected by the current `periodic` stockholder option.
+  It is distinct from the outer HAR geometry/density cycle. The experimental
+  imported-periodic-density implementation is selected as `periodic-hi`; the
+  established `periodic` option remains neutral-proatom H0.
 
 IAM
 : Independent-atom model using spherical tabulated atomic scattering factors.

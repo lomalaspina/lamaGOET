@@ -1384,10 +1384,24 @@ TONTO_IAM_BLOCK(){
         fi
 }
 
+WRITE_HIRSHFELD_I_OPTIONS(){
+	[[ "${STOCKHOLDER_MODEL:-cluster}" == "periodic-hi" ]] || return 0
+	if [[ "$SCFCALCPROG" != "Crystal14" && "$SCFCALCPROG" != "CP2K" ]]; then
+		echo "ERROR: STOCKHOLDER_MODEL=periodic-hi is supported only for imported Crystal23 or CP2K periodic densities." | tee -a "$JOBNAME.lst" >&2
+		return 1
+	fi
+	echo "         hirshfeld_i_max_iterations= ${HIRSHFELD_I_MAX_ITERATIONS:-50}" >> stdin
+	echo "         hirshfeld_i_charge_tolerance= ${HIRSHFELD_I_CHARGE_TOLERANCE:-5.0E-4}" >> stdin
+	echo "         hirshfeld_i_mixing= ${HIRSHFELD_I_MIXING:-0.5}" >> stdin
+}
+
 WRITE_DENSITY_PARTITION_MODEL(){
 	if [[ "$SCFCALCPROG" != "Tonto" ]]; then
 		echo "         partition_model= oc-crystal23" >> stdin
 		echo "         stockholder_model= ${STOCKHOLDER_MODEL:-cluster}" >> stdin
+		if [[ "${STOCKHOLDER_MODEL:-cluster}" == "periodic-hi" ]]; then
+			WRITE_HIRSHFELD_I_OPTIONS || return 1
+		fi
 		echo "         output_Hirshfeld_atom_cubes= ${OUTPUT_HIRSHFELD_ATOM_CUBES:-false}" >> stdin
 		if [[ -n "${HIRSHFELD_ATOM_CUBE_LABEL:-}" ]]; then
 			echo "         Hirshfeld_atom_cube_label= ${HIRSHFELD_ATOM_CUBE_LABEL}" >> stdin
@@ -1401,6 +1415,9 @@ WRITE_DENSITY_PARTITION_MODEL(){
 		observed|oc-observed)
 			echo "         partition_model= oc-observed" >> stdin
 			echo "         stockholder_model= ${STOCKHOLDER_MODEL:-cluster}" >> stdin
+			if [[ "${STOCKHOLDER_MODEL:-cluster}" == "periodic-hi" ]]; then
+				WRITE_HIRSHFELD_I_OPTIONS || return 1
+			fi
 			echo "         observed_density_reconstruct= ${OBSERVED_DENSITY_RECONSTRUCTION:-constrained}" >> stdin
 			echo "         observed_density_motion_model= ${OBSERVED_DENSITY_MOTION_MODEL:-static}" >> stdin
 			if [[ "${OBSERVED_DENSITY_RECONSTRUCTION:-constrained}" == "constrained" ]]; then

@@ -737,6 +737,71 @@ class RunnerRegressionTest(unittest.TestCase):
 
     @unittest.skipUnless(
         os.name == "posix" and shutil.which("bash"),
+        "generated periodic Hirshfeld-I input test requires bash",
+    )
+    def test_generated_periodic_hirshfeld_i_controls_and_scope(self):
+        for runner, text in self.runner_text.items():
+            definition = (
+                "WRITE_HIRSHFELD_I_OPTIONS(){\n"
+                + function_body(text, "WRITE_HIRSHFELD_I_OPTIONS")
+                + "\nWRITE_DENSITY_PARTITION_MODEL(){\n"
+                + function_body(text, "WRITE_DENSITY_PARTITION_MODEL")
+            )
+            for program in ("Crystal14", "CP2K"):
+                with self.subTest(
+                    runner=runner, program=program
+                ), tempfile.TemporaryDirectory() as directory:
+                    script = (
+                        definition
+                        + f'\nSCFCALCPROG="{program}"\n'
+                        + 'JOBNAME="hi-test"\n'
+                        + 'STOCKHOLDER_MODEL="periodic-hi"\n'
+                        + 'HIRSHFELD_I_MAX_ITERATIONS="80"\n'
+                        + 'HIRSHFELD_I_CHARGE_TOLERANCE="2.5E-7"\n'
+                        + 'HIRSHFELD_I_MIXING="0.35"\n'
+                        + "WRITE_DENSITY_PARTITION_MODEL\n"
+                        + "cat stdin\n"
+                    )
+                    result = subprocess.run(
+                        ["bash", "-c", script],
+                        cwd=directory,
+                        text=True,
+                        capture_output=True,
+                        check=True,
+                    )
+                self.assertIn("stockholder_model= periodic-hi", result.stdout)
+                self.assertIn("hirshfeld_i_max_iterations= 80", result.stdout)
+                self.assertIn(
+                    "hirshfeld_i_charge_tolerance= 2.5E-7", result.stdout
+                )
+                self.assertIn("hirshfeld_i_mixing= 0.35", result.stdout)
+
+            with self.subTest(
+                runner=runner, program="Tonto-observed"
+            ), tempfile.TemporaryDirectory() as directory:
+                script = (
+                    definition
+                    + '\nSCFCALCPROG="Tonto"\n'
+                    + 'JOBNAME="hi-test"\n'
+                    + 'PARTITION_MODEL="oc-observed"\n'
+                    + 'STOCKHOLDER_MODEL="periodic-hi"\n'
+                    + "WRITE_DENSITY_PARTITION_MODEL\n"
+                )
+                result = subprocess.run(
+                    ["bash", "-c", script],
+                    cwd=directory,
+                    text=True,
+                    capture_output=True,
+                    check=False,
+                )
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn(
+                "supported only for imported Crystal23 or CP2K periodic densities",
+                result.stderr,
+            )
+
+    @unittest.skipUnless(
+        os.name == "posix" and shutil.which("bash"),
         "generated observed-density validation test requires bash",
     )
     def test_dynamic_observed_density_runner_validation(self):

@@ -188,7 +188,10 @@ for every system. Values saved by the GUI override them.
 | Variable | Default | Meaning |
 |---|---|---|
 | `PARTITION_MODEL` | `oc-hirshfeld` | standard Tonto density or experimental `oc-observed` |
-| `STOCKHOLDER_MODEL` | `cluster` | finite `cluster` or `periodic` procrystal denominator |
+| `STOCKHOLDER_MODEL` | `cluster` | finite `cluster`, neutral-proatom `periodic`, or experimental charge-iterated `periodic-hi`; the last is restricted to imported Crystal23/CP2K periodic densities |
+| `HIRSHFELD_I_MAX_ITERATIONS` | `50` | maximum inner charge/population iterations for `periodic-hi` |
+| `HIRSHFELD_I_CHARGE_TOLERANCE` | `5.0E-4` | largest allowed independent-atom fixed-point charge residual in e; this follows the convergence criterion used by Vanpoucke *et al.* |
+| `HIRSHFELD_I_MIXING` | `0.5` | linear charge-update mixing; range (0,1] |
 | `OBSERVED_DENSITY_RECONSTRUCTION` | `constrained` | constrained positive prior or `legacy` deconvolution |
 | `OBSERVED_DENSITY_MOTION_MODEL` | `static` | `static` intrinsic density + ADPs or `dynamic` averaged shapes |
 | `OBSERVED_DENSITY_R_FREE_PERCENTAGE` | `10` | deterministic held-out percentage |

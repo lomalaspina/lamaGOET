@@ -88,7 +88,10 @@ expert Crystal controls are grouped on **Advanced HAR**.
 | Entry | Key | Meaning / scope |
 |---|---|---|
 | Density model | `PARTITION_MODEL` | Tonto SCF (`oc-hirshfeld`) or experimental observed density (`oc-observed`); selector is applicable only to Tonto SCF jobs |
-| Stockholder model | `STOCKHOLDER_MODEL` | finite cluster or periodic procrystal denominator; available for Tonto observed-density, Crystal23, and CP2K paths where supported |
+| Stockholder model | `STOCKHOLDER_MODEL` | finite cluster or neutral periodic procrystal where supported; Crystal23/CP2K additionally expose experimental periodic Hirshfeld-I |
+| Maximum charge iterations | `HIRSHFELD_I_MAX_ITERATIONS` | Advanced HAR; maximum inner iterations, shown only for `periodic-hi` |
+| Charge tolerance | `HIRSHFELD_I_CHARGE_TOLERANCE` | Advanced HAR; largest independent-atom fixed-point charge residual in e; default $5\times10^{-4}$ e |
+| Charge mixing | `HIRSHFELD_I_MIXING` | Advanced HAR; damping for the new charge vector, (0,1] |
 | Reconstruction | `OBSERVED_DENSITY_RECONSTRUCTION` | constrained positive model (recommended) or legacy deconvolution; observed density only |
 | Motion treatment | `OBSERVED_DENSITY_MOTION_MODEL` | static density + ADPs, or experimental dynamic atom shapes; observed density only |
 | Held-out reflections | `OBSERVED_DENSITY_R_FREE_PERCENTAGE` | deterministic validation fraction excluded from reconstruction and structural LS |

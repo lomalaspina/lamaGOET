@@ -129,7 +129,7 @@ symmetry, and recalculated as the geometry changes. A different partition can
 therefore change refined coordinates and ADPs without improving the underlying
 Crystal23 or CP2K density itself.
 
-### Periodic Hirshfeld-I as a possible extension
+### Experimental periodic Hirshfeld-I
 
 Hirshfeld-I replaces the fixed neutral references by self-consistent proatoms.
 At internal iteration $i$, a proatom density corresponding to the previous
@@ -154,6 +154,48 @@ crystallographic geometry changes. Vanpoucke, Bultinck and Van Driessche
 formulated this construction for bulk periodic materials and described the
 additional treatment needed for diffuse anionic references.
 
+The experimental lamaGOET/Tonto implementation is selected explicitly as
+`periodic-hi`; it does not replace `periodic` H0. It is currently restricted to
+the imported periodic-density path used by Crystal23 and CP2K HAR. At each
+inner iteration Tonto constructs a fractional-charge spherical reference by
+linear interpolation between real neutral and adjacent integer-ion Thakkar
+densities. With $q_A=Z_A-N_A$,
+
+$$
+\rho_A^0(q_A)=
+\begin{cases}
+(1-q_A)\rho_A^0(0)+q_A\rho_A^0(+1), & 0\le q_A\le 1,\\
+(1+q_A)\rho_A^0(0)-q_A\rho_A^0(-1), & -1\le q_A<0.
+\end{cases}
+$$
+
+Here positive $q_A$ denotes electron loss. H$^+$ is the physically correct
+zero-electron limiting density. Tonto does not silently rescale a neutral
+reference, clamp a charge, or extrapolate beyond this interval: a missing
+required ion or $|q_A|>1$ is a fatal diagnostic. This fail-closed boundary is
+important because an arbitrary neutral-density rescaling would change the
+population without supplying the ionic radial relaxation that motivates
+Hirshfeld-I. The Vanpoucke *et al.* formalism is not itself restricted to
+$|q_A|\leq 1$; that bound is a limitation of this first implementation and its
+currently validated adjacent-ion reference library. Extending it requires
+additional normalized integer-ion radial densities and separate validation of
+their diffuse tails.
+
+Let $\widetilde q_A^i=Z_A-N_A^i$ be the charge returned by a new partition.
+The next reference charge is damped as
+
+$$
+q_A^i=(1-\alpha)q_A^{i-1}+\alpha\widetilde q_A^i,
+\qquad 0<\alpha\le 1,
+$$
+
+and convergence is assessed from the largest independent-atom fixed-point
+residual $\max_A|\widetilde q_A^i-q_A^{i-1}|$. Symmetry equivalents share the
+charge of their asymmetric-unit parent. Finite-grid populations are normalized
+to the neutral crystallographic-cell electron count, so the multiplicity-
+weighted cell charge remains zero. The converged weights are also used by the
+optional per-atom Hirshfeld cube output.
+
 For ionic and strongly polar crystals, periodic Hirshfeld-I is a scientifically
 plausible extension: charge-adapted proatoms can assign the density between
 cations and anions more consistently than neutral references and usually yield
@@ -165,22 +207,23 @@ X--H distances improved, while ADPs, standard uncertainties, and convergence
 were often worse for Hirshfeld-I. Ionic crystals were not established as a
 validated HAR use case in that study.
 
-| Property | Current periodic H0 | Prospective periodic Hirshfeld-I |
+| Property | Periodic H0 | Experimental periodic Hirshfeld-I |
 |---|---|---|
 | Reference | fixed neutral spherical proatoms | population-adapted spherical proatoms |
 | Assigned charge | yes; often modest partial charge | yes; often larger charge separation |
 | Source density | unchanged | unchanged |
 | Factors | aspherical atom-in-crystal | self-consistent charge-adapted atom-in-crystal |
-| Status | implemented as `periodic` | not implemented; experimental candidate |
+| Status | established option `periodic` | opt-in `periodic-hi`; validation pending |
 
-A defensible implementation should therefore be offered as a separate,
-opt-in model rather than silently replacing H0. It requires charged and
-fractional-ion proatom data, robust anion-tail handling, population and unit-cell
-electron-count convergence, space-group/site-symmetry constraints, and tests of
-partition of unity and recombined $F_{\mathrm{calc}}$. Validation should compare
-H0 and Hirshfeld-I against identical data, IAM controls, neutron geometry where
+This option is an experimental method, not a recommended default. Its software
+contract requires population and unit-cell electron-count convergence,
+space-group/site-symmetry constraints, partition of unity, and recombined
+$F_{\mathrm{calc}}$ checks. Publication-grade validation must compare H0 and
+Hirshfeld-I against identical data, IAM controls, neutron geometry where
 available, residual maps, and held-out reflections, with explicit tests on
-genuinely ionic crystals.
+genuinely ionic crystals. That validation plan is recorded in
+{doc}`validation`; no improvement in refinement statistics is implied merely
+by convergence of the inner charges.
 
 ## Reflection lifecycle
 

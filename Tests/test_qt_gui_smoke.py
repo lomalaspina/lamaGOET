@@ -572,8 +572,26 @@ def main() -> int:
             cp2k_window.stockholder_model.findData("periodic")
         )
         assert cp2k_window._current_values()["STOCKHOLDER_MODEL"] == "periodic"
+        periodic_hi_index = cp2k_window.stockholder_model.findData(
+            "periodic-hi"
+        )
+        assert periodic_hi_index >= 0
+        assert not cp2k_window.stockholder_model.view().isRowHidden(
+            periodic_hi_index
+        )
+        cp2k_window.stockholder_model.setCurrentIndex(periodic_hi_index)
+        cp2k_window.hirshfeld_i_max_iterations.setValue(80)
+        cp2k_window.hirshfeld_i_charge_tolerance.setValue(2.5e-7)
+        cp2k_window.hirshfeld_i_mixing.setValue(0.35)
+        assert not cp2k_window.hirshfeld_i_group.isHidden()
         cp2k_values = cp2k_window._current_values()
         assert cp2k_values["PARTITION_MODEL"] == "oc-crystal23"
+        assert cp2k_values["STOCKHOLDER_MODEL"] == "periodic-hi"
+        assert cp2k_values["HIRSHFELD_I_MAX_ITERATIONS"] == 80
+        assert math.isclose(
+            cp2k_values["HIRSHFELD_I_CHARGE_TOLERANCE"], 2.5e-7
+        )
+        assert math.isclose(cp2k_values["HIRSHFELD_I_MIXING"], 0.35)
         assert cp2k_values["OUTPUT_HIRSHFELD_ATOM_CUBES"] == "true"
         assert cp2k_values["HIRSHFELD_ATOM_CUBE_LABEL"] == "N1"
         cp2k_window.close()
@@ -595,6 +613,10 @@ def main() -> int:
         assert tonto_window.partition_model.currentData() == "oc-observed"
         assert not tonto_window.stockholder_model.isHidden()
         assert tonto_window.stockholder_model.currentData() == "cluster"
+        tonto_hi_index = tonto_window.stockholder_model.findData("periodic-hi")
+        assert tonto_hi_index >= 0
+        assert tonto_window.stockholder_model.view().isRowHidden(tonto_hi_index)
+        assert tonto_window.hirshfeld_i_group.isHidden()
         tonto_window.stockholder_model.setCurrentIndex(
             tonto_window.stockholder_model.findData("periodic")
         )

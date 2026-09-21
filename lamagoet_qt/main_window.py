@@ -735,9 +735,17 @@ class MainWindow(QMainWindow):
         self.stockholder_model.addItem(
             "Periodic unit-cell procrystal", "periodic"
         )
+        self.stockholder_model.addItem(
+            "Periodic Hirshfeld-I (experimental)", "periodic-hi"
+        )
         self.stockholder_model.setToolTip(
             "Selects only the Hirshfeld stockholder denominator. The density "
-            "remains the selected observed, Crystal23, or CP2K density."
+            "remains the selected observed, Crystal23, or CP2K density. "
+            "Periodic Hirshfeld-I is an experimental, charge-iterated model "
+            "available only for imported Crystal23 and CP2K periodic densities."
+        )
+        self.stockholder_model.currentIndexChanged.connect(
+            self._partition_model_changed
         )
         self.stockholder_model_label = QLabel("Stockholder model")
         stockholder_form.addRow(
@@ -1400,6 +1408,46 @@ class MainWindow(QMainWindow):
         self.crystal_group.layout().addWidget(self.crystal_advanced_fields)
         form.addRow(self.crystal_group)
 
+        self.hirshfeld_i_group = QGroupBox(
+            "Experimental periodic Hirshfeld-I"
+        )
+        hirshfeld_i_form = QFormLayout(self.hirshfeld_i_group)
+        self.hirshfeld_i_max_iterations = QSpinBox()
+        self.hirshfeld_i_max_iterations.setRange(1, 1000)
+        self.hirshfeld_i_max_iterations.setValue(50)
+        self.hirshfeld_i_max_iterations.setToolTip(
+            "Maximum self-consistent charge/population iterations inside one "
+            "periodic stockholder partition. This is distinct from the outer "
+            "HAR geometry cycles."
+        )
+        hirshfeld_i_form.addRow(
+            "Maximum charge iterations", self.hirshfeld_i_max_iterations
+        )
+        self.hirshfeld_i_charge_tolerance = QDoubleSpinBox()
+        self.hirshfeld_i_charge_tolerance.setRange(1.0e-12, 1.0)
+        self.hirshfeld_i_charge_tolerance.setDecimals(12)
+        self.hirshfeld_i_charge_tolerance.setSingleStep(1.0e-4)
+        self.hirshfeld_i_charge_tolerance.setValue(5.0e-4)
+        self.hirshfeld_i_charge_tolerance.setSuffix(" e")
+        self.hirshfeld_i_charge_tolerance.setToolTip(
+            "Convergence threshold for the largest change in any independent "
+            "atom charge between Hirshfeld-I iterations."
+        )
+        hirshfeld_i_form.addRow(
+            "Charge tolerance", self.hirshfeld_i_charge_tolerance
+        )
+        self.hirshfeld_i_mixing = QDoubleSpinBox()
+        self.hirshfeld_i_mixing.setRange(0.001, 1.0)
+        self.hirshfeld_i_mixing.setDecimals(6)
+        self.hirshfeld_i_mixing.setSingleStep(0.05)
+        self.hirshfeld_i_mixing.setValue(0.5)
+        self.hirshfeld_i_mixing.setToolTip(
+            "Linear mixing applied to each new charge vector. Smaller values "
+            "are more strongly damped; 1.0 applies the undamped update."
+        )
+        hirshfeld_i_form.addRow("Charge mixing", self.hirshfeld_i_mixing)
+        form.addRow(self.hirshfeld_i_group)
+
         self.max_ls_cycles = QSpinBox()
         self.max_ls_cycles.setRange(1, 10000)
         self.max_ls_cycles.setValue(30)
@@ -1939,10 +1987,23 @@ class MainWindow(QMainWindow):
             self._option("CRYSTAL_SETTING", "auto")
         )
         self.crystal_setting.setCurrentIndex(max(0, setting_index))
-        stockholder_index = self.stockholder_model.findData(
-            self._option("STOCKHOLDER_MODEL", "cluster")
-        )
+        stockholder_value = self._option("STOCKHOLDER_MODEL", "cluster")
+        if stockholder_value == "periodic-hi" and program not in {
+            "Crystal14",
+            "CP2K",
+        }:
+            stockholder_value = "cluster"
+        stockholder_index = self.stockholder_model.findData(stockholder_value)
         self.stockholder_model.setCurrentIndex(max(0, stockholder_index))
+        self.hirshfeld_i_max_iterations.setValue(
+            self._int_option("HIRSHFELD_I_MAX_ITERATIONS", 50)
+        )
+        self.hirshfeld_i_charge_tolerance.setValue(
+            self._float_option("HIRSHFELD_I_CHARGE_TOLERANCE", 5.0e-4)
+        )
+        self.hirshfeld_i_mixing.setValue(
+            self._float_option("HIRSHFELD_I_MIXING", 0.5)
+        )
         partition_model = self._option("PARTITION_MODEL", "oc-hirshfeld")
         if partition_model in {
             "auto",
@@ -2542,6 +2603,18 @@ class MainWindow(QMainWindow):
         self.periodic_wavefunction_group.setVisible(
             program in {"Crystal14", "CP2K"}
         )
+        periodic_hi_index = self.stockholder_model.findData("periodic-hi")
+        if periodic_hi_index >= 0:
+            self.stockholder_model.view().setRowHidden(
+                periodic_hi_index, program not in {"Crystal14", "CP2K"}
+            )
+            if (
+                program not in {"Crystal14", "CP2K"}
+                and self.stockholder_model.currentData() == "periodic-hi"
+            ):
+                self.stockholder_model.setCurrentIndex(
+                    max(0, self.stockholder_model.findData("cluster"))
+                )
         self._partition_model_changed()
         self._cluster_controls_changed()
         self._external_basis_changed()
@@ -2575,6 +2648,9 @@ class MainWindow(QMainWindow):
         )
         dynamic_observed = self._dynamic_observed_density_selected()
         uses_stockholder_choice = periodic or observed
+        periodic_hi = (
+            periodic and self.stockholder_model.currentData() == "periodic-hi"
+        )
         self.stockholder_group.setTitle(
             "Observed-density partition"
             if observed
@@ -2584,6 +2660,8 @@ class MainWindow(QMainWindow):
         self.partition_model.setVisible(tonto)
         self.stockholder_model_label.setVisible(uses_stockholder_choice)
         self.stockholder_model.setVisible(uses_stockholder_choice)
+        self.hirshfeld_i_group.setVisible(periodic_hi)
+        self.hirshfeld_i_group.setEnabled(periodic_hi)
         self.observed_reconstruction_label.setVisible(observed)
         self.observed_reconstruction.setVisible(observed)
         self.observed_motion_model_label.setVisible(constrained)
@@ -3221,6 +3299,13 @@ class MainWindow(QMainWindow):
                 self.finite_prepare_only.isChecked()
             ),
             "STOCKHOLDER_MODEL": self.stockholder_model.currentData(),
+            "HIRSHFELD_I_MAX_ITERATIONS": (
+                self.hirshfeld_i_max_iterations.value()
+            ),
+            "HIRSHFELD_I_CHARGE_TOLERANCE": (
+                self.hirshfeld_i_charge_tolerance.value()
+            ),
+            "HIRSHFELD_I_MIXING": self.hirshfeld_i_mixing.value(),
             "OUTPUT_HIRSHFELD_ATOM_CUBES": _bool_text(
                 self.output_hirshfeld_atom_cubes.isChecked()
             ),
