@@ -60,7 +60,7 @@ work. Run the files directly with `PYTHONPATH` set to the repository root.
 | `test_periodic_wavefunction_export.py` | Crystal23/CP2K periodic TREXIO input and external-basis handling |
 | `test_qt_branding.py` | application icon/desktop identity setup |
 | `test_qt_discovery.py` | executable and local dependency discovery |
-| `test_documented_options.py` | every canonical `OPTION_DEFAULTS` key appears in the scientific manual |
+| `test_documented_options.py` | every canonical `OPTION_DEFAULTS` key appears in the lamaGOET manual |
 | `test_scientific_archives.py` | retained historical cases and exact CIF values match the explicit archival manifest |
 | `test_epoxide_control.py` | Epoxide control provenance, input hashes, documented settings, and optional live IAM→HAR numerical result |
 

@@ -84,7 +84,7 @@ Two ways, and they are not the same thing:
 
 ## Documentation
 
-The searchable scientific manual is built from `docs/manual/` and published
+The searchable lamaGOET manual is built from `docs/manual/` and published
 through GitHub Pages. It covers theory, complete GUI/option references,
 workflow examples, output interpretation, limitations, troubleshooting, and a
 numerical validation appendix. A PDF edition is generated from the same
@@ -97,11 +97,11 @@ bash docs/build_manual.sh
 ```
 
 The generated site is in `docs/_build/html/`; the distributable PDF is
-`output/pdf/lamaGOET-Scientific-Manual.pdf`.
+`output/pdf/lamaGOET-Manual.pdf`.
 
 | | |
 |---|---|
-| [Scientific manual source](docs/manual/index.md) | complete theory, workflows, GUI/keyword reference, tests and limitations |
+| [lamaGOET manual source](docs/manual/index.md) | complete theory, workflows, GUI/keyword reference, tests and limitations |
 | [docs/WORKSHOP.md](docs/WORKSHOP.md) | a guided introduction, with two worked examples |
 | [docs/INSTALL.md](docs/INSTALL.md) | prerequisites and installation, per platform |
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | how the pieces fit together |

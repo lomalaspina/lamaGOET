@@ -25,7 +25,7 @@ particular external program, basis, material, or experimental data set has
 been scientifically validated.
 :::
 
-<a class="reference download" href="downloads/lamaGOET-Scientific-Manual.pdf">Download the PDF edition</a>
+<a class="reference download" href="downloads/lamaGOET-Manual.pdf">Download the PDF edition</a>
 
 :::{rubric} Choose a workflow
 :::

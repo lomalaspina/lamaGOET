@@ -1,4 +1,4 @@
-name: Build and publish scientific manual
+name: Build and publish lamaGOET manual
 
 on:
   push:
@@ -46,8 +46,8 @@ jobs:
       - name: Upload PDF build artifact
         uses: actions/upload-artifact@v4
         with:
-          name: lamaGOET-Scientific-Manual
-          path: output/pdf/lamaGOET-Scientific-Manual.pdf
+          name: lamaGOET-Manual
+          path: output/pdf/lamaGOET-Manual.pdf
       - name: Configure GitHub Pages
         uses: actions/configure-pages@v5
       - name: Upload GitHub Pages artifact

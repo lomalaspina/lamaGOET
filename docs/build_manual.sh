@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Build the searchable GitHub Pages site and the matching scientific manual.
+# Build the searchable GitHub Pages site and the matching lamaGOET manual.
 
 set -euo pipefail
 
@@ -16,16 +16,23 @@ else
     python_bin=$(command -v python3 || command -v python)
 fi
 
+mkdir -p "$output_dir" "$build_dir/html/downloads"
+# Remove generated artifacts left by the former manual title so users cannot
+# accidentally open or publish a stale "Scientific Manual" PDF.
+rm -f "$build_dir/latex/lamaGOET-Scientific-Manual.pdf" \
+      "$build_dir/latex/lamaGOET-Scientific-Manual.tex" \
+      "$build_dir/html/downloads/lamaGOET-Scientific-Manual.pdf" \
+      "$output_dir/lamaGOET-Scientific-Manual.pdf"
+
 "$python_bin" -m sphinx -W --keep-going -b html "$source_dir" "$build_dir/html"
 "$python_bin" -m sphinx -W --keep-going -b latex \
     "$source_dir" "$build_dir/latex"
 make -C "$build_dir/latex" all-pdf
 
-mkdir -p "$output_dir" "$build_dir/html/downloads"
-cp "$build_dir/latex/lamaGOET-Scientific-Manual.pdf" \
-   "$output_dir/lamaGOET-Scientific-Manual.pdf"
-cp "$output_dir/lamaGOET-Scientific-Manual.pdf" \
-   "$build_dir/html/downloads/lamaGOET-Scientific-Manual.pdf"
+cp "$build_dir/latex/lamaGOET-Manual.pdf" \
+   "$output_dir/lamaGOET-Manual.pdf"
+cp "$output_dir/lamaGOET-Manual.pdf" \
+   "$build_dir/html/downloads/lamaGOET-Manual.pdf"
 
 printf 'HTML: %s\n' "$build_dir/html/index.html"
-printf 'PDF:  %s\n' "$output_dir/lamaGOET-Scientific-Manual.pdf"
+printf 'PDF:  %s\n' "$output_dir/lamaGOET-Manual.pdf"

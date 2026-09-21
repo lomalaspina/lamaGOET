@@ -76,8 +76,8 @@ latex_engine = "xelatex"
 latex_documents = [
     (
         master_doc,
-        "lamaGOET-Scientific-Manual.tex",
-        "lamaGOET Scientific Manual",
+        "lamaGOET-Manual.tex",
+        "lamaGOET manual",
         author,
         "manual",
     )
@@ -124,7 +124,7 @@ latex_elements = {
 \sphinxlogo
 \vspace{1.2cm}
 {\sffamily\bfseries\Huge\color{lamagoetblue} lamaGOET\\[0.35cm]}
-{\sffamily\Large Scientific Manual}\\[1.1cm]
+{\sffamily\Large Manual}\\[1.1cm]
 {\large Hirshfeld atom refinement, periodic electron densities,\\
 X-ray constrained wavefunctions, and Tonto workflows}\\[2cm]
 {\large Lorraine A. Malaspina and contributors}\\[0.5cm]
