@@ -1,0 +1,108 @@
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!!!                                                                                         !!!
+!!!                        This stdin was written with lamaGOET                             !!!
+!!!                                                                                         !!!
+!!!                    script written by Lorraine Andrade Malaspina                         !!!
+!!!                        contact: lorraine.malaspina@gmail.com                            !!!
+!!!                                                                                         !!!
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+{ 
+
+   keyword_echo_on
+
+   name= my_job
+
+
+   ! Process the CIF
+   CIF= {
+       file_name= /home/lorraine/lamaGOET_cleanup/examples/1-epoxide/epoxide.cif
+    }
+
+   process_CIF
+
+   name= my_job
+
+   basis_directory= /home/lorraine/tonto/basis_sets
+   basis_name= def2-SVP
+
+   charge= 0
+   multiplicity= 1
+
+   crystal= {    
+      xray_data= {   
+         refine_extinction= yes
+         extinction_model= zachariasen
+         correct_dispersion= no
+         wavelength= 0.71073 Angstrom
+         REDIRECT /home/lorraine/lamaGOET_cleanup/examples/1-epoxide/epoxide.hkl
+         merg_code= 2
+         f_sigma_cutoff= 4
+         tol_for_shift_on_esd= 0.01
+         refine_H_U_iso= yes
+
+         show_fit_output= true
+         show_fit_results= true
+
+      }  
+   }  
+
+   ! Geometry    
+   put
+
+   IAM_refinement
+
+
+   crystal= {    
+      xray_data= {   
+         partition_model= oc-hirshfeld
+         output_Hirshfeld_atom_cubes= false
+         correct_dispersion= no
+         optimise_scale_factor= true
+         refine_extinction= yes
+         extinction_model= zachariasen
+         wavelength= 0.71073 Angstrom
+         REDIRECT /home/lorraine/lamaGOET_cleanup/examples/1-epoxide/epoxide.hkl
+         merg_code= 2
+         f_sigma_cutoff= 4
+         tol_for_shift_on_esd= 0.01
+         refine_H_U_iso= no
+
+         show_fit_output= false
+         show_fit_results= false
+
+	 max_iterations= 30
+      }  
+   }  
+
+   ! Geometry    
+   put
+
+   ! Normal SCF
+   scfdata= {
+      initial_density= promolecule 
+      kind= rhf
+      output= true 
+      use_SC_cluster_charges= FALSE
+      convergence= 0.001
+      diis= { convergence_tolerance= 0.0002 }
+   }
+
+   scf
+
+   ! SC cluster charge SCF
+   scfdata= {
+      initial_MOs= restricted
+      kind= rhf
+      output= true 
+      use_SC_cluster_charges= FALSE
+      convergence= 0.001
+      diis= { convergence_tolerance= 0.0002 }
+   }
+
+   scf
+
+   ! Make Hirshfeld structure factors
+   refine_hirshfeld_atoms
+
+
+}

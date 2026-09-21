@@ -97,6 +97,12 @@ Hirshfeld atom
 : Atomic density assigned by stockholder weights formed from reference
   proatom densities. It is an atom-in-molecule partition, not an isolated atom.
 
+Hirshfeld-I
+: Iterative stockholder partition in which charged or fractional-population
+  proatom references are updated until their populations are self-consistent.
+  It is distinct from the outer HAR geometry/density cycle and is not the model
+  selected by the current `periodic` stockholder option.
+
 IAM
 : Independent-atom model using spherical tabulated atomic scattering factors.
 
@@ -127,8 +133,9 @@ Observed-density reconstruction
   validation. It is not a unique experimental wavefunction.
 
 Periodic stockholder
-: Hirshfeld partition whose promolecule/reference environment includes
-  crystalline translations rather than only a finite cluster.
+: Hirshfeld partition whose procrystal/reference environment includes
+  crystalline translations rather than only a finite cluster. The current
+  implementation uses fixed neutral proatoms (periodic H0), not Hirshfeld-I.
 
 Periodic XCW
 : Fixed-geometry Tonto optimization of a periodic k-resolved wavefunction

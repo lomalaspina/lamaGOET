@@ -3,12 +3,12 @@
 ## From an IAM to Hirshfeld atoms
 
 In an independent-atom model (IAM), the calculated structure factor is built
-from spherical atomic form factors. Which means that every density deformation
-caused by for example bonding or lone-pair redistribution are
-not represented explicitly. In HAR, a quantum mechanical calculation supplies an
-electron density $\rho(\mathbf r)$ though a wavefunction which is then appropriate
-to the current geometry and environment. A Hirsfeld stockholder partition then
-assigns it to atoms:
+from spherical atomic form factors. Density deformation caused by bonding,
+lone-pair formation, polarization, and charge transfer is therefore not
+represented explicitly. In HAR, a quantum-mechanical calculation supplies an
+electron density $\rho(\mathbf r)$ appropriate to the current geometry and
+environment. A Hirshfeld stockholder partition then assigns that density to
+atoms:
 
 $$
 w_A(\mathbf r)=\frac{\rho_A^0(\mathbf r)}
@@ -33,16 +33,15 @@ F_{\mathrm{calc}}(\mathbf h)=
 \exp(2\pi i\,\mathbf h\!\cdot\!\mathbf r_A).
 $$
 
-The new calculated aspherical structure factors is what Tonto  then uses to
-refine the selected structural parameters against the observations. However,
-after every refinement, a new geometry is obtains, and because those coordinates
-define the density calculation in the quantum mechanical step, lamaGOET then
-sets up new files to recompute the wavefunction/density with the selected software
-which will then be used again for a new partitioning and structure factor
-calculation, repeating the loop untill full convergency (in the QM step and geometry)
-is achieved. Reusing atomic form factors from the first cycle would be
-scientifically wrong: the first geometry can contain IAM-biased X-H distances and
-every accepted geometry defines a new density.
+Tonto uses the resulting aspherical structure factors to refine the selected
+structural parameters against the observations. Each accepted refinement cycle
+produces a new geometry. Because those coordinates define the subsequent
+quantum-mechanical calculation, lamaGOET regenerates the input, recomputes the
+wavefunction or density, repartitions it, and calculates new structure factors.
+The cycle repeats until both the electronic calculation and geometry have
+converged. Reusing atomic form factors from the first cycle would be
+scientifically wrong: the first geometry can contain IAM-biased X--H distances,
+and every accepted geometry defines a new density.
 
 ## Molecular and periodic densities
 
@@ -60,9 +59,128 @@ not interchangeable controls:
 - changing the stockholder denominator from a finite cluster to a periodic
   procrystal changes the partition but not the underlying source density.
 
-The standard finite model is labeled **cluster**. The periodic stockholder
-uses symmetry-related proatoms throughout the periodic neighborhood. Report
-which was used.
+The standard finite model is labelled **cluster**. The periodic stockholder
+uses translated proatoms throughout the periodic neighbourhood. Report which
+model was used.
+
+### Periodic neutral-proatom Hirshfeld partition used by Tonto
+
+The currently implemented **periodic** stockholder is a lattice-periodic form
+of the original, neutral-proatom Hirshfeld partition (H0). For a lattice
+$\Lambda$, atoms $B$ in a reference cell, nuclear positions $\mathbf R_B$, and
+neutral spherical proatom densities $\rho_B^0$, its periodic procrystal is
+
+$$
+\rho_{\mathrm{pro}}^{\mathrm{per}}(\mathbf r)=
+\sum_{\mathbf T\in\Lambda}\sum_{B\in\mathrm{cell}}
+\rho_B^0(\mathbf r-\mathbf R_B-\mathbf T).
+$$
+
+The weight and density assigned to atom $A$ in the reference cell are
+
+$$
+w_A^{\mathrm{H0,per}}(\mathbf r)=
+\frac{\rho_A^0(\mathbf r-\mathbf R_A)}
+{\rho_{\mathrm{pro}}^{\mathrm{per}}(\mathbf r)},
+\qquad
+\rho_A^{\mathrm{H0,per}}(\mathbf r)=
+w_A^{\mathrm{H0,per}}(\mathbf r)\rho_{\mathrm{per}}(\mathbf r).
+$$
+
+Tonto evaluates the lattice sum over the required periodic neighbourhood and
+terminates negligible proatom contributions using its density-support/cutoff
+criteria. The **cluster** and **periodic** choices use the same imported
+Crystal23 or CP2K density; they differ in the denominator used to assign that
+density to atoms. The current implementation uses fixed neutral spherical
+reference atoms and does **not** update those references to the charges obtained
+from the partition. It is therefore periodic H0, not periodic Hirshfeld-I. Where
+the periodic procrystal is nonzero, the translated weights form a
+partition of unity,
+
+$$
+\sum_{\mathbf T\in\Lambda}\sum_{A\in\mathrm{cell}}
+w_{A,\mathbf T}^{\mathrm{H0,per}}(\mathbf r)=1,
+$$
+
+so recombining all translated atomic densities recovers the source periodic
+density. This identity is an important implementation test.
+
+Neutral reference atoms do **not** force the assigned atoms to be neutral. The
+electron population and net charge of a partitioned atom are
+
+$$
+N_A=\int \rho_A(\mathbf r)\,d\mathbf r=f_A(\mathbf 0),
+\qquad q_A=Z_A-N_A.
+$$
+
+Consequently, the present H0 factors can already contain charge transfer,
+polarization, bonding density, and lone-pair deformation from the periodic
+source density. They are environment-specific, aspherical atom-in-crystal
+scattering factors with generally non-integer partial populations. They should
+not be described as conventional tabulated spherical scattering factors for an
+integer ion.
+
+If all partitioned atoms were recombined at the same geometry without
+atom-specific operations, a complete partition would reproduce the same total
+density and structure factors irrespective of the stockholder definition. The
+partition becomes consequential in HAR because atomic contributions are moved
+with their nuclei, subjected to atom-specific displacement parameters and site
+symmetry, and recalculated as the geometry changes. A different partition can
+therefore change refined coordinates and ADPs without improving the underlying
+Crystal23 or CP2K density itself.
+
+### Periodic Hirshfeld-I as a possible extension
+
+Hirshfeld-I replaces the fixed neutral references by self-consistent proatoms.
+At internal iteration $i$, a proatom density corresponding to the previous
+atomic population is used in the periodic weight,
+
+$$
+w_A^{i}(\mathbf r)=
+\frac{\rho_A^0\!\left(N_A^{i-1};\mathbf r-\mathbf R_A\right)}
+{\displaystyle
+ \sum_{\mathbf T\in\Lambda}\sum_{B\in\mathrm{cell}}
+ \rho_B^0\!\left(N_B^{i-1};
+ \mathbf r-\mathbf R_B-\mathbf T\right)},
+\qquad
+N_A^{i}=\int w_A^{i}(\mathbf r)\rho_{\mathrm{per}}(\mathbf r)\,d\mathbf r.
+$$
+
+Populations (or equivalently charges $q_A^i=Z_A-N_A^i$) are iterated until
+self-consistency. Fractional populations require a defined interpolation
+between charged reference atoms. This *inner population iteration* is distinct
+from the *outer HAR cycle*, which recalculates the source density after the
+crystallographic geometry changes. Vanpoucke, Bultinck and Van Driessche
+formulated this construction for bulk periodic materials and described the
+additional treatment needed for diffuse anionic references.
+
+For ionic and strongly polar crystals, periodic Hirshfeld-I is a scientifically
+plausible extension: charge-adapted proatoms can assign the density between
+cations and anions more consistently than neutral references and usually yield
+larger, more chemically intuitive partial charges. It would still partition the
+same periodic density, however, and is **not guaranteed** to lower an R factor or
+improve coordinates and ADPs. Tests of iterative Hirshfeld partitions in HAR by
+Chodkiewicz *et al.* found only small changes in agreement factors; some polar
+X--H distances improved, while ADPs, standard uncertainties, and convergence
+were often worse for Hirshfeld-I. Ionic crystals were not established as a
+validated HAR use case in that study.
+
+| Property | Current periodic H0 | Prospective periodic Hirshfeld-I |
+|---|---|---|
+| Reference | fixed neutral spherical proatoms | population-adapted spherical proatoms |
+| Assigned charge | yes; often modest partial charge | yes; often larger charge separation |
+| Source density | unchanged | unchanged |
+| Factors | aspherical atom-in-crystal | self-consistent charge-adapted atom-in-crystal |
+| Status | implemented as `periodic` | not implemented; experimental candidate |
+
+A defensible implementation should therefore be offered as a separate,
+opt-in model rather than silently replacing H0. It requires charged and
+fractional-ion proatom data, robust anion-tail handling, population and unit-cell
+electron-count convergence, space-group/site-symmetry constraints, and tests of
+partition of unity and recombined $F_{\mathrm{calc}}$. Validation should compare
+H0 and Hirshfeld-I against identical data, IAM controls, neutron geometry where
+available, residual maps, and held-out reflections, with explicit tests on
+genuinely ionic crystals.
 
 ## Reflection lifecycle
 

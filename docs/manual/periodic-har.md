@@ -174,10 +174,22 @@ count.
 ## Stockholder model and site symmetry
 
 **Finite HS atom cluster** uses the established finite stockholder denominator.
-**Periodic unit-cell procrystal** sums the periodic symmetry/lattice proatoms.
-Both partition the same imported periodic density. The periodic choice is
-particularly relevant for extended networks; it does not substitute an
-observed density or change Crystal23/CP2K itself.
+**Periodic unit-cell procrystal** sums neutral spherical proatoms over the
+periodic lattice. Both partition the same imported periodic density. The
+periodic choice is particularly relevant for extended networks; it does not
+substitute an observed density or change Crystal23/CP2K itself.
+
+The current periodic option is the neutral-proatom Hirshfeld model (H0), not a
+self-consistent Hirshfeld-I partition. H0 can nevertheless assign a non-integer
+population and net partial charge to an atom because the periodic total density,
+not the neutral proatom density, is being divided. Its outputs are therefore
+environment-specific aspherical atom-in-crystal scattering factors, rather than
+tabulated spherical integer-ion factors. A future periodic Hirshfeld-I model
+could make the proatoms self-consistent with these populations and may be useful
+for ionic crystals, but it must be treated as a separately validated model and
+is not guaranteed to improve refinement statistics. The equations, physical
+interpretation, and validation requirements are given in
+{doc}`principles`.
 
 After partitioning, Tonto applies the crystallographic site-symmetry treatment
 so an atom on a special position produces a symmetry-compatible atomic density

@@ -1,0 +1,13 @@
+# Where the (h k l) labels go, placed by Tonto.
+# 1st,2nd columns: the data point
+# 3rd,4th columns: the centre of the label
+# 5th,6th columns: the end of its leader line
+# 7th column:      the label
+#
+# Move a label by editing columns 3 and 4; the leader follows.
+        0.360475        8.998861        0.387475        8.998861        0.373795        8.998861      "(-6 3 3)"
+        0.410637       -7.188577        0.437637       -7.188577        0.425667       -7.188577       "(6 0 4)"
+        0.216986        6.978630        0.243986        6.978630        0.232016        6.978630       "(2 0 4)"
+        0.260678       -6.831463        0.287678       -6.831463        0.275708       -6.831463       "(4 3 1)"
+        0.144339       -6.051710        0.171339       -6.051710        0.159369       -6.051710       "(2 2 1)"
+        0.254633        5.961889        0.281633        5.961889        0.269663        5.961889       "(2 1 5)"
