@@ -37,6 +37,21 @@ class RunnerRegressionTest(unittest.TestCase):
             path.name: path.read_text(encoding="utf-8") for path in RUNNERS
         }
 
+    def test_direct_local_job_options_default_to_run(self):
+        text = self.runner_text["lamaGOET.sh"]
+        self.assertIn(
+            'source "${LAMAGOET_BATCH_OPTIONS:-./job_options.txt}"\n'
+            ': "${EXIT:=OK}"',
+            text,
+        )
+
+    def test_orca_archives_point_charges_only_when_they_exist(self):
+        guard = 'if [[ "$SCCHARGES" == "true" && -f "$JOBNAME.qxyz" ]]'
+        for runner, text in self.runner_text.items():
+            for function in ("TONTO_TO_ORCA", "GET_FREQ_ORCA"):
+                with self.subTest(runner=runner, function=function):
+                    self.assertIn(guard, function_body(text, function))
+
     def test_tonto_mode_requests_hirshfeld_refinement(self):
         for name, text in self.runner_text.items():
             with self.subTest(runner=name):
@@ -48,6 +63,74 @@ class RunnerRegressionTest(unittest.TestCase):
                 self.assertIn('dft_correlation_functional= pbec', body)
                 self.assertIn('METHOD" == "upbe', body)
 
+    @unittest.skipUnless(
+        os.name == "posix" and shutil.which("bash"),
+        "generated anharmonic-input test requires bash",
+    )
+    def test_gram_charlier_order_mapping(self):
+        cases = (
+            ("true", "false", "refine_3rd_order_for_atoms", False),
+            ("true", "true", "refine_4th_order_for_atoms", False),
+            ("false", "true", "refine_4th_order_for_atoms", True),
+        )
+        for runner, text in self.runner_text.items():
+            definition = (
+                "WRITE_EXTINCTION_OPTIONS(){ :; }\n"
+                + "TONTO_IAM_BLOCK(){\n"
+                + function_body(text, "TONTO_IAM_BLOCK")
+            )
+            for third, fourth, keyword, fourth_only in cases:
+                with self.subTest(
+                    runner=runner,
+                    third=third,
+                    fourth=fourth,
+                ), tempfile.TemporaryDirectory() as directory:
+                    script = (
+                        definition
+                        + '\nSCFCALCPROG="Tonto"\n'
+                        + 'REFANHARM="true"\n'
+                        + f'THIRDORD="{third}"\n'
+                        + f'FOURTHORD="{fourth}"\n'
+                        + 'ANHARMATOMS="S1 Cl1"\n'
+                        + 'DISP="false"\n'
+                        + 'WAVE="0.71073"\n'
+                        + 'ISFCF="false"\n'
+                        + 'HKL="test.hkl"\n'
+                        + 'MERGCODE="2"\n'
+                        + 'FCUT="0"\n'
+                        + 'SINTL="0"\n'
+                        + 'POSADP="true"\n'
+                        + 'POSONLY="false"\n'
+                        + 'ADPSONLY="false"\n'
+                        + 'REFHPOS="true"\n'
+                        + 'REFHADP="true"\n'
+                        + 'HADP="yes"\n'
+                        + 'REFUISO="false"\n'
+                        + 'REFNOTHING="false"\n'
+                        + 'EXTCOR="false"\n'
+                        + 'WRITEHEAD="false"\n'
+                        + 'USEEQUIV="false"\n'
+                        + 'PLOT_TONTO="false"\n'
+                        + 'JOBNAME="anharmonic-test"\n'
+                        + 'TONTO_IAM_BLOCK\n'
+                        + 'cat stdin\n'
+                    )
+                    result = subprocess.run(
+                        ["bash", "-c", script],
+                        cwd=directory,
+                        text=True,
+                        capture_output=True,
+                        check=True,
+                    )
+                self.assertIn(
+                    f"{keyword}= {{ S1 Cl1 }}",
+                    result.stdout,
+                )
+                self.assertEqual(
+                    "refine_4th_order_only= true" in result.stdout,
+                    fourth_only,
+                )
+
     def test_tonto_version_uses_supported_long_option(self):
         for name, text in self.runner_text.items():
             with self.subTest(runner=name):
@@ -56,6 +139,43 @@ class RunnerRegressionTest(unittest.TestCase):
                     text,
                 )
                 self.assertNotRegex(text, r"\$TONTO\s+-v(?:\s|\))")
+
+    def test_occ_commands_keep_charge_spin_spherical_and_external_json(self):
+        for name, text in self.runner_text.items():
+            with self.subTest(runner=name):
+                body = function_body(text, "TONTO_TO_OCC")
+                self.assertIn('--basis "$BASISSETG"', body)
+                self.assertIn('--charge "$CHARGE"', body)
+                self.assertIn('--multiplicity "$MULTIPLICITY"', body)
+                self.assertIn("--spherical", body)
+                self.assertIn('_lamagoet_prepare_occ_data_path "$SCFCALC_BIN"', body)
+                self.assertIn('BASISSETG="./basis_gen.json"', text)
+                self.assertIn("external OCC basis file basis_gen.json", text)
+
+    def test_gaussian_and_elmodb_fchk_representation_contracts(self):
+        for name, text in self.runner_text.items():
+            with self.subTest(runner=name):
+                gaussian = function_body(text, "TONTO_TO_GAUSSIAN")
+                self.assertIn("6D 10F Fchk", gaussian)
+                self.assertIn("cat basis_gen.txt", gaussian)
+                elmodb = function_body(text, "READ_ELMO_FCHK")
+                self.assertIn("read_g09_fchk_file", elmodb)
+
+    def test_orca_external_basis_contract_is_native_and_file_checked(self):
+        for name, text in self.runner_text.items():
+            with self.subTest(runner=name):
+                self.assertIn("%basis", text)
+                self.assertIn("external ORCA basis file basis_gen.txt", text)
+                self.assertIn("_lamagoet_prepare_orca_external_basis", text)
+                self.assertNotRegex(
+                    text,
+                    r"_lamagoet_prepare_orca_external_basis\s+\+",
+                )
+                self.assertIn(
+                    '${ORCA_EXTERNAL_BASIS_FILE:-basis_gen.txt}',
+                    text,
+                )
+                self.assertNotIn("external $DATA block", text)
 
     def test_external_crystal_basis_never_becomes_tonto_gen_basis(self):
         for name, text in self.runner_text.items():
@@ -105,16 +225,32 @@ class RunnerRegressionTest(unittest.TestCase):
         for name, text in self.runner_text.items():
             with self.subTest(runner=name):
                 body = function_body(text, "EXPORT_FINAL_PERIODIC_WAVEFUNCTION")
+                self.assertIn("lamagoet_tools_cli.py", body)
+                self.assertIn("periodic-wavefunction", body)
+                self.assertIn("PERIODIC_WAVEFUNCTION_EXPORTER", body)
                 self.assertIn("--gred GenerateXML_dat.GRED", body)
                 self.assertIn('--overlap-cutoff "${CRYSTAL_LDREMO}e-5"', body)
                 self.assertNotIn("--basis-file", body)
                 self.assertNotIn('${BASISSETDIR%/}/${BASISSETG}', body)
 
                 finite = function_body(text, "EXPORT_FINAL_FINITE_WAVEFUNCTION")
+                self.assertIn("lamagoet_tools_cli.py", finite)
+                self.assertIn("finite-wavefunction", finite)
+                self.assertIn("FINITE_WAVEFUNCTION_GENERATOR", finite)
                 self.assertIn("periodic_file=GenerateXML_dat.GRED", finite)
                 self.assertIn("CRYSTAL_TONTO_BASIS_NAME", finite)
                 self.assertIn('""|gen|external)', finite)
                 self.assertIn("GEN/External are input sentinels", finite)
+
+    def test_cp2k_support_tools_default_to_unified_cli_but_keep_overrides(self):
+        body = function_body(self.runner_text["lamaGOET.sh"], "TONTO_TO_CP2K")
+        self.assertIn("CP2K_CIF_TO_SUBSYS", body)
+        self.assertIn("CP2K_TONTO_BRIDGE", body)
+        self.assertIn("lamagoet_tools_cli.py", body)
+        self.assertIn("converter_command+=(cif-to-cp2k)", body)
+        self.assertIn("bridge_command+=(cp2k-xml-bridge)", body)
+        self.assertIn('"${converter_command[@]}"', body)
+        self.assertIn('"${bridge_command[@]}"', body)
 
     def test_retained_diamond_46_ao_pair_has_one_crystal_terminator(self):
         example = (

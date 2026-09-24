@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import json
+import re
 from functools import lru_cache
 from typing import Mapping, Sequence
 
@@ -62,11 +64,78 @@ def all_electron_basis_names(element: str) -> tuple[str, ...]:
 FORMAT_FOR_PROGRAM = {
     "Gaussian": "gaussian94",
     "optgaussian": "gaussian94",
-    "Orca": "orca",
-    "optorca": "orca",
+    # BSE's formatter named ``orca`` emits a GAMESS-style $DATA container,
+    # which is not valid when appended to an ORCA input.  Render an actual
+    # ORCA %basis/NewGTO block from BSE JSON instead.
+    "Orca": "orca-native",
+    "optorca": "orca-native",
     "Crystal14": "crystal",
+    "Crystal23": "crystal",
     "CP2K": "cp2k",
+    "OCC": "json",
+    "Tonto": "tonto",
 }
+
+BASIS_EXCHANGE_OUTPUT_FILENAMES = {
+    "Gaussian": "basis_gen.txt",
+    "optgaussian": "basis_gen.txt",
+    "Orca": "basis_gen.txt",
+    "optorca": "basis_gen.txt",
+    "Crystal14": "basis_gen.txt",
+    "Crystal23": "basis_gen.txt",
+    "CP2K": "basis_gen.txt",
+    "OCC": "basis_gen.json",
+    "Tonto": "basis_gen",
+}
+
+TONTO_BASIS_LABEL = "basis_gen"
+
+
+def basis_exchange_output_filename(program: str) -> str:
+    """Return the calculation-directory filename used for a BSE export."""
+
+    try:
+        return BASIS_EXCHANGE_OUTPUT_FILENAMES[program]
+    except KeyError as exc:
+        raise BasisExchangeError(
+            f"Basis Set Exchange export is not supported for {program}."
+        ) from exc
+
+
+@lru_cache(maxsize=None)
+def _metadata_by_display_name() -> dict[str, dict]:
+    bse, _ = _bse()
+    return {
+        metadata["display_name"].casefold(): metadata
+        for metadata in bse.get_metadata().values()
+    }
+
+
+def _is_explicit_dkh_basis(name: str) -> bool:
+    """Return whether BSE metadata explicitly identifies a DKH/DK basis.
+
+    This deliberately does not treat every all-electron relativistic basis as
+    interchangeable.  In particular, X2C-only families are excluded.  The
+    test is restricted to the BSE display name, family and description and
+    requires an explicit Douglas--Kroll, DK or DKH marker.
+    """
+
+    metadata = _metadata_by_display_name().get(name.casefold())
+    if metadata is None:
+        return False
+    fields = " ".join(
+        str(metadata.get(field, ""))
+        for field in ("display_name", "family", "description")
+    )
+    if re.search(r"douglas[ -]+kroll", fields, flags=re.IGNORECASE):
+        return True
+    return bool(
+        re.search(
+            r"(?<![A-Za-z0-9])DK(?:H)?[0-9]*(?![A-Za-z0-9])",
+            fields,
+            flags=re.IGNORECASE,
+        )
+    )
 
 
 # Neutral-atom subshells in Madelung filling order.  CRYSTAL's CHE field is
@@ -266,53 +335,352 @@ def _populate_crystal_shell_charges(
     return "\n".join(output)
 
 
+def _tonto_shell_letter(angular_momentum: int) -> str:
+    """Return Tonto's one-letter shell label for angular momentum ``l``."""
+
+    if not 0 <= angular_momentum <= 23:
+        raise BasisExchangeError(
+            "Tonto basis libraries support angular momenta l=0..23; "
+            f"received l={angular_momentum}."
+        )
+    if angular_momentum <= 4:
+        return "SPDFG"[angular_momentum]
+    return chr(ord("G") + angular_momentum - 4)
+
+
+def _render_tonto_element(data: Mapping, element: str) -> str:
+    """Render one BSE element record as Tonto ``gamess-us`` library data.
+
+    BSE may store combined SP shells and generally contracted shells.  Tonto's
+    GAMESS-US library reader consumes one contraction vector per shell, so the
+    renderer expands each vector explicitly instead of forwarding a combined
+    ``L`` record whose second coefficient column Tonto would not read.
+    """
+
+    elements = data.get("elements", {})
+    if len(elements) != 1:
+        raise BasisExchangeError(
+            f"Expected exactly one BSE element record for {element}."
+        )
+    record = next(iter(elements.values()))
+    if record.get("ecp_potentials") or record.get("ecp_electrons"):
+        raise BasisExchangeError(
+            f"Tonto requires an all-electron basis for {element}."
+        )
+    shells = record.get("electron_shells", ())
+    if not shells:
+        raise BasisExchangeError(
+            f"The selected BSE basis has no orbital shells for {element}."
+        )
+
+    lines: list[str] = []
+    for shell in shells:
+        function_type = str(shell.get("function_type", ""))
+        if not function_type.startswith("gto"):
+            raise BasisExchangeError(
+                f"Tonto cannot render BSE shell type {function_type!r} for {element}."
+            )
+        angular_momenta = list(shell.get("angular_momentum", ()))
+        exponents = list(shell.get("exponents", ()))
+        coefficients = list(shell.get("coefficients", ()))
+        if not angular_momenta or not exponents or not coefficients:
+            raise BasisExchangeError(
+                f"BSE returned an incomplete orbital shell for {element}."
+            )
+        if len(angular_momenta) == 1:
+            contractions = [
+                (int(angular_momenta[0]), coefficient)
+                for coefficient in coefficients
+            ]
+        elif len(angular_momenta) == len(coefficients):
+            contractions = [
+                (int(angular), coefficient)
+                for angular, coefficient in zip(angular_momenta, coefficients)
+            ]
+        else:
+            raise BasisExchangeError(
+                "Tonto cannot unambiguously expand the combined/general shell "
+                f"returned by BSE for {element}."
+            )
+
+        for angular, coefficient in contractions:
+            coefficient = list(coefficient)
+            if len(coefficient) != len(exponents):
+                raise BasisExchangeError(
+                    f"BSE returned mismatched exponents and coefficients for {element}."
+                )
+            shell_letter = _tonto_shell_letter(angular)
+            lines.append(f"{shell_letter} {len(exponents)}")
+            for index, (exponent, value) in enumerate(
+                zip(exponents, coefficient), start=1
+            ):
+                try:
+                    float(str(exponent).replace("D", "E").replace("d", "e"))
+                    float(str(value).replace("D", "E").replace("d", "e"))
+                except ValueError as exc:
+                    raise BasisExchangeError(
+                        f"BSE returned a non-numeric primitive for {element}."
+                    ) from exc
+                lines.append(f"{index} {exponent} {value}")
+    return "\n".join(lines)
+
+
+def _expanded_contractions(
+    shell: Mapping, element: str
+) -> tuple[list[str], list[tuple[int, list[str]]]]:
+    """Expand one validated BSE shell into explicit contraction vectors."""
+
+    function_type = str(shell.get("function_type", ""))
+    if not function_type.startswith("gto"):
+        raise BasisExchangeError(
+            f"Cannot render BSE shell type {function_type!r} for {element}."
+        )
+    angular_momenta = list(shell.get("angular_momentum", ()))
+    exponents = list(shell.get("exponents", ()))
+    coefficients = list(shell.get("coefficients", ()))
+    if not angular_momenta or not exponents or not coefficients:
+        raise BasisExchangeError(
+            f"BSE returned an incomplete orbital shell for {element}."
+        )
+    if len(angular_momenta) == 1:
+        contractions = [
+            (int(angular_momenta[0]), list(coefficient))
+            for coefficient in coefficients
+        ]
+    elif len(angular_momenta) == len(coefficients):
+        contractions = [
+            (int(angular), list(coefficient))
+            for angular, coefficient in zip(angular_momenta, coefficients)
+        ]
+    else:
+        raise BasisExchangeError(
+            "Cannot unambiguously expand the combined/general shell "
+            f"returned by BSE for {element}."
+        )
+    for _, coefficient in contractions:
+        if len(coefficient) != len(exponents):
+            raise BasisExchangeError(
+                f"BSE returned mismatched exponents and coefficients for {element}."
+            )
+        for exponent, value in zip(exponents, coefficient):
+            try:
+                float(str(exponent).replace("D", "E").replace("d", "e"))
+                float(str(value).replace("D", "E").replace("d", "e"))
+            except ValueError as exc:
+                raise BasisExchangeError(
+                    f"BSE returned a non-numeric primitive for {element}."
+                ) from exc
+    return exponents, contractions
+
+
+def _render_orca_element(data: Mapping, element: str) -> str:
+    """Render one all-electron BSE record as an ORCA ``NewGTO`` block."""
+
+    elements = data.get("elements", {})
+    if len(elements) != 1:
+        raise BasisExchangeError(
+            f"Expected exactly one BSE element record for {element}."
+        )
+    record = next(iter(elements.values()))
+    if record.get("ecp_potentials") or record.get("ecp_electrons"):
+        raise BasisExchangeError(f"ORCA requires an all-electron basis for {element}.")
+    shells = record.get("electron_shells", ())
+    if not shells:
+        raise BasisExchangeError(
+            f"The selected BSE basis has no orbital shells for {element}."
+        )
+
+    lines = [f"NewGTO {element}"]
+    for shell in shells:
+        exponents, contractions = _expanded_contractions(shell, element)
+        for angular, coefficients in contractions:
+            lines.append(f"  {_tonto_shell_letter(angular)} {len(exponents)}")
+            for index, (exponent, coefficient) in enumerate(
+                zip(exponents, coefficients), start=1
+            ):
+                lines.append(f"    {index} {exponent} {coefficient}")
+    lines.append("end")
+    return "\n".join(lines)
+
+
+def _single_basis_export(
+    program: str,
+    element: str,
+    name: str,
+    bse,
+    lut,
+) -> str:
+    """Export and validate one element through the selected program path."""
+
+    output_format = FORMAT_FOR_PROGRAM.get(program)
+    if output_format is None:
+        raise BasisExchangeError(
+            f"Basis Set Exchange export is not supported for {program}."
+        )
+    try:
+        if program in {"OCC", "Tonto", "Orca", "optorca"}:
+            data = bse.get_basis(name, elements=[element])
+            if program == "Tonto":
+                return _render_tonto_element(data, element)
+            if program in {"Orca", "optorca"}:
+                return _render_orca_element(data, element)
+            elements = data.get("elements", {})
+            if len(elements) != 1:
+                raise BasisExchangeError(
+                    f"Expected exactly one BSE element record for {element}."
+                )
+            record = next(iter(elements.values()))
+            if record.get("ecp_potentials") or record.get("ecp_electrons"):
+                raise BasisExchangeError(
+                    f"OCC requires an all-electron basis for {element}."
+                )
+            if not record.get("electron_shells"):
+                raise BasisExchangeError(
+                    f"The selected BSE basis has no orbital shells for {element}."
+                )
+            return json.dumps(data, sort_keys=True)
+
+        piece = bse.get_basis(
+            name,
+            elements=[element],
+            fmt=output_format,
+            header=False,
+        ).strip()
+    except BasisExchangeError:
+        raise
+    except Exception as exc:
+        raise BasisExchangeError(
+            f"BSE could not export {name} for {element} as {output_format}: {exc}"
+        ) from exc
+
+    if not piece:
+        raise BasisExchangeError(
+            f"BSE returned an empty {output_format} basis for {element}."
+        )
+    if output_format == "crystal":
+        piece = _populate_crystal_shell_charges(piece, element, lut)
+    elif output_format == "gaussian94" and not piece.rstrip().endswith("****"):
+        raise BasisExchangeError(
+            "Basis Set Exchange returned an incomplete Gaussian94 basis block."
+        )
+    return piece
+
+
+@lru_cache(maxsize=None)
+def compatible_basis_names(
+    element: str,
+    program: str,
+    require_dkh: bool = False,
+) -> tuple[str, ...]:
+    """Return bases that survive the selected program's actual exporter.
+
+    The result is cached because validating CRYSTAL's shell/CHE constraints can
+    require hundreds of BSE exports.  ``require_dkh`` is intended for the
+    Gaussian Douglas--Kroll route and admits only families explicitly marked
+    DK/DKH/Douglas--Kroll in BSE metadata; an all-electron basis alone is not
+    considered sufficient evidence of DKH compatibility.
+    """
+
+    if program not in FORMAT_FOR_PROGRAM:
+        raise BasisExchangeError(
+            f"Basis Set Exchange export is not supported for {program}."
+        )
+    bse, lut = _bse()
+    symbol = element.strip().capitalize()
+    result: list[str] = []
+    for name in all_electron_basis_names(symbol):
+        if require_dkh and not _is_explicit_dkh_basis(name):
+            continue
+        try:
+            _single_basis_export(program, symbol, name, bse, lut)
+        except BasisExchangeError:
+            continue
+        result.append(name)
+    return tuple(result)
+
+
 def render_mixed_basis(
     program: str,
     selections: Mapping[str, str],
 ) -> tuple[str, str]:
-    """Render one external basis file and return ``(text, CP2K map)``."""
+    """Render one external basis file and return ``(text, CP2K map)``.
+
+    For OCC, ``text`` is one MolSSI/BSE JSON document.  For Tonto it is a
+    native basis-library file whose basis name is :data:`TONTO_BASIS_LABEL`.
+    Other programs retain their established native BSE export formats.
+    """
 
     bse, lut = _bse()
     output_format = FORMAT_FOR_PROGRAM.get(program)
     if not output_format:
         raise BasisExchangeError(
-            "BSE export is supported for Gaussian, ORCA, Crystal23 and CP2K. "
-            "Tonto/ELMOdb require Tonto-native library files, and OCC requires "
-            "an OCC-native basis definition."
+            "BSE export is supported for Gaussian, ORCA, Crystal23, CP2K, "
+            "OCC and Tonto. ELMOdb does not accept a BSE export."
         )
     if not selections:
         raise BasisExchangeError("No element basis selections were provided.")
 
-    pieces: list[str] = []
+    ordered: list[tuple[str, str]] = []
+    seen_symbols: set[str] = set()
     for element, name in sorted(selections.items()):
+        symbol = element.strip().capitalize()
+        if symbol in seen_symbols:
+            raise BasisExchangeError(
+                f"The basis selection contains {symbol} more than once."
+            )
+        seen_symbols.add(symbol)
+        ordered.append((symbol, name))
+
+    pieces: list[str] = []
+    for element, name in ordered:
         if name not in all_electron_basis_names(element):
             raise BasisExchangeError(
                 f"{name} is not an all-electron orbital basis for {element}."
             )
-        try:
-            pieces.append(
-                bse.get_basis(
-                    name,
-                    elements=[element],
-                    fmt=output_format,
-                    header=False,
-                ).strip()
-            )
-        except Exception as exc:
-            raise BasisExchangeError(
-                f"BSE could not export {name} for {element} as {output_format}: {exc}"
-            ) from exc
+        pieces.append(_single_basis_export(program, element, name, bse, lut))
 
-    if output_format == "orca":
-        bodies = []
+    if program == "OCC":
+        elements: dict[str, dict] = {}
+        function_types: set[str] = set()
         for piece in pieces:
-            lines = [
-                line
-                for line in piece.splitlines()
-                if line.strip().upper() not in {"$DATA", "$END"}
-            ]
-            bodies.append("\n".join(lines).strip())
-        text = "$DATA\n\n" + "\n\n".join(bodies) + "\n\n$END\n"
+            data = json.loads(piece)
+            for atomic_number, record in data["elements"].items():
+                if atomic_number in elements:
+                    raise BasisExchangeError(
+                        f"The OCC basis contains duplicate element Z={atomic_number}."
+                    )
+                elements[atomic_number] = record
+            function_types.update(map(str, data.get("function_types", ())))
+        document = {
+            "molssi_bse_schema": {
+                "schema_type": "complete",
+                "schema_version": "0.1",
+            },
+            "name": "lamaGOET mixed all-electron basis",
+            "description": "Program-specific BSE selections generated by lamaGOET",
+            "role": "orbital",
+            "function_types": sorted(function_types),
+            "elements": elements,
+        }
+        text = json.dumps(document, indent=2, sort_keys=True) + "\n"
+    elif program == "Tonto":
+        lines = [
+            "! Mixed all-electron basis generated by lamaGOET/Basis Set Exchange",
+        ]
+        lines.extend(f"! {element} = {name}" for element, name in ordered)
+        lines.extend(("{", "  keys= { gamess-us= }", "  data= {"))
+        for (element, _), piece in zip(ordered, pieces):
+            lines.append(f"    {element}:{TONTO_BASIS_LABEL} {{")
+            lines.extend(f"      {line}" for line in piece.splitlines())
+            lines.append("    }")
+        lines.extend(("  }", "}", ""))
+        text = "\n".join(lines)
+    elif output_format == "orca-native":
+        lines = ["%basis"]
+        for piece in pieces:
+            lines.extend(f"  {line}" for line in piece.splitlines())
+        lines.extend(("end", ""))
+        text = "\n".join(lines)
     elif output_format == "gaussian94":
         # In a Gaussian Gen basis, **** terminates each element/centre basis
         # block.  It is required between elements as well as after the last
@@ -333,8 +701,7 @@ def render_mixed_basis(
         # atom definitions.  Strip the per-element records and emit exactly
         # one terminator after the final element.
         bodies: list[str] = []
-        for element, piece in zip(sorted(selections), pieces):
-            piece = _populate_crystal_shell_charges(piece, element, lut)
+        for piece in pieces:
             lines = piece.rstrip().splitlines()
             if not lines or lines[-1].split() != ["99", "0"]:
                 raise BasisExchangeError(
@@ -346,7 +713,7 @@ def render_mixed_basis(
         text = "\n\n".join(pieces) + "\n"
     cp2k_map = " ".join(
         f"{element.capitalize()}={name}"
-        for element, name in sorted(selections.items())
+        for element, name in ordered
     )
     return text, cp2k_map
 

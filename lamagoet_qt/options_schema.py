@@ -102,6 +102,7 @@ OPTION_DEFAULTS: dict[str, str] = {
     "GAUSSEMPDISP": "false",
     "GAUSSIAN_BIN": "g09",
     "GAUSSREL": "false",
+    "DKH_BASIS_CONFIRMED": "false",
     "HADP": "no",
     "HAR_ENERGY_REPEAT_TOL": "1.0E-10",
     "HAR_SCF_RMSD_TOL": "1.0E-8",

@@ -146,6 +146,52 @@ _lamagoet_gaussian_method_keyword() {
     esac
 }
 
+# Validate an external ORCA basis once before any SCF input is assembled.
+# Modern lamaGOET writes a native %basis/NewGTO block. Older releases wrote
+# the BSE GAMESS-US $DATA format under the same filename; ORCA rejects that
+# syntax. Preserve the source file and use a normalized runtime include.
+_lamagoet_prepare_orca_external_basis() {
+    local source_file=${1:-basis_gen.txt}
+    local output_file=${2:-basis_gen.orca.inc}
+    local tool=$LAMAGOET_DIR/lamagoet_tools_cli.py
+    local python_command
+    local first_line
+
+    if [ ! -r "$source_file" ]; then
+        printf 'lamaGOET: external ORCA basis file is not readable: %s\n' \
+            "$source_file" >&2
+        return 2
+    fi
+    if [ -x "$LAMAGOET_DIR/.venv-qt/bin/python" ]; then
+        python_command=$LAMAGOET_DIR/.venv-qt/bin/python
+    elif command -v python3 >/dev/null 2>&1; then
+        python_command=$(command -v python3)
+    fi
+    if [ -n "$python_command" ] && [ -f "$tool" ]; then
+        "$python_command" "$tool" orca-basis "$source_file" "$output_file" ||
+            return 2
+        ORCA_EXTERNAL_BASIS_FILE=$output_file
+        export ORCA_EXTERNAL_BASIS_FILE
+        return 0
+    fi
+
+    # A cluster-side runner may be installed without the optional conversion
+    # utility. A native file remains safe to use; a legacy $DATA file does not.
+    first_line=$(awk '
+        /^[[:space:]]*$/ || /^[[:space:]]*[#!]/ { next }
+        { print $1; exit }
+    ' "$source_file")
+    if [ "$(_lower "$first_line")" = "%basis" ] &&
+       ! grep -qi '^[[:space:]]*[$]data\>' "$source_file"; then
+        ORCA_EXTERNAL_BASIS_FILE=$source_file
+        export ORCA_EXTERNAL_BASIS_FILE
+        return 0
+    fi
+    printf '%s\n' \
+        'lamaGOET: legacy ORCA $DATA basis needs lamagoet-tools; install the full lamaGOET support files or regenerate the basis in the Qt GUI.' >&2
+    return 2
+}
+
 # Resolve CRYSTAL23's five TOLINTEG values.  Molecular bases exported by BSE
 # can contain diffuse functions whose periodic overlap matrix is sensitive to
 # CRYSTAL's integral-screening accuracy.  ``auto`` keeps the program default
@@ -271,6 +317,35 @@ _lamagoet_command_path() {
             ;;
     esac
     printf '%s\n' "$resolved"
+}
+
+# Locate OCC's installed data tree when a non-interactive shell did not source
+# the user's profile.  OCC can read an explicit orbital JSON file without it,
+# but DFT still needs auxiliary fitting bases below OCC_DATA_PATH/basis.  A
+# missing path otherwise looks like an external-basis failure after the
+# orbital basis has already loaded successfully.
+_lamagoet_prepare_occ_data_path() {
+    local requested=${1:-occ}
+    local executable resolved candidate
+
+    if [ -n "${OCC_DATA_PATH:-}" ] && [ -d "$OCC_DATA_PATH/basis" ]; then
+        return 0
+    fi
+    executable=$(_lamagoet_command_path "$requested") || return 0
+    resolved=$("$REALPATH" "$executable" 2>/dev/null) || resolved=$executable
+    for candidate in \
+        "$(dirname "$resolved")/../../share" \
+        "$(dirname "$resolved")/../share/occ" \
+        /usr/local/share/occ \
+        /usr/local/share
+    do
+        if [ -d "$candidate/basis" ]; then
+            OCC_DATA_PATH=$(cd -P "$candidate" && pwd)
+            export OCC_DATA_PATH
+            return 0
+        fi
+    done
+    return 0
 }
 
 # Find the CRYSTAL23 parallel driver corresponding to the configured serial

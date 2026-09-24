@@ -74,7 +74,9 @@ class QtBootstrapTest(unittest.TestCase):
                 return subprocess.CompletedProcess(command, 0)
 
             system_name = "Windows" if sys.platform == "win32" else "Linux"
-            with mock.patch("platform.system", return_value=system_name), mock.patch(
+            with mock.patch.dict(
+                "os.environ", {"LAMAGOET_QT_NO_BOOTSTRAP": ""}, clear=False
+            ), mock.patch("platform.system", return_value=system_name), mock.patch(
                 "platform.machine", return_value="test-machine"
             ), mock.patch("subprocess.run", side_effect=fake_run), mock.patch(
                 "os.execve"

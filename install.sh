@@ -138,6 +138,7 @@ run_admin ln -sf "$localdir/lamaGOET.sh"             /usr/local/bin/lamaGOET
 run_admin ln -sf "$localdir/RUN_lamaGOET_release.sh" /usr/local/bin/RUN_lamaGOET
 run_admin ln -sf "$localdir/lamaGOET_qt.sh"          /usr/local/bin/lamaGOET_qt
 run_admin ln -sf "$localdir/GUI_lamaGOET_qt.sh"      /usr/local/bin/GUI_lamaGOET
+run_admin ln -sf "$localdir/lamagoet_tools_cli.py"   /usr/local/bin/lamagoet-tools
 
 # The runners refuse to start without their GNU-tool environment shim. The
 # symlinks above mean dirname of the invoked command is /usr/local/bin.
@@ -161,6 +162,7 @@ lamaGOET installed and its Qt interface passed the startup check.
     GUI_lamaGOET       set up a calculation and submit it to a PBS cluster
     lamaGOET           run the job_options.txt in the current directory
     RUN_lamaGOET       the command a cluster node runs
+    lamagoet-tools     advanced conversion/export support commands
 
 Close any already-running lamaGOET window before launching it again so WSLg
 uses the new lamaGOET taskbar identity and icon.

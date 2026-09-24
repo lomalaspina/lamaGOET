@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+import json
+import re
 import unittest
 from decimal import Decimal
 
@@ -10,6 +12,8 @@ except ImportError:
 from lamagoet_qt.basis_exchange import (
     _neutral_atom_subshell_occupancies,
     all_electron_basis_names,
+    basis_exchange_output_filename,
+    compatible_basis_names,
     render_mixed_basis,
 )
 
@@ -127,12 +131,81 @@ class BasisExchangeTest(unittest.TestCase):
         self.assertIn("N def2-TZVP", text)
         self.assertEqual(mapping, "H=def2-TZVP N=def2-TZVP")
 
-    def test_mixed_orca_basis_has_one_data_container(self):
+    def test_occ_mixed_basis_is_one_molssi_json_document(self):
+        text, mapping = render_mixed_basis(
+            "OCC", {"H": "def2-TZVP", "N": "def2-TZVP"}
+        )
+        document = json.loads(text)
+        self.assertEqual(
+            document["molssi_bse_schema"],
+            {"schema_type": "complete", "schema_version": "0.1"},
+        )
+        self.assertEqual(set(document["elements"]), {"1", "7"})
+        for record in document["elements"].values():
+            self.assertTrue(record["electron_shells"])
+            self.assertFalse(record.get("ecp_potentials"))
+            self.assertFalse(record.get("ecp_electrons"))
+        self.assertEqual(mapping, "H=def2-TZVP N=def2-TZVP")
+        self.assertEqual(basis_exchange_output_filename("OCC"), "basis_gen.json")
+
+    def test_tonto_native_library_expands_combined_sp_shell(self):
+        text, mapping = render_mixed_basis(
+            "Tonto", {"C": "STO-3G", "H": "STO-3G"}
+        )
+        self.assertIn("keys= { gamess-us= }", text)
+        self.assertIn("C:basis_gen {", text)
+        self.assertIn("H:basis_gen {", text)
+        self.assertNotIn("$DATA", text)
+        self.assertNotRegex(text, r"(?m)^\s*L\s+\d+")
+        carbon = text.split("C:basis_gen {", 1)[1].split("}", 1)[0]
+        self.assertEqual(len(re.findall(r"(?m)^\s*S\s+\d+\s*$", carbon)), 2)
+        self.assertEqual(len(re.findall(r"(?m)^\s*P\s+\d+\s*$", carbon)), 1)
+        self.assertEqual(mapping, "C=STO-3G H=STO-3G")
+        self.assertEqual(basis_exchange_output_filename("Tonto"), "basis_gen")
+
+    def test_program_filter_rejects_unrepresentable_crystal_shells(self):
+        choices = compatible_basis_names("C", "Crystal14")
+        self.assertIn("def2-TZVP", choices)
+        # 5ZaP contains an I shell (CRYSTAL LAT=6), beyond the converter's
+        # documented LAT=0..5 representation, and must not reach the GUI.
+        self.assertNotIn("5ZaP", choices)
+
+    def test_program_filters_admit_occ_and_tonto_native_exports(self):
+        self.assertIn("def2-TZVP", compatible_basis_names("N", "OCC"))
+        self.assertIn("def2-TZVP", compatible_basis_names("N", "Tonto"))
+
+    def test_h_c_n_si_render_through_every_supported_program_path(self):
+        selections = {element: "def2-TZVP" for element in ("H", "C", "N", "Si")}
+        for program in ("Gaussian", "Orca", "Crystal14", "CP2K", "OCC", "Tonto"):
+            with self.subTest(program=program):
+                text, mapping = render_mixed_basis(program, selections)
+                self.assertTrue(text.strip())
+                self.assertEqual(
+                    mapping,
+                    "C=def2-TZVP H=def2-TZVP N=def2-TZVP Si=def2-TZVP",
+                )
+        jorge = {element: "jorge-TZP" for element in ("H", "C", "N", "Si")}
+        for program in ("Gaussian", "Orca", "Crystal14", "CP2K", "OCC", "Tonto"):
+            with self.subTest(program=program, basis="jorge-TZP"):
+                text, _ = render_mixed_basis(program, jorge)
+                self.assertTrue(text.strip())
+
+    def test_gaussian_dkh_filter_requires_explicit_bse_dk_metadata(self):
+        choices = compatible_basis_names("C", "Gaussian", require_dkh=True)
+        self.assertIn("cc-pVDZ-DK", choices)
+        self.assertNotIn("def2-TZVP", choices)
+        self.assertNotIn("x2c-SVPall", choices)
+        self.assertTrue(all("X2C" not in name.upper() for name in choices))
+
+    def test_mixed_orca_basis_uses_native_newgto_container(self):
         text, _ = render_mixed_basis(
             "Orca", {"H": "def2-TZVP", "N": "def2-TZVP"}
         )
-        self.assertEqual(text.upper().count("$DATA"), 1)
-        self.assertEqual(text.upper().count("$END"), 1)
+        self.assertTrue(text.startswith("%basis\n"))
+        self.assertEqual(text.count("NewGTO H"), 1)
+        self.assertEqual(text.count("NewGTO N"), 1)
+        self.assertNotIn("$DATA", text.upper())
+        self.assertTrue(text.rstrip().endswith("end"))
 
     def test_mixed_gaussian_basis_keeps_one_delimiter_per_element(self):
         text, _ = render_mixed_basis(

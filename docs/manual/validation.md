@@ -29,10 +29,10 @@ development tests relevant to the present interfaces.
 
 ## Current lamaGOET suite
 
-On 20 September 2026, `bash Tests/run_all.sh` completed **27 test files: 27
+On 24 September 2026, `bash Tests/run_all.sh` completed **30 test files: 30
 passed, 0 failed, 0 skipped** on Linux x86-64, Bash 5.2.21, using the
-repository `.venv-qt` Python. The suite included six shell tests and twenty-one
-Python tests.
+repository `.venv-qt` Python. The suite included six shell tests and
+twenty-four Python tests.
 
 ### Why these tests exist
 
@@ -46,10 +46,71 @@ Python tests.
 | Basis Set Exchange | Program-specific terminators, Crystal23 shell charges/order, or lookup behavior regress | Format and conversion fixtures match their consumers |
 | Periodic/finite wavefunction export | `GEN` is mistaken for a Tonto basis, or periodic and finite outputs are conflated | Export preconditions, metadata, and explicit boundaries pass |
 | Scientific archive integrity | Historical cases or expected numbers are silently deleted/rewritten | All ten case directories and exact CIF scalars match the manifest |
-| Documentation option contract | A GUI/schema option is added without a manual definition | All 204 canonical `OPTION_DEFAULTS` keys occur in the option reference |
+| Documentation option contract | A GUI/schema option is added without a manual definition | All 208 canonical `OPTION_DEFAULTS` keys occur in the option reference |
 
 The suite does not invoke licensed programs and does not prove numerical
 equivalence of a fresh HAR. Live scientific calculations remain opt-in.
+
+### Live external-basis and relativistic acceptance
+
+On 24 September 2026, the opt-in command
+`LAMAGOET_RUN_LIVE_SCF_TESTS=1 .venv-qt/bin/python -m unittest -v
+Tests.test_live_external_basis` completed **6/6** executable tests.
+Every job ran in a temporary directory; the retained KHMAL inputs were read
+but not modified.
+
+| Consumer | Input/contract exercised | Observed acceptance |
+|---|---|---|
+| Gaussian 09 | H2O RHF with BSE `def2-TZVP`, `6D 10F FChk` | Normal termination; positive Cartesian shell types written; Tonto FChk import completed |
+| Gaussian 09 | H2, RHF, BSE `cc-pVDZ-DK`, `int=dkh` | Normal termination and explicit `Using DK2 one-electron Hamiltonian` marker |
+| ORCA 5.0.4 | KHMAL PBE with per-element BSE `jorge-TZP` rendered as `%basis` / `NewGTO` | Full SCF terminated normally; no legacy `$DATA` parser error |
+| OCC | KHMAL PBE, charge 5, multiplicity 1, `--spherical`, mixed BSE JSON | Full 554-spherical-function SCF completed; final energy −4051.659551024744 hartree; formatted checkpoint written and imported by Tonto |
+| Tonto | H2 RHF/STO-3G from generated native `basis_gen` library | SCF completed; final energy −1.116759 hartree |
+| Tonto relativistic guard | H2 with `relativity_kind=dkh` | Explicitly rejected before SCF; no silent nonrelativistic fallback |
+
+These are executable acceptance checks of input rendering and dispatch. They
+do not validate every basis in Basis Set Exchange, establish periodic
+conditioning, or replace a relativistic molecular benchmark. A separate
+formatter sweep confirmed that H, C, N and Si expose `def2-TZVP` and
+`jorge-TZP` through every supported Gaussian, ORCA, Crystal23, CP2K, OCC and
+Tonto export path; the GUI still filters all displayed choices through the
+selected exporter.
+
+The common FChk reader was also replayed against the retained real
+L-alanine ELMOdb checkpoint.  Its 76 shell records use positive Cartesian
+types, contain 156 basis functions, and were imported successfully by the
+current Tonto executable.  ELMOdb remains deliberately outside the BSE menu;
+this check validates its existing checkpoint interchange, not a new external
+basis contract.
+
+### Spherical external-wavefunction final exports
+
+The ORCA Molden regression also exercises the final `.47`, `.wfn`, and `.wfx`
+writers with a def2-TZVP water wavefunction.  Tonto retains 43 pure-spherical
+contracted AOs for calculation and FILE47 output.  For WFN/WFX only, the same
+orbitals are expanded with Tonto's solid-harmonic transformation into 67
+Cartesian primitive components (rather than the 62 spherical primitive
+components).  The automated test checks these dimensions, complete file
+terminators, spherical d/f FILE47 labels, the Fock block, and all MOs.  The
+resulting 43-function FILE47 was additionally accepted by GenNBO 7, which
+completed with total electron population 10.00000 and net charge 0.00000.
+
+The same retained case directly compares Tonto's AIM WFN with ORCA 5.0.4
+`orca_2aim`, after semantic sorting by centre, Cartesian primitive type and
+exponent and allowing the arbitrary global sign of each MO.  This exposed and
+then guarded the external `px,py,pz` to Tonto `pz,px,py` pure-P import
+permutation.  Across the five occupied orbitals, the largest primitive
+coefficient difference is 4.0×10⁻⁸; the maximum relative exponent difference
+is 3.44×10⁻⁷ (WFN print precision), and the maximum orbital-energy difference
+is 3.0×10⁻⁸ hartree.  The matched pure-spherical FChk and Molden density cubes
+are byte-identical after import.
+
+A larger retained KHMAL ORCA/PBE/jorge-TZP final-output replay provided a
+memory-safety and scale check: 554 pure-spherical contracted AOs expanded to
+913 Cartesian primitive components; all three files completed.  The residual
+map was unchanged at +1.198602/−0.860503 e Å⁻³, r.m.s. 0.074358 e Å⁻³.  This
+validates representation conversion and output completion, not the chemical
+quality of that KHMAL residual map.
 
 ## Epoxide molecular HAR control
 
@@ -156,16 +217,24 @@ genuinely periodic-density behavior.
 | Control | Retained result |
 |---|---|
 | NH3 | GRED and XML FCF files identical |
+| NH3 external BSE `def2-TZVP` | CRYSTAL23 expanded the general-basis records to 196 pure-spherical AOs (the same shells would give 216 Cartesian AOs); Tonto imported all 196 and reproduced the CRYSTAL central-cell overlap matrix to a maximum absolute difference of 0.000001 |
 | Chiral Quartz | GRED and XML FCF files identical |
 | Non-centrosymmetric Natrolite | GRED and XML FCF files identical; complete CIFs; empty stderr |
 | KHMAL multi-block CIF | publication-only `data_global` was skipped in favour of the structural `data_K_HAR_aniso` block; 48 atoms and the 740-function `POB-TZVP-REV2` GRED density, overlap, and Fock matrices imported successfully |
 | Diamond static prediction | R(F) 0.068526; R(F²) 0.104435; Rw(F) 0.092063; Rw(F²) 0.209767; GoF² 996.600747; extinction 2.972074; scale 1.013156 |
 | Diamond 46-AO periodic XCW at λ=0 | GRED+KRED and XML+KRED FCF identical; R(F) 0.006054; R(F²) 0.012090; Rw(F) 0.005287; Rw(F²) 0.010640; GoF² 3.287344 |
 
-The retained KHMAL directory name contains `PBE`, but its `job_options.txt`
-sets `METHOD="rhf"` and the Crystal23 output reports a Hartree-Fock
-Hamiltonian. It is therefore a multi-block-CIF and native-GRED import control,
-not evidence for a KHMAL PBE calculation.
+The retained KHMAL calculation in
+`Lolo_tests/Sep7/KHMAL/crystal23_periodic_PBE_pob` did **not** use a Basis Set
+Exchange definition: its CRYSTAL input selected the built-in
+`POB-TZVP-REV2` basis, and both `job_options.txt` and the CRYSTAL output select
+the PBE Kohn--Sham Hamiltonian. Consequently, its residual-density
+discrepancy cannot be attributed to BSE-to-CRYSTAL basis rendering. CRYSTAL general basis
+records and the native GRED importer both use pure spherical shells: D, F and
+G shells contribute 5, 7 and 9 functions respectively. The independent NH3
+AO-count and overlap check above guards the representation boundary; it does
+not by itself establish that a selected electronic-structure model will give
+small residual extrema for every data set.
 
 The matched one-cycle NH3 and Diamond refinements produced identical
 fractional CIF, XYZ, and FCF content after normalizing only the job name. The
@@ -474,14 +543,22 @@ a one-reflection population difference.
 
 ## Tonto regression-suite context
 
-Dated Tonto validations also ran focused and short suites. The most recent
-native CP2K snapshot reported 63/67 short tests passing. Four existing failures
-were retained and named: the optional RGBI doctor, two NH3 reference-output
-alignment tests, and one compiler-dependent urea property tolerance. The
-native Crystal23 snapshot reported 62/66 with the same four categories.
+On 24 September 2026, the current Tonto tree passed **67/70** short tests.  The
+new ORCA pure-spherical import and FILE47/WFN/WFX export regression passed.
+Three pre-existing tests remained nonzero and are named rather than hidden:
+
+- `rgbi_doctor_selftest`, because this workstation still lacks the optional
+  `pdfcrop` and `mol2chemfig` executables;
+- `nh3_rhf_DZP_HAR`, whose numerical comparison reported zero difference but
+  whose stale golden stdout has nine structural/alignment differences after
+  the intentional default suppression of between-cycle pruning text; and
+- `urea_ccsd_pob-TZVP_Salvador_properties`, whose compiler-sensitive retained
+  comparison has a largest relative difference of 2.99% (0.0065 versus
+  0.0067) and a largest last-digit difference of 9 units.
+
 These nonzero failure counts are disclosed because “most tests passed” is not
-equivalent to a clean suite; none selected the newly tested interface, but
-they remain maintenance work.
+equivalent to a clean suite.  None selects the new spherical external-basis
+path, but all three remain maintenance or environment work.
 
 ## Publication gates
 

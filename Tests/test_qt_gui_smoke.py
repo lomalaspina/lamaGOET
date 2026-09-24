@@ -343,6 +343,10 @@ def main() -> int:
         )
         window.grimme.setChecked(True)
         window.relativistic.setChecked(True)
+        # This smoke test uses a generic fixture as a manually supplied file;
+        # acknowledge the explicit DKH-basis safety gate so submit_job remains
+        # non-interactive under the offscreen Qt platform.
+        window.dkh_basis_confirmed.setChecked(True)
         window.h_adp.setChecked(True)
         window.dispersion_correction.setChecked(True)
         window.crystal_biposize.setText("6340350")
@@ -361,6 +365,7 @@ def main() -> int:
             "GAUSGEN",
             "GAUSSEMPDISP",
             "GAUSSREL",
+            "DKH_BASIS_CONFIRMED",
             "POSADP",
             "REFHPOS",
             "DISP",

@@ -112,6 +112,15 @@ retained controls. Spin-polarized, relativistic, pseudopotential, hybrid,
 metallic/fractional-occupation, and unusual symmetry cases require separate
 validation and may use a legacy route or be unsupported.
 
+The currently validated scalar-relativistic route exposed by lamaGOET is
+Gaussian `int=dkh` with an explicitly DKH-compatible all-electron basis. The
+private Tonto branch intentionally rejects DKH/IOTC requests: its historical
+core-Hamiltonian implementation has not yet been ported together with the
+required picture-change density and structure-factor operators. This explicit
+failure prevents a relativistic request from silently running as a
+nonrelativistic calculation. Tonto's retained Pauli/ZORA source is not exposed
+as a validated lamaGOET HAR route.
+
 ## Stockholder atoms
 
 Cluster and periodic stockholders answer different boundary-condition

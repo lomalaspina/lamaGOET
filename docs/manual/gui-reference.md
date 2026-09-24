@@ -31,16 +31,22 @@ is not automatically validated by Tonto.
 | Entry | Key/file | Meaning |
 |---|---|---|
 | Input external basis set manually | `GAUSGEN` | stage a program-specific custom basis |
-| Basis path | `basis_gen.txt` | source or generated definition copied into the calculation directory |
+| Basis path | program-specific `basis_gen*` | `basis_gen.txt` for Gaussian/ORCA/Crystal23/CP2K, `basis_gen.json` for OCC, and native library `basis_gen` for Tonto |
 | Load file | file action | select an existing definition |
 | Edit definition | file action | open/edit the staged text definition |
-| Basis Set Exchange | file action | choose an all-electron basis per element and render the selected program syntax |
+| Basis Set Exchange | file action | choose an all-electron basis per element and render the selected Gaussian, ORCA, OCC, Tonto, Crystal23, or CP2K syntax; hidden for ELMOdb |
 | Tonto reference basis for Crystal23 HAR | `CRYSTAL_TONTO_BASIS_NAME` | legacy XML only; exact matching Tonto basis, never the literal Crystal `GEN` keyword |
+| Manual DKH-basis confirmation | `DKH_BASIS_CONFIRMED` | Gaussian DKH safeguard for an expert-supplied all-electron, DKH-optimized basis whose name cannot be verified automatically |
 
 For periodic programs the orange warning is intentional: a basis can be
 all-electron yet unusable because diffuse periodic replicas become linearly
 dependent. Basis Set Exchange conversion guarantees syntax and element
 coverage, not periodic conditioning.
+
+The element menus are filtered through the formatter for the selected
+program. A basis that cannot be represented for that element is therefore not
+offered. This validates conversion, not SCF convergence or suitability for a
+particular charge state, lattice, or relativistic Hamiltonian.
 
 ## Gaussian options
 

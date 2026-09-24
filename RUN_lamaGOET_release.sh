@@ -4,7 +4,14 @@ export LC_NUMERIC="en_US.UTF-8"
 # Make GNU sed/awk/coreutils available under their plain names, and provide
 # the _upper/_lower helpers, so this script behaves the same on Linux and
 # macOS.  See lamagoet_shell_env.sh for why this is necessary.
-_lamagoet_env_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+_lamagoet_script_source=${BASH_SOURCE[0]}
+while [[ -L "$_lamagoet_script_source" ]]; do
+    _lamagoet_source_dir=$(cd -P "$(dirname "$_lamagoet_script_source")" && pwd)
+    _lamagoet_script_source=$(readlink "$_lamagoet_script_source")
+    [[ "$_lamagoet_script_source" = /* ]] || \
+        _lamagoet_script_source="$_lamagoet_source_dir/$_lamagoet_script_source"
+done
+_lamagoet_env_dir=$(cd -P "$(dirname "$_lamagoet_script_source")" && pwd)
 if [ -r "$_lamagoet_env_dir/lamagoet_shell_env.sh" ]; then
     source "$_lamagoet_env_dir/lamagoet_shell_env.sh"
 else
@@ -259,7 +266,7 @@ echo "* xyz $CHARGE $MULTIPLICITY" >> $JOBNAME.inp
 awk 'NR>2' $JOBNAME.xyz >> $JOBNAME.inp 
 echo "*" >> $JOBNAME.inp 
 if [[ "$GAUSGEN" == "true" ]]; then
-	cat basis_gen.txt >> $JOBNAME.inp
+	cat "${ORCA_EXTERNAL_BASIS_FILE:-basis_gen.txt}" >> $JOBNAME.inp
 	echo "" >> $JOBNAME.inp
 fi
 #I=$"1"
@@ -661,7 +668,7 @@ TONTO_TO_ORCA(){
 	awk 'NR>2' $JOBNAME.xyz  >> $JOBNAME.inp
 	echo "*"  >> $JOBNAME.inp
 	if [[ "$GAUSGEN" == "true" ]]; then
-		cat basis_gen.txt >> $JOBNAME.inp
+		cat "${ORCA_EXTERNAL_BASIS_FILE:-basis_gen.txt}" >> $JOBNAME.inp
 		echo "" >> $JOBNAME.inp
 	fi
 	echo "Running Orca, cycle number $I" 
@@ -711,7 +718,9 @@ TONTO_TO_ORCA(){
                 mkdir $I.$SCFCALCPROG.cycle.$JOBNAME
         fi
 	cp $JOBNAME.inp          $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.inp
-	cp $JOBNAME.qxyz         $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.qxyz
+	if [[ "$SCCHARGES" == "true" && -f "$JOBNAME.qxyz" ]]; then
+		cp $JOBNAME.qxyz $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.qxyz
+	fi
 	cp $JOBNAME.molden.input $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.molden.input
 	cp $JOBNAME.out          $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.out
 	if [[ "$USENOSPHERA2" == "true" ]]; then
@@ -721,6 +730,7 @@ TONTO_TO_ORCA(){
 
 TONTO_TO_OCC(){
 	I=$[ $I + 1 ]
+	_lamagoet_prepare_occ_data_path "$SCFCALC_BIN"
 	echo "Extracting XYZ for OCC cycle number $I"
 	if [ "$SCFCALCPROG" = "optorca" ]; then
 		OPT=" Opt"
@@ -737,9 +747,9 @@ TONTO_TO_OCC(){
                 fi
 	fi
 	if [ "$SCCHARGES" = "true" ]; then 
-		$SCFCALC_BIN scf $JOBNAME.xyz --method $METHOD --basis $BASISSETG -o fchk --point-charges $JOBNAME.qxyz > $JOBNAME.out
+		"$SCFCALC_BIN" scf "$JOBNAME.xyz" --method "$METHOD" --basis "$BASISSETG" --charge "$CHARGE" --multiplicity "$MULTIPLICITY" --spherical --point-charges "$JOBNAME.qxyz" -o fchk > "$JOBNAME.out"
 	else 
-		$SCFCALC_BIN scf $JOBNAME.xyz --method $METHOD --basis $BASISSETG -o fchk > $JOBNAME.out
+		"$SCFCALC_BIN" scf "$JOBNAME.xyz" --method "$METHOD" --basis "$BASISSETG" --charge "$CHARGE" --multiplicity "$MULTIPLICITY" --spherical -o fchk > "$JOBNAME.out"
 	fi
 	echo "OCC cycle number $I ended"
 	if ! grep -q 'A job well done' "$JOBNAME.out"; then
@@ -1119,11 +1129,22 @@ CRYSTAL_XML_RETENTION_ENABLED(){
 
 EXPORT_FINAL_PERIODIC_WAVEFUNCTION(){
 	PERIODIC_WAVEFUNCTION_EXPORT_ENABLED || return 0
-	local exporter=${PERIODIC_WAVEFUNCTION_EXPORTER:-$_lamagoet_env_dir/periodic_wavefunction_export.py}
+	local exporter use_unified_exporter=false
 	local resolved_exporter support_dir python_command output log_file mokp_file
-	local -a crystal_export_options
-	if [[ ! -f "$exporter" ]] && command -v lamaGOET_periodic_wavefunction_export >/dev/null 2>&1; then
-		exporter=$(command -v lamaGOET_periodic_wavefunction_export)
+	local -a crystal_export_options exporter_command
+	if [[ -n "${PERIODIC_WAVEFUNCTION_EXPORTER:-}" ]]; then
+		exporter=$PERIODIC_WAVEFUNCTION_EXPORTER
+	elif [[ -f "$_lamagoet_env_dir/lamagoet_tools_cli.py" ]]; then
+		exporter=$_lamagoet_env_dir/lamagoet_tools_cli.py
+		use_unified_exporter=true
+	elif command -v lamagoet-tools >/dev/null 2>&1; then
+		exporter=$(command -v lamagoet-tools)
+		use_unified_exporter=true
+	else
+		exporter=$_lamagoet_env_dir/periodic_wavefunction_export.py
+		if [[ ! -f "$exporter" ]] && command -v lamaGOET_periodic_wavefunction_export >/dev/null 2>&1; then
+			exporter=$(command -v lamaGOET_periodic_wavefunction_export)
+		fi
 	fi
 	if [[ ! -f "$exporter" ]]; then
 		echo "ERROR: periodic wavefunction exporter was not found: $exporter" | tee -a "$JOBNAME.lst" >&2
@@ -1138,6 +1159,10 @@ EXPORT_FINAL_PERIODIC_WAVEFUNCTION(){
 	else
 		python_command=python3
 	fi
+	exporter_command=("$python_command" "$resolved_exporter")
+	if [[ "$use_unified_exporter" == "true" ]]; then
+		exporter_command+=(periodic-wavefunction)
+	fi
 	output="$JOBNAME.periodic.trexio"
 	log_file="$JOBNAME.periodic-wavefunction-export.log"
 	rm -f -- "$output" "$output.json" "$log_file"
@@ -1148,7 +1173,7 @@ EXPORT_FINAL_PERIODIC_WAVEFUNCTION(){
 				echo "ERROR: no final CP2K MO_KP .mokp file was found" | tee -a "$JOBNAME.lst" >&2
 				return 1
 			fi
-			"$python_command" "$resolved_exporter" cp2k \
+			"${exporter_command[@]}" cp2k \
 				--mokp "$mokp_file" --output "$output" > "$log_file" 2>&1
 			;;
 		Crystal14)
@@ -1169,7 +1194,7 @@ EXPORT_FINAL_PERIODIC_WAVEFUNCTION(){
 					--overlap-cutoff "${CRYSTAL_LDREMO}e-5"
 				)
 			fi
-			"$python_command" "$resolved_exporter" crystal23 \
+			"${exporter_command[@]}" crystal23 \
 				"${crystal_export_options[@]}" > "$log_file" 2>&1
 			;;
 	esac
@@ -1184,11 +1209,23 @@ EXPORT_FINAL_PERIODIC_WAVEFUNCTION(){
 
 EXPORT_FINAL_FINITE_WAVEFUNCTION(){
 	FINITE_WAVEFUNCTION_EXPORT_ENABLED || return 0
-	local generator=${FINITE_WAVEFUNCTION_GENERATOR:-$_lamagoet_env_dir/finite_crystal_wavefunction.py}
+	local generator use_unified_generator=false
 	local resolved_generator support_dir python_command periodic_file source method_value
 	local cif_file basis_directory basis_name output_directory base_output log_file mokp_file
-	if [[ ! -f "$generator" ]] && command -v lamaGOET_finite_crystal_wavefunction >/dev/null 2>&1; then
-		generator=$(command -v lamaGOET_finite_crystal_wavefunction)
+	local -a generator_command
+	if [[ -n "${FINITE_WAVEFUNCTION_GENERATOR:-}" ]]; then
+		generator=$FINITE_WAVEFUNCTION_GENERATOR
+	elif [[ -f "$_lamagoet_env_dir/lamagoet_tools_cli.py" ]]; then
+		generator=$_lamagoet_env_dir/lamagoet_tools_cli.py
+		use_unified_generator=true
+	elif command -v lamagoet-tools >/dev/null 2>&1; then
+		generator=$(command -v lamagoet-tools)
+		use_unified_generator=true
+	else
+		generator=$_lamagoet_env_dir/finite_crystal_wavefunction.py
+		if [[ ! -f "$generator" ]] && command -v lamaGOET_finite_crystal_wavefunction >/dev/null 2>&1; then
+			generator=$(command -v lamaGOET_finite_crystal_wavefunction)
+		fi
 	fi
 	if [[ ! -f "$generator" ]]; then
 		echo "ERROR: finite crystal-wavefunction generator was not found: $generator" | tee -a "$JOBNAME.lst" >&2
@@ -1202,6 +1239,10 @@ EXPORT_FINAL_FINITE_WAVEFUNCTION(){
 		python_command=$support_dir/.venv-qt/bin/python
 	else
 		python_command=python3
+	fi
+	generator_command=("$python_command" "$resolved_generator")
+	if [[ "$use_unified_generator" == "true" ]]; then
+		generator_command+=(finite-wavefunction)
 	fi
 	cif_file="$JOBNAME.fractional.cif1"
 	[[ -s "$cif_file" ]] || cif_file="$JOBNAME.archive.cif"
@@ -1277,7 +1318,7 @@ EXPORT_FINAL_FINITE_WAVEFUNCTION(){
 	case "${FINITE_WAVEFUNCTION_PREPARE_ONLY:-false}" in
 		true|TRUE|yes|YES|1|on|ON) options+=(--prepare-only) ;;
 	esac
-	"$python_command" "$resolved_generator" "${options[@]}" > "$log_file" 2>&1
+	"${generator_command[@]}" "${options[@]}" > "$log_file" 2>&1
 	local export_status=$?
 	if [[ "$export_status" -ne 0 || ! -s "$output_directory/manifest.json" ]]; then
 		tail -n 30 "$log_file" >&2 2>/dev/null || true
@@ -2577,7 +2618,7 @@ GET_FREQ_ORCA(){
 	fi
 	echo "*"  >> $JOBNAME.inp
 	if [[ "$GAUSGEN" == "true" ]]; then
-		cat basis_gen.txt >> $JOBNAME.inp
+		cat "${ORCA_EXTERNAL_BASIS_FILE:-basis_gen.txt}" >> $JOBNAME.inp
 		echo "" >> $JOBNAME.inp
 	fi
 	echo "Running Orca, cycle number $I" 
@@ -2619,7 +2660,9 @@ GET_FREQ_ORCA(){
                 mkdir $I.$SCFCALCPROG.cycle.$JOBNAME
         fi
 	cp $JOBNAME.inp          $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.inp
-	cp $JOBNAME.qxyz         $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.qxyz
+	if [[ "$SCCHARGES" == "true" && -f "$JOBNAME.qxyz" ]]; then
+		cp $JOBNAME.qxyz $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.qxyz
+	fi
 	cp $JOBNAME.molden.input $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.molden.input
 	cp $JOBNAME.out          $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.out
 	if [[ "$USENOSPHERA2" == "true" ]]; then
@@ -4211,7 +4254,7 @@ run_script(){
 			awk 'NR>2' $JOBNAME.xyz | tee -a $JOBNAME.inp $JOBNAME.lst
 			echo "*" | tee -a $JOBNAME.inp $JOBNAME.lst
 			if [[ "$GAUSGEN" == "true" ]]; then
-				cat basis_gen.txt | tee -a $JOBNAME.inp $JOBNAME.lst
+				cat "${ORCA_EXTERNAL_BASIS_FILE:-basis_gen.txt}" | tee -a $JOBNAME.inp $JOBNAME.lst
 				echo "" | tee -a $JOBNAME.inp $JOBNAME.lst
 			fi
 			I=$"1"
@@ -4287,8 +4330,9 @@ run_script(){
 				OPT="Opt"
 			fi
 			I=$"1"
+			_lamagoet_prepare_occ_data_path "$SCFCALC_BIN"
 			echo "Running OCC, cycle number $I" 
-			$SCFCALC_BIN scf $JOBNAME.xyz --method $METHOD --basis $BASISSETG -o fchk > $JOBNAME.out
+			"$SCFCALC_BIN" scf "$JOBNAME.xyz" --method "$METHOD" --basis "$BASISSETG" --charge "$CHARGE" --multiplicity "$MULTIPLICITY" --spherical -o fchk > "$JOBNAME.out"
 			echo "OCC cycle number $I ended"
 			if ! grep -q 'A job well done' "$JOBNAME.out"; then
 				echo "ERROR: OCC job finished with error, please check the $I.th out file for more details" | tee -a $JOBNAME.lst
@@ -4621,12 +4665,35 @@ source ./job_options.txt
 : "${PERIODIC_XCW_WRITE_CHECKPOINT:=true}"
 
 if [[ "$GAUSGEN" == "true" ]]; then
-        if [[ "$SCFCALCPROG" == "Orca" || "$SCFCALCPROG" == "optorca" ]]; then
-                # ORCA reads the external $DATA block appended to its input.
-                BASISSETG=""
-        elif [[ "$SCFCALCPROG" == "Gaussian" || "$SCFCALCPROG" == "optgaussian" ]]; then
-                BASISSETG="gen"
-        fi
+	        if [[ "$SCFCALCPROG" == "Orca" || "$SCFCALCPROG" == "optorca" ]]; then
+	                # ORCA reads the external %basis/NewGTO block appended to its input.
+	                BASISSETG=""
+	        elif [[ "$SCFCALCPROG" == "Gaussian" || "$SCFCALCPROG" == "optgaussian" ]]; then
+	                BASISSETG="gen"
+	        fi
+	        case "$SCFCALCPROG" in
+	                Gaussian|optgaussian)
+	                        [[ -f basis_gen.txt ]] || { echo "RUN_lamaGOET: external Gaussian basis file basis_gen.txt is missing" >&2; exit 2; }
+	                        ;;
+                Orca|optorca)
+                        [[ -f basis_gen.txt ]] || { echo "RUN_lamaGOET: external ORCA basis file basis_gen.txt is missing" >&2; exit 2; }
+                        _lamagoet_prepare_orca_external_basis \
+                                basis_gen.txt "${JOBNAME}.orca-basis.inc" || exit 2
+                        ;;
+	                OCC|optocc)
+	                        BASISSETG="./basis_gen.json"
+	                        [[ -f basis_gen.json ]] || { echo "RUN_lamaGOET: external OCC basis file basis_gen.json is missing" >&2; exit 2; }
+	                        ;;
+	                Tonto)
+	                        BASISSETT="basis_gen"
+	                        BASISSETDIR="."
+	                        [[ -f basis_gen ]] || { echo "RUN_lamaGOET: external Tonto basis library basis_gen is missing" >&2; exit 2; }
+	                        ;;
+	                Crystal14)
+	                        BASISSETG="gen"
+	                        [[ -f basis_gen.txt ]] || { echo "RUN_lamaGOET: external Crystal23 basis file basis_gen.txt is missing" >&2; exit 2; }
+	                        ;;
+	        esac
 fi
 
 if [[ -z "$SCFCALCPROG" ]]; then

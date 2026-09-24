@@ -5,7 +5,14 @@ export LC_NUMERIC="en_US.UTF-8"
 # Make GNU sed/awk/coreutils available under their plain names, and provide
 # the _upper/_lower helpers, so this script behaves the same on Linux and
 # macOS.  See lamagoet_shell_env.sh for why this is necessary.
-_lamagoet_env_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+_lamagoet_script_source=${BASH_SOURCE[0]}
+while [[ -L "$_lamagoet_script_source" ]]; do
+    _lamagoet_source_dir=$(cd -P "$(dirname "$_lamagoet_script_source")" && pwd)
+    _lamagoet_script_source=$(readlink "$_lamagoet_script_source")
+    [[ "$_lamagoet_script_source" = /* ]] || \
+        _lamagoet_script_source="$_lamagoet_source_dir/$_lamagoet_script_source"
+done
+_lamagoet_env_dir=$(cd -P "$(dirname "$_lamagoet_script_source")" && pwd)
 if [ -r "$_lamagoet_env_dir/lamagoet_shell_env.sh" ]; then
     source "$_lamagoet_env_dir/lamagoet_shell_env.sh"
 else
@@ -19,7 +26,7 @@ fi
 # Periodic all-electron CP2K backend embedded directly in this monolithic
 # lamaGOET.sh. Only the CIF and binary-density parsers remain external Python
 # programs.
-LAMAGOET_SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+LAMAGOET_SCRIPT_DIR=$_lamagoet_env_dir
 export LAMAGOET_SCRIPT_DIR
 
 _lamagoet_publish_latest_cif() {
@@ -934,15 +941,30 @@ TONTO_TO_CP2K() {
     local cp2k_bin bridge cif_converter basis_file basis_label functional geometry
     local cycle_dir previous_dir subsys input output scf_guess restart_file=""
     local kp_file mokp_file basis_mapping main_log converter_log bridge_log next_cycle
-    local basis_args=()
+    local bridge_uses_cli=false cif_converter_uses_cli=false
+    local basis_args=() bridge_command=() converter_command=()
 
     _cp2k_require_command python3 || return 1
     _cp2k_require_command realpath || return 1
     CP2K_VALIDATE_LAMAGOET_MODE || return 1
 
     cp2k_bin=$(_cp2k_resolve_executable "${CP2K_BIN:-${SCFCALC_BIN:-}}") || return 1
-    bridge=${CP2K_TONTO_BRIDGE:-$LAMAGOET_SCRIPT_DIR/cp2k_tonto_bridge.py}
-    cif_converter=${CP2K_CIF_TO_SUBSYS:-$LAMAGOET_SCRIPT_DIR/cif_to_cp2k.py}
+    if [[ -n "${CP2K_TONTO_BRIDGE:-}" ]]; then
+        bridge=$CP2K_TONTO_BRIDGE
+    elif [[ -f "$LAMAGOET_SCRIPT_DIR/lamagoet_tools_cli.py" ]]; then
+        bridge=$LAMAGOET_SCRIPT_DIR/lamagoet_tools_cli.py
+        bridge_uses_cli=true
+    else
+        bridge=$LAMAGOET_SCRIPT_DIR/cp2k_tonto_bridge.py
+    fi
+    if [[ -n "${CP2K_CIF_TO_SUBSYS:-}" ]]; then
+        cif_converter=$CP2K_CIF_TO_SUBSYS
+    elif [[ -f "$LAMAGOET_SCRIPT_DIR/lamagoet_tools_cli.py" ]]; then
+        cif_converter=$LAMAGOET_SCRIPT_DIR/lamagoet_tools_cli.py
+        cif_converter_uses_cli=true
+    else
+        cif_converter=$LAMAGOET_SCRIPT_DIR/cif_to_cp2k.py
+    fi
     basis_file=${CP2K_BASIS_SET_FILE:-}
     basis_label=${CP2K_BASIS_SET:-${BASISSETG:-}}
 
@@ -962,6 +984,16 @@ TONTO_TO_CP2K() {
     }
 
     cif_converter=$(_cp2k_abspath "$cif_converter") || return 1
+    converter_command=(python3 "$cif_converter")
+    if [[ "$cif_converter_uses_cli" == "true" ]]; then
+        converter_command+=(cif-to-cp2k)
+    fi
+    if [[ "$(_lower "${CP2K_DENSITY_INTERFACE:-native}")" == "xml" ]]; then
+        bridge_command=(python3 "$bridge")
+        if [[ "$bridge_uses_cli" == "true" ]]; then
+            bridge_command+=(cp2k-xml-bridge)
+        fi
+    fi
     basis_file=$(_cp2k_abspath "$basis_file") || return 1
     geometry=$(_cp2k_geometry_cif) || return 1
     geometry=$(_cp2k_abspath "$geometry") || return 1
@@ -984,7 +1016,7 @@ TONTO_TO_CP2K() {
         basis_args+=(--basis-map "$basis_mapping")
     done
     converter_log="$cycle_dir/${I}.${JOBNAME}.cif-to-cp2k.log"
-    if ! python3 "$cif_converter" \
+    if ! "${converter_command[@]}" \
         --cif "$geometry" \
         --output "$subsys" \
         --basis "$basis_label" \
@@ -1065,7 +1097,7 @@ TONTO_TO_CP2K() {
         CP2K_TONTO_BASIS_FILE="$cycle_dir/$CP2K_TONTO_BASIS_NAME"
         CP2K_PERIODIC_MANIFEST="$cycle_dir/${I}.${JOBNAME}.cp2k-tonto.json"
         bridge_log="$cycle_dir/${I}.${JOBNAME}.cp2k-tonto-bridge.log"
-        if ! python3 "$bridge" \
+        if ! "${bridge_command[@]}" \
             --kp "$kp_file" \
             --mokp "$mokp_file" \
             --xml "$CP2K_PERIODIC_XML" \
@@ -2400,7 +2432,7 @@ echo "* xyz $CHARGE $MULTIPLICITY" >> $JOBNAME.inp
 awk 'NR>2' $JOBNAME.xyz >> $JOBNAME.inp 
 echo "*" >> $JOBNAME.inp 
 if [[ "$GAUSGEN" == "true" ]]; then
-	cat basis_gen.txt >> $JOBNAME.inp
+	cat "${ORCA_EXTERNAL_BASIS_FILE:-basis_gen.txt}" >> $JOBNAME.inp
 	echo "" >> $JOBNAME.inp
 fi
 #I=$"1"
@@ -2802,7 +2834,7 @@ TONTO_TO_ORCA(){
 	awk 'NR>2' $JOBNAME.xyz  >> $JOBNAME.inp
 	echo "*"  >> $JOBNAME.inp
 	if [[ "$GAUSGEN" == "true" ]]; then
-		cat basis_gen.txt >> $JOBNAME.inp
+		cat "${ORCA_EXTERNAL_BASIS_FILE:-basis_gen.txt}" >> $JOBNAME.inp
 		echo "" >> $JOBNAME.inp
 	fi
 	echo "Running Orca, cycle number $I" 
@@ -2852,7 +2884,9 @@ TONTO_TO_ORCA(){
                 mkdir $I.$SCFCALCPROG.cycle.$JOBNAME
         fi
 	cp $JOBNAME.inp          $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.inp
-	cp $JOBNAME.qxyz         $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.qxyz
+	if [[ "$SCCHARGES" == "true" && -f "$JOBNAME.qxyz" ]]; then
+		cp $JOBNAME.qxyz $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.qxyz
+	fi
 	cp $JOBNAME.molden.input $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.molden.input
 	cp $JOBNAME.out          $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.out
 	if [[ "$USENOSPHERA2" == "true" ]]; then
@@ -2862,6 +2896,7 @@ TONTO_TO_ORCA(){
 
 TONTO_TO_OCC(){
 	I=$[ $I + 1 ]
+	_lamagoet_prepare_occ_data_path "$SCFCALC_BIN"
 	echo "Extracting XYZ for OCC cycle number $I"
 	if [ "$SCFCALCPROG" = "optorca" ]; then
 		OPT=" Opt"
@@ -2878,9 +2913,9 @@ TONTO_TO_OCC(){
                 fi
 	fi
 	if [ "$SCCHARGES" = "true" ]; then 
-		$SCFCALC_BIN scf $JOBNAME.xyz --method $METHOD --basis $BASISSETG -o fchk --point-charges $JOBNAME.qxyz > $JOBNAME.out
+		"$SCFCALC_BIN" scf "$JOBNAME.xyz" --method "$METHOD" --basis "$BASISSETG" --charge "$CHARGE" --multiplicity "$MULTIPLICITY" --spherical --point-charges "$JOBNAME.qxyz" -o fchk > "$JOBNAME.out"
 	else 
-		$SCFCALC_BIN scf $JOBNAME.xyz --method $METHOD --basis $BASISSETG -o fchk > $JOBNAME.out
+		"$SCFCALC_BIN" scf "$JOBNAME.xyz" --method "$METHOD" --basis "$BASISSETG" --charge "$CHARGE" --multiplicity "$MULTIPLICITY" --spherical -o fchk > "$JOBNAME.out"
 	fi
 	echo "OCC cycle number $I ended"
 	if ! grep -q 'A job well done' "$JOBNAME.out"; then
@@ -3233,11 +3268,22 @@ CRYSTAL_XML_RETENTION_ENABLED(){
 
 EXPORT_FINAL_PERIODIC_WAVEFUNCTION(){
 	PERIODIC_WAVEFUNCTION_EXPORT_ENABLED || return 0
-	local exporter=${PERIODIC_WAVEFUNCTION_EXPORTER:-$LAMAGOET_SCRIPT_DIR/periodic_wavefunction_export.py}
+	local exporter use_unified_exporter=false
 	local resolved_exporter support_dir python_command output log_file mokp_file
-	local -a crystal_export_options
-	if [[ ! -f "$exporter" ]] && command -v lamaGOET_periodic_wavefunction_export >/dev/null 2>&1; then
-		exporter=$(command -v lamaGOET_periodic_wavefunction_export)
+	local -a crystal_export_options exporter_command
+	if [[ -n "${PERIODIC_WAVEFUNCTION_EXPORTER:-}" ]]; then
+		exporter=$PERIODIC_WAVEFUNCTION_EXPORTER
+	elif [[ -f "$LAMAGOET_SCRIPT_DIR/lamagoet_tools_cli.py" ]]; then
+		exporter=$LAMAGOET_SCRIPT_DIR/lamagoet_tools_cli.py
+		use_unified_exporter=true
+	elif command -v lamagoet-tools >/dev/null 2>&1; then
+		exporter=$(command -v lamagoet-tools)
+		use_unified_exporter=true
+	else
+		exporter=$LAMAGOET_SCRIPT_DIR/periodic_wavefunction_export.py
+		if [[ ! -f "$exporter" ]] && command -v lamaGOET_periodic_wavefunction_export >/dev/null 2>&1; then
+			exporter=$(command -v lamaGOET_periodic_wavefunction_export)
+		fi
 	fi
 	if [[ ! -f "$exporter" ]]; then
 		echo "ERROR: periodic wavefunction exporter was not found: $exporter" | tee -a "$JOBNAME.lst" >&2
@@ -3252,6 +3298,10 @@ EXPORT_FINAL_PERIODIC_WAVEFUNCTION(){
 	else
 		python_command=python3
 	fi
+	exporter_command=("$python_command" "$resolved_exporter")
+	if [[ "$use_unified_exporter" == "true" ]]; then
+		exporter_command+=(periodic-wavefunction)
+	fi
 	output="$JOBNAME.periodic.trexio"
 	log_file="$JOBNAME.periodic-wavefunction-export.log"
 	rm -f -- "$output" "$output.json" "$log_file"
@@ -3262,7 +3312,7 @@ EXPORT_FINAL_PERIODIC_WAVEFUNCTION(){
 				echo "ERROR: no final CP2K MO_KP .mokp file was found" | tee -a "$JOBNAME.lst" >&2
 				return 1
 			fi
-			"$python_command" "$resolved_exporter" cp2k \
+			"${exporter_command[@]}" cp2k \
 				--mokp "$mokp_file" --output "$output" > "$log_file" 2>&1
 			;;
 		Crystal14)
@@ -3286,7 +3336,7 @@ EXPORT_FINAL_PERIODIC_WAVEFUNCTION(){
 					--overlap-cutoff "${CRYSTAL_LDREMO}e-5"
 				)
 			fi
-			"$python_command" "$resolved_exporter" crystal23 \
+			"${exporter_command[@]}" crystal23 \
 				"${crystal_export_options[@]}" > "$log_file" 2>&1
 			;;
 	esac
@@ -3301,11 +3351,23 @@ EXPORT_FINAL_PERIODIC_WAVEFUNCTION(){
 
 EXPORT_FINAL_FINITE_WAVEFUNCTION(){
 	FINITE_WAVEFUNCTION_EXPORT_ENABLED || return 0
-	local generator=${FINITE_WAVEFUNCTION_GENERATOR:-$LAMAGOET_SCRIPT_DIR/finite_crystal_wavefunction.py}
+	local generator use_unified_generator=false
 	local resolved_generator support_dir python_command periodic_file source method_value
 	local cif_file basis_directory basis_name output_directory base_output log_file mokp_file
-	if [[ ! -f "$generator" ]] && command -v lamaGOET_finite_crystal_wavefunction >/dev/null 2>&1; then
-		generator=$(command -v lamaGOET_finite_crystal_wavefunction)
+	local -a generator_command
+	if [[ -n "${FINITE_WAVEFUNCTION_GENERATOR:-}" ]]; then
+		generator=$FINITE_WAVEFUNCTION_GENERATOR
+	elif [[ -f "$LAMAGOET_SCRIPT_DIR/lamagoet_tools_cli.py" ]]; then
+		generator=$LAMAGOET_SCRIPT_DIR/lamagoet_tools_cli.py
+		use_unified_generator=true
+	elif command -v lamagoet-tools >/dev/null 2>&1; then
+		generator=$(command -v lamagoet-tools)
+		use_unified_generator=true
+	else
+		generator=$LAMAGOET_SCRIPT_DIR/finite_crystal_wavefunction.py
+		if [[ ! -f "$generator" ]] && command -v lamaGOET_finite_crystal_wavefunction >/dev/null 2>&1; then
+			generator=$(command -v lamaGOET_finite_crystal_wavefunction)
+		fi
 	fi
 	if [[ ! -f "$generator" ]]; then
 		echo "ERROR: finite crystal-wavefunction generator was not found: $generator" | tee -a "$JOBNAME.lst" >&2
@@ -3319,6 +3381,10 @@ EXPORT_FINAL_FINITE_WAVEFUNCTION(){
 		python_command=$support_dir/.venv-qt/bin/python
 	else
 		python_command=python3
+	fi
+	generator_command=("$python_command" "$resolved_generator")
+	if [[ "$use_unified_generator" == "true" ]]; then
+		generator_command+=(finite-wavefunction)
 	fi
 	cif_file="$JOBNAME.fractional.cif1"
 	[[ -s "$cif_file" ]] || cif_file="$JOBNAME.archive.cif"
@@ -3394,7 +3460,7 @@ EXPORT_FINAL_FINITE_WAVEFUNCTION(){
 	case "${FINITE_WAVEFUNCTION_PREPARE_ONLY:-false}" in
 		true|TRUE|yes|YES|1|on|ON) options+=(--prepare-only) ;;
 	esac
-	"$python_command" "$resolved_generator" "${options[@]}" > "$log_file" 2>&1
+	"${generator_command[@]}" "${options[@]}" > "$log_file" 2>&1
 	local export_status=$?
 	if [[ "$export_status" -ne 0 || ! -s "$output_directory/manifest.json" ]]; then
 		tail -n 30 "$log_file" >&2 2>/dev/null || true
@@ -4773,7 +4839,7 @@ GET_FREQ_ORCA(){
 	fi
 	echo "*"  >> $JOBNAME.inp
 	if [[ "$GAUSGEN" == "true" ]]; then
-		cat basis_gen.txt >> $JOBNAME.inp
+		cat "${ORCA_EXTERNAL_BASIS_FILE:-basis_gen.txt}" >> $JOBNAME.inp
 		echo "" >> $JOBNAME.inp
 	fi
 	echo "Running Orca, cycle number $I" 
@@ -4815,7 +4881,9 @@ GET_FREQ_ORCA(){
                 mkdir $I.$SCFCALCPROG.cycle.$JOBNAME
         fi
 	cp $JOBNAME.inp          $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.inp
-	cp $JOBNAME.qxyz         $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.qxyz
+	if [[ "$SCCHARGES" == "true" && -f "$JOBNAME.qxyz" ]]; then
+		cp $JOBNAME.qxyz $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.qxyz
+	fi
 	cp $JOBNAME.molden.input $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.molden.input
 	cp $JOBNAME.out          $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.out
 	if [[ "$USENOSPHERA2" == "true" ]]; then
@@ -6434,7 +6502,7 @@ run_script(){
 			awk 'NR>2' $JOBNAME.xyz | tee -a $JOBNAME.inp $JOBNAME.lst
 			echo "*" | tee -a $JOBNAME.inp $JOBNAME.lst
 			if [[ "$GAUSGEN" == "true" ]]; then
-				cat basis_gen.txt | tee -a $JOBNAME.inp $JOBNAME.lst
+				cat "${ORCA_EXTERNAL_BASIS_FILE:-basis_gen.txt}" | tee -a $JOBNAME.inp $JOBNAME.lst
 				echo "" | tee -a $JOBNAME.inp $JOBNAME.lst
 			fi
 			I=$"1"
@@ -6510,8 +6578,9 @@ run_script(){
 				OPT="Opt"
 			fi
 			I=$"1"
+			_lamagoet_prepare_occ_data_path "$SCFCALC_BIN"
 			echo "Running OCC, cycle number $I" 
-			$SCFCALC_BIN scf $JOBNAME.xyz --method $METHOD --basis $BASISSETG -o fchk > $JOBNAME.out
+			"$SCFCALC_BIN" scf "$JOBNAME.xyz" --method "$METHOD" --basis "$BASISSETG" --charge "$CHARGE" --multiplicity "$MULTIPLICITY" --spherical -o fchk > "$JOBNAME.out"
 			echo "OCC cycle number $I ended"
 			if ! grep -q 'A job well done' "$JOBNAME.out"; then
 				echo "ERROR: OCC job finished with error, please check the $I.th out file for more details" | tee -a $JOBNAME.lst
@@ -6978,6 +7047,7 @@ fi
 fi
 
 source "${LAMAGOET_BATCH_OPTIONS:-./job_options.txt}"
+: "${EXIT:=OK}"
 : "${XCW_MODE:=molecular}"
 : "${PERIODIC_XCW_REFERENCE_DFT:=BLYP}"
 : "${PERIODIC_XCW_REFERENCE_BASIS:=POB-TZVP-REV2}"
@@ -7001,17 +7071,55 @@ fi
 
 VALIDATE_OBSERVED_DENSITY_MOTION_MODEL || exit 2
 
-if [[ "$GAUSGEN" = "true" && ! -f basis_gen.txt ]]; then
+if [[ "$GAUSGEN" = "true" && ( "$SCFCALCPROG" == "Gaussian" || "$SCFCALCPROG" == "optgaussian" ) && ! -f basis_gen.txt ]]; then
     BASISSETG="gen"
     REQUIRE_ZENITY "an external basis set" "basis_gen.txt" || exit 2
     zenity --entry --title="New basis set" --text="Enter or paste the basis set in the gaussian format as: \n !!NO EMPTY LINE!! \n C 0 \n S 5 \n exponent1 coefficient1 \n exponent2 coefficient2 \n exponent3 coefficient3 \n exponent4 coefficient4 \n exponent5 coefficient5 \n **** \n !!NO EMPTY LINE!! \n (Repeat this for all shells and all elements) " > basis_gen.txt
     sed -i '/BASISSETG=/c\BASISSETG=\"'$BASISSETG'"' job_options.txt
 fi
 
-# ORCA reads an external BSE/manual definition from the $DATA block appended
+# ORCA reads an external BSE/manual definition from the native %basis block appended
 # to its input. Do not also place a named built-in basis on the route line.
 if [[ "$GAUSGEN" == "true" && ( "$SCFCALCPROG" == "Orca" || "$SCFCALCPROG" == "optorca" ) ]]; then
     BASISSETG=""
+fi
+
+if [[ "${GAUSGEN:-false}" == "true" ]]; then
+    case "$SCFCALCPROG" in
+        Gaussian|optgaussian)
+            BASISSETG="gen"
+            ;;
+        Orca|optorca)
+            if [[ ! -f basis_gen.txt ]]; then
+                echo "ERROR: external ORCA basis file basis_gen.txt was not found; create it with the lamaGOET Basis Set Exchange selector." | tee -a "$JOBNAME.lst" >&2
+                exit 2
+            fi
+            _lamagoet_prepare_orca_external_basis \
+                basis_gen.txt "${JOBNAME}.orca-basis.inc" || exit 2
+            ;;
+        OCC|optocc)
+            BASISSETG="./basis_gen.json"
+            if [[ ! -f basis_gen.json ]]; then
+                echo "ERROR: external OCC basis file basis_gen.json was not found; create it with the lamaGOET Basis Set Exchange selector." | tee -a "$JOBNAME.lst" >&2
+                exit 2
+            fi
+            ;;
+        Tonto)
+            BASISSETT="basis_gen"
+            BASISSETDIR="."
+            if [[ ! -f basis_gen ]]; then
+                echo "ERROR: external Tonto basis library basis_gen was not found; create it with the lamaGOET Basis Set Exchange selector." | tee -a "$JOBNAME.lst" >&2
+                exit 2
+            fi
+            ;;
+        Crystal14)
+            BASISSETG="gen"
+            if [[ ! -f basis_gen.txt ]]; then
+                echo "ERROR: external Crystal23 basis file basis_gen.txt was not found; create it with the lamaGOET Basis Set Exchange selector." | tee -a "$JOBNAME.lst" >&2
+                exit 2
+            fi
+            ;;
+    esac
 fi
 
 if [ "$GAUSSEMPDISP" = "true" ]; then

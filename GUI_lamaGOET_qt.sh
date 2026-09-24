@@ -1,7 +1,13 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-script_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+script_source=${BASH_SOURCE[0]}
+while [[ -L "$script_source" ]]; do
+    source_dir=$(cd -P "$(dirname "$script_source")" && pwd)
+    script_source=$(readlink "$script_source")
+    [[ "$script_source" = /* ]] || script_source="$source_dir/$script_source"
+done
+script_dir=$(cd -P "$(dirname "$script_source")" && pwd)
 
 if [[ -n "${LAMAGOET_QT_PYTHON:-}" ]]; then
     python_command=$LAMAGOET_QT_PYTHON

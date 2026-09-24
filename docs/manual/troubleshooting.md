@@ -165,10 +165,35 @@ export log says `could not find basis 'gen'`.
 
 ### Gaussian external basis crashes
 
-Gaussian's general-basis block must have no blank line between element blocks
-and exactly one final `****` terminator after the last element. lamaGOET
-normalizes Basis Set Exchange output to that form. Inspect the generated input
-if it was edited or produced by an older release.
+Gaussian's general-basis syntax uses `****` to terminate *each* element block.
+The next element header must follow immediately: a blank line after an
+intermediate delimiter can terminate the whole general-basis section. The
+last element is also followed by `****`. lamaGOET normalizes Basis Set
+Exchange output to that form. Inspect the generated input if it was edited or
+produced by an older release.
+
+### ORCA rejects `$DATA` in an external basis
+
+`$DATA` is not a valid ORCA external-basis container. Current lamaGOET renders
+Basis Set Exchange data as native `%basis` / `NewGTO` records and stages them
+in `basis_gen.txt`. A `$DATA` block indicates an input produced by an older
+formatter path; regenerate the basis from the current GUI.
+
+### OCC cannot find the external or fitting basis
+
+The orbital basis passed to OCC must be the generated `basis_gen.json`, not
+the sentinel `gen`. The runner also supplies charge, multiplicity and
+`--spherical`. For DFT, OCC separately needs its installed auxiliary basis
+files. lamaGOET derives `OCC_DATA_PATH` from the OCC executable when a
+non-interactive shell did not load it; if lookup still fails, verify that the
+installation contains `share/basis/def2-universal-jkfit.json`.
+
+### Tonto external basis is read as `gen`
+
+The BSE exporter writes a native Tonto library called `basis_gen` in the
+calculation directory. The runner must therefore use `basis_directory=.` and
+`basis_name=basis_gen`. `gen` is only a Gaussian/Crystal input sentinel and is
+not a Tonto library entry.
 
 ### Crystal23 `UNIT CELL NOT NEUTRAL`
 

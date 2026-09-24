@@ -50,8 +50,9 @@ from PySide6.QtWidgets import (
 
 from .basis_exchange import (
     BasisExchangeError,
-    all_electron_basis_names,
+    basis_exchange_output_filename,
     common_preferred_basis,
+    compatible_basis_names,
     render_mixed_basis,
 )
 from .cluster import SubmissionError, write_pbs_script
@@ -203,6 +204,24 @@ def re_is_cif_path(path: Path) -> bool:
 
 def _bool_text(value: bool) -> str:
     return "true" if value else "false"
+
+
+def _is_dkh_named_basis(name: str) -> bool:
+    """Return whether *name* explicitly identifies a DKH basis family.
+
+    Gaussian's ``int=dkh`` changes the Hamiltonian, but it does not make an
+    ordinary non-relativistic contraction suitable for DKH.  Keep this check
+    deliberately conservative: an unmarked custom basis needs the explicit
+    user confirmation exposed beside the external-basis controls.
+    """
+
+    return bool(
+        re.search(
+            r"(?:dkh|(?:^|[-_ ])dk(?:$|[-_ 0-9]))",
+            name.strip(),
+            flags=re.IGNORECASE,
+        )
+    )
 
 
 def _dialog_options() -> QFileDialog.Option:
@@ -519,6 +538,9 @@ class MainWindow(QMainWindow):
         self.basis_definition_path.setPlaceholderText(
             "basis_gen.txt in the calculation directory"
         )
+        self.basis_definition_path.textEdited.connect(
+            lambda _text: self.dkh_basis_confirmed.setChecked(False)
+        )
         external_layout.addWidget(self.basis_definition_path, 1, 0, 1, 3)
         basis_browse = QPushButton("Load file…")
         basis_browse.clicked.connect(self.choose_external_basis)
@@ -546,12 +568,22 @@ class MainWindow(QMainWindow):
         )
         external_layout.addWidget(self.crystal_tonto_basis_label, 3, 0)
         external_layout.addWidget(self.crystal_tonto_basis, 3, 1, 1, 2)
+        self.dkh_basis_confirmed = QCheckBox(
+            "I confirm this manual external basis is all-electron and DKH-optimized"
+        )
+        self.dkh_basis_confirmed.setToolTip(
+            "Required for a Gaussian int=dkh calculation when the selected "
+            "basis name does not explicitly identify a DKH/DK contraction. "
+            "Basis Set Exchange selections are checked before this is set."
+        )
+        external_layout.addWidget(self.dkh_basis_confirmed, 4, 0, 1, 3)
         layout.addWidget(self.external_basis_group)
 
         self.gaussian_features = QGroupBox("Gaussian options")
         gaussian_layout = QHBoxLayout(self.gaussian_features)
         self.grimme = QCheckBox("Use Grimme dispersion (GD3BJ)")
         self.relativistic = QCheckBox("Use relativistic method")
+        self.relativistic.toggled.connect(self._gaussian_relativistic_changed)
         gaussian_layout.addWidget(self.grimme)
         gaussian_layout.addWidget(self.relativistic)
         layout.addWidget(self.gaussian_features)
@@ -1963,12 +1995,17 @@ class MainWindow(QMainWindow):
             self.crystal_tonto_basis,
             self._option("CRYSTAL_TONTO_BASIS_NAME"),
         )
-        basis_definition = self.option_path.parent / "basis_gen.txt"
+        basis_definition = (
+            self.option_path.parent / self._basis_definition_filename(program)
+        )
         self.basis_definition_path.setText(
             str(basis_definition) if basis_definition.exists() else ""
         )
         self.grimme.setChecked(self._bool_option("GAUSSEMPDISP"))
         self.relativistic.setChecked(self._bool_option("GAUSSREL"))
+        self.dkh_basis_confirmed.setChecked(
+            self._bool_option("DKH_BASIS_CONFIRMED")
+        )
         self.charge.setValue(self._int_option("CHARGE", 0))
         self.multiplicity.setValue(self._int_option("MULTIPLICITY", 1))
         self.wave.setText(self._option("WAVE", "0.71073"))
@@ -2331,6 +2368,16 @@ class MainWindow(QMainWindow):
             if program == "Tonto"
             else self._option("BASISSETG", "STO-3G")
         )
+        if self.external_basis.isChecked():
+            if program in {"Gaussian", "optgaussian", "Crystal14"}:
+                basis_name = "gen"
+            elif program in {"Orca", "optorca"}:
+                basis_name = "External"
+            elif program == "OCC":
+                basis_name = "./basis_gen.json"
+            elif program == "Tonto":
+                basis_name = "basis_gen"
+                self.basis_directory.setText(".")
         self._set_combo_text(self.basis, basis_name)
         self._reload_cp2k_bases()
         self._set_combo_text(
@@ -2418,10 +2465,32 @@ class MainWindow(QMainWindow):
         self.initial_adp_path.setEnabled(enabled)
         self.initial_adp_button.setEnabled(enabled)
 
+    @staticmethod
+    def _basis_definition_filename(program: str) -> str:
+        """Return the staged external-basis filename for an SCF backend."""
+
+        try:
+            return basis_exchange_output_filename(program)
+        except BasisExchangeError:
+            # ELMOdb has no BSE exporter.  Retain the legacy name for a manual
+            # definition so merely opening an older options file stays safe.
+            return "basis_gen.txt"
+
+    def _gaussian_relativistic_changed(self, *_args) -> None:
+        manual_confirmation = (
+            (self.program.currentData() or "Gaussian")
+            in {"Gaussian", "optgaussian"}
+            and self.relativistic.isChecked()
+            and self.external_basis.isChecked()
+        )
+        self.dkh_basis_confirmed.setVisible(manual_confirmation)
+
     def _external_basis_changed(self) -> None:
         enabled = self.external_basis.isChecked()
         self.basis_definition_path.setEnabled(enabled)
         self.edit_basis_button.setEnabled(enabled)
+        if not enabled:
+            self.dkh_basis_confirmed.setChecked(False)
         crystal_reference = (
             enabled
             and self.program.currentData() == "Crystal14"
@@ -2429,6 +2498,7 @@ class MainWindow(QMainWindow):
         )
         self.crystal_tonto_basis_label.setVisible(crystal_reference)
         self.crystal_tonto_basis.setVisible(crystal_reference)
+        self._gaussian_relativistic_changed()
 
     def _cluster_controls_changed(self) -> None:
         charge_enabled = self.sc_charges.isChecked()
@@ -2582,6 +2652,10 @@ class MainWindow(QMainWindow):
         self.periodic_basis_warning.setVisible(
             program in {"Crystal14", "CP2K"}
         )
+        self.bse_button.setVisible(program != "elmodb")
+        self.basis_definition_path.setPlaceholderText(
+            f"{self._basis_definition_filename(program)} in the calculation directory"
+        )
         gaussian = program in {"Gaussian", "optgaussian"}
         self.extra_keywords.setVisible(gaussian)
         self.extra_keywords_label.setVisible(gaussian)
@@ -2618,6 +2692,7 @@ class MainWindow(QMainWindow):
         self._partition_model_changed()
         self._cluster_controls_changed()
         self._external_basis_changed()
+        self._gaussian_relativistic_changed()
         # Some Linux Qt themes leave this popup visible while the dependent
         # controls are being rebuilt. Explicitly close it after selection.
         QTimer.singleShot(0, self.program.hidePopup)
@@ -3104,6 +3179,19 @@ class MainWindow(QMainWindow):
 
     def _current_values(self) -> dict[str, object]:
         program = self.program.currentData() or "Gaussian"
+        if program in {"Gaussian", "optgaussian"} and self.relativistic.isChecked():
+            basis_name = self.basis.currentText().strip()
+            manual_dkh_basis = (
+                self.external_basis.isChecked()
+                and self.dkh_basis_confirmed.isChecked()
+            )
+            if not _is_dkh_named_basis(basis_name) and not manual_dkh_basis:
+                raise ValueError(
+                    "Gaussian int=dkh requires a DKH-optimized all-electron "
+                    "basis. Select an explicitly DKH/DK-named basis, use the "
+                    "DKH-filtered Basis Set Exchange selector, or enable a "
+                    "manual external basis and affirm the DKH basis confirmation."
+                )
         if self.finite_wavefunction_export.isChecked():
             if program not in {"Crystal14", "CP2K"}:
                 raise ValueError(
@@ -3261,6 +3349,9 @@ class MainWindow(QMainWindow):
             # runners emit merg_code= and do not emit use_equivalents=.
             "USEEQUIV": _bool_text(int(self.merg_code.currentData()) <= 1),
             "GAUSGEN": _bool_text(self.external_basis.isChecked()),
+            "DKH_BASIS_CONFIRMED": _bool_text(
+                self.dkh_basis_confirmed.isChecked()
+            ),
             "GAUSSEMPDISP": _bool_text(self.grimme.isChecked()),
             "GAUSSREL": _bool_text(self.relativistic.isChecked()),
             "USEHMSYM": _bool_text(self.use_hm_symbol.isChecked()),
@@ -3517,9 +3608,18 @@ class MainWindow(QMainWindow):
             if program in {"Gaussian", "optgaussian"}:
                 method = gaussian_method_keyword(method)
             result["METHOD"] = method
-            result["BASISSETT" if program == "Tonto" else "BASISSETG"] = (
-                self.basis.currentText().strip()
-            )
+            basis_name = self.basis.currentText().strip()
+            if self.external_basis.isChecked():
+                if program in {"Gaussian", "optgaussian", "Crystal14"}:
+                    basis_name = "gen"
+                elif program in {"Orca", "optorca"}:
+                    basis_name = "External"
+                elif program == "OCC":
+                    basis_name = "./basis_gen.json"
+                elif program == "Tonto":
+                    basis_name = "basis_gen"
+                    result["BASISSETDIR"] = "."
+            result["BASISSETT" if program == "Tonto" else "BASISSETG"] = basis_name
         if program in {"Gaussian", "optgaussian"}:
             result["EXTRAKEY"] = self.extra_keywords.text()
         if program == "CP2K":
@@ -3545,7 +3645,8 @@ class MainWindow(QMainWindow):
     def _prepare_basis_definition(self) -> None:
         if not self.external_basis.isChecked():
             return
-        target = self.option_path.parent / "basis_gen.txt"
+        program = self.program.currentData() or "Gaussian"
+        target = self.option_path.parent / self._basis_definition_filename(program)
         source_text = self.basis_definition_path.text().strip()
         source = Path(source_text).expanduser() if source_text else target
         if not source.is_absolute():
@@ -3861,11 +3962,12 @@ class MainWindow(QMainWindow):
             self,
             "Load external basis definition",
             str(self.option_path.parent),
-            "Basis definition files (*.txt *.gbs);;All files (*)",
+            "Basis definition files (*.txt *.gbs *.json);;All files (*)",
             options=_dialog_options(),
         )
         if filename:
             self.basis_definition_path.setText(filename)
+            self.dkh_basis_confirmed.setChecked(False)
             self.external_basis.setChecked(True)
 
     def choose_periodic_xcw_crystal_basis(self) -> None:
@@ -3901,7 +4003,8 @@ class MainWindow(QMainWindow):
         layout = QVBoxLayout(dialog)
         explanation = QLabel(
             "Enter the complete basis definition in the format required by the "
-            "selected SCF program. It will be saved as basis_gen.txt."
+            "selected SCF program. It will be saved as "
+            f"{self._basis_definition_filename(self.program.currentData() or 'Gaussian')}."
         )
         explanation.setWordWrap(True)
         layout.addWidget(explanation)
@@ -3910,7 +4013,10 @@ class MainWindow(QMainWindow):
         source = (
             Path(source_text).expanduser()
             if source_text
-            else self.option_path.parent / "basis_gen.txt"
+            else self.option_path.parent
+            / self._basis_definition_filename(
+                self.program.currentData() or "Gaussian"
+            )
         )
         if not source.is_absolute():
             source = self.option_path.parent / source
@@ -3927,9 +4033,12 @@ class MainWindow(QMainWindow):
         buttons.rejected.connect(dialog.reject)
         layout.addWidget(buttons)
         if dialog.exec() == QDialog.DialogCode.Accepted:
-            target = self.option_path.parent / "basis_gen.txt"
+            target = self.option_path.parent / self._basis_definition_filename(
+                self.program.currentData() or "Gaussian"
+            )
             target.write_text(editor.toPlainText(), encoding="utf-8", newline="\n")
             self.basis_definition_path.setText(str(target))
+            self.dkh_basis_confirmed.setChecked(False)
             self.external_basis.setChecked(True)
 
     def choose_basis_exchange(self) -> None:
@@ -3945,10 +4054,17 @@ class MainWindow(QMainWindow):
             {atom.element for atom in self.structure.asymmetric_unit()},
             key=str.casefold,
         )
+        require_dkh = (
+            program in {"Gaussian", "optgaussian"}
+            and self.relativistic.isChecked()
+        )
         QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
         try:
             available = {
-                element: all_electron_basis_names(element) for element in elements
+                element: compatible_basis_names(
+                    element, program, require_dkh=require_dkh
+                )
+                for element in elements
             }
         except BasisExchangeError as exc:
             QMessageBox.critical(self, "Basis Set Exchange", str(exc))
@@ -3971,7 +4087,14 @@ class MainWindow(QMainWindow):
         layout = QVBoxLayout(dialog)
         explanation = QLabel(
             "Only orbital GTO bases containing no ECP for the selected element "
-            "are listed. Choose independently for each element."
+            "and supported by the selected program are listed. Choose "
+            "independently for each element."
+            + (
+                " Gaussian DKH is enabled, so this list is restricted to "
+                "basis families explicitly published for DKH."
+                if require_dkh
+                else ""
+            )
             + (
                 " Crystal23 export assigns neutral-atom CHE shell populations; "
                 "you can edit basis_gen.txt afterwards if a deliberately ionic "
@@ -4021,13 +4144,14 @@ class MainWindow(QMainWindow):
         }
         try:
             text, cp2k_map = render_mixed_basis(program, selections)
-            target = self.option_path.parent / "basis_gen.txt"
+            target = self.option_path.parent / basis_exchange_output_filename(program)
             target.write_text(text, encoding="utf-8", newline="\n")
         except (BasisExchangeError, OSError) as exc:
             QMessageBox.critical(self, "Basis Set Exchange", str(exc))
             return
         self.basis_definition_path.setText(str(target))
         self.external_basis.setChecked(True)
+        self.dkh_basis_confirmed.setChecked(require_dkh)
         if program in {"Gaussian", "optgaussian", "Crystal14"}:
             self._set_combo_text(self.basis, "gen")
             if program == "Crystal14":
@@ -4064,6 +4188,11 @@ class MainWindow(QMainWindow):
                     )
         elif program in {"Orca", "optorca"}:
             self._set_combo_text(self.basis, "External")
+        elif program == "OCC":
+            self._set_combo_text(self.basis, f"./{target.name}")
+        elif program == "Tonto":
+            self._set_combo_text(self.basis, target.name)
+            self.basis_directory.setText(".")
         elif program == "CP2K":
             self.cp2k_basis_file.setText(str(target))
             self._set_combo_text(self.cp2k_basis, next(iter(selections.values())))

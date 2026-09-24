@@ -57,6 +57,50 @@ class InstallScriptTest(unittest.TestCase):
         self.assertIn("Icon=lamagoet\n", self.desktop)
         self.assertIn("StartupWMClass=lamaGOET\n", self.desktop)
 
+    def test_installer_links_launchers_that_resolve_the_repository(self):
+        for command in (
+            "lamaGOET",
+            "RUN_lamaGOET",
+            "lamaGOET_qt",
+            "GUI_lamaGOET",
+            "lamagoet-tools",
+        ):
+            with self.subTest(command=command):
+                self.assertIn(f"/usr/local/bin/{command}", self.script)
+
+        for launcher in (
+            "lamaGOET.sh",
+            "RUN_lamaGOET_release.sh",
+            "lamaGOET_qt.sh",
+            "GUI_lamaGOET_qt.sh",
+        ):
+            text = (REPO / launcher).read_text(encoding="utf-8")
+            with self.subTest(launcher=launcher):
+                self.assertIn('while [[ -L "$script_source" ]]', text.replace("_lamagoet_script_source", "script_source"))
+
+    def test_unified_support_tool_launcher_is_installed(self):
+        launcher = REPO / "lamagoet_tools_cli.py"
+        for command in (
+            (),
+            ("orca-basis",),
+            ("cif-to-cp2k",),
+            ("cp2k-xml-bridge",),
+            ("periodic-wavefunction",),
+            ("finite-wavefunction",),
+        ):
+            with self.subTest(command=command or ("top-level",)):
+                subprocess.run(
+                    ["python3", str(launcher), *command, "--help"],
+                    check=True,
+                    capture_output=True,
+                    text=True,
+                )
+
+        launcher_text = launcher.read_text(encoding="utf-8")
+        self.assertIn("select_environment", launcher_text)
+        self.assertIn("LAMAGOET_TOOLS_PYTHON", launcher_text)
+        self.assertIn("LAMAGOET_TOOLS_BOOTSTRAPPED", launcher_text)
+
 
 if __name__ == "__main__":
     unittest.main()

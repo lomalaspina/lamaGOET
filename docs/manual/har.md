@@ -94,8 +94,30 @@ entering a keyword does not implement a missing Tonto functional.
 
 Select **Input external basis set manually** to stage `basis_gen.txt`. The
 Basis Set Exchange dialog selects an all-electron basis independently for each
-element found in the loaded CIF. lamaGOET renders the syntax expected by the
-selected program and writes one final program terminator.
+element found in the loaded CIF. lamaGOET filters the menus through the
+selected program's formatter, then writes its native external-basis file:
+
+- Gaussian general-basis blocks in `basis_gen.txt`, with one `****` delimiter
+  for every element and no empty line between consecutive blocks;
+- an ORCA `%basis` container with `NewGTO` records in `basis_gen.txt`;
+- one MolSSI/Basis Set Exchange JSON document in `basis_gen.json` for OCC;
+- a Tonto `gamess-us` basis library named `basis_gen`;
+- CRYSTAL shell records with validated neutral-atom `CHE` populations and one
+  final `99 0`; or
+- CP2K basis records plus the element-to-basis mapping.
+
+CRYSTAL23 expands its general-basis D, F, G, ... records as pure spherical
+shells containing 5, 7, 9, ... functions. The native GRED importer retains
+that same 2L+1 representation in Tonto and validates the imported basis
+against CRYSTAL's central-cell overlap matrix before form factors are made.
+This representation check is distinct from periodic conditioning: a correctly
+converted spherical molecular basis can still be linearly dependent in a
+crystal.
+
+ELMOdb has no supported BSE export contract, so the button is hidden for that
+program. Formatter acceptance proves that the file can be represented; it
+does not prove that an SCF will converge or that a molecular basis will be
+well conditioned in a periodic lattice.
 
 An all-electron definition is necessary because Tonto forms a total electron
 density. Effective-core-potential valence-only bases are not equivalent. For a
@@ -105,6 +127,18 @@ molecular calculation, additionally verify:
 - spherical/Cartesian shell convention matches the interchange file;
 - contractions and normalization are preserved; and
 - diffuse functions do not cause numerical instability.
+
+Gaussian jobs, including `gen` jobs produced from BSE, explicitly request
+`6D 10F`; their formatted checkpoints therefore follow Tonto's established
+Cartesian import path. OCC's generated MolSSI JSON declares `gto_spherical`,
+so OCC is invoked with the staged JSON path, charge, multiplicity, and
+`--spherical`. Tonto retains the resulting 5D/7F representation and converts
+only at an output boundary that requires Cartesian primitives. ELMOdb does
+not expose BSE; its formatted checkpoints use the Cartesian reader path. OCC's
+non-orbital auxiliary bases are still resolved from the OCC installation data
+directory. Tonto reads the generated native library from the calculation
+directory rather than interpreting the external-basis sentinel `gen` as a
+library name.
 
 ## Crystal environment controls
 

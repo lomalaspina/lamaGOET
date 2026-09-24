@@ -63,6 +63,7 @@ for every system. Values saved by the GUI override them.
 | `EXTRAKEY` | *(empty)* | literal extra Gaussian route keywords |
 | `GAUSSEMPDISP` | `false` | Gaussian GD3BJ empirical dispersion request |
 | `GAUSSREL` | `false` | supported Gaussian relativistic route |
+| `DKH_BASIS_CONFIRMED` | `false` | explicit confirmation that a manually supplied Gaussian basis is all-electron and DKH-optimized; automatically set for compatible Basis Set Exchange choices |
 | `USEBECKE` | `false` | emit non-default Tonto Becke-grid controls |
 | `ACCURACY` | `extreme` | Becke grid: `very_low`, `sg-1`, `low`, `medium`, `high`, `very_high`, `extreme`, `best` |
 | `BECKEPRUNINGSCHEME` | `none` | Becke pruning: `none`, `sg1`, or `robust` |
