@@ -140,6 +140,234 @@ class RunnerRegressionTest(unittest.TestCase):
                 )
                 self.assertNotRegex(text, r"\$TONTO\s+-v(?:\s|\))")
 
+    def test_final_residual_grid_spacing_uses_existing_tonto_plot_grid(self):
+        for name, text in self.runner_text.items():
+            with self.subTest(runner=name):
+                helper = function_body(text, "RESIDUAL_DENSITY_GRID")
+                self.assertIn('${USESEPARATION:-false}', helper)
+                self.assertIn('${SEPARATION:-}', helper)
+                self.assertIn('${USEALLPOINTS:-false}', helper)
+                self.assertIn('n_all_points= ${PTSX:-10}', helper)
+                self.assertIn("plot_grid= {", helper)
+                self.assertIn("desired_separation= 0.1 angstrom", helper)
+                self.assertIn("plot_format= cell.cube", helper)
+                self.assertIn(
+                    "RESIDUAL_DENSITY_GRID",
+                    function_body(text, "GET_RESIDUALS"),
+                )
+        self.assertIn(
+            "RESIDUAL_DENSITY_GRID",
+            function_body(
+                self.runner_text["lamaGOET.sh"], "CP2K_FINAL_RESIDUALS"
+            ),
+        )
+
+    @unittest.skipUnless(
+        os.name == "posix" and shutil.which("bash"),
+        "generated residual-grid test requires bash",
+    )
+    def test_final_residual_grid_honours_existing_plot_controls(self):
+        cases = (
+            ({}, "desired_separation= 0.1 angstrom"),
+            (
+                {"USESEPARATION": "true", "SEPARATION": "0.05"},
+                "desired_separation= 0.05 angstrom",
+            ),
+            (
+                {
+                    "USEALLPOINTS": "true",
+                    "PTSX": "31",
+                    "PTSY": "33",
+                    "PTSZ": "35",
+                },
+                "n_all_points= 31 33 35",
+            ),
+        )
+        for runner, text in self.runner_text.items():
+            definition = (
+                "RESIDUAL_DENSITY_GRID(){\n"
+                + function_body(text, "RESIDUAL_DENSITY_GRID")
+            )
+            for values, expected in cases:
+                with self.subTest(
+                    runner=runner, values=values
+                ), tempfile.TemporaryDirectory() as directory:
+                    assignments = "\n".join(
+                        f'{key}="{value}"' for key, value in values.items()
+                    )
+                    script = (
+                        definition
+                        + "\n"
+                        + assignments
+                        + "\nRESIDUAL_DENSITY_GRID\ncat stdin\n"
+                    )
+                    result = subprocess.run(
+                        ["bash", "-c", script],
+                        cwd=directory,
+                        text=True,
+                        capture_output=True,
+                        check=True,
+                    )
+                self.assertIn(expected, result.stdout)
+
+    def test_shelxl_residual_map_is_opt_in_and_archived(self):
+        for name, text in self.runner_text.items():
+            with self.subTest(runner=name):
+                helper = function_body(text, "APPEND_SHELXL_RESIDUAL_MAP")
+                self.assertIn('${SHELXL_RESIDUAL_MAP:-false}', helper)
+                self.assertIn("put_shelxl_residual_density", helper)
+                residuals = function_body(text, "GET_RESIDUALS")
+                self.assertIn("APPEND_SHELXL_RESIDUAL_MAP", residuals)
+                self.assertIn("shelxl_residual_density,cell.cube", residuals)
+                self.assertRegex(
+                    residuals,
+                    r'rm -f -- "\$\{JOBNAME\}\.shelxl_residual_density,cell\.cube"\s*'
+                    r'rm -f stdout stde',
+                )
+                self.assertIn("ARCHIVE_SHELXL_RESIDUAL_MAP", residuals)
+                run_script = function_body(text, "run_script")
+                self.assertLess(
+                    run_script.index("CLEAR_SHELXL_RESIDUAL_ARTIFACTS"),
+                    run_script.index('if [ "$POWDER_HAR" = "true" ]'),
+                )
+                residual_calls = re.findall(
+                    r"(?m)^\s*GET_RESIDUALS(?P<tail>[^\n]*)$", run_script
+                )
+                self.assertTrue(residual_calls)
+                self.assertTrue(
+                    all("|| exit 1" in tail for tail in residual_calls)
+                )
+                self.assertRegex(
+                    run_script,
+                    r'(?s)elif \[\[ "\$SCFCALCPROG" == "Tonto" \]\]; then.*?'
+                    r'\$\{SHELXL_RESIDUAL_MAP:-false\}.*?GET_RESIDUALS.*?'
+                    r'APPEND_FINAL_RESIDUAL_SUMMARY',
+                )
+                crystal_residual = re.search(
+                    r'(?s)TONTO_TO_CRYSTAL.*?GET_RESIDUALS \|\| exit 1\s*\n\s*'
+                    r'APPEND_FINAL_RESIDUAL_SUMMARY',
+                    run_script,
+                )
+                self.assertIsNotNone(crystal_residual)
+        cp2k = function_body(
+            self.runner_text["lamaGOET.sh"], "CP2K_FINAL_RESIDUALS"
+        )
+        self.assertIn("APPEND_SHELXL_RESIDUAL_MAP", cp2k)
+        self.assertIn("shelxl_residual_density,cell.cube", cp2k)
+        self.assertRegex(
+            cp2k,
+            r'rm -f -- "\$\{JOBNAME\}\.shelxl_residual_density,cell\.cube"\s*'
+            r'rm -f stdout stde',
+        )
+        self.assertIn("ARCHIVE_SHELXL_RESIDUAL_MAP", cp2k)
+
+    @unittest.skipUnless(
+        os.name == "posix" and shutil.which("bash"),
+        "generated residual-map test requires bash",
+    )
+    def test_shelxl_residual_map_helper_emits_only_when_enabled(self):
+        for runner, text in self.runner_text.items():
+            definition = (
+                "APPEND_SHELXL_RESIDUAL_MAP(){\n"
+                + function_body(text, "APPEND_SHELXL_RESIDUAL_MAP")
+            )
+            for enabled in ("false", "true"):
+                with (
+                    self.subTest(runner=runner, enabled=enabled),
+                    tempfile.TemporaryDirectory() as directory,
+                ):
+                    script = (
+                        definition
+                        + f'\nSHELXL_RESIDUAL_MAP="{enabled}"\n'
+                        + "APPEND_SHELXL_RESIDUAL_MAP >> stdin\n"
+                        + "cat stdin 2>/dev/null || true\n"
+                    )
+                    result = subprocess.run(
+                        ["bash", "-c", script],
+                        cwd=directory,
+                        text=True,
+                        capture_output=True,
+                        check=True,
+                    )
+                self.assertEqual(
+                    "put_shelxl_residual_density" in result.stdout,
+                    enabled == "true",
+                )
+
+    @unittest.skipUnless(
+        os.name == "posix" and shutil.which("bash"),
+        "generated residual-map archive test requires bash",
+    )
+    def test_shelxl_residual_archive_is_removed_on_disabled_rerun(self):
+        for runner, text in self.runner_text.items():
+            definition = (
+                "ARCHIVE_SHELXL_RESIDUAL_MAP(){\n"
+                + function_body(text, "ARCHIVE_SHELXL_RESIDUAL_MAP")
+            )
+            with (
+                self.subTest(runner=runner),
+                tempfile.TemporaryDirectory() as directory,
+            ):
+                script = (
+                    definition
+                    + '\nprintf current > source.cube\n'
+                    + 'printf stale > archive.cube\n'
+                    + 'SHELXL_RESIDUAL_MAP="true"\n'
+                    + 'ARCHIVE_SHELXL_RESIDUAL_MAP source.cube archive.cube\n'
+                    + 'grep -qx current archive.cube\n'
+                    + 'SHELXL_RESIDUAL_MAP="false"\n'
+                    + 'ARCHIVE_SHELXL_RESIDUAL_MAP source.cube archive.cube\n'
+                    + 'test ! -e archive.cube\n'
+                )
+                subprocess.run(
+                    ["bash", "-c", script],
+                    cwd=directory,
+                    text=True,
+                    capture_output=True,
+                    check=True,
+                )
+
+    @unittest.skipUnless(
+        os.name == "posix" and shutil.which("bash"),
+        "generated residual-map cleanup test requires bash",
+    )
+    def test_shelxl_residual_artifacts_are_precleaned_before_failed_run(self):
+        for runner, text in self.runner_text.items():
+            definition = (
+                "CLEAR_SHELXL_RESIDUAL_ARTIFACTS(){\n"
+                + function_body(text, "CLEAR_SHELXL_RESIDUAL_ARTIFACTS")
+            )
+            with (
+                self.subTest(runner=runner),
+                tempfile.TemporaryDirectory() as directory,
+            ):
+                script = (
+                    definition
+                    + '\nJOBNAME="same-name"\n'
+                    + 'mkdir -p 3.tonto_cycle.same-name '
+                    + 'final.CP2K.residuals.same-name\n'
+                    + 'printf stale > "same-name.shelxl_residual_density,cell.cube"\n'
+                    + 'printf stale > "3.tonto_cycle.same-name/'
+                    + '3.same-name.shelxl_residual_density,cell.cube"\n'
+                    + 'printf stale > "final.CP2K.residuals.same-name/'
+                    + 'same-name.shelxl_residual_density,cell.cube"\n'
+                    + 'SHELXL_RESIDUAL_MAP="false"\n'
+                    + 'CLEAR_SHELXL_RESIDUAL_ARTIFACTS\n'
+                    + 'false || true\n'
+                    + 'test ! -e "same-name.shelxl_residual_density,cell.cube"\n'
+                    + 'test ! -e "3.tonto_cycle.same-name/'
+                    + '3.same-name.shelxl_residual_density,cell.cube"\n'
+                    + 'test ! -e "final.CP2K.residuals.same-name/'
+                    + 'same-name.shelxl_residual_density,cell.cube"\n'
+                )
+                subprocess.run(
+                    ["bash", "-c", script],
+                    cwd=directory,
+                    text=True,
+                    capture_output=True,
+                    check=True,
+                )
+
     def test_occ_commands_keep_charge_spin_spherical_and_external_json(self):
         for name, text in self.runner_text.items():
             with self.subTest(runner=name):

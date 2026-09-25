@@ -541,9 +541,55 @@ Tonto scale-optimizer change was justified. The remaining ∼1% difference
 from SHELXL's 3.25048 is compatible with F/σ(F) versus F²/WGHT objectives and
 a one-reflection population difference.
 
+## KHMAL residual-map equation and grid audit
+
+**Question.** Did the substantially deeper negative extremum in the final
+KHMAL Tonto map, relative to Olex2/NoSpherA2 at the same stated electronic-
+structure level, arise from a different Fourier equation?
+
+**Design.** The final Olex2 and controlled Tonto coefficient populations were
+matched by Miller index. Both contained 5,366 reflections. Observed amplitudes
+agreed to 0.006204 e r.m.s. with correlation 0.99999999917; calculated
+amplitudes differed by 0.055290 e r.m.s. with correlation 0.9999808704. Both
+coefficient sets were independently synthesized on the same coarse grid. A
+second Tonto entry point then implemented the nominal published SHELXL FMAP 2
+coefficient $(F_o-F_c)\exp(i\phi_c)$ independently, while leaving Tonto's
+established residual routine unchanged and retaining the identical reflection
+population and grid. No unpublished sigma-dependent attenuation was introduced.
+
+| Calculation | Grid | Minimum / maximum / r.m.s. (e Å⁻³) |
+|---|---|---|
+| Olex2 reported final map | approximately 0.3 Å | −0.3116 / +0.9097 / 0.0736 |
+| Olex2 coefficients, independent coarse synthesis | Olex2-like matched grid | −0.309840 / +0.918723 / -- |
+| Tonto coefficients, independent coarse synthesis | same coarse grid | −0.301643 / +0.939207 / -- |
+| Standard Tonto final map | 0.097991 / 0.098753 / 0.099518 Å | −0.866085 / +1.209915 / 0.077083 |
+| Independent nominal FMAP 2 coefficient path | identical Tonto grid | −0.866085 / +1.209915 / 0.077083 |
+| SHELXL-2019/3 KHMAL run | SHELXL internal sampling | −0.86 / +1.21 / -- |
+
+The standard Tonto cube remained byte-identical to the pre-comparison result
+(`SHA-256 c6dc895fe281869206c5a6724f7e0680c342e6239975e4d0afbe4f3879bdd0f9`).
+The two cube files have different descriptive second header lines, but their
+complete numerical payloads after those headers are byte-identical
+(`SHA-256 1570ae275e0c5554e296808f12a0a7656d93fa3a4ff4bdbf3752c1be9c75341e`).
+The direct algebraic invariant additionally covers inversion symmetry, Friedel
+multiplicity, a non-unit scale, nonzero $\sigma(F_o)$, a zero calculated phase,
+and both supported anomalous-dispersion modes. It verifies that the prepared
+corrected observation is used and that $\sigma(F_o)$ does not alter the nominal
+coefficient.
+
+**Conclusion.** For this no-dispersion KHMAL case, on an identical reflection
+population and grid, the unchanged standard Tonto map and the independent
+nominal coefficient path give the same field. The displayed difference-density
+coefficient therefore does not explain the Olex2 extrema discrepancy. Matched
+coarse-grid syntheses reproduce the much smaller Olex2 extrema closely,
+showing that sampling is the dominant cause in this controlled case; modest
+calculated-amplitude differences remain. The comparison does not claim to
+reproduce undocumented SHELXL weak-data handling or Olex2/CCTBX internals.
+
 ## Tonto regression-suite context
 
-On 24 September 2026, the current Tonto tree passed **67/70** short tests.  The
+On 25 September 2026, the current Tonto tree passed **68/71** short tests,
+including the new algebraic residual-coefficient invariant. The
 new ORCA pure-spherical import and FILE47/WFN/WFX export regression passed.
 Three pre-existing tests remained nonzero and are named rather than hidden:
 

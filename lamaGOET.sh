@@ -1485,16 +1485,19 @@ CP2K_FINAL_RESIDUALS() {
     CP2K_TONTO_PERIODIC_SETUP || return 1
     CRYSTAL_BLOCK
     PUT_GEOM
+    RESIDUAL_DENSITY_GRID
     {
         echo "   make_structure_factors"
         echo ""
         echo "   put_minmax_residual_density"
+        APPEND_SHELXL_RESIDUAL_MAP
         echo ""
         echo "   put_fitting_plots"
         echo ""
         echo "}"
     } >> stdin
 
+    rm -f -- "${JOBNAME}.shelxl_residual_density,cell.cube"
     rm -f stdout stde
     local tonto_status=0
     if [[ "${NUMPROCTONTO:-1}" != "1" ]]; then
@@ -1507,13 +1510,21 @@ CP2K_FINAL_RESIDUALS() {
         _cp2k_error "final Tonto residual calculation failed; inspect stdin and stdout"
         return 1
     fi
+    if [[ "${SHELXL_RESIDUAL_MAP:-false}" == "true" && ! -s "${JOBNAME}.shelxl_residual_density,cell.cube" ]]; then
+        _cp2k_error "requested nominal SHELXL FMAP 2 comparison cube was not written; inspect stdin and stdout"
+        return 1
+    fi
     EXPORT_FINAL_PERIODIC_WAVEFUNCTION || return 1
     EXPORT_FINAL_FINITE_WAVEFUNCTION || return 1
     mkdir -p "final.CP2K.residuals.${JOBNAME}"
     cp stdin "final.CP2K.residuals.${JOBNAME}/stdin"
     cp stdout "final.CP2K.residuals.${JOBNAME}/stdout"
+    ARCHIVE_SHELXL_RESIDUAL_MAP \
+        "${JOBNAME}.shelxl_residual_density,cell.cube" \
+        "final.CP2K.residuals.${JOBNAME}/${JOBNAME}.shelxl_residual_density,cell.cube"
     # CLEANUP FIX V1: archive final CP2K residual products.
-    for artifact in "${JOBNAME}.fractional.cif1" "${JOBNAME}.cartesian.cif2" "${JOBNAME}.residual_density,cell.cube"; do
+    for artifact in "${JOBNAME}.fractional.cif1" "${JOBNAME}.cartesian.cif2" \
+        "${JOBNAME}.residual_density,cell.cube"; do
         if [[ -f "$artifact" ]]; then
             cp "$artifact" "final.CP2K.residuals.${JOBNAME}/$artifact"
         fi
@@ -3798,6 +3809,55 @@ BECKE_GRID(){
 		echo "" >> stdin
 }
 
+RESIDUAL_DENSITY_GRID(){
+	{
+		echo "   ! Final residual-density sampling grid"
+		echo "   plot_grid= {"
+		if [[ "${USESEPARATION:-false}" == "true" && -n "${SEPARATION:-}" ]]; then
+			echo "      desired_separation= $SEPARATION angstrom"
+		elif [[ "${USEALLPOINTS:-false}" == "true" ]]; then
+			echo "      n_all_points= ${PTSX:-10} ${PTSY:-10} ${PTSZ:-10}"
+		else
+			echo "      desired_separation= 0.1 angstrom"
+		fi
+		echo "      plot_format= cell.cube"
+		echo "   }"
+		echo ""
+	} >> stdin
+}
+
+APPEND_SHELXL_RESIDUAL_MAP(){
+	if [[ "${SHELXL_RESIDUAL_MAP:-false}" == "true" ]]; then
+		{
+			echo "   put_shelxl_residual_density"
+			echo ""
+		}
+	fi
+}
+
+ARCHIVE_SHELXL_RESIDUAL_MAP(){
+	local source_path="$1"
+	local target_path="$2"
+	rm -f -- "$target_path"
+	if [[ "${SHELXL_RESIDUAL_MAP:-false}" == "true" && -f "$source_path" ]]; then
+		cp -- "$source_path" "$target_path"
+	fi
+}
+
+CLEAR_SHELXL_RESIDUAL_ARTIFACTS(){
+	local archived_target
+	rm -f -- "${JOBNAME}.shelxl_residual_density,cell.cube"
+	for archived_target in \
+		./*.tonto_cycle."${JOBNAME}"/*."${JOBNAME}".shelxl_residual_density,cell.cube \
+		"./final.CP2K.residuals.${JOBNAME}/${JOBNAME}.shelxl_residual_density,cell.cube"; do
+		[[ -f "$archived_target" ]] && rm -f -- "$archived_target"
+	done
+}
+
+APPEND_FINAL_RESIDUAL_SUMMARY(){
+	awk '{a[NR]=$0}/^Residual density data/{b=NR}/^Wall-clock time taken for job/{c=NR}END{for(d=b-2;d<c-1;++d)print a[d]}' stdout >> "${JOBNAME}.lst"
+}
+
 PERIODIC_XCW_BECKE_GRID(){
 	local xcw_accuracy
 	xcw_accuracy=$(_lower "${ACCURACY:-extreme}")
@@ -5215,7 +5275,9 @@ GET_RESIDUALS(){
 	fi
 	echo "   make_structure_factors" >> stdin
 	echo "" >> stdin
+	RESIDUAL_DENSITY_GRID
 	echo "   put_minmax_residual_density" >> stdin
+	APPEND_SHELXL_RESIDUAL_MAP >> stdin
 	echo "" >> stdin
         echo "   put_fitting_plots" >> stdin
 	if [[ "$export_final_wavefunction" == "true" ]]; then
@@ -5236,6 +5298,7 @@ GET_RESIDUALS(){
 	echo "}" >> stdin 
 	echo "Calculating residual density at final geometry" 
 	J=$[ $J + 1 ]
+	rm -f -- "${JOBNAME}.shelxl_residual_density,cell.cube"
         rm -f stdout stde
 	if [[ "$export_final_wavefunction" == "true" ]]; then
 		rm -f -- "$JOBNAME.47" "$JOBNAME.wfn" "$JOBNAME.wfx"
@@ -5251,6 +5314,10 @@ GET_RESIDUALS(){
                 echo "ERROR: final Tonto residual-density calculation failed; inspect stdin and stdout" | tee -a "$JOBNAME.lst" >&2
                 return 1
         fi
+	if [[ "${SHELXL_RESIDUAL_MAP:-false}" == "true" && ! -s "${JOBNAME}.shelxl_residual_density,cell.cube" ]]; then
+		echo "ERROR: requested nominal SHELXL FMAP 2 comparison cube was not written; inspect stdin and stdout" | tee -a "$JOBNAME.lst" >&2
+		return 1
+	fi
 	if [[ "$export_final_wavefunction" == "true" ]]; then
 		local wavefunction_artifact
 		for wavefunction_artifact in "$JOBNAME.47" "$JOBNAME.wfn" "$JOBNAME.wfx"; do
@@ -5280,6 +5347,9 @@ GET_RESIDUALS(){
 	if [[ -f "$JOBNAME.residual_density,cell.cube" ]]; then
 		cp "$JOBNAME.residual_density,cell.cube" "$J.tonto_cycle.$JOBNAME/$J.$JOBNAME.residual_density,cell.cube"
 	fi
+	ARCHIVE_SHELXL_RESIDUAL_MAP \
+		"$JOBNAME.shelxl_residual_density,cell.cube" \
+		"$J.tonto_cycle.$JOBNAME/$J.$JOBNAME.shelxl_residual_density,cell.cube"
 	if [[ "$export_final_wavefunction" == "true" ]]; then
 		for wavefunction_artifact in "$JOBNAME.47" "$JOBNAME.wfn" "$JOBNAME.wfx"; do
 			cp -- "$wavefunction_artifact" "$J.tonto_cycle.$JOBNAME/$J.$wavefunction_artifact"
@@ -6056,6 +6126,9 @@ REDUCECELLCLUSTER(){
 
 run_script(){
 	SECONDS=0
+	# Remove same-name comparison cubes before any dispatch, including disabled
+	# Tonto-only jobs and runs that fail before reaching the residual step.
+	CLEAR_SHELXL_RESIDUAL_ARTIFACTS
 	#MAXSHIFT=0
 	# BEGIN LAMAGOET CP2K INTEGRATION: mode validation
 	if [[ "$SCFCALCPROG" == "CP2K" && "${XCWONLY:-false}" != "true" ]]; then
@@ -6702,7 +6775,8 @@ run_script(){
         			        	CHECK_ENERGY
 #						echo "I AM HERE!!!"
         		        	done
-					GET_RESIDUALS
+					GET_RESIDUALS || exit 1
+					APPEND_FINAL_RESIDUAL_SUMMARY
                                  fi
                         fi
 		fi
@@ -6753,8 +6827,8 @@ run_script(){
 		fi
 		if [[ "$SCFCALCPROG" != "optgaussian" && "$SCFCALCPROG" != "optorca" ]]; then  
 		        if [[ "$POWDER_HAR" != "true" && "$SCFCALCPROG" != "Crystal14" && "$SCFCALCPROG" != "CP2K"  ]]; then  
-			        GET_RESIDUALS
-			        echo " $(awk '{a[NR]=$0}/^Residual density data/{b=NR}/^Wall-clock time taken for job/{c=NR}END{for (d=b-2;d<c-1;++d) print a[d]}' stdout)" >> $JOBNAME.lst
+			        GET_RESIDUALS || exit 1
+			        APPEND_FINAL_RESIDUAL_SUMMARY
                         fi
 		        if [[ "$XWR" == "true" ]]; then
 		        	RUN_XWR
@@ -6812,6 +6886,10 @@ run_script(){
 		# under lamaGOET's own "Begin rigid-atom fit" heading. Comparing the
 		# two is the whole point of starting from an IAM.
 		echo " $(awk '{a[NR]=$0}/^Structure refinement results/ && !b {b=NR}/^Wall-clock time taken for job /{c=NR}END{for (d=b-2;d<c-1;++d) print a[d]}' stdout)"  >> $JOBNAME.lst
+		if [[ "$POWDER_HAR" != "true" && "${SHELXL_RESIDUAL_MAP:-false}" == "true" ]]; then
+			GET_RESIDUALS || exit 1
+			APPEND_FINAL_RESIDUAL_SUMMARY
+		fi
 		if [[ "$XWR" == "true" ]]; then
 			RUN_XWR
 		fi
@@ -6841,7 +6919,7 @@ run_script(){
 			echo "" >> $JOBNAME.lst
 			echo " $(awk '{a[NR]=$0}/^Structure refinement results/ && !b {b=NR}/^Wall-clock time taken for job /{c=NR}END{for (d=b-2;d<c-1;++d) print a[d]}' stdout)"  >> $JOBNAME.lst
 		        if [[ "$POWDER_HAR" != "true" ]]; then  
-			        GET_RESIDUALS
+			        GET_RESIDUALS || exit 1
 			        echo " $(awk '{a[NR]=$0}/^Reflections pruned/{b=NR}/^Atom coordinates/{c=NR}END{for (d=b-2;d<c-1;++d) print a[d]}' stdout)"  >> $JOBNAME.lst
 			        echo " $(awk '{a[NR]=$0}/^Residual density data/{b=NR}/^Wall-clock time taken for job/{c=NR}END{for (d=b-2;d<c-1;++d) print a[d]}' stdout)" >> $JOBNAME.lst
                         fi
@@ -6877,7 +6955,7 @@ run_script(){
 			echo "" >> $JOBNAME.lst
 			echo " $(awk '{a[NR]=$0}/^Structure refinement results/ && !b {b=NR}/^Wall-clock time taken for job /{c=NR}END{for (d=b-2;d<c-1;++d) print a[d]}' stdout)"  >> $JOBNAME.lst
 		        if [[ "$POWDER_HAR" != "true" ]]; then  
-			        GET_RESIDUALS
+			        GET_RESIDUALS || exit 1
 			        echo " $(awk '{a[NR]=$0}/^Reflections pruned/{b=NR}/^Atom coordinates/{c=NR}END{for (d=b-2;d<c-1;++d) print a[d]}' stdout)"  >> $JOBNAME.lst
 			        echo " $(awk '{a[NR]=$0}/^Residual density data/{b=NR}/^Wall-clock time taken for job/{c=NR}END{for (d=b-2;d<c-1;++d) print a[d]}' stdout)" >> $JOBNAME.lst
                         fi

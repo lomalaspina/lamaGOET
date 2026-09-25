@@ -94,12 +94,25 @@ weak-observation filtering, symmetry merging, and model-dependent systematic
 absence pruning must be applied to the immutable original observations again,
 not to a previously merged subset.
 
-`JOBNAME.lst` records the residual-density maximum, minimum, and r.m.s. The
-cube is the spatial field. A chemically recognizable residual feature is
-evidence that the fitted model does not explain that feature; it is not by
-itself proof of the cause. Check Fourier truncation, data resolution,
-absorption/extinction, phase quality, basis/grid convergence, and model
-constraints before assigning it chemically.
+`JOBNAME.lst` records the standard residual-density maximum, minimum, and
+r.m.s.; `JOBNAME.residual_density,cell.cube` is the spatial field. If
+`SHELXL_RESIDUAL_MAP=true`, the listing also contains a labelled **Nominal
+SHELXL FMAP 2 coefficient map** block and
+`JOBNAME.shelxl_residual_density,cell.cube` is archived alongside the standard
+cube. A requested comparison cube that is missing or empty is a hard runner
+error, preventing a stale result from being reported as current. Both outputs
+use the same final reflection population and grid.
+
+At the start of every job, the runner removes the same-name working comparison
+cube and any same-name cycle or CP2K archive copies. This happens even when the
+option is off and before program dispatch, so a disabled or failed rerun cannot
+leave an older cube that appears current.
+
+A chemically recognizable residual feature is evidence that the fitted model
+does not explain that feature; it is not by itself proof of the cause. Check
+Fourier truncation, data resolution, absorption/extinction, phase quality,
+basis/grid convergence, and model constraints before assigning it chemically.
+Extrema from differently sampled grids are not directly comparable.
 
 ## Hirshfeld-atom cubes
 

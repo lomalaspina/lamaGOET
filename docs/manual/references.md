@@ -94,6 +94,10 @@ publisher or software project wherever possible.
     Cryst.* C**71** (2015), 3–8.
     [doi:10.1107/S2053229614024218](https://doi.org/10.1107/S2053229614024218).
 
+    The [official SHELXL command
+    list](https://shelx.uni-goettingen.de/shelxl_comlist.pdf) documents `FMAP 2`
+    as an $F_o-F_c$ synthesis using calculated phases.
+
 ## Periodic electronic-structure programs
 
 20. R. Dovesi *et al.*, *CRYSTAL23 User's Manual*, University of Torino

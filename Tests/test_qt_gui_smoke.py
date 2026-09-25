@@ -37,6 +37,19 @@ def main() -> int:
         assert window.crystal_ldremo.text() == ""
         assert window.crystal_group.isHidden()
         assert window.advanced_har_tab.widget().isAncestorOf(window.crystal_group)
+        assert not window.shelxl_residual_map.isChecked()
+        fmap2_text = (
+            window.shelxl_residual_map.text()
+            + " "
+            + window.shelxl_residual_map.toolTip()
+        )
+        assert "FMAP 2" in fmap2_text
+        assert "(Fo-Fc) phase(Fc)" in fmap2_text
+        assert "empirically" not in fmap2_text
+        assert "weak-reflection attenuation" not in fmap2_text
+        assert "not an Olex2/CCTBX" in fmap2_text
+        window.shelxl_residual_map.setChecked(True)
+        assert window._current_values()["SHELXL_RESIDUAL_MAP"] == "true"
         assert window.crystal_parallel_bin.text() == ""
         window.crystal_parallel_bin.setText("/apps/crystal23/runPcry23")
         assert (
@@ -174,8 +187,10 @@ def main() -> int:
             saved_extinction["CRYSTAL_PARALLEL_BIN"]
             == "/apps/crystal23/runPcry23"
         )
+        assert saved_extinction["SHELXL_RESIDUAL_MAP"] == "true"
         reloaded = MainWindow(options)
         assert reloaded.crystal_parallel_bin.text() == "/apps/crystal23/runPcry23"
+        assert reloaded.shelxl_residual_map.isChecked()
         assert reloaded.extinction_correction.isChecked()
         assert reloaded.extinction_model.currentData() == "becker-coppens"
         assert reloaded.extinction_type.currentData() == "type-2"

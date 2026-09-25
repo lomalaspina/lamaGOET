@@ -239,7 +239,21 @@ The molecular and periodic controls are described in {doc}`xcw` and
 
 ## Plots tab
 
-See {doc}`plots`. The panel is currently a retained, unvalidated legacy path.
+**Also calculate the nominal SHELXL FMAP 2 coefficient comparison**
+(`SHELXL_RESIDUAL_MAP`) leaves Tonto's established final residual path
+unchanged and writes a second cube from an independent implementation of the
+nominal published coefficient $(F_o-F_c)\exp(i\phi_c)$. Both paths use the
+same final merged reflection set and the same grid, so the paired files isolate
+the coefficient implementation. The standard and comparison files are
+`JOBNAME.residual_density,cell.cube` and
+`JOBNAME.shelxl_residual_density,cell.cube`, respectively.
+
+This option does not invoke Olex2/CCTBX and does not guess SHELXL's unpublished
+sigma-dependent attenuation. The explicit grid-spacing or grid-point controls
+also govern both final residual maps. See {doc}`plots` for the equation,
+interpretation, and validation boundary. It is not a claim to reproduce the
+complete SHELXL executable. The other plot types remain retained,
+unvalidated legacy paths.
 
 ## Settings tab
 

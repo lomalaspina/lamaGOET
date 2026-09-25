@@ -1713,6 +1713,18 @@ class MainWindow(QMainWindow):
 
     def _plots_panel(self) -> QScrollArea:
         form = QFormLayout()
+        self.shelxl_residual_map = QCheckBox(
+            "Also calculate the nominal SHELXL FMAP 2 coefficient comparison"
+        )
+        self.shelxl_residual_map.setToolTip(
+            "Keeps the established Tonto residual map and writes a separate "
+            "cube using the nominal published coefficient (Fo-Fc) "
+            "phase(Fc). Both maps use the same merged reflection set and "
+            "grid. No undocumented sigma-dependent attenuation is inferred, "
+            "so this is not the complete internal SHELXL map procedure. It "
+            "is also not an Olex2/CCTBX map implementation."
+        )
+        form.addRow(self.shelxl_residual_map)
         self.plot_tonto = QCheckBox("Run Tonto plot calculation")
         form.addRow(self.plot_tonto)
         self.plot_deformation = QCheckBox("Deformation density")
@@ -1732,11 +1744,21 @@ class MainWindow(QMainWindow):
             form.addRow(widget)
         self.plot_angstrom = QCheckBox("Plot dimensions are in Å")
         form.addRow(self.plot_angstrom)
-        self.use_separation = QCheckBox("Use explicit grid separation")
+        self.use_separation = QCheckBox(
+            "Use explicit plot/final-residual grid separation"
+        )
+        self.use_separation.setToolTip(
+            "Also controls the automatic final residual-density map. If this "
+            "is unchecked, final residuals retain Tonto's 0.1 Å default. A "
+            "0.05 Å value gives better-converged extrema at higher cost."
+        )
         form.addRow(self.use_separation)
         self.separation = QLineEdit()
-        form.addRow("Grid separation", self.separation)
-        self.use_all_points = QCheckBox("Use all grid points")
+        self.separation.setPlaceholderText("e.g. 0.05")
+        form.addRow("Grid separation (Å)", self.separation)
+        self.use_all_points = QCheckBox(
+            "Use explicit plot/final-residual grid points"
+        )
         form.addRow(self.use_all_points)
         points_row = QWidget()
         points_layout = QHBoxLayout(points_row)
@@ -2267,6 +2289,9 @@ class MainWindow(QMainWindow):
             self._bool_option("PERIODIC_XCW_WRITE_CHECKPOINT", True)
         )
         self._xcw_mode_changed()
+        self.shelxl_residual_map.setChecked(
+            self._bool_option("SHELXL_RESIDUAL_MAP")
+        )
         self.plot_tonto.setChecked(self._bool_option("PLOT_TONTO"))
         self.plot_deformation.setChecked(self._bool_option("DEFDEN"))
         self.plot_dft_xc.setChecked(self._bool_option("DFTXCPOT"))
@@ -3564,6 +3589,9 @@ class MainWindow(QMainWindow):
             ),
             "PERIODIC_XCW_WRITE_CHECKPOINT": _bool_text(
                 self.periodic_xcw_write_checkpoint.isChecked()
+            ),
+            "SHELXL_RESIDUAL_MAP": _bool_text(
+                self.shelxl_residual_map.isChecked()
             ),
             "PLOT_TONTO": _bool_text(self.plot_tonto.isChecked()),
             "DEFDEN": _bool_text(self.plot_deformation.isChecked()),

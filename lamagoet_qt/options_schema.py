@@ -194,6 +194,7 @@ OPTION_DEFAULTS: dict[str, str] = {
     "SCDIPOLES": "false",
     "SCFCALC_BIN": "g09",
     "SCFCALCPROG": "Gaussian",
+    "SHELXL_RESIDUAL_MAP": "false",
     "SEPARATION": "",
     "SHRINKA": "2",
     "SHRINKB": "2",

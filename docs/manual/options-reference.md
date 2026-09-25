@@ -272,6 +272,7 @@ for every system. Values saved by the GUI override them.
 | Variable | Default | Meaning |
 |---|---|---|
 | `PLOT_TONTO` | `false` | activate legacy Tonto plot path |
+| `SHELXL_RESIDUAL_MAP` | `false` | also write an independent comparison using the nominal published SHELXL FMAP 2 coefficient |
 | `DEFDEN` | `false` | deformation-density map |
 | `DFTXCPOT` | `false` | DFT XC-potential map |
 | `DENS` | `false` | electron-density map |

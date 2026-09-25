@@ -61,6 +61,7 @@ class JobOptionsTest(unittest.TestCase):
         self.assertEqual(values["ILASIZE"], "")
         self.assertEqual(values["ACCURACY"], "extreme")
         self.assertEqual(values["PLOT_TONTO"], "false")
+        self.assertEqual(values["SHELXL_RESIDUAL_MAP"], "false")
         self.assertEqual(values["EXTI"], "no")
         self.assertEqual(values["EXTINCTION_MODEL"], "zachariasen")
         self.assertEqual(values["EXTINCTION_TYPE"], "type-1")
@@ -176,6 +177,13 @@ class JobOptionsTest(unittest.TestCase):
             save_job_options(path, {"CIF": value})
             result = load_job_options(path)
         self.assertEqual(result["CIF"], value)
+
+    def test_shelxl_residual_map_option_round_trip(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "job_options.txt"
+            save_job_options(path, {"SHELXL_RESIDUAL_MAP": "true"})
+            result = load_job_options(path)
+        self.assertEqual(result["SHELXL_RESIDUAL_MAP"], "true")
 
     def test_observed_density_options_round_trip(self):
         with tempfile.TemporaryDirectory() as directory:

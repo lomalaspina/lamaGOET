@@ -61,13 +61,43 @@ are stable. Report the units and sign convention. In particular:
 
 ## Residual-density and Hirshfeld-atom cubes
 
-The final residual-density cube and optional Hirshfeld-atom cubes are separate
-from this legacy plot panel and have stronger regression coverage. Use a cube
-viewer such as VESTA and verify units:
+The standard final residual cube, optional nominal FMAP 2 coefficient
+comparison, and optional Hirshfeld-atom cubes are separate from the legacy
+plot types and have stronger regression coverage. Use a cube viewer and verify
+units:
 
 - constrained Hirshfeld-atom cubes are written in electrons/bohr³;
 - retained residual-density cubes are normally interpreted in
   electrons/Å³.
+
+The standard file is `JOBNAME.residual_density,cell.cube`. Enabling
+**Also calculate the nominal SHELXL FMAP 2 coefficient comparison**
+additionally writes `JOBNAME.shelxl_residual_density,cell.cube`; it never
+replaces or reroutes the standard path. The independent path evaluates the
+nominal displayed FMAP 2 difference-density equation
+
+$$
+\Delta\rho(\mathbf r)=\frac{1}{V}\sum_{\mathbf h}
+  (F_o-F_c)\exp(i\phi_c)
+  \exp(-2\pi i\,\mathbf h\!\cdot\!\mathbf r).
+$$
+
+Here the observed amplitude is placed on the absolute scale, $F_c$ and
+$\phi_c$ are the magnitude and phase of the calculated structure factor, and
+$V$ is the unit-cell volume. The implementation does not use least-squares
+`WGHT` values as Fourier coefficients. SHELXL documentation states that poorly
+measured observations are downweighted, but does not publish that exact
+algorithm; lamaGOET/Tonto deliberately does not infer an undocumented
+sigma-dependent factor. Consequently, this is a transparent comparison of the
+nominal published coefficient, not a complete SHELXL residual-map
+implementation, not a claim of byte-for-byte identity with the SHELXL
+executable, and not an Olex2/CCTBX map.
+
+Both Tonto cubes use the identical current merged reflections and sampling
+grid. Residual extrema can change substantially with grid spacing, so compare
+maps only on matched grids and report the actual separations printed in
+`stdout`. A smaller separation samples sharper peaks and holes more fully but
+costs more memory and time.
 
 The per-atom cube represents the density assigned by the live stockholder
 partition after that partition step. Select an exact CIF atom label to limit
