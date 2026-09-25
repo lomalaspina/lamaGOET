@@ -33,7 +33,7 @@ jobs:
       - name: Install manual dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y latexmk texlive-xetex texlive-fonts-recommended texlive-latex-extra
+          sudo apt-get install -y libegl1 latexmk texlive-xetex texlive-fonts-recommended texlive-latex-extra
           python -m pip install --upgrade pip
           python -m pip install -r requirements-qt.txt
           python -m pip install -r docs/requirements.txt
