@@ -3181,6 +3181,39 @@ TONTO_OBSERVED_DENSITY_INPUT(){
 	[[ "$SCFCALCPROG" == "Tonto" && ( "${PARTITION_MODEL:-oc-hirshfeld}" == "observed" || "${PARTITION_MODEL:-oc-hirshfeld}" == "oc-observed" ) ]]
 }
 
+RESOLVE_H_POSITION_MODEL(){
+	local requested="${H_POSITION_MODEL:-}"
+	if [[ -z "$requested" ]]; then
+		case "${REFHPOS:-true}" in
+			false|FALSE|no|NO|0|off|OFF) requested="fixed" ;;
+			*) requested="refine" ;;
+		esac
+	fi
+	requested="${requested,,}"
+	case "$requested" in
+		refine|free)
+			H_POSITION_MODEL="refine"
+			TONTO_H_POSITION_MODEL="free"
+			REFHPOS="true"
+			;;
+		fixed)
+			H_POSITION_MODEL="fixed"
+			TONTO_H_POSITION_MODEL="fixed"
+			REFHPOS="false"
+			;;
+		riding)
+			H_POSITION_MODEL="riding"
+			TONTO_H_POSITION_MODEL="riding"
+			REFHPOS="false"
+			;;
+		*)
+			echo "lamaGOET: ERROR: H_POSITION_MODEL must be 'refine', 'fixed' or 'riding', not '$requested'." >&2
+			return 1
+			;;
+	esac
+	export H_POSITION_MODEL TONTO_H_POSITION_MODEL REFHPOS
+}
+
 VALIDATE_OBSERVED_DENSITY_MOTION_MODEL(){
 	local motion_model="${OBSERVED_DENSITY_MOTION_MODEL:-static}"
 	case "$motion_model" in
@@ -3204,7 +3237,7 @@ VALIDATE_OBSERVED_DENSITY_MOTION_MODEL(){
 		return 1
 	fi
 	if [[ "${POSONLY:-false}" != "true" || "${POSADP:-false}" == "true" || "${ADPSONLY:-false}" == "true" || \
-	      "${REFHPOS:-true}" != "false" || "${REFUISO:-false}" == "true" || "${REFHADP:-true}" != "false" || \
+	      "${H_POSITION_MODEL:-refine}" != "fixed" || "${REFUISO:-false}" == "true" || "${REFHADP:-true}" != "false" || \
 	      ( "${HADP:-no}" != "no" && "${HADP:-no}" != "false" ) || \
 	      "${REFANHARM:-false}" == "true" || "${THIRDORD:-false}" == "true" || "${FOURTHORD:-false}" == "true" ]]; then
 		echo "lamaGOET: ERROR: dynamic observed density fixes coordinates and ADPs; use its generated no-ADP setting and disable H-position, ADP, Uiso and anharmonic refinement options." >&2
@@ -3536,6 +3569,50 @@ WRITE_EXTINCTION_OPTIONS(){
 	esac
 }
 
+WRITE_TONTO_WEIGHTING_OPTIONS(){
+	local scheme target
+	scheme=$(_lower "${TONTO_WEIGHTING_SCHEME:-sigma}")
+	target=$(_lower "${TONTO_REFINEMENT_TARGET:-f}")
+	case "$target" in
+		""|f)
+			target=f
+			# Preserve the established Tonto F-amplitude target by omitting the
+			# new keyword when the default is selected.
+			;;
+		f2)
+			echo "         least_squares_target= f2" >> stdin
+			;;
+		*)
+			echo "ERROR: Unsupported TONTO_REFINEMENT_TARGET '${TONTO_REFINEMENT_TARGET}'. Use f or f2." | tee -a "${JOBNAME:-lamaGOET}.lst" >&2
+			return 1
+			;;
+	esac
+	case "$scheme" in
+		""|sigma)
+			# Preserve the established Tonto 1/sigma(F) default and remain
+			# compatible with executables predating the selectable scheme.
+			return 0
+			;;
+		shelxl)
+			if [[ "$target" != "f2" ]]; then
+				echo "ERROR: TONTO_WEIGHTING_SCHEME=shelxl requires TONTO_REFINEMENT_TARGET=f2." | tee -a "${JOBNAME:-lamaGOET}.lst" >&2
+				return 1
+			fi
+			echo "         weighting_scheme= shelxl" >> stdin
+			echo "         shelxl_weight_a= ${SHELXL_WEIGHT_A:-0.1}" >> stdin
+			echo "         shelxl_weight_b= ${SHELXL_WEIGHT_B:-0.0}" >> stdin
+			echo "         shelxl_weight_c= ${SHELXL_WEIGHT_C:-0.0}" >> stdin
+			echo "         shelxl_weight_d= ${SHELXL_WEIGHT_D:-0.0}" >> stdin
+			echo "         shelxl_weight_e= ${SHELXL_WEIGHT_E:-0.0}" >> stdin
+			echo "         shelxl_weight_f= ${SHELXL_WEIGHT_F:-0.3333333333333333}" >> stdin
+			;;
+		*)
+			echo "ERROR: Unsupported TONTO_WEIGHTING_SCHEME '${TONTO_WEIGHTING_SCHEME}'. Use sigma or shelxl." | tee -a "${JOBNAME:-lamaGOET}.lst" >&2
+			return 1
+			;;
+	esac
+}
+
 EXTI_REF(){
 	WRITE_EXTINCTION_OPTIONS
 	echo "" >> stdin
@@ -3554,6 +3631,7 @@ TONTO_IAM_BLOCK(){
 		echo "      REDIRECT tonto.cell" >> stdin
 	fi
 	echo "      xray_data= {   " >> stdin
+	WRITE_TONTO_WEIGHTING_OPTIONS || return 1
 	WRITE_EXTINCTION_OPTIONS
 	echo "         correct_dispersion= $DISP" >> stdin
 	echo "         wavelength= $WAVE Angstrom" >> stdin
@@ -3596,11 +3674,7 @@ TONTO_IAM_BLOCK(){
                                 echo "         refine_H_ADPs= $REFHADP" >> stdin
                         fi
                 fi
-                if [ "$REFHPOS" = "false" ]; then
-                        if [ "$ADPSONLY" != "true" ]; then
-                                echo "         refine_H_positions= $REFHPOS" >> stdin
-                        fi
-                fi
+                echo "         hydrogen_position_model= ${TONTO_H_POSITION_MODEL:-free}" >> stdin
                 if [ "$REFNOTHING" = "true" ]; then
                         echo "         refine_nothing_for_atoms= { $ATOMLIST }" >> stdin
                 fi
@@ -3715,6 +3789,7 @@ CRYSTAL_BLOCK(){
         fi
 	if [[ "$SCFCALCPROG" != "optgaussian" && "$SCFCALCPROG" != "optorca" ]]; then 
 		echo "      xray_data= {   " >> stdin
+		WRITE_TONTO_WEIGHTING_OPTIONS || return 1
 	        if [[ "$POWDER_HAR" != "true" ]]; then 
                         # Tonto's thermal_smearing_model= keyword is gone. Its job -- choosing
                         # how the density is partitioned before thermal smearing -- now belongs
@@ -3786,11 +3861,7 @@ CRYSTAL_BLOCK(){
         					echo "	 refine_H_ADPs= $REFHADP" >> stdin 
         				fi
         			fi
-        			if [ "$REFHPOS" = "false" ]; then
-        				if [[ "$ADPSONLY" != "true" ]]; then
-        					echo "	 refine_H_positions= $REFHPOS" >> stdin 
-        				fi
-        			fi
+			echo "	 hydrogen_position_model= ${TONTO_H_POSITION_MODEL:-free}" >> stdin
         			if [ "$REFNOTHING" = "true" ]; then
         				echo "	 refine_nothing_for_atoms= { $ATOMLIST }" >> stdin 
         			fi
@@ -5586,6 +5657,7 @@ PERIODIC_XCW_CRYSTAL_BLOCK(){
 	echo "      r_free_percentage= ${PERIODIC_XCW_R_FREE_PERCENTAGE:-10}" >> stdin
 	echo "      r_free_selection= deterministic" >> stdin
 	echo "      xray_data= {" >> stdin
+	WRITE_TONTO_WEIGHTING_OPTIONS || return 1
 	echo "         partition_model= oc-crystal23" >> stdin
 	echo "         stockholder_model= ${STOCKHOLDER_MODEL:-periodic}" >> stdin
 	echo "         output_Hirshfeld_atom_cubes= ${OUTPUT_HIRSHFELD_ATOM_CUBES:-false}" >> stdin
@@ -7172,6 +7244,7 @@ if [[ "$SCFCALCPROG" == "Gaussian" || "$SCFCALCPROG" == "optgaussian" ]]; then
     METHOD=$(_lamagoet_gaussian_method_keyword "${METHOD:-rhf}")
 fi
 
+RESOLVE_H_POSITION_MODEL || exit 2
 VALIDATE_OBSERVED_DENSITY_MOTION_MODEL || exit 2
 
 if [[ "$GAUSGEN" = "true" && ( "$SCFCALCPROG" == "Gaussian" || "$SCFCALCPROG" == "optgaussian" ) && ! -f basis_gen.txt ]]; then

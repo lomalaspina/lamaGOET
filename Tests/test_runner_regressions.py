@@ -63,6 +63,17 @@ class RunnerRegressionTest(unittest.TestCase):
                 self.assertIn('dft_correlation_functional= pbec', body)
                 self.assertIn('METHOD" == "upbe', body)
 
+    def test_both_refinement_paths_emit_authoritative_hydrogen_model(self):
+        keyword = (
+            'hydrogen_position_model= '
+            '${TONTO_H_POSITION_MODEL:-free}'
+        )
+        for name, text in self.runner_text.items():
+            with self.subTest(runner=name):
+                self.assertEqual(text.count(keyword), 2)
+                self.assertNotIn('echo "         refine_H_positions=', text)
+                self.assertNotIn('echo "\t refine_H_positions=', text)
+
     @unittest.skipUnless(
         os.name == "posix" and shutil.which("bash"),
         "generated anharmonic-input test requires bash",
@@ -76,6 +87,7 @@ class RunnerRegressionTest(unittest.TestCase):
         for runner, text in self.runner_text.items():
             definition = (
                 "WRITE_EXTINCTION_OPTIONS(){ :; }\n"
+                + "WRITE_TONTO_WEIGHTING_OPTIONS(){ :; }\n"
                 + "TONTO_IAM_BLOCK(){\n"
                 + function_body(text, "TONTO_IAM_BLOCK")
             )
@@ -139,6 +151,7 @@ class RunnerRegressionTest(unittest.TestCase):
         for runner, text in self.runner_text.items():
             definition = (
                 "WRITE_EXTINCTION_OPTIONS(){ :; }\n"
+                + "WRITE_TONTO_WEIGHTING_OPTIONS(){ :; }\n"
                 + "TONTO_IAM_BLOCK(){\n"
                 + function_body(text, "TONTO_IAM_BLOCK")
             )
@@ -161,7 +174,7 @@ class RunnerRegressionTest(unittest.TestCase):
                     + 'POSONLY="false"\n'
                     + 'ADPSONLY="false"\n'
                     + 'REFHADP="false"\n'
-                    + 'REFHPOS="false"\n'
+                    + 'TONTO_H_POSITION_MODEL="fixed"\n'
                     + 'REFNOTHING="false"\n'
                     + 'REFUISO="false"\n'
                     + 'MAXLSCYCLE="12"\n'
@@ -180,8 +193,65 @@ class RunnerRegressionTest(unittest.TestCase):
                 )
             self.assertIn("refine_H_U_iso= no", result.stdout)
             self.assertIn("refine_H_ADPs= false", result.stdout)
-            self.assertIn("refine_H_positions= false", result.stdout)
+            self.assertIn("hydrogen_position_model= fixed", result.stdout)
+            self.assertNotIn("refine_H_positions=", result.stdout)
             self.assertIn("max_iterations= 12", result.stdout)
+
+    @unittest.skipUnless(
+        os.name == "posix" and shutil.which("bash"),
+        "generated H-position-model validation requires bash",
+    )
+    def test_hydrogen_position_model_resolution(self):
+        cases = (
+            ({}, "refine", "free", "true"),
+            ({"REFHPOS": "false"}, "fixed", "fixed", "false"),
+            ({"H_POSITION_MODEL": "refine", "REFHPOS": "false"}, "refine", "free", "true"),
+            ({"H_POSITION_MODEL": "fixed", "REFHPOS": "true"}, "fixed", "fixed", "false"),
+            ({"H_POSITION_MODEL": "riding", "REFHPOS": "true"}, "riding", "riding", "false"),
+        )
+        for runner, text in self.runner_text.items():
+            definition = (
+                "RESOLVE_H_POSITION_MODEL(){\n"
+                + function_body(text, "RESOLVE_H_POSITION_MODEL")
+            )
+            for supplied, model, tonto_model, legacy in cases:
+                assignments = "\n".join(
+                    f'{name}="{value}"' for name, value in supplied.items()
+                )
+                result = subprocess.run(
+                    [
+                        "bash",
+                        "-c",
+                        definition
+                        + "\n"
+                        + assignments
+                        + "\nRESOLVE_H_POSITION_MODEL || exit $?\n"
+                        + 'printf "%s|%s|%s" "$H_POSITION_MODEL" '
+                        + '"$TONTO_H_POSITION_MODEL" "$REFHPOS"\n',
+                    ],
+                    text=True,
+                    capture_output=True,
+                    check=True,
+                )
+                with self.subTest(runner=runner, supplied=supplied):
+                    self.assertEqual(
+                        result.stdout, f"{model}|{tonto_model}|{legacy}"
+                    )
+
+            invalid = subprocess.run(
+                [
+                    "bash",
+                    "-c",
+                    definition
+                    + '\nH_POSITION_MODEL="unknown"\n'
+                    + "RESOLVE_H_POSITION_MODEL\n",
+                ],
+                text=True,
+                capture_output=True,
+            )
+            with self.subTest(runner=runner, supplied="invalid"):
+                self.assertNotEqual(invalid.returncode, 0)
+                self.assertIn("H_POSITION_MODEL must be", invalid.stderr)
 
     def test_tonto_version_uses_supported_long_option(self):
         for name, text in self.runner_text.items():
@@ -946,6 +1016,114 @@ class RunnerRegressionTest(unittest.TestCase):
             self.assertIn("extinction_anisotropic= true", generated)
             self.assertIn("extinction_mean_path_mm= 0.425", generated)
 
+    def test_weighting_selection_reaches_every_xray_data_block(self):
+        for name, text in self.runner_text.items():
+            for function in (
+                "TONTO_IAM_BLOCK",
+                "CRYSTAL_BLOCK",
+                "PERIODIC_XCW_CRYSTAL_BLOCK",
+            ):
+                with self.subTest(runner=name, function=function):
+                    body = function_body(text, function)
+                    self.assertIn("WRITE_TONTO_WEIGHTING_OPTIONS", body)
+            with self.subTest(runner=name, function="weighting options"):
+                options = function_body(text, "WRITE_TONTO_WEIGHTING_OPTIONS")
+                self.assertIn('${TONTO_REFINEMENT_TARGET:-f}', options)
+                self.assertIn("least_squares_target= f2", options)
+                self.assertIn('${TONTO_WEIGHTING_SCHEME:-sigma}', options)
+                self.assertIn("weighting_scheme= shelxl", options)
+                for letter in "abcdef":
+                    self.assertIn(f"shelxl_weight_{letter}=", options)
+
+    @unittest.skipUnless(
+        os.name == "posix" and shutil.which("bash"),
+        "generated weighting-input test requires bash",
+    )
+    def test_generated_weighting_options_preserve_sigma_default(self):
+        for runner, text in self.runner_text.items():
+            definition = (
+                '_lower(){ printf "%s" "$1" | tr "[:upper:]" "[:lower:]"; }\n'
+                + "WRITE_TONTO_WEIGHTING_OPTIONS(){\n"
+                + function_body(text, "WRITE_TONTO_WEIGHTING_OPTIONS")
+            )
+            cases = (
+                ("f", "sigma", (), False, False),
+                (
+                    "f2",
+                    "sigma",
+                    ("least_squares_target= f2",),
+                    False,
+                    True,
+                ),
+                (
+                    "f2",
+                    "shelxl",
+                    (
+                        "least_squares_target= f2",
+                        "weighting_scheme= shelxl",
+                        "shelxl_weight_a= 0.0388",
+                        "shelxl_weight_b= 0.1881",
+                        "shelxl_weight_c= 0.25",
+                        "shelxl_weight_d= -0.5",
+                        "shelxl_weight_e= 1.25",
+                        "shelxl_weight_f= 0.75",
+                    ),
+                    True,
+                    True,
+                ),
+            )
+            for target, scheme, expected, emits_weighting, emits_target in cases:
+                with (
+                    self.subTest(runner=runner, target=target, scheme=scheme),
+                    tempfile.TemporaryDirectory() as directory,
+                ):
+                    script = (
+                        definition
+                        + f'\nTONTO_REFINEMENT_TARGET="{target}"\n'
+                        + f'\nTONTO_WEIGHTING_SCHEME="{scheme}"\n'
+                        + 'SHELXL_WEIGHT_A="0.0388"\n'
+                        + 'SHELXL_WEIGHT_B="0.1881"\n'
+                        + 'SHELXL_WEIGHT_C="0.25"\n'
+                        + 'SHELXL_WEIGHT_D="-0.5"\n'
+                        + 'SHELXL_WEIGHT_E="1.25"\n'
+                        + 'SHELXL_WEIGHT_F="0.75"\n'
+                        + "WRITE_TONTO_WEIGHTING_OPTIONS\n"
+                        + "cat stdin 2>/dev/null || true\n"
+                    )
+                    result = subprocess.run(
+                        ["bash", "-c", script],
+                        cwd=directory,
+                        text=True,
+                        capture_output=True,
+                        check=True,
+                    )
+                self.assertEqual(
+                    "weighting_scheme=" in result.stdout, emits_weighting
+                )
+                self.assertEqual(
+                    "least_squares_target=" in result.stdout, emits_target
+                )
+                for line in expected:
+                    self.assertIn(line, result.stdout)
+
+            with tempfile.TemporaryDirectory() as directory:
+                result = subprocess.run(
+                    [
+                        "bash",
+                        "-c",
+                        definition
+                        + '\nTONTO_REFINEMENT_TARGET="f"\n'
+                        + 'TONTO_WEIGHTING_SCHEME="shelxl"\n'
+                        + "WRITE_TONTO_WEIGHTING_OPTIONS\n",
+                    ],
+                    cwd=directory,
+                    text=True,
+                    capture_output=True,
+                    check=False,
+                )
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("requires TONTO_REFINEMENT_TARGET=f2", result.stderr)
+
     def test_crystal_partition_selection_was_not_replaced_by_scf_input(self):
         for name, text in self.runner_text.items():
             with self.subTest(runner=name):
@@ -1229,6 +1407,7 @@ class RunnerRegressionTest(unittest.TestCase):
             "POSADP": "false",
             "POSONLY": "true",
             "ADPSONLY": "false",
+            "H_POSITION_MODEL": "fixed",
             "REFHPOS": "false",
             "REFUISO": "false",
             "REFHADP": "false",
@@ -1245,7 +1424,7 @@ class RunnerRegressionTest(unittest.TestCase):
             {"POSONLY": "false"},
             {"POSADP": "true"},
             {"ADPSONLY": "true"},
-            {"REFHPOS": "true"},
+            {"H_POSITION_MODEL": "refine"},
             {"REFUISO": "true"},
             {"REFHADP": "true"},
             {"HADP": "yes"},
@@ -1257,6 +1436,8 @@ class RunnerRegressionTest(unittest.TestCase):
             definition = (
                 "TONTO_OBSERVED_DENSITY_INPUT(){\n"
                 + function_body(text, "TONTO_OBSERVED_DENSITY_INPUT")
+                + "\nRESOLVE_H_POSITION_MODEL(){\n"
+                + function_body(text, "RESOLVE_H_POSITION_MODEL")
                 + "\nVALIDATE_OBSERVED_DENSITY_MOTION_MODEL(){\n"
                 + function_body(text, "VALIDATE_OBSERVED_DENSITY_MOTION_MODEL")
             )
@@ -1272,7 +1453,8 @@ class RunnerRegressionTest(unittest.TestCase):
                         definition
                         + "\n"
                         + assignments
-                        + "\nVALIDATE_OBSERVED_DENSITY_MOTION_MODEL\n",
+                        + "\nRESOLVE_H_POSITION_MODEL || exit $?\n"
+                        + "VALIDATE_OBSERVED_DENSITY_MOTION_MODEL\n",
                     ],
                     text=True,
                     capture_output=True,
@@ -1283,6 +1465,7 @@ class RunnerRegressionTest(unittest.TestCase):
             with self.subTest(runner=runner, case="default static"):
                 static = dict(valid)
                 static.pop("OBSERVED_DENSITY_MOTION_MODEL")
+                static["H_POSITION_MODEL"] = "refine"
                 static["POSONLY"] = "false"
                 static["POSADP"] = "true"
                 static["REFHPOS"] = "true"

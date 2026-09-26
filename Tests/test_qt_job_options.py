@@ -68,6 +68,14 @@ class JobOptionsTest(unittest.TestCase):
         self.assertEqual(values["EXTINCTION_DISTRIBUTION"], "gaussian")
         self.assertEqual(values["EXTINCTION_ANISOTROPIC"], "false")
         self.assertEqual(values["EXTINCTION_MEAN_PATH_MM"], "0.3")
+        self.assertEqual(values["H_POSITION_MODEL"], "refine")
+        self.assertEqual(values["REFHPOS"], "true")
+        self.assertEqual(values["TONTO_REFINEMENT_TARGET"], "f")
+        self.assertEqual(values["TONTO_WEIGHTING_SCHEME"], "sigma")
+        self.assertEqual(values["SHELXL_WEIGHT_A"], "0.1")
+        for letter in "BCDE":
+            self.assertEqual(values[f"SHELXL_WEIGHT_{letter}"], "0.0")
+        self.assertEqual(values["SHELXL_WEIGHT_F"], "0.3333333333333333")
         self.assertEqual(values["PARTITION_MODEL"], "oc-hirshfeld")
         self.assertEqual(values["STOCKHOLDER_MODEL"], "cluster")
         self.assertEqual(values["HIRSHFELD_I_MAX_ITERATIONS"], "50")
@@ -184,6 +192,48 @@ class JobOptionsTest(unittest.TestCase):
             save_job_options(path, {"SHELXL_RESIDUAL_MAP": "true"})
             result = load_job_options(path)
         self.assertEqual(result["SHELXL_RESIDUAL_MAP"], "true")
+
+    def test_tonto_weighting_options_round_trip(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "job_options.txt"
+            save_job_options(
+                path,
+                {
+                    "TONTO_REFINEMENT_TARGET": "f2",
+                    "TONTO_WEIGHTING_SCHEME": "shelxl",
+                    "SHELXL_WEIGHT_A": "0.0388",
+                    "SHELXL_WEIGHT_B": "0.1881",
+                    "SHELXL_WEIGHT_C": "0.25",
+                    "SHELXL_WEIGHT_D": "-0.5",
+                    "SHELXL_WEIGHT_E": "1.25",
+                    "SHELXL_WEIGHT_F": "0.75",
+                },
+            )
+            result = load_job_options(path)
+        self.assertEqual(result["TONTO_REFINEMENT_TARGET"], "f2")
+        self.assertEqual(result["TONTO_WEIGHTING_SCHEME"], "shelxl")
+        self.assertEqual(result["SHELXL_WEIGHT_A"], "0.0388")
+        self.assertEqual(result["SHELXL_WEIGHT_B"], "0.1881")
+        self.assertEqual(result["SHELXL_WEIGHT_C"], "0.25")
+        self.assertEqual(result["SHELXL_WEIGHT_D"], "-0.5")
+        self.assertEqual(result["SHELXL_WEIGHT_E"], "1.25")
+        self.assertEqual(result["SHELXL_WEIGHT_F"], "0.75")
+
+    def test_hydrogen_position_model_migrates_and_mirrors_legacy_boolean(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "job_options.txt"
+            path.write_text('REFHPOS="false"\n', encoding="utf-8")
+            migrated = load_job_options(path)
+            self.assertEqual(migrated["H_POSITION_MODEL"], "fixed")
+            self.assertEqual(migrated["REFHPOS"], "false")
+
+            save_job_options(
+                path,
+                {"H_POSITION_MODEL": "riding", "REFHPOS": "true"},
+            )
+            riding = load_job_options(path)
+        self.assertEqual(riding["H_POSITION_MODEL"], "riding")
+        self.assertEqual(riding["REFHPOS"], "false")
 
     def test_observed_density_options_round_trip(self):
         with tempfile.TemporaryDirectory() as directory:

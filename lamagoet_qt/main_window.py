@@ -1065,12 +1065,20 @@ class MainWindow(QMainWindow):
         hydrogen_row = QWidget()
         hydrogen_layout = QHBoxLayout(hydrogen_row)
         hydrogen_layout.setContentsMargins(0, 0, 0, 0)
-        self.refine_h_positions = QCheckBox("Refine H positions")
+        self.h_position_model = QComboBox()
+        self.h_position_model.addItem("Refine freely", "refine")
+        self.h_position_model.addItem("Keep fixed", "fixed")
+        self.h_position_model.addItem("Ride on bonded parent", "riding")
+        self.h_position_model.setToolTip(
+            "Choose whether hydrogen coordinates are independent refinement "
+            "parameters, remain fixed, or follow the coordinate shift of "
+            "their single bonded non-hydrogen parent."
+        )
         self.refine_h_adps = QCheckBox("Refine H ADPs")
-        self.refine_h_positions.setChecked(True)
         self.refine_h_adps.setChecked(True)
         self.h_adp = QCheckBox("H atoms isotropic")
-        hydrogen_layout.addWidget(self.refine_h_positions)
+        hydrogen_layout.addWidget(QLabel("H positions"))
+        hydrogen_layout.addWidget(self.h_position_model)
         hydrogen_layout.addWidget(self.refine_h_adps)
         hydrogen_layout.addWidget(self.h_adp)
         refinement_form.addRow(hydrogen_row)
@@ -1389,6 +1397,71 @@ class MainWindow(QMainWindow):
         self.linear_dependence = QLineEdit()
         form.addRow("Tonto linear-dependence tolerance", self.linear_dependence)
 
+        self.tonto_weighting_group = QGroupBox("Least-squares weighting")
+        weighting_form = QFormLayout(self.tonto_weighting_group)
+        self.tonto_refinement_target = QComboBox()
+        self.tonto_refinement_target.addItem(
+            "F amplitudes (Tonto default)", "f"
+        )
+        self.tonto_refinement_target.addItem("F-squared intensities", "f2")
+        self.tonto_refinement_target.setToolTip(
+            "Select the observations minimized by least squares. This is "
+            "independent of the weighting law, except that SHELXL WGHT is "
+            "defined for F-squared and therefore requires that target."
+        )
+        weighting_form.addRow(
+            "Least-squares target", self.tonto_refinement_target
+        )
+        self.tonto_weighting_scheme = QComboBox()
+        self.tonto_weighting_scheme.addItem(
+            "Tonto inverse-sigma (default)", "sigma"
+        )
+        self.tonto_weighting_scheme.addItem(
+            "SHELXL WGHT on F-squared", "shelxl"
+        )
+        self.tonto_weighting_scheme.currentIndexChanged.connect(
+            self._weighting_controls_changed
+        )
+        weighting_form.addRow("Weighting scheme", self.tonto_weighting_scheme)
+        self.tonto_weighting_explanation = QLabel(
+            "The default preserves Tonto's established inverse-sigma "
+            "least-squares weights for the selected target. Select SHELXL "
+            "only when reproducing a refinement whose "
+            "WGHT A-F coefficients are known."
+        )
+        self.tonto_weighting_explanation.setWordWrap(True)
+        weighting_form.addRow(self.tonto_weighting_explanation)
+
+        self.tonto_weighting_parameters = QWidget()
+        weighting_parameters_layout = QGridLayout(
+            self.tonto_weighting_parameters
+        )
+        weighting_parameters_layout.setContentsMargins(0, 0, 0, 0)
+        self.shelxl_weight_parameters: list[QDoubleSpinBox] = []
+        for index, letter in enumerate("ABCDEF"):
+            parameter = QDoubleSpinBox()
+            if letter == "F":
+                parameter.setRange(0.0, 1.0)
+            else:
+                parameter.setRange(-1.0e9, 1.0e9)
+            parameter.setDecimals(10)
+            parameter.setSingleStep(0.01)
+            parameter.setValue(0.0)
+            parameter.setMaximumWidth(150)
+            parameter.setToolTip(
+                f"SHELXL WGHT parameter {letter}; enter the value from the "
+                "refinement instruction or listing file."
+            )
+            row = index // 3
+            column = (index % 3) * 2
+            weighting_parameters_layout.addWidget(QLabel(letter), row, column)
+            weighting_parameters_layout.addWidget(
+                parameter, row, column + 1
+            )
+            self.shelxl_weight_parameters.append(parameter)
+        weighting_form.addRow("WGHT parameters A-F", self.tonto_weighting_parameters)
+        form.addRow(self.tonto_weighting_group)
+
         # Keep every HAR-level Crystal23 control together in Advanced HAR. The
         # executable path remains in Settings, while XCW-only/shared periodic
         # export controls remain in their own purpose-specific sections.
@@ -1521,6 +1594,7 @@ class MainWindow(QMainWindow):
         form.addRow("Stationary-wavefunction energy tolerance", self.har_energy_repeat_tol)
         self.har_scf_rmsd_tol = QLineEdit("1.0E-8")
         form.addRow("Stationary-wavefunction RMSD tolerance", self.har_scf_rmsd_tol)
+        self._weighting_controls_changed()
         return self._form_scroll(form)
 
     def _elmo_advanced_panel(self) -> QScrollArea:
@@ -2140,7 +2214,11 @@ class MainWindow(QMainWindow):
         self.atom_list.setText(self._option("ATOMLIST"))
         self.refine_uiso.setChecked(self._bool_option("REFUISO"))
         self.atom_uiso_list.setText(self._option("ATOMUISOLIST"))
-        self.refine_h_positions.setChecked(self._bool_option("REFHPOS", True))
+        h_position_model = self._option("H_POSITION_MODEL", "refine").lower()
+        if h_position_model == "free":
+            h_position_model = "refine"
+        h_position_index = self.h_position_model.findData(h_position_model)
+        self.h_position_model.setCurrentIndex(max(0, h_position_index))
         self.refine_h_adps.setChecked(self._bool_option("REFHADP", True))
         self.h_adp.setChecked(self._bool_option("HADP"))
         self.refine_anharmonic.setChecked(self._bool_option("REFANHARM"))
@@ -2180,6 +2258,28 @@ class MainWindow(QMainWindow):
         self._extinction_controls_changed()
         self.energy_convergence.setText(self._option("CONVTOLE", "0.00001"))
         self.linear_dependence.setText(self._option("LINEDEP"))
+        refinement_target = self._option(
+            "TONTO_REFINEMENT_TARGET", "f"
+        ).lower()
+        target_index = self.tonto_refinement_target.findData(refinement_target)
+        self.tonto_refinement_target.setCurrentIndex(max(0, target_index))
+        weighting_scheme = self._option(
+            "TONTO_WEIGHTING_SCHEME", "sigma"
+        ).lower()
+        weighting_index = self.tonto_weighting_scheme.findData(
+            weighting_scheme
+        )
+        self.tonto_weighting_scheme.setCurrentIndex(max(0, weighting_index))
+        shelxl_defaults = {"A": 0.1, "F": 1.0 / 3.0}
+        for letter, parameter in zip(
+            "ABCDEF", self.shelxl_weight_parameters
+        ):
+            parameter.setValue(
+                self._float_option(
+                    f"SHELXL_WEIGHT_{letter}", shelxl_defaults.get(letter, 0.0)
+                )
+            )
+        self._weighting_controls_changed()
         self.max_ls_cycles.setValue(self._int_option("MAXLSCYCLE", 30))
         self.max_xtal_cycles.setText(self._option("MAXXTALCYCLE"))
         self.crystal_biposize.setText(self._option("BIPOSIZE"))
@@ -2547,7 +2647,7 @@ class MainWindow(QMainWindow):
             self.refine_uiso.isChecked() and not dynamic_observed
         )
         self.refine_h_adps.setEnabled(not dynamic_observed)
-        self.refine_h_positions.setEnabled(not dynamic_observed)
+        self.h_position_model.setEnabled(not dynamic_observed)
         self.h_adp.setEnabled(not dynamic_observed)
         self.refine_anharmonic.setEnabled(not dynamic_observed)
         anharmonic = (
@@ -2607,6 +2707,28 @@ class MainWindow(QMainWindow):
                 "0.3 mm is only a starting placeholder."
             )
         self.extinction_explanation.setText(explanation)
+
+    def _weighting_controls_changed(self, *_args) -> None:
+        shelxl = self.tonto_weighting_scheme.currentData() == "shelxl"
+        if shelxl:
+            self.tonto_refinement_target.setCurrentIndex(
+                self.tonto_refinement_target.findData("f2")
+            )
+        self.tonto_refinement_target.setEnabled(not shelxl)
+        self.tonto_weighting_parameters.setVisible(shelxl)
+        if shelxl:
+            explanation = (
+                "Use the six coefficients from a SHELXL WGHT instruction. "
+                "SHELXL WGHT is defined for F-squared, so that target has "
+                "been selected and locked while this weighting law is active."
+            )
+        else:
+            explanation = (
+                "Tonto's established inverse-sigma weighting remains active "
+                "for the selected F or F-squared target. The stored SHELXL "
+                "A-F values are ignored."
+            )
+        self.tonto_weighting_explanation.setText(explanation)
 
     def _grow_mode_changed(self) -> None:
         mode = self.grow_mode.currentData()
@@ -2812,7 +2934,9 @@ class MainWindow(QMainWindow):
         if dynamic_observed:
             self.refine_dynamic_shapes.setChecked(True)
             self.refine_uiso.setChecked(False)
-            self.refine_h_positions.setChecked(False)
+            self.h_position_model.setCurrentIndex(
+                self.h_position_model.findData("fixed")
+            )
             self.refine_h_adps.setChecked(False)
             self.h_adp.setChecked(False)
             self.refine_anharmonic.setChecked(False)
@@ -3204,6 +3328,13 @@ class MainWindow(QMainWindow):
 
     def _current_values(self) -> dict[str, object]:
         program = self.program.currentData() or "Gaussian"
+        if (
+            self.tonto_weighting_scheme.currentData() == "shelxl"
+            and self.tonto_refinement_target.currentData() != "f2"
+        ):
+            raise ValueError(
+                "SHELXL WGHT requires the F-squared least-squares target."
+            )
         if program in {"Gaussian", "optgaussian"} and self.relativistic.isChecked():
             basis_name = self.basis.currentText().strip()
             manual_dkh_basis = (
@@ -3257,6 +3388,11 @@ class MainWindow(QMainWindow):
             and partition_model == "oc-observed"
             and self.observed_reconstruction.currentData() == "constrained"
             and self.observed_motion_model.currentData() == "dynamic"
+        )
+        h_position_model = (
+            "fixed"
+            if dynamic_observed
+            else (self.h_position_model.currentData() or "refine")
         )
         if self.xcw_only.isChecked() and self.xray_restrained.isChecked():
             raise ValueError("Select either XCW-only or XWR, not both.")
@@ -3474,9 +3610,10 @@ class MainWindow(QMainWindow):
                 self.refine_uiso.isChecked() and not dynamic_observed
             ),
             "ATOMUISOLIST": self.atom_uiso_list.text().strip(),
-            "REFHPOS": _bool_text(
-                self.refine_h_positions.isChecked() and not dynamic_observed
-            ),
+            "H_POSITION_MODEL": h_position_model,
+            # Mirror the historical boolean for old job_options consumers.
+            # Riding H atoms are dependent rather than freely refined.
+            "REFHPOS": _bool_text(h_position_model == "refine"),
             "REFHADP": _bool_text(
                 self.refine_h_adps.isChecked() and not dynamic_observed
             ),
@@ -3513,6 +3650,18 @@ class MainWindow(QMainWindow):
             "EXTINCTION_MEAN_PATH_MM": self.extinction_mean_path.value(),
             "CONVTOLE": self.energy_convergence.text().strip(),
             "LINEDEP": self.linear_dependence.text().strip(),
+            "TONTO_REFINEMENT_TARGET": (
+                self.tonto_refinement_target.currentData()
+            ),
+            "TONTO_WEIGHTING_SCHEME": (
+                self.tonto_weighting_scheme.currentData()
+            ),
+            **{
+                f"SHELXL_WEIGHT_{letter}": parameter.value()
+                for letter, parameter in zip(
+                    "ABCDEF", self.shelxl_weight_parameters
+                )
+            },
             "MAXLSCYCLE": self.max_ls_cycles.value(),
             "MAXXTALCYCLE": self.max_xtal_cycles.text().strip(),
             "BIPOSIZE": self.crystal_biposize.text().strip(),

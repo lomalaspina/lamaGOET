@@ -99,7 +99,8 @@ for every system. Values saved by the GUI override them.
 | `ATOMLIST` | *(empty)* | labels fixed by `REFNOTHING` |
 | `REFUISO` | `false` | refine listed atoms isotropically |
 | `ATOMUISOLIST` | *(empty)* | labels receiving isotropic treatment |
-| `REFHPOS` | `true` | refine hydrogen coordinates |
+| `H_POSITION_MODEL` | `refine` | hydrogen-coordinate treatment: `refine`, `fixed`, or `riding` |
+| `REFHPOS` | `true` | legacy mirror (`true` only for `H_POSITION_MODEL=refine`) |
 | `REFHADP` | `true` | refine hydrogen displacement parameters |
 | `HADP` | `no` | isotropic hydrogen ADP request (`yes`/`no`) |
 | `REFANHARM` | `false` | enable anharmonic displacement refinement |
@@ -113,6 +114,14 @@ for every system. Values saved by the GUI override them.
 | `OHBOND` | `0.983` | starting O-H distance in Å |
 | `DISP` | `no` | Tonto experimental dispersion correction |
 | `MINCORCOEF` | *(empty)* | optional minimum correlation coefficient |
+
+`H_POSITION_MODEL=riding` makes each H coordinate follow the coordinate shift
+of its single bonded non-hydrogen parent. It does not constrain the X-H
+distance separately and it does not change the independently selected H-ADP
+treatment. A missing or ambiguous non-hydrogen parent is reported by Tonto
+rather than guessed. Older files containing only `REFHPOS=false` are migrated
+to `fixed`; an explicit `H_POSITION_MODEL` always takes precedence. Dynamic
+observed-density refinement fixes coordinates and therefore forces `fixed`.
 | `POWDER_HAR` | `false` | legacy powder-HAR/Jana route |
 | `USENOSPHERA2` | `false` | legacy NoSpherA2/Jana form-factor route |
 | `NSA2ACC` | `2` | NoSpherA2 accuracy integer |
@@ -128,6 +137,35 @@ for every system. Values saved by the GUI override them.
 | `EXTINCTION_DISTRIBUTION` | `gaussian` | Gaussian or Lorentzian mosaic distribution |
 | `EXTINCTION_ANISOTROPIC` | `false` | isotropic when false; anisotropic when true |
 | `EXTINCTION_MEAN_PATH_MM` | `0.3` | absorption-weighted mean path length in mm |
+
+## Least-squares weighting
+
+| Variable | Default | Meaning |
+|---|---|---|
+| `TONTO_REFINEMENT_TARGET` | `f` | least-squares observations: `f` for amplitudes (established Tonto default) or `f2` for intensities |
+| `TONTO_WEIGHTING_SCHEME` | `sigma` | weighting law, independent of the target: `sigma` preserves Tonto's established inverse-sigma weighting and supports either target; `shelxl` selects the independent WGHT implementation and requires `f2` |
+| `SHELXL_WEIGHT_A` | `0.1` | SHELXL `WGHT` coefficient A; ignored unless the selected scheme is `shelxl` |
+| `SHELXL_WEIGHT_B` | `0.0` | SHELXL `WGHT` coefficient B; ignored unless the selected scheme is `shelxl` |
+| `SHELXL_WEIGHT_C` | `0.0` | SHELXL `WGHT` coefficient C; ignored unless the selected scheme is `shelxl` |
+| `SHELXL_WEIGHT_D` | `0.0` | SHELXL `WGHT` coefficient D; ignored unless the selected scheme is `shelxl` |
+| `SHELXL_WEIGHT_E` | `0.0` | SHELXL `WGHT` coefficient E; ignored unless the selected scheme is `shelxl` |
+| `SHELXL_WEIGHT_F` | `0.3333333333333333` | SHELXL `WGHT` observed-intensity fraction F; ignored unless the selected scheme is `shelxl` |
+
+The GUI stores all six coefficients so a published or archived SHELXL
+refinement can be reproduced without silently discarding the less commonly
+used C--F terms. Selecting SHELXL automatically selects and locks the
+$F^2$ target. With `sigma`, either target remains available. The default
+combination (`f` plus `sigma`) emits no new Tonto keywords and therefore does
+not change existing lamaGOET calculations.
+
+After an $F^2$/SHELXL fit, Tonto prints a **SHELXL-style WGHT recommendation**
+for the next fit.  It orders reflections by $F_c^2$ and searches the A--B
+plane for flatter goodness-of-fit values across ten intensity bins, while
+holding C--F fixed.  The recommendation is informational: Tonto does not
+replace the active weights after convergence, because doing so would make the
+reported statistics and parameter uncertainties refer to a different
+objective from the one actually minimized.  Apply the suggested A and B in a
+subsequent calculation only after inspecting the model and data quality.
 
 ## Molecular environment
 

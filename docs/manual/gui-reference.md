@@ -142,7 +142,7 @@ periodic environment; ELMOdb has its own transfer/tail controls.
 | Only perform Tonto IAM | `ONLYIAMTONTO` | stop after IAM; control calculation |
 | Refine nothing for atom labels | `REFNOTHING`, `ATOMLIST` | fix exact listed atom labels |
 | Refine these atoms isotropically | `REFUISO`, `ATOMUISOLIST` | use isotropic displacement for listed labels |
-| Refine H positions | `REFHPOS` | allow hydrogen coordinate parameters |
+| H positions | `H_POSITION_MODEL`, `REFHPOS` | refine freely, keep fixed, or ride on the single bonded non-H parent; the legacy boolean is retained as a mirror |
 | Refine H ADPs | `REFHADP` | allow hydrogen displacement parameters |
 | H atoms isotropic | `HADP` | use isotropic H displacement treatment |
 | Refine anharmonic ADPs | `REFANHARM`, `ANHARMATOMS` | enable selected anharmonic atoms |
@@ -150,6 +150,12 @@ periodic environment; ELMOdb has its own transfer/tail controls.
 | Elongate X-H bond lengths | `XHALONG` | modify starting X-H geometry |
 | B-H, C-H, N-H, O-H | `BHBOND`, `CHBOND`, `NHBOND`, `OHBOND` | starting bond lengths in Å |
 | Apply experimental dispersion correction | `DISP` | Tonto experimental dispersion correction |
+
+The H-position choice is independent of **Refine H ADPs** and **H atoms
+isotropic**. The riding option applies the parent coordinate shift to H while
+leaving the selected H displacement-parameter treatment unchanged. Dynamic
+observed density has fixed coordinates by definition, so the interface selects
+and locks **Keep fixed** in that mode.
 | Refine extinction correction | `EXTI` | expose and activate the selected extinction model |
 
 ### Extinction panel
@@ -202,6 +208,14 @@ Executable and basis-file paths are on **Settings**.
 |---|---|---|
 | Energy convergence | `CONVTOLE` | energy/density-cycle threshold where used |
 | Tonto linear-dependence tolerance | `LINEDEP` | explicit Tonto AO linear-dependence control |
+| Least-squares target | `TONTO_REFINEMENT_TARGET` | refine against $F$ amplitudes (default) or $F^2$ intensities independently of the weighting law |
+| Weighting scheme | `TONTO_WEIGHTING_SCHEME` | keep Tonto inverse-sigma weighting (default, supports either target) or use SHELXL WGHT, which automatically requires $F^2$ |
+| WGHT parameters A--F | `SHELXL_WEIGHT_A` ... `SHELXL_WEIGHT_F` | complete coefficients from the corresponding SHELXL `WGHT` instruction; shown only for the SHELXL scheme |
+
+For an $F^2$/SHELXL calculation, Tonto reports a variance-flattening A--B
+recommendation for the **next** least-squares fit.  lamaGOET never adopts it
+silently during the fit that generated it; copy the proposed values into the
+WGHT fields only after reviewing the refinement and the binned variance.
 | Maximum Crystal cycles | `MAXXTALCYCLE` | Crystal23 SCF cap; blank automatic |
 | Crystal BIPOSIZE | `BIPOSIZE` | optional Crystal Coulomb buffer size |
 | Crystal ILASIZE | `ILASIZE` | optional Crystal ILA array dimension |

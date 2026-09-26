@@ -104,6 +104,7 @@ OPTION_DEFAULTS: dict[str, str] = {
     "GAUSSREL": "false",
     "DKH_BASIS_CONFIRMED": "false",
     "HADP": "no",
+    "H_POSITION_MODEL": "refine",
     "HAR_ENERGY_REPEAT_TOL": "1.0E-10",
     "HAR_SCF_RMSD_TOL": "1.0E-8",
     "HKL": "",
@@ -195,6 +196,12 @@ OPTION_DEFAULTS: dict[str, str] = {
     "SCFCALC_BIN": "g09",
     "SCFCALCPROG": "Gaussian",
     "SHELXL_RESIDUAL_MAP": "false",
+    "SHELXL_WEIGHT_A": "0.1",
+    "SHELXL_WEIGHT_B": "0.0",
+    "SHELXL_WEIGHT_C": "0.0",
+    "SHELXL_WEIGHT_D": "0.0",
+    "SHELXL_WEIGHT_E": "0.0",
+    "SHELXL_WEIGHT_F": "0.3333333333333333",
     "SEPARATION": "",
     "SHRINKA": "2",
     "SHRINKB": "2",
@@ -206,6 +213,8 @@ OPTION_DEFAULTS: dict[str, str] = {
     "THIRDORD": "false",
     "TONTO": "tonto",
     "TONTO_BASIS_DIR": "",
+    "TONTO_REFINEMENT_TARGET": "f",
+    "TONTO_WEIGHTING_SCHEME": "sigma",
     "USEALLPOINTS": "false",
     "USEBECKE": "false",
     "USECENTER": "false",
@@ -252,6 +261,24 @@ def complete_job_options(values: Mapping[str, object]) -> "OrderedDict[str, obje
 
     merged: dict[str, object] = dict(OPTION_DEFAULTS)
     merged.update(supplied)
+
+    # H_POSITION_MODEL is the authoritative three-state control.  Older
+    # job_options files only contain REFHPOS, so migrate that boolean while
+    # continuing to mirror it for old runners and downstream tooling.
+    supplied_h_model = str(supplied.get("H_POSITION_MODEL", "")).strip().lower()
+    if not supplied_h_model:
+        legacy_refine_h = str(supplied.get("REFHPOS", "true")).strip().lower()
+        h_model = (
+            "fixed"
+            if legacy_refine_h in {"false", "no", "0", "off"}
+            else "refine"
+        )
+    else:
+        h_model = "refine" if supplied_h_model == "free" else supplied_h_model
+    merged["H_POSITION_MODEL"] = h_model
+    if h_model in {"refine", "fixed", "riding"}:
+        merged["REFHPOS"] = "true" if h_model == "refine" else "false"
+
     program = str(merged.get("SCFCALCPROG") or "Gaussian")
     merged["SCFCALCPROG"] = program
 

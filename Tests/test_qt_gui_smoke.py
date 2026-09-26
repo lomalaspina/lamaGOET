@@ -82,6 +82,46 @@ def main() -> int:
             "extreme", "best",
         ]
         assert window.becke_accuracy.currentText() == "extreme"
+        assert window.tonto_refinement_target.currentData() == "f"
+        assert window.tonto_refinement_target.isEnabled()
+        assert window.tonto_weighting_scheme.currentData() == "sigma"
+        assert window.tonto_weighting_parameters.isHidden()
+        assert window.shelxl_weight_parameters[-1].minimum() == 0.0
+        assert window.shelxl_weight_parameters[-1].maximum() == 1.0
+        assert window.shelxl_weight_parameters[0].minimum() < 0.0
+        assert window.h_position_model.currentData() == "refine"
+        window.h_position_model.setCurrentIndex(
+            window.h_position_model.findData("riding")
+        )
+        assert window._current_values()["H_POSITION_MODEL"] == "riding"
+        assert window._current_values()["REFHPOS"] == "false"
+        window.h_position_model.setCurrentIndex(
+            window.h_position_model.findData("refine")
+        )
+        window.tonto_refinement_target.setCurrentIndex(
+            window.tonto_refinement_target.findData("f2")
+        )
+        assert window._current_values()["TONTO_REFINEMENT_TARGET"] == "f2"
+        assert window._current_values()["TONTO_WEIGHTING_SCHEME"] == "sigma"
+        window.tonto_weighting_scheme.setCurrentIndex(
+            window.tonto_weighting_scheme.findData("shelxl")
+        )
+        assert window.tonto_refinement_target.currentData() == "f2"
+        assert not window.tonto_refinement_target.isEnabled()
+        assert not window.tonto_weighting_parameters.isHidden()
+        for parameter, value in zip(
+            window.shelxl_weight_parameters,
+            (0.0388, 0.1881, 0.25, -0.5, 1.25, 0.75),
+        ):
+            parameter.setValue(value)
+        weighting_values = window._current_values()
+        assert weighting_values["TONTO_WEIGHTING_SCHEME"] == "shelxl"
+        assert weighting_values["SHELXL_WEIGHT_A"] == 0.0388
+        assert weighting_values["SHELXL_WEIGHT_B"] == 0.1881
+        assert weighting_values["SHELXL_WEIGHT_C"] == 0.25
+        assert weighting_values["SHELXL_WEIGHT_D"] == -0.5
+        assert weighting_values["SHELXL_WEIGHT_E"] == 1.25
+        assert weighting_values["SHELXL_WEIGHT_F"] == 0.75
         assert window.xcw_mode.currentData() == "molecular"
         assert not window.molecular_xcw_options.isHidden()
         assert window.periodic_xcw_options.isHidden()
@@ -197,6 +237,14 @@ def main() -> int:
         assert reloaded.extinction_distribution.currentData() == "lorentzian"
         assert reloaded.extinction_nature.currentData() == "anisotropic"
         assert reloaded.extinction_mean_path.value() == 0.425
+        assert reloaded.tonto_refinement_target.currentData() == "f2"
+        assert not reloaded.tonto_refinement_target.isEnabled()
+        assert reloaded.tonto_weighting_scheme.currentData() == "shelxl"
+        assert not reloaded.tonto_weighting_parameters.isHidden()
+        assert [
+            parameter.value()
+            for parameter in reloaded.shelxl_weight_parameters
+        ] == [0.0388, 0.1881, 0.25, -0.5, 1.25, 0.75]
         reloaded.close()
         window.extinction_correction.setChecked(False)
         assert window.extinction_options.isHidden()
@@ -711,8 +759,8 @@ def main() -> int:
         assert not dynamic_window.refine_adps_only.isEnabled()
         assert not dynamic_window.refine_uiso.isChecked()
         assert not dynamic_window.refine_uiso.isEnabled()
-        assert not dynamic_window.refine_h_positions.isChecked()
-        assert not dynamic_window.refine_h_positions.isEnabled()
+        assert dynamic_window.h_position_model.currentData() == "fixed"
+        assert not dynamic_window.h_position_model.isEnabled()
         assert not dynamic_window.refine_h_adps.isChecked()
         assert not dynamic_window.refine_h_adps.isEnabled()
         assert not dynamic_window.h_adp.isChecked()
@@ -724,6 +772,7 @@ def main() -> int:
         assert dynamic_values["POSADP"] == "false"
         assert dynamic_values["POSONLY"] == "true"
         assert dynamic_values["ADPSONLY"] == "false"
+        assert dynamic_values["H_POSITION_MODEL"] == "fixed"
         assert dynamic_values["REFHPOS"] == "false"
         assert dynamic_values["REFUISO"] == "false"
         assert dynamic_values["REFHADP"] == "false"
