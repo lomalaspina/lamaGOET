@@ -131,6 +131,58 @@ class RunnerRegressionTest(unittest.TestCase):
                     fourth_only,
                 )
 
+    @unittest.skipUnless(
+        os.name == "posix" and shutil.which("bash"),
+        "generated IAM refinement-control test requires bash",
+    )
+    def test_iam_input_honours_hydrogen_freeze_controls(self):
+        for runner, text in self.runner_text.items():
+            definition = (
+                "WRITE_EXTINCTION_OPTIONS(){ :; }\n"
+                + "TONTO_IAM_BLOCK(){\n"
+                + function_body(text, "TONTO_IAM_BLOCK")
+            )
+            with self.subTest(runner=runner), tempfile.TemporaryDirectory() as directory:
+                script = (
+                    definition
+                    + '\nSCFCALCPROG="Tonto"\n'
+                    + 'INITADP="true"\n'
+                    + 'REFANHARM="false"\n'
+                    + 'DISP="true"\n'
+                    + 'WAVE="0.71073"\n'
+                    + 'ISFCF="false"\n'
+                    + 'HKL="test.hkl"\n'
+                    + 'MERGCODE="2"\n'
+                    + 'FCUT="4"\n'
+                    + 'MINCORCOEF=""\n'
+                    + 'USENOSPHERA2="false"\n'
+                    + 'CONVTOL="0.01"\n'
+                    + 'HADP="no"\n'
+                    + 'POSONLY="false"\n'
+                    + 'ADPSONLY="false"\n'
+                    + 'REFHADP="false"\n'
+                    + 'REFHPOS="false"\n'
+                    + 'REFNOTHING="false"\n'
+                    + 'REFUISO="false"\n'
+                    + 'MAXLSCYCLE="12"\n'
+                    + 'DEFRAGNETW="false"\n'
+                    + 'ONLYIAMTONTO="false"\n'
+                    + 'JOBNAME="iam-freeze-test"\n'
+                    + 'TONTO_IAM_BLOCK\n'
+                    + 'cat stdin\n'
+                )
+                result = subprocess.run(
+                    ["bash", "-c", script],
+                    cwd=directory,
+                    text=True,
+                    capture_output=True,
+                    check=True,
+                )
+            self.assertIn("refine_H_U_iso= no", result.stdout)
+            self.assertIn("refine_H_ADPs= false", result.stdout)
+            self.assertIn("refine_H_positions= false", result.stdout)
+            self.assertIn("max_iterations= 12", result.stdout)
+
     def test_tonto_version_uses_supported_long_option(self):
         for name, text in self.runner_text.items():
             with self.subTest(runner=name):

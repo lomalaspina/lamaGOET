@@ -3583,8 +3583,33 @@ TONTO_IAM_BLOCK(){
 		echo "         min_correlation= $MINCORCOEF"  >> stdin
 	fi
         if [[ "$USENOSPHERA2" != "true" ]]; then
-	        echo "         tol_for_shift_on_esd= $CONVTOL" >> stdin
-	        echo "         refine_H_U_iso= yes" >> stdin
+                echo "         tol_for_shift_on_esd= $CONVTOL" >> stdin
+                echo "         refine_H_U_iso= ${HADP:-no}" >> stdin
+                if [ "$POSONLY" = "true" ]; then
+                        echo "         refine_positions_only= $POSONLY" >> stdin
+                fi
+                if [ "$ADPSONLY" = "true" ]; then
+                        echo "         refine_ADPs_only= $ADPSONLY" >> stdin
+                fi
+                if [ "$REFHADP" = "false" ]; then
+                        if [ "$ADPSONLY" != "true" ]; then
+                                echo "         refine_H_ADPs= $REFHADP" >> stdin
+                        fi
+                fi
+                if [ "$REFHPOS" = "false" ]; then
+                        if [ "$ADPSONLY" != "true" ]; then
+                                echo "         refine_H_positions= $REFHPOS" >> stdin
+                        fi
+                fi
+                if [ "$REFNOTHING" = "true" ]; then
+                        echo "         refine_nothing_for_atoms= { $ATOMLIST }" >> stdin
+                fi
+                if [ "$REFUISO" = "true" ]; then
+                        echo "         refine_u_iso_for_atoms= { $ATOMUISOLIST }" >> stdin
+                fi
+                if [[ "$MAXLSCYCLE" != "" ]]; then
+                        echo "         max_iterations= $MAXLSCYCLE" >> stdin
+                fi
         fi
 	echo "" >> stdin
 	echo "         show_fit_output= true" >> stdin
