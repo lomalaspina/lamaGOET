@@ -96,7 +96,15 @@ publisher or software project wherever possible.
 
     The [official SHELXL command
     list](https://shelx.uni-goettingen.de/shelxl_comlist.pdf) documents `FMAP 2`
-    as an $F_o-F_c$ synthesis using calculated phases.
+    as an $F_o-F_c$ synthesis using calculated phases.  The
+    [official online instruction
+    reference](https://shelx.uni-goettingen.de/shelxl_html.php) defines
+    `DAMP` as multiplication of the normal-matrix diagonal by
+    $1+d/1000$ and documents its `LIMSE` shift/esd limit.
+    The [official Olex2 refinement
+    documentation](https://www.olexsys.org/olex2/docs/tasks/tasks/structure-refinement/)
+    provides a software-level comparison of full-matrix/conjugate-gradient
+    least squares and its Gauss--Newton and Levenberg--Marquardt solvers.
 
 ## Periodic electronic-structure programs
 

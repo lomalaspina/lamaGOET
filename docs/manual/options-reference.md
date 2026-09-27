@@ -167,6 +167,24 @@ reported statistics and parameter uncertainties refer to a different
 objective from the one actually minimized.  Apply the suggested A and B in a
 subsequent calculation only after inspecting the model and data quality.
 
+## Nonlinear least-squares solver
+
+| Variable | Default | Meaning |
+|---|---|---|
+| `TONTO_LEAST_SQUARES_SOLVER` | `gauss-newton` | `gauss-newton`, `shelxl-damped`, or `levenberg-marquardt`; all minimize the same selected weighted objective |
+| `SHELXL_DAMP` | `0.7` | nonnegative SHELXL-style diagonal damping coefficient $d$; the multiplier is $1+d/1000$ |
+| `SHELXL_LIMSE` | `15` | nonnegative ceiling on the largest structural shift/esd for a fixed-damping step; zero computes uncertainties without applying a shift |
+| `LM_INITIAL_LAMBDA` | `1.0E-3` | positive initial Levenberg--Marquardt trust/damping parameter |
+| `LM_LAMBDA_UP` | `10` | factor greater than one applied after a rejected LM trial |
+| `LM_LAMBDA_DOWN` | `0.1` | factor strictly between zero and one applied after an accepted LM trial |
+| `LM_MAX_TRIALS` | `8` | maximum trial steps attempted from one accepted model before stopping safely |
+
+The Gauss--Newton default is intentionally omitted from generated Tonto input,
+so an unchanged lamaGOET job remains usable with a Tonto executable that
+predates selectable solvers.  Fixed-damping and LM controls are written only
+for their respective modes.  Solver selection is independent of
+`TONTO_REFINEMENT_TARGET` and `TONTO_WEIGHTING_SCHEME`.
+
 ## Molecular environment
 
 | Variable | Default | Meaning |

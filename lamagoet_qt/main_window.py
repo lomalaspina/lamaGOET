@@ -1462,6 +1462,77 @@ class MainWindow(QMainWindow):
         weighting_form.addRow("WGHT parameters A-F", self.tonto_weighting_parameters)
         form.addRow(self.tonto_weighting_group)
 
+        self.tonto_solver_group = QGroupBox("Nonlinear least-squares solver")
+        solver_form = QFormLayout(self.tonto_solver_group)
+        self.tonto_least_squares_solver = QComboBox()
+        self.tonto_least_squares_solver.addItem(
+            "Gauss-Newton (Tonto default)", "gauss-newton"
+        )
+        self.tonto_least_squares_solver.addItem(
+            "SHELXL-style fixed damping", "shelxl-damped"
+        )
+        self.tonto_least_squares_solver.addItem(
+            "Adaptive Levenberg-Marquardt", "levenberg-marquardt"
+        )
+        self.tonto_least_squares_solver.currentIndexChanged.connect(
+            self._solver_controls_changed
+        )
+        solver_form.addRow("Solver", self.tonto_least_squares_solver)
+        self.tonto_solver_explanation = QLabel()
+        self.tonto_solver_explanation.setWordWrap(True)
+        solver_form.addRow(self.tonto_solver_explanation)
+
+        self.tonto_shelxl_damping_parameters = QWidget()
+        shelxl_damping_form = QFormLayout(
+            self.tonto_shelxl_damping_parameters
+        )
+        shelxl_damping_form.setContentsMargins(0, 0, 0, 0)
+        self.shelxl_damp = QDoubleSpinBox()
+        self.shelxl_damp.setRange(0.0, 1.0e9)
+        self.shelxl_damp.setDecimals(6)
+        self.shelxl_damp.setValue(0.7)
+        self.shelxl_damp.setToolTip(
+            "Nonnegative fixed diagonal damping parameter."
+        )
+        shelxl_damping_form.addRow("DAMP", self.shelxl_damp)
+        self.shelxl_limse = QDoubleSpinBox()
+        self.shelxl_limse.setRange(0.0, 1.0e9)
+        self.shelxl_limse.setDecimals(6)
+        self.shelxl_limse.setValue(15.0)
+        self.shelxl_limse.setToolTip(
+            "Maximum shift/esd applied uniformly to non-scale parameters; "
+            "zero computes uncertainties without applying a structural shift."
+        )
+        shelxl_damping_form.addRow("LIMSE (maximum shift/esd)", self.shelxl_limse)
+        solver_form.addRow(
+            "Fixed damping controls", self.tonto_shelxl_damping_parameters
+        )
+
+        self.tonto_lm_parameters = QWidget()
+        lm_form = QFormLayout(self.tonto_lm_parameters)
+        lm_form.setContentsMargins(0, 0, 0, 0)
+        self.lm_initial_lambda = QDoubleSpinBox()
+        self.lm_initial_lambda.setRange(1.0e-12, 1.0e12)
+        self.lm_initial_lambda.setDecimals(12)
+        self.lm_initial_lambda.setValue(1.0e-3)
+        lm_form.addRow("Initial lambda", self.lm_initial_lambda)
+        self.lm_lambda_up = QDoubleSpinBox()
+        self.lm_lambda_up.setRange(1.000001, 1.0e9)
+        self.lm_lambda_up.setDecimals(6)
+        self.lm_lambda_up.setValue(10.0)
+        lm_form.addRow("Rejected-step lambda multiplier", self.lm_lambda_up)
+        self.lm_lambda_down = QDoubleSpinBox()
+        self.lm_lambda_down.setRange(1.0e-9, 0.999999999)
+        self.lm_lambda_down.setDecimals(9)
+        self.lm_lambda_down.setValue(0.1)
+        lm_form.addRow("Accepted-step lambda multiplier", self.lm_lambda_down)
+        self.lm_max_trials = QSpinBox()
+        self.lm_max_trials.setRange(1, 1000)
+        self.lm_max_trials.setValue(8)
+        lm_form.addRow("Maximum trial steps", self.lm_max_trials)
+        solver_form.addRow("Adaptive LM controls", self.tonto_lm_parameters)
+        form.addRow(self.tonto_solver_group)
+
         # Keep every HAR-level Crystal23 control together in Advanced HAR. The
         # executable path remains in Settings, while XCW-only/shared periodic
         # export controls remain in their own purpose-specific sections.
@@ -2280,6 +2351,22 @@ class MainWindow(QMainWindow):
                 )
             )
         self._weighting_controls_changed()
+        solver = self._option(
+            "TONTO_LEAST_SQUARES_SOLVER", "gauss-newton"
+        ).lower().replace("_", "-")
+        solver_index = self.tonto_least_squares_solver.findData(solver)
+        self.tonto_least_squares_solver.setCurrentIndex(max(0, solver_index))
+        self.shelxl_damp.setValue(self._float_option("SHELXL_DAMP", 0.7))
+        self.shelxl_limse.setValue(self._float_option("SHELXL_LIMSE", 15.0))
+        self.lm_initial_lambda.setValue(
+            self._float_option("LM_INITIAL_LAMBDA", 1.0e-3)
+        )
+        self.lm_lambda_up.setValue(self._float_option("LM_LAMBDA_UP", 10.0))
+        self.lm_lambda_down.setValue(
+            self._float_option("LM_LAMBDA_DOWN", 0.1)
+        )
+        self.lm_max_trials.setValue(self._int_option("LM_MAX_TRIALS", 8))
+        self._solver_controls_changed()
         self.max_ls_cycles.setValue(self._int_option("MAXLSCYCLE", 30))
         self.max_xtal_cycles.setText(self._option("MAXXTALCYCLE"))
         self.crystal_biposize.setText(self._option("BIPOSIZE"))
@@ -2729,6 +2816,38 @@ class MainWindow(QMainWindow):
                 "A-F values are ignored."
             )
         self.tonto_weighting_explanation.setText(explanation)
+
+    def _solver_controls_changed(self, *_args) -> None:
+        solver = self.tonto_least_squares_solver.currentData()
+        shelxl_damped = solver == "shelxl-damped"
+        levenberg_marquardt = solver == "levenberg-marquardt"
+        self.tonto_shelxl_damping_parameters.setVisible(shelxl_damped)
+        self.tonto_lm_parameters.setVisible(levenberg_marquardt)
+        if shelxl_damped:
+            explanation = (
+                "Uses the same nonlinear weighted least-squares objective as "
+                "Gauss-Newton, but applies a fixed SHELXL-style diagonal "
+                "multiplier and a LIMSE shift/esd cap. Damped curvature can "
+                "underestimate ESDs; use a final Gauss-Newton cycle for "
+                "reported uncertainties when the model is stable."
+            )
+        elif levenberg_marquardt:
+            explanation = (
+                "Adaptive Levenberg-Marquardt solves the same nonlinear "
+                "weighted least-squares objective, rejecting materially "
+                "worsening trial "
+                "steps and adapting lambda. It is safer for difficult or "
+                "oscillating fits; use a final Gauss-Newton cycle for "
+                "reported uncertainties when practical."
+            )
+        else:
+            explanation = (
+                "Tonto already performs nonlinear least squares: each "
+                "Gauss-Newton iteration linearizes the model and solves the "
+                "full dense normal matrix. This default preserves established "
+                "lamaGOET/Tonto results and covariance estimates."
+            )
+        self.tonto_solver_explanation.setText(explanation)
 
     def _grow_mode_changed(self) -> None:
         mode = self.grow_mode.currentData()
@@ -3662,6 +3781,15 @@ class MainWindow(QMainWindow):
                     "ABCDEF", self.shelxl_weight_parameters
                 )
             },
+            "TONTO_LEAST_SQUARES_SOLVER": (
+                self.tonto_least_squares_solver.currentData()
+            ),
+            "SHELXL_DAMP": self.shelxl_damp.value(),
+            "SHELXL_LIMSE": self.shelxl_limse.value(),
+            "LM_INITIAL_LAMBDA": self.lm_initial_lambda.value(),
+            "LM_LAMBDA_UP": self.lm_lambda_up.value(),
+            "LM_LAMBDA_DOWN": self.lm_lambda_down.value(),
+            "LM_MAX_TRIALS": self.lm_max_trials.value(),
             "MAXLSCYCLE": self.max_ls_cycles.value(),
             "MAXXTALCYCLE": self.max_xtal_cycles.text().strip(),
             "BIPOSIZE": self.crystal_biposize.text().strip(),

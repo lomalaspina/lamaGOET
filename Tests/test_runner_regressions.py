@@ -88,6 +88,7 @@ class RunnerRegressionTest(unittest.TestCase):
             definition = (
                 "WRITE_EXTINCTION_OPTIONS(){ :; }\n"
                 + "WRITE_TONTO_WEIGHTING_OPTIONS(){ :; }\n"
+                + "WRITE_TONTO_SOLVER_OPTIONS(){ :; }\n"
                 + "TONTO_IAM_BLOCK(){\n"
                 + function_body(text, "TONTO_IAM_BLOCK")
             )
@@ -152,6 +153,7 @@ class RunnerRegressionTest(unittest.TestCase):
             definition = (
                 "WRITE_EXTINCTION_OPTIONS(){ :; }\n"
                 + "WRITE_TONTO_WEIGHTING_OPTIONS(){ :; }\n"
+                + "WRITE_TONTO_SOLVER_OPTIONS(){ :; }\n"
                 + "TONTO_IAM_BLOCK(){\n"
                 + function_body(text, "TONTO_IAM_BLOCK")
             )
@@ -1034,6 +1036,118 @@ class RunnerRegressionTest(unittest.TestCase):
                 self.assertIn("weighting_scheme= shelxl", options)
                 for letter in "abcdef":
                     self.assertIn(f"shelxl_weight_{letter}=", options)
+
+    def test_solver_selection_reaches_every_xray_data_block(self):
+        for name, text in self.runner_text.items():
+            for function in (
+                "TONTO_IAM_BLOCK",
+                "CRYSTAL_BLOCK",
+                "PERIODIC_XCW_CRYSTAL_BLOCK",
+            ):
+                with self.subTest(runner=name, function=function):
+                    body = function_body(text, function)
+                    self.assertIn("WRITE_TONTO_SOLVER_OPTIONS", body)
+            with self.subTest(runner=name, function="solver options"):
+                options = function_body(text, "WRITE_TONTO_SOLVER_OPTIONS")
+                self.assertIn(
+                    '${TONTO_LEAST_SQUARES_SOLVER:-gauss-newton}', options
+                )
+                self.assertIn("least_squares_solver= shelxl-damped", options)
+                self.assertIn("shelxl_damp= ${SHELXL_DAMP:-0.7}", options)
+                self.assertIn("shelxl_limse= ${SHELXL_LIMSE:-15}", options)
+                self.assertIn(
+                    "least_squares_solver= levenberg-marquardt", options
+                )
+                self.assertIn(
+                    "lm_initial_lambda= ${LM_INITIAL_LAMBDA:-1.0E-3}",
+                    options,
+                )
+                self.assertIn("lm_lambda_up= ${LM_LAMBDA_UP:-10}", options)
+                self.assertIn(
+                    "lm_lambda_down= ${LM_LAMBDA_DOWN:-0.1}", options
+                )
+                self.assertIn("lm_max_trials= ${LM_MAX_TRIALS:-8}", options)
+
+    @unittest.skipUnless(
+        os.name == "posix" and shutil.which("bash"),
+        "generated solver-input test requires bash",
+    )
+    def test_generated_solver_options_preserve_gauss_newton_default(self):
+        for runner, text in self.runner_text.items():
+            definition = (
+                '_lower(){ printf "%s" "$1" | tr "[:upper:]" "[:lower:]"; }\n'
+                + "WRITE_TONTO_SOLVER_OPTIONS(){\n"
+                + function_body(text, "WRITE_TONTO_SOLVER_OPTIONS")
+            )
+            cases = (
+                ("gauss-newton", (), False),
+                (
+                    "shelxl-damped",
+                    (
+                        "least_squares_solver= shelxl-damped",
+                        "shelxl_damp= 1.25",
+                        "shelxl_limse= 8",
+                    ),
+                    True,
+                ),
+                (
+                    "levenberg-marquardt",
+                    (
+                        "least_squares_solver= levenberg-marquardt",
+                        "lm_initial_lambda= 2.5E-4",
+                        "lm_lambda_up= 12",
+                        "lm_lambda_down= 0.2",
+                        "lm_max_trials= 17",
+                    ),
+                    True,
+                ),
+            )
+            for solver, expected, emits_solver in cases:
+                with (
+                    self.subTest(runner=runner, solver=solver),
+                    tempfile.TemporaryDirectory() as directory,
+                ):
+                    script = (
+                        definition
+                        + f'\nTONTO_LEAST_SQUARES_SOLVER="{solver}"\n'
+                        + 'SHELXL_DAMP="1.25"\n'
+                        + 'SHELXL_LIMSE="8"\n'
+                        + 'LM_INITIAL_LAMBDA="2.5E-4"\n'
+                        + 'LM_LAMBDA_UP="12"\n'
+                        + 'LM_LAMBDA_DOWN="0.2"\n'
+                        + 'LM_MAX_TRIALS="17"\n'
+                        + "WRITE_TONTO_SOLVER_OPTIONS\n"
+                        + "cat stdin 2>/dev/null || true\n"
+                    )
+                    result = subprocess.run(
+                        ["bash", "-c", script],
+                        cwd=directory,
+                        text=True,
+                        capture_output=True,
+                        check=True,
+                    )
+                self.assertEqual(
+                    "least_squares_solver=" in result.stdout, emits_solver
+                )
+                for line in expected:
+                    self.assertIn(line, result.stdout)
+
+            with tempfile.TemporaryDirectory() as directory:
+                result = subprocess.run(
+                    [
+                        "bash",
+                        "-c",
+                        definition
+                        + '\nTONTO_LEAST_SQUARES_SOLVER="not-a-solver"\n'
+                        + "WRITE_TONTO_SOLVER_OPTIONS\n",
+                    ],
+                    cwd=directory,
+                    text=True,
+                    capture_output=True,
+                    check=False,
+                )
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("Unsupported TONTO_LEAST_SQUARES_SOLVER", result.stderr)
 
     @unittest.skipUnless(
         os.name == "posix" and shutil.which("bash"),

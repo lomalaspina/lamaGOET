@@ -266,6 +266,47 @@ refinement without first matching input normalization, selected observations,
 refined parameters, and correction models, remembering that the weigting scheme
 will always be different between the two.
 
+## Nonlinear least-squares step solvers
+
+The crystallographic model is nonlinear in atomic coordinates, displacement
+parameters, scale, and (when selected) extinction parameters.  Tonto therefore
+repeats two operations: it evaluates the current calculated structure factors
+and their Jacobian, then solves the **full dense normal matrix** for a local
+parameter step.  Calling the established algorithm *Gauss--Newton* does not
+mean that it is a linear refinement or a diagonal approximation; it describes
+the local linearization used to solve the nonlinear problem.
+
+Three step controllers are available, without changing the selected $F$ or
+$F^2$ objective or its weights:
+
+- **Gauss--Newton** is the established Tonto default.  lamaGOET emits no new
+  solver keyword in this mode, preserving compatibility with older Tonto
+  executables and established results.
+- **SHELXL-style fixed damping** multiplies every diagonal normal-matrix
+  element by $1+d/1000$ before inversion, where $d$ is `SHELXL_DAMP`.  If the
+  largest structural shift/esd exceeds `SHELXL_LIMSE`, all structural shifts
+  are scaled by the same factor.  Tonto profiles the overall scale separately,
+  so it is not part of this cap.  A zero `SHELXL_LIMSE` therefore computes
+  uncertainties but applies no structural shift.  This follows the published SHELXL `DAMP`
+  definition; damping changes curvature-derived uncertainties, so final
+  reportable uncertainties should come from a stable undamped cycle.
+- **Adaptive Levenberg--Marquardt** solves
+  $(J^T WJ+\lambda\,\mathrm{diag}(J^T WJ))\,\Delta x=J^TWr$.
+  A trial is retained only when the complete nonlinear objective does not
+  increase beyond its established numerical tolerance (including the existing
+  iteratively reweighted $F^2$/SHELXL tolerance). Rejected trials are rolled
+  back exactly and retried with a larger $\lambda$; accepted trials reduce
+  $\lambda$. If no acceptable step is found
+  within `LM_MAX_TRIALS`, Tonto stops at the last accepted model rather than
+  leaving a materially uphill geometry. The final covariance is refreshed
+  from the undamped curvature at that accepted geometry.
+
+Fixed damping is useful when a known conservative step is wanted.  Adaptive
+LM is preferable for an unstable or oscillatory starting model because it
+tests the actual nonlinear objective rather than accepting every linearized
+step.  Neither method repairs an incorrect model, reflection set, weighting
+law, or near-singular parameterization.
+
 ## Scale and extinction
 
 For an F refinement without extinction, Tonto minimizes weighted residuals of

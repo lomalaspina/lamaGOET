@@ -1042,7 +1042,7 @@ RESOLVE_H_POSITION_MODEL(){
 			*) requested="refine" ;;
 		esac
 	fi
-	requested="${requested,,}"
+	requested=$(printf '%s' "$requested" | tr '[:upper:]' '[:lower:]')
 	case "$requested" in
 		refine|free)
 			H_POSITION_MODEL="refine"
@@ -1432,6 +1432,35 @@ WRITE_TONTO_WEIGHTING_OPTIONS(){
 	esac
 }
 
+WRITE_TONTO_SOLVER_OPTIONS(){
+	local solver
+	solver=$(_lower "${TONTO_LEAST_SQUARES_SOLVER:-gauss-newton}")
+	solver=${solver//_/-}
+	case "$solver" in
+		""|gauss-newton)
+			# Preserve the established Tonto solver and compatibility with
+			# executables that predate selectable nonlinear LS solvers.
+			return 0
+			;;
+		shelxl-damped)
+			echo "         least_squares_solver= shelxl-damped" >> stdin
+			echo "         shelxl_damp= ${SHELXL_DAMP:-0.7}" >> stdin
+			echo "         shelxl_limse= ${SHELXL_LIMSE:-15}" >> stdin
+			;;
+		levenberg-marquardt)
+			echo "         least_squares_solver= levenberg-marquardt" >> stdin
+			echo "         lm_initial_lambda= ${LM_INITIAL_LAMBDA:-1.0E-3}" >> stdin
+			echo "         lm_lambda_up= ${LM_LAMBDA_UP:-10}" >> stdin
+			echo "         lm_lambda_down= ${LM_LAMBDA_DOWN:-0.1}" >> stdin
+			echo "         lm_max_trials= ${LM_MAX_TRIALS:-8}" >> stdin
+			;;
+		*)
+			echo "ERROR: Unsupported TONTO_LEAST_SQUARES_SOLVER '${TONTO_LEAST_SQUARES_SOLVER}'. Use gauss-newton, shelxl-damped, or levenberg-marquardt." | tee -a "${JOBNAME:-lamaGOET}.lst" >&2
+			return 1
+			;;
+	esac
+}
+
 CHARGE_MULT(){
 	echo "   charge= $CHARGE" >> stdin       
 	echo "   multiplicity= $MULTIPLICITY" >> stdin
@@ -1446,6 +1475,7 @@ TONTO_IAM_BLOCK(){
 	fi
 	echo "      xray_data= {   " >> stdin
 	WRITE_TONTO_WEIGHTING_OPTIONS || return 1
+	WRITE_TONTO_SOLVER_OPTIONS || return 1
 	WRITE_EXTINCTION_OPTIONS
 	echo "         correct_dispersion= $DISP" >> stdin
 	echo "         wavelength= $WAVE Angstrom" >> stdin
@@ -1603,6 +1633,7 @@ CRYSTAL_BLOCK(){
 	if [[ "$SCFCALCPROG" != "optgaussian" && "$SCFCALCPROG" != "optorca" ]]; then 
 		echo "      xray_data= {   " >> stdin
 		WRITE_TONTO_WEIGHTING_OPTIONS || return 1
+		WRITE_TONTO_SOLVER_OPTIONS || return 1
 	        if [[ "$POWDER_HAR" != "true" ]]; then 
                         # Tonto's thermal_smearing_model= keyword is gone. Its job -- choosing
                         # how the density is partitioned before thermal smearing -- now belongs
@@ -3427,6 +3458,7 @@ PERIODIC_XCW_CRYSTAL_BLOCK(){
 	echo "      r_free_selection= deterministic" >> stdin
 	echo "      xray_data= {" >> stdin
 	WRITE_TONTO_WEIGHTING_OPTIONS || return 1
+	WRITE_TONTO_SOLVER_OPTIONS || return 1
 	echo "         partition_model= oc-crystal23" >> stdin
 	echo "         stockholder_model= ${STOCKHOLDER_MODEL:-periodic}" >> stdin
 	echo "         output_Hirshfeld_atom_cubes= ${OUTPUT_HIRSHFELD_ATOM_CUBES:-false}" >> stdin

@@ -72,6 +72,13 @@ class JobOptionsTest(unittest.TestCase):
         self.assertEqual(values["REFHPOS"], "true")
         self.assertEqual(values["TONTO_REFINEMENT_TARGET"], "f")
         self.assertEqual(values["TONTO_WEIGHTING_SCHEME"], "sigma")
+        self.assertEqual(values["TONTO_LEAST_SQUARES_SOLVER"], "gauss-newton")
+        self.assertEqual(values["SHELXL_DAMP"], "0.7")
+        self.assertEqual(values["SHELXL_LIMSE"], "15")
+        self.assertEqual(values["LM_INITIAL_LAMBDA"], "1.0E-3")
+        self.assertEqual(values["LM_LAMBDA_UP"], "10")
+        self.assertEqual(values["LM_LAMBDA_DOWN"], "0.1")
+        self.assertEqual(values["LM_MAX_TRIALS"], "8")
         self.assertEqual(values["SHELXL_WEIGHT_A"], "0.1")
         for letter in "BCDE":
             self.assertEqual(values[f"SHELXL_WEIGHT_{letter}"], "0.0")
@@ -218,6 +225,32 @@ class JobOptionsTest(unittest.TestCase):
         self.assertEqual(result["SHELXL_WEIGHT_D"], "-0.5")
         self.assertEqual(result["SHELXL_WEIGHT_E"], "1.25")
         self.assertEqual(result["SHELXL_WEIGHT_F"], "0.75")
+
+    def test_tonto_solver_options_round_trip(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "job_options.txt"
+            save_job_options(
+                path,
+                {
+                    "TONTO_LEAST_SQUARES_SOLVER": "levenberg-marquardt",
+                    "SHELXL_DAMP": "1.25",
+                    "SHELXL_LIMSE": "8",
+                    "LM_INITIAL_LAMBDA": "2.5E-4",
+                    "LM_LAMBDA_UP": "12",
+                    "LM_LAMBDA_DOWN": "0.2",
+                    "LM_MAX_TRIALS": "17",
+                },
+            )
+            result = load_job_options(path)
+        self.assertEqual(
+            result["TONTO_LEAST_SQUARES_SOLVER"], "levenberg-marquardt"
+        )
+        self.assertEqual(result["SHELXL_DAMP"], "1.25")
+        self.assertEqual(result["SHELXL_LIMSE"], "8")
+        self.assertEqual(result["LM_INITIAL_LAMBDA"], "2.5E-4")
+        self.assertEqual(result["LM_LAMBDA_UP"], "12")
+        self.assertEqual(result["LM_LAMBDA_DOWN"], "0.2")
+        self.assertEqual(result["LM_MAX_TRIALS"], "17")
 
     def test_hydrogen_position_model_migrates_and_mirrors_legacy_boolean(self):
         with tempfile.TemporaryDirectory() as directory:

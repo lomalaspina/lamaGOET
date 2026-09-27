@@ -211,11 +211,20 @@ Executable and basis-file paths are on **Settings**.
 | Least-squares target | `TONTO_REFINEMENT_TARGET` | refine against $F$ amplitudes (default) or $F^2$ intensities independently of the weighting law |
 | Weighting scheme | `TONTO_WEIGHTING_SCHEME` | keep Tonto inverse-sigma weighting (default, supports either target) or use SHELXL WGHT, which automatically requires $F^2$ |
 | WGHT parameters A--F | `SHELXL_WEIGHT_A` ... `SHELXL_WEIGHT_F` | complete coefficients from the corresponding SHELXL `WGHT` instruction; shown only for the SHELXL scheme |
+| Nonlinear least-squares solver | `TONTO_LEAST_SQUARES_SOLVER` | established full-matrix Gauss--Newton, SHELXL-style fixed damping, or adaptive Levenberg--Marquardt; applies to the Tonto geometry fit for every HAR backend |
+| DAMP / LIMSE | `SHELXL_DAMP`, `SHELXL_LIMSE` | fixed diagonal multiplier control and uniform structural shift/esd ceiling; visible only for SHELXL-style damping |
+| LM initial lambda / up / down / maximum trials | `LM_INITIAL_LAMBDA`, `LM_LAMBDA_UP`, `LM_LAMBDA_DOWN`, `LM_MAX_TRIALS` | adaptive retry controls; visible only for Levenberg--Marquardt |
 
 For an $F^2$/SHELXL calculation, Tonto reports a variance-flattening A--B
 recommendation for the **next** least-squares fit.  lamaGOET never adopts it
 silently during the fit that generated it; copy the proposed values into the
 WGHT fields only after reviewing the refinement and the binned variance.
+
+The solver selector changes how Tonto accepts a nonlinear parameter step; it
+does not change the target or weighting selected above it.  Gauss--Newton is
+the compatibility default and emits no solver keyword.  The explanatory text
+in the GUI states the active algorithm and the uncertainty limitation of fixed
+damping.
 | Maximum Crystal cycles | `MAXXTALCYCLE` | Crystal23 SCF cap; blank automatic |
 | Crystal BIPOSIZE | `BIPOSIZE` | optional Crystal Coulomb buffer size |
 | Crystal ILASIZE | `ILASIZE` | optional Crystal ILA array dimension |

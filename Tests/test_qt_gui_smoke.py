@@ -86,6 +86,11 @@ def main() -> int:
         assert window.tonto_refinement_target.isEnabled()
         assert window.tonto_weighting_scheme.currentData() == "sigma"
         assert window.tonto_weighting_parameters.isHidden()
+        assert window.tonto_least_squares_solver.currentData() == "gauss-newton"
+        assert window.tonto_shelxl_damping_parameters.isHidden()
+        assert window.tonto_lm_parameters.isHidden()
+        assert window.shelxl_limse.minimum() == 0.0
+        assert "full dense normal matrix" in window.tonto_solver_explanation.text()
         assert window.shelxl_weight_parameters[-1].minimum() == 0.0
         assert window.shelxl_weight_parameters[-1].maximum() == 1.0
         assert window.shelxl_weight_parameters[0].minimum() < 0.0
@@ -122,6 +127,34 @@ def main() -> int:
         assert weighting_values["SHELXL_WEIGHT_D"] == -0.5
         assert weighting_values["SHELXL_WEIGHT_E"] == 1.25
         assert weighting_values["SHELXL_WEIGHT_F"] == 0.75
+        window.tonto_least_squares_solver.setCurrentIndex(
+            window.tonto_least_squares_solver.findData("shelxl-damped")
+        )
+        assert not window.tonto_shelxl_damping_parameters.isHidden()
+        assert window.tonto_lm_parameters.isHidden()
+        window.shelxl_damp.setValue(1.25)
+        window.shelxl_limse.setValue(8.0)
+        fixed_damping_values = window._current_values()
+        assert fixed_damping_values["TONTO_LEAST_SQUARES_SOLVER"] == (
+            "shelxl-damped"
+        )
+        assert fixed_damping_values["SHELXL_DAMP"] == 1.25
+        assert fixed_damping_values["SHELXL_LIMSE"] == 8.0
+        window.tonto_least_squares_solver.setCurrentIndex(
+            window.tonto_least_squares_solver.findData("levenberg-marquardt")
+        )
+        assert window.tonto_shelxl_damping_parameters.isHidden()
+        assert not window.tonto_lm_parameters.isHidden()
+        window.lm_initial_lambda.setValue(2.5e-4)
+        window.lm_lambda_up.setValue(12.0)
+        window.lm_lambda_down.setValue(0.2)
+        window.lm_max_trials.setValue(17)
+        lm_values = window._current_values()
+        assert lm_values["TONTO_LEAST_SQUARES_SOLVER"] == "levenberg-marquardt"
+        assert lm_values["LM_INITIAL_LAMBDA"] == 2.5e-4
+        assert lm_values["LM_LAMBDA_UP"] == 12.0
+        assert lm_values["LM_LAMBDA_DOWN"] == 0.2
+        assert lm_values["LM_MAX_TRIALS"] == 17
         assert window.xcw_mode.currentData() == "molecular"
         assert not window.molecular_xcw_options.isHidden()
         assert window.periodic_xcw_options.isHidden()
@@ -241,6 +274,16 @@ def main() -> int:
         assert not reloaded.tonto_refinement_target.isEnabled()
         assert reloaded.tonto_weighting_scheme.currentData() == "shelxl"
         assert not reloaded.tonto_weighting_parameters.isHidden()
+        assert (
+            reloaded.tonto_least_squares_solver.currentData()
+            == "levenberg-marquardt"
+        )
+        assert reloaded.tonto_shelxl_damping_parameters.isHidden()
+        assert not reloaded.tonto_lm_parameters.isHidden()
+        assert reloaded.lm_initial_lambda.value() == 2.5e-4
+        assert reloaded.lm_lambda_up.value() == 12.0
+        assert reloaded.lm_lambda_down.value() == 0.2
+        assert reloaded.lm_max_trials.value() == 17
         assert [
             parameter.value()
             for parameter in reloaded.shelxl_weight_parameters

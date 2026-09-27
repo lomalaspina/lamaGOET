@@ -29,7 +29,7 @@ development tests relevant to the present interfaces.
 
 ## Current lamaGOET suite
 
-On 24 September 2026, `bash Tests/run_all.sh` completed **30 test files: 30
+On 27 September 2026, `bash Tests/run_all.sh` completed **30 test files: 30
 passed, 0 failed, 0 skipped** on Linux x86-64, Bash 5.2.21, using the
 repository `.venv-qt` Python. The suite included six shell tests and
 twenty-four Python tests.
@@ -46,7 +46,7 @@ twenty-four Python tests.
 | Basis Set Exchange | Program-specific terminators, Crystal23 shell charges/order, or lookup behavior regress | Format and conversion fixtures match their consumers |
 | Periodic/finite wavefunction export | `GEN` is mistaken for a Tonto basis, or periodic and finite outputs are conflated | Export preconditions, metadata, and explicit boundaries pass |
 | Scientific archive integrity | Historical cases or expected numbers are silently deleted/rewritten | All ten case directories and exact CIF scalars match the manifest |
-| Documentation option contract | A GUI/schema option is added without a manual definition | All 208 canonical `OPTION_DEFAULTS` keys occur in the option reference |
+| Documentation option contract | A GUI/schema option is added without a manual definition | All 225 canonical `OPTION_DEFAULTS` keys occur in the option reference |
 
 The suite does not invoke licensed programs and does not prove numerical
 equivalence of a fresh HAR. Live scientific calculations remain opt-in.
@@ -586,11 +586,54 @@ showing that sampling is the dominant cause in this controlled case; modest
 calculated-amplitude differences remain. The comparison does not claim to
 reproduce undocumented SHELXL weak-data handling or Olex2/CCTBX internals.
 
+## Nonlinear least-squares solver controls
+
+**Question.** Can fixed SHELXL-style damping and adaptive
+Levenberg--Marquardt step control be added without changing the established
+Gauss--Newton result, and do the new paths behave correctly for both the
+ordinary structure fit and an in-memory HAR fit?
+
+**Design.** On 27 September 2026 the implementation was checked at three
+levels. A native unit executable exercised keyword aliases, defaults, fixed
+damping, a zero-shift `DAMP 0 0` calculation, LM acceptance, rejection,
+rollback, lambda adaptation, and trial exhaustion. Focused CTest regressions
+then covered the solver, SHELXL weighting, and residual-phase guard. Finally,
+the retained Epoxide control was run through the unchanged default, two fixed
+damping settings, stable and deliberately displaced LM starts, an
+$F^2$/SHELXL-weighted LM fit, and both overloads of the structure-fit routine.
+The NH3 RHF/DZP HAR case exercised the in-memory form-factor overload.
+
+| Control | Retained observation |
+|---|---|
+| Established Gauss--Newton default | Baseline and current stdout, archive CIF, archive FCO, statistics, and geometry were identical after removing build/time metadata; a repeated current run was deterministic |
+| SHELXL defaults (`DAMP 0.7 15`) | Epoxide converged in five iterations; $\chi^2$ 2.083909 to 2.039458, $R(F)=0.030703$, $R_w(F)=0.032601$ |
+| Deliberate shift cap (`DAMP 100 2`) | First maximum shift/esd was exactly 2.000000, verifying the uniform LIMSE cap |
+| ESD-only step (`DAMP 0 0`) | Two iterations completed with zero structural shift and no uninitialized diagnostic index |
+| Stable LM start | Accepted objective sequence 2.039607, 2.039462, 2.039458, 2.039458 and converged |
+| Deliberately displaced LM start | Rejected objectives near 190.55 and later 910.49/553.61 were rolled back; accepted objective fell from 12.640180 through 11.701975 to 2.574962 before convergence |
+| $F^2$ plus SHELXL WGHT and LM | Converged with final $R_1=0.031196$, $wR_2=0.073207$, and goodness of fit squared 1.180953; round-off-level IRLS changes used the established objective tolerance |
+| NH3 in-memory HAR plus LM | Six outer fits reduced final $\chi^2$ from 0.842 to 0.752 and maximum shift/esd from 9.565 to 0.004; final $R(F)=0.010$ and $R_w(F)=0.008$ |
+
+The focused automated gate passed **3/3** tests:
+`least_squares_solvers`, `shelxl_weighting`, and
+`residual_phase_guard`. The default path emits no solver keyword from
+lamaGOET, preserving compatibility with older Tonto executables.
+
+**Conclusion.** The default remains the established full-matrix
+Gauss--Newton calculation. Fixed damping reproduces the documented SHELXL
+diagonal multiplier and shift/esd cap; adaptive LM evaluates the actual
+nonlinear objective, rolls rejected trials back exactly, and stops at the last
+accepted model if its retry budget is exhausted. These checks validate step
+control and regression compatibility, not superiority for every model. A
+stable undamped final cycle remains the appropriate source of reported
+curvature-derived uncertainties.
+
 ## Tonto regression-suite context
 
-On 25 September 2026, the current Tonto tree passed **68/71** short tests,
-including the new algebraic residual-coefficient invariant. The
-new ORCA pure-spherical import and FILE47/WFN/WFX export regression passed.
+On 27 September 2026, the current Tonto tree passed **70/73** short tests,
+including the nonlinear least-squares solver, SHELXL weighting, and algebraic
+residual-coefficient invariants. The new ORCA pure-spherical import and
+FILE47/WFN/WFX export regression passed.
 Three pre-existing tests remained nonzero and are named rather than hidden:
 
 - `rgbi_doctor_selftest`, because this workstation still lacks the optional
