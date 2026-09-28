@@ -76,6 +76,13 @@ formatter sweep confirmed that H, C, N and Si expose `def2-TZVP` and
 Tonto export path; the GUI still filters all displayed choices through the
 selected exporter.
 
+The external-basis provenance is the published [Basis Set Exchange data
+model](https://doi.org/10.1021/acs.jcim.9b00725). The DKH smoke case exercises
+the Douglas--Kroll--Hess family ([Douglas and Kroll,
+1974](https://doi.org/10.1016/0003-4916(74)90333-9); [Hess,
+1986](https://doi.org/10.1103/PhysRevA.33.3742)); it is not a benchmark of
+relativistic energies or properties.
+
 The common FChk reader was also replayed against the retained real
 L-alanine ELMOdb checkpoint.  Its 76 shell records use positive Cartesian
 types, contain 156 basis functions, and were imported successfully by the
@@ -451,6 +458,11 @@ recomputed. A compact synthetic leave-and-re-enter reflection fixture remains
 a desirable publication gate even though the real-data repeated lifecycle is
 covered.
 
+The code-name semantics of `MERG` are cross-checked against the [official
+SHELXL instruction reference](https://shelx.uni-goettingen.de/shelxl_html.php),
+while the aspherical zero test is a Tonto extension and must be validated
+separately.
+
 ## Observed-density reconstruction
 
 **Question.** Does the constrained update incorporate chemically relevant
@@ -462,6 +474,10 @@ the model only on training reflections?
 The old inverse-σ step was compared with reliability preconditioning
 `F²/(F²+σF²)`, positivity/electron-count projections, phased targets,
 backtracking, and held-out one-standard-error selection.
+
+The atom-centred integration control refers to Becke's multicentre scheme
+([Becke, 1988](https://doi.org/10.1063/1.454033)); this test fixes one grid and
+does not replace an accuracy-convergence study.
 
 | Model | Held-out χ² | Residual max/min/r.m.s. (e Å⁻³) |
 |---|---:|---|
@@ -517,6 +533,12 @@ single scalar and listed its multiple coefficients in
 a real crystal requires an absorption-weighted mean path and data capable of
 supporting the selected model.
 
+Model names and archive requirements were checked against the [IUCr CIF Core
+extinction
+definition](https://www.iucr.org/__data/iucr/cifdic_html/3/CORE_DIC/Irefine_ls.extinction_method.html);
+the underlying Zachariasen--Larson and Becker--Coppens references are listed in
+{doc}`references`.
+
 ## Quartz scale-factor normalization
 
 **Question.** Was Tonto's scale one order of magnitude too large relative to a
@@ -556,6 +578,10 @@ second Tonto entry point then implemented the nominal published SHELXL FMAP 2
 coefficient $(F_o-F_c)\exp(i\phi_c)$ independently, while leaving Tonto's
 established residual routine unchanged and retaining the identical reflection
 population and grid. No unpublished sigma-dependent attenuation was introduced.
+
+The independent coefficient was taken from the [official SHELXL `FMAP`
+documentation](https://shelx.uni-goettingen.de/shelxl_html.php); the test does
+not infer behavior that the public instructions do not define.
 
 | Calculation | Grid | Minimum / maximum / r.m.s. (e Å⁻³) |
 |---|---|---|
@@ -628,12 +654,86 @@ control and regression compatibility, not superiority for every model. A
 stable undamped final cycle remains the appropriate source of reported
 curvature-derived uncertainties.
 
+The fixed multiplier and `LIMSE` interpretation are checked against the
+[official SHELXL `DAMP`
+documentation](https://shelx.uni-goettingen.de/shelxl_html.php). The adaptive
+path is grounded in [Levenberg
+(1944)](https://doi.org/10.1090/qam/10666) and [Marquardt
+(1963)](https://doi.org/10.1137/0111030), but the numerical checks above concern
+this implementation rather than claiming identity with another program.
+
+## Post-refinement Flack parameter
+
+**Question.** Does the optional absolute-structure analysis reproduce the
+Parsons-quotient result reported by SHELXL, while remaining a diagnostic after
+refinement rather than adding the Flack parameter to every least-squares
+matrix?
+
+**Design.** The retained anomalous-dispersion test was analysed with the
+origin-constrained quotient regression of Parsons, Flack and Wagner. For each
+retained Friedel pair,
+
+$$
+Q_{\mathrm{obs}}=\frac{I^+-I^-}{I^++I^-}, \qquad
+Q_{\mathrm{single}}=\frac{|F^+|^2-|F^-|^2}
+{|F^+|^2+|F^-|^2}.
+$$
+
+Only pairs for which both observations exceeded three standard uncertainties
+were admitted. The documented outlier test removed pairs whose observed
+Friedel difference exceeded twice the largest calculated single-domain
+difference. A weighted straight line constrained through the origin gave
+slope $m$, followed by $x=(1-m)/2$ and
+$u(x)=u(m)/2$. The test used the final scale and extinction treatment for
+the regression, while the outlier threshold used the unextinguished
+single-domain calculated amplitudes.
+
+| Control | Friedel-pair accounting | Flack x |
+|---|---|---:|
+| SHELXL retained result | 1,083 quotients | 0.046(24) |
+| Tonto replay of the final SHELXL FCF | 1,163 available; 1,086 strong; 3 outliers; 1,083 accepted | 0.045(23) |
+| Ordinary Tonto IAM plus archive-CIF output | 1,012 accepted pairs after the Tonto cutoff-4 reflection selection | 0.111(45) |
+
+The last row is intentionally not compared numerically with the first two: it
+uses a different retained reflection population. It verifies the normal
+post-refinement execution path and CIF serialization. The generated archive
+CIF contains `_refine_ls_abs_structure_Flack` together with
+`_refine_ls_abs_structure_details` identifying the Parsons-quotient method
+and its accepted-pair count.
+
+The option was also run both enabled and disabled on the same converged IAM.
+After normalizing only the job name and the intentional Flack CIF payload,
+the fractional and Cartesian CIFs, HBB CIF, archive FCO, archive FCF, and FCF6
+were byte-identical. With the option disabled, no Flack analysis appeared in
+stdout and the corresponding CIF items remained unknown (`.`).
+
+The tracked `flack_parsons` runtime invariant supplies four analytic P1
+Friedel pairs with
+$Q_{\mathrm{obs}}=0.6Q_{\mathrm{single}}$. It therefore requires
+$x=(1-0.6)/2=0.200$, four selected pairs, and a valid zero-residual regression
+uncertainty. The test also invokes the explicit analysis operation without a
+separate enable keyword, guarding the standalone reanalysis interface.
+
+**Conclusion.** The standalone final-FCF control reproduces the retained
+SHELXL result within rounding and reports the same 1,083 quotients. The normal
+refinement control shows that enabling the analysis does not perturb the
+refined model or calculated reflections. This is the post-refinement Parsons
+analysis recommended for absolute-structure reporting when Friedel pairs are
+retained; it is not a replacement for explicit inversion-twin refinement
+when a real inversion twin contributes to the diffraction model.
+
+The equations and selection procedure follow [Parsons, Flack and Wagner
+(2013)](https://doi.org/10.1107/S2052519213010014). The distinction between
+post-refinement quotient analysis and full-matrix inversion-twin refinement
+follows [Sheldrick
+(2015)](https://doi.org/10.1107/S2053229614024218).
+
 ## Tonto regression-suite context
 
-On 27 September 2026, the current Tonto tree passed **70/73** short tests,
+On 28 September 2026, the current Tonto tree passed **71/74** short tests,
 including the nonlinear least-squares solver, SHELXL weighting, and algebraic
-residual-coefficient invariants. The new ORCA pure-spherical import and
-FILE47/WFN/WFX export regression passed.
+residual-coefficient invariants. The new analytic Parsons-quotient test, ORCA
+pure-spherical import, and FILE47/WFN/WFX export regressions passed.
 Three pre-existing tests remained nonzero and are named rather than hidden:
 
 - `rgbi_doctor_selftest`, because this workstation still lacks the optional

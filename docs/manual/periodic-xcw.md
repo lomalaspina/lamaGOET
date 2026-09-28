@@ -7,6 +7,18 @@ Retained engineering tests establish import, symmetry, lambda-zero identity,
 gradient response, and restart behavior for specific Diamond references. They
 do not yet constitute publication-grade convergence or validation for an
 arbitrary material.
+
+This periodic extension and its lamaGOET GRED+KRED orchestration are original
+experimental developments in the compatible Tonto/lamaGOET branches. They are
+not a Crystal23 feature and should not be attributed to the Crystal23 authors.
+The conceptual XCW foundations remain Jayatilaka
+([1998](https://doi.org/10.1103/PhysRevLett.80.798)), Jayatilaka and Grimwood
+([2001, part I](https://doi.org/10.1107/S0108767300013155);
+[2001, part II](https://doi.org/10.1107/S0108767300013167)), and the
+Hirshfeld-atom review of Davidson *et al.*
+([2022](https://doi.org/10.1107/S2052520622004097)). Cite the exact development
+revisions and describe the validation performed for the reported material; see
+{doc}`references`.
 :::
 
 ## Model and nomenclature
@@ -29,6 +41,13 @@ Crystal23 supplies complementary representations:
   lambda-zero real-space density anchor.
 - **KRED** contains the full-zone complex Bloch orbital state used as the
   variational periodic-XCW degrees of freedom.
+
+The meanings and generation controls of Crystal23 files must be checked
+against the
+[official manual for the installed Crystal23 release](https://www.crystal.unito.it/include/manuals/crystal23.pdf).
+The use of those files as the matched periodic-XCW reference is the experimental
+Tonto/lamaGOET interface described here, not an independently validated
+Crystal23 workflow.
 
 A finite k mesh does not uniquely recover every retained direct-lattice block.
 A direct inverse transform of the KRED projector contains Born-von Karman alias
@@ -57,6 +76,10 @@ controlled k-space variational response.
 6. It follows the requested lambda path with damping and convergence checks.
 7. Each accepted step writes a checkpoint and final crystallographic
    artifacts are rebuilt from the current reflection lifecycle.
+
+Retain the Crystal23 output and version banner as the authoritative record of
+the external reference calculation. Cite Crystal23 according to its installed
+manual in addition to lamaGOET, Tonto and the XCW method papers.
 
 For XWR after a CP2K HAR, step 2 still uses Crystal23 at the final CP2K
 geometry. The native CP2K HAR import is not currently a compatible

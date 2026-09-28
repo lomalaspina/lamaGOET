@@ -1388,6 +1388,14 @@ WRITE_EXTINCTION_OPTIONS(){
 	esac
 }
 
+WRITE_FLACK_OPTIONS(){
+	case "${CALCULATE_FLACK_PARAMETER:-false}" in
+		true|TRUE|1|yes|YES|on|ON)
+			echo "         calculate_flack_parameter= true" >> stdin
+			;;
+	esac
+}
+
 WRITE_TONTO_WEIGHTING_OPTIONS(){
 	local scheme target
 	scheme=$(_lower "${TONTO_WEIGHTING_SCHEME:-sigma}")
@@ -1477,6 +1485,7 @@ TONTO_IAM_BLOCK(){
 	WRITE_TONTO_WEIGHTING_OPTIONS || return 1
 	WRITE_TONTO_SOLVER_OPTIONS || return 1
 	WRITE_EXTINCTION_OPTIONS
+	WRITE_FLACK_OPTIONS
 	echo "         correct_dispersion= $DISP" >> stdin
 	echo "         wavelength= $WAVE Angstrom" >> stdin
 	if [ "$REFANHARM" == "true" ]; then
@@ -1649,6 +1658,7 @@ CRYSTAL_BLOCK(){
                         fi
                         if [[ "$PLOT_TONTO" == "false" ]]; then
 			WRITE_EXTINCTION_OPTIONS
+			WRITE_FLACK_OPTIONS
         			echo "         correct_dispersion= $DISP" >> stdin
         			echo "         optimise_scale_factor= true" >> stdin
         		fi
@@ -3468,6 +3478,7 @@ PERIODIC_XCW_CRYSTAL_BLOCK(){
 	echo "         correct_dispersion= ${DISP:-no}" >> stdin
 	echo "         optimise_scale_factor= true" >> stdin
 	WRITE_EXTINCTION_OPTIONS
+	WRITE_FLACK_OPTIONS
 	echo "         wavelength= ${WAVE:-0.71073} Angstrom" >> stdin
 	if [[ "${ISFCF:-false}" == "true" ]]; then
 		echo "         read_fcf_file $HKL" >> stdin

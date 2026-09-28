@@ -87,6 +87,7 @@ def main() -> int:
         assert window.tonto_weighting_scheme.currentData() == "sigma"
         assert window.tonto_weighting_parameters.isHidden()
         assert window.tonto_least_squares_solver.currentData() == "gauss-newton"
+        assert not window.calculate_flack_parameter.isChecked()
         assert window.tonto_shelxl_damping_parameters.isHidden()
         assert window.tonto_lm_parameters.isHidden()
         assert window.shelxl_limse.minimum() == 0.0
@@ -227,6 +228,9 @@ def main() -> int:
         window.extinction_correction.setChecked(True)
         assert window._current_values()["EXTI"] == "yes"
         assert not window.extinction_options.isHidden()
+        window.dispersion_correction.setChecked(True)
+        window.calculate_flack_parameter.setChecked(True)
+        assert window._current_values()["CALCULATE_FLACK_PARAMETER"] == "true"
         assert window.extinction_model.currentData() == "zachariasen"
         assert "SHELXL" in window.extinction_explanation.text()
         window.extinction_model.setCurrentIndex(
@@ -261,10 +265,12 @@ def main() -> int:
             == "/apps/crystal23/runPcry23"
         )
         assert saved_extinction["SHELXL_RESIDUAL_MAP"] == "true"
+        assert saved_extinction["CALCULATE_FLACK_PARAMETER"] == "true"
         reloaded = MainWindow(options)
         assert reloaded.crystal_parallel_bin.text() == "/apps/crystal23/runPcry23"
         assert reloaded.shelxl_residual_map.isChecked()
         assert reloaded.extinction_correction.isChecked()
+        assert reloaded.calculate_flack_parameter.isChecked()
         assert reloaded.extinction_model.currentData() == "becker-coppens"
         assert reloaded.extinction_type.currentData() == "type-2"
         assert reloaded.extinction_distribution.currentData() == "lorentzian"
@@ -438,7 +444,9 @@ def main() -> int:
         window.program.setCurrentIndex(window.program.findData("optgaussian"))
         assert window.hkl_row.isHidden()
         assert window.header_group.isHidden()
+        assert window.absolute_structure_group.isHidden()
         window.program.setCurrentIndex(window.program.findData("Orca"))
+        assert not window.absolute_structure_group.isHidden()
         assert not window.nuclear_interaction.isHidden()
         window.program.setCurrentIndex(window.program.findData("Gaussian"))
         assert window.nuclear_interaction.isHidden()

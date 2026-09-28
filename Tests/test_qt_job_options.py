@@ -68,6 +68,7 @@ class JobOptionsTest(unittest.TestCase):
         self.assertEqual(values["EXTINCTION_DISTRIBUTION"], "gaussian")
         self.assertEqual(values["EXTINCTION_ANISOTROPIC"], "false")
         self.assertEqual(values["EXTINCTION_MEAN_PATH_MM"], "0.3")
+        self.assertEqual(values["CALCULATE_FLACK_PARAMETER"], "false")
         self.assertEqual(values["H_POSITION_MODEL"], "refine")
         self.assertEqual(values["REFHPOS"], "true")
         self.assertEqual(values["TONTO_REFINEMENT_TARGET"], "f")
@@ -199,6 +200,13 @@ class JobOptionsTest(unittest.TestCase):
             save_job_options(path, {"SHELXL_RESIDUAL_MAP": "true"})
             result = load_job_options(path)
         self.assertEqual(result["SHELXL_RESIDUAL_MAP"], "true")
+
+    def test_flack_analysis_option_round_trip(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "job_options.txt"
+            save_job_options(path, {"CALCULATE_FLACK_PARAMETER": "true"})
+            result = load_job_options(path)
+        self.assertEqual(result["CALCULATE_FLACK_PARAMETER"], "true")
 
     def test_tonto_weighting_options_round_trip(self):
         with tempfile.TemporaryDirectory() as directory:

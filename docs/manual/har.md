@@ -7,6 +7,14 @@ fragment with Tonto's stockholder partition and crystallographic least-squares
 fit. The SCF-program selector determines the wavefunction producer and the
 interchange format:
 
+The partition is based on Hirshfeld's stockholder construction
+([Hirshfeld, 1977](https://doi.org/10.1007/BF00549096)); its use in
+wavefunction-based X-ray refinement follows the HAR formulations of
+[Jayatilaka and Dittrich (2008)](https://doi.org/10.1107/S0108767308005709)
+and [Capelli *et al.* (2014)](https://doi.org/10.1107/S2052252514014845).
+These papers define the method; the engine adapters and safeguards described
+below are lamaGOET/Tonto implementation details.
+
 | GUI selection | Density/wavefunction route | Principal boundary |
 |---|---|---|
 | Tonto | native Tonto SCF | simplest and best-integrated molecular route |
@@ -14,11 +22,22 @@ interchange format:
 | ORCA | Molden/ORCA-derived data | orbital convention and basis representation must be supported |
 | OCC | formatted checkpoint | OCC output and requested method must be supported by the runner |
 | ELMO database | transferred ELMOs, optional GAMESS-US overlap | protein/fragment-tail definitions require ELMO expertise |
-| SC cluster optimization: Gaussian + Tonto | geometry optimization with refreshed self consisten cluster charges field | theoretical optimization, not a crystallographic HAR; see {doc}`sccc` |
+| SC cluster optimization: Gaussian + Tonto | geometry optimization with a refreshed self-consistent cluster-charge field | theoretical optimization, not a crystallographic HAR; see {doc}`sccc` |
 | SC cluster optimization: ORCA + Tonto | as above through ORCA | theoretical optimization, not a crystallographic HAR |
 
 Crystal23 and CP2K are periodic routes and are described in
 {doc}`periodic-har`.
+
+For publication, cite the exact external engine and version as well as the
+HAR method: use Gaussian's [release-specific citation
+guidance](https://gaussian.com/citation/), the
+[ORCA program paper](https://doi.org/10.1063/5.0004608) and its
+[method-specific guidance](https://orca-manual.mpi-muelheim.mpg.de/contents/appendix/public.html),
+the [OCC paper](https://doi.org/10.21105/joss.09609), the
+[ELMOdb databank paper](https://doi.org/10.1021/acs.jpca.8b09056), and, when
+the ELMO route invokes it, the [GAMESS-US program
+paper](https://doi.org/10.1063/5.0005188). Full citations and reporting rules
+are collected in {doc}`references`.
 
 ## Molecular HAR cycle
 
@@ -51,9 +70,9 @@ Tonto. lamaGOET still writes and preserves the complete input and result set.
 If the asymmetric unit cuts through a molecule, select **Complete molecule(s)
 in CIF with Tonto**. Tonto's `defragment` path creates the finite fragment used
 by the electronic-structure calculation while the crystallographic asymmetric
-unit remains the object refined. This option is never to be used with periodic
-compounds, as tonto will complete every conected atom to infinity until the
-computers memory is fully takes.
+unit remains the object refined. Do not use this option for an infinite
+connected periodic network: recursive completion can continue through the
+network and exhaust memory.
 
 The 3D viewer's manual grow modes serve a different purpose. They let the user
 inspect and export a chosen starting fragment:
@@ -90,12 +109,25 @@ Only choices known to have a matching Tonto treatment are suggested (which are
 the ones shown as suggestions). The box remains editable for experts, but
 entering a keyword does not implement a missing Tonto functional.
 
+For BLYP, cite the Becke exchange and Lee--Yang--Parr correlation papers; for
+PBE and PBE0, cite their primary functional papers. For a def2-family basis,
+cite Weigend and Ahlrichs. These references are listed in
+{doc}`references`; other methods and basis families require their own primary
+citations.
+
 ### External and Basis Set Exchange definitions
 
 Select **Input external basis set manually** to stage `basis_gen.txt`. The
 Basis Set Exchange dialog selects an all-electron basis independently for each
 element found in the loaded CIF. lamaGOET filters the menus through the
 selected program's formatter, then writes its native external-basis file:
+
+Basis definitions obtained this way come from the
+[Basis Set Exchange](https://www.basissetexchange.org/) described by
+[Pritchard *et al.* (2019)](https://doi.org/10.1021/acs.jcim.9b00725).
+For reproducibility, archive the generated basis file and record the exact
+per-element basis names, Basis Set Exchange revision/date, output format, and
+lamaGOET revision; a menu label alone is not sufficient provenance.
 
 - Gaussian general-basis blocks in `basis_gen.txt`, with one `****` delimiter
   for every element and no empty line between consecutive blocks;
@@ -140,6 +172,16 @@ directory. Tonto reads the generated native library from the calculation
 directory rather than interpreting the external-basis sentinel `gen` as a
 library name.
 
+For Gaussian, **Use relativistic method** selects the supported scalar
+Douglas--Kroll--Hess input route (`int=dkh`). It must be paired with an
+explicitly DKH-optimized all-electron basis; an ordinary all-electron basis is
+not automatically compatible. The underlying scalar-relativistic
+transformation is due to
+[Douglas and Kroll (1974)](https://doi.org/10.1016/0003-4916(74)90333-9)
+and [Hess (1986)](https://doi.org/10.1103/PhysRevA.33.3742). This lamaGOET
+route is a guarded Gaussian interface, not a claim that every Tonto or
+external-program pathway implements DKH; see {doc}`limitations`.
+
 ## Crystal environment controls
 
 ### Self-consistent cluster charges
@@ -172,6 +214,13 @@ those workflows use different density/environment models.
 on F or F² and to pass the selected MERG code. For an unmerged data set, use a
 code consistent with the anomalous-scattering treatment and intended Friedel
 handling:
+
+The MERG meanings and the optional SHELXL-compatible $F^2$ weighting and
+damping controls follow the published
+[SHELXL description](https://doi.org/10.1107/S2053229614024218) and its
+[official instruction reference](https://shelx.uni-goettingen.de/shelxl_html.php).
+They are alternative Tonto paths and do not silently replace Tonto's default
+$F$ target and $1/u(F)^2$ weights.
 
 | MERG | Rule implemented by lamaGOET/Tonto |
 |---:|---|
@@ -208,6 +257,11 @@ uses isotropic hydrogen displacement parameters. An anharmonic model can be
 requested for named atoms at third and/or fourth order Gram-Charlier coefficients.
 The number of parameters grows quickly, so verify data resolution, parameter
 correlations, positive density/probability behavior, and significance.
+The interpretation and reporting of such higher-order displacement models
+should follow Johnson and Levy's Gram--Charlier treatment and the
+crystallographic ADP conventions discussed by
+[Johnson (1969)](https://doi.org/10.1107/S0567739469000325) and the
+[IUCr ADP nomenclature report](https://doi.org/10.1107/S0108767396005697).
 
 **Elongate X-H bond lengths** sets starting B-H, C-H, N-H, and O-H distances.
 These are starting-geometry controls, not restraints on the final HAR unless a
@@ -243,10 +297,22 @@ Do not lower thresholds merely to force termination. Inspect whether:
 dispersion treatment. This is distinct from Gaussian's **Use Grimme dispersion
 (GD3BJ)**, which modifies the electronic energy/model.
 
+GD3BJ combines Grimme's D3 correction
+([Grimme *et al.*, 2010](https://doi.org/10.1063/1.3382344)) with
+Becke--Johnson damping
+([Grimme, Ehrlich and Goerigk, 2011](https://doi.org/10.1002/jcc.21759));
+it is not the crystallographic anomalous-dispersion correction applied to
+atomic scattering factors.
+
 **Refine extinction correction** exposes Zachariasen or Becker-Coppens. For
 Becker-Coppens, select type, mosaic distribution, isotropic/anisotropic nature,
 and the absorption-weighted mean path length. See {doc}`principles` and the CIF
 reporting rules in {doc}`outputs`.
+The terminology and required reporting follow the
+[IUCr CIF extinction-method definition](https://www.iucr.org/__data/iucr/cifdic_html/3/CORE_DIC/Irefine_ls.extinction_method.html);
+SHELXL's commonly used Zachariasen/Larson expression and refinement behavior
+are documented in the
+[SHELXL paper](https://doi.org/10.1107/S2053229614024218).
 
 ## Acceptance checklist
 

@@ -23,6 +23,43 @@ is:
 | Periodic XCW | compatible Tonto + Crystal23 |
 | CP2K-HAR followed by periodic XCW | Tonto + CP2K + Crystal23 |
 
+The table states runtime dependencies, not a complete citation list. lamaGOET
+([Malaspina *et al.*, 2021](https://doi.org/10.1107/S1600576721002545)) and
+Tonto ([Jayatilaka & Grimwood,
+2003](https://doi.org/10.1007/3-540-44864-0_15)) should be cited for workflows
+that they coordinate or execute. The relevant method, basis and external
+program references are additional; see {doc}`references`.
+
+## Program versions and software citations
+
+Record the exact executable version or revision from every retained output.
+Software citations are version-sensitive:
+
+- **Gaussian:** use the citation printed by the installed executable, including
+  its exact revision, and verify it against Gaussian, Inc.'s
+  [official citation page](https://gaussian.com/citation/). Do not substitute a
+  generic Gaussian 16 citation for a Gaussian 09 run (or conversely).
+- **ORCA:** follow the
+  [official version-specific citation guidance](https://www.faccts.de/docs/orca/6.1/manual/contents/preface/howtocite.html)
+  and include the method-specific references recommended at the end of the
+  ORCA output.
+- **OCC:** cite the installed release and the OCC software paper
+  ([Spackman, 2026](https://doi.org/10.21105/joss.09609)), plus the references
+  required for the selected electronic-structure method.
+- **ELMOdb:** cite the ELMO libraries and transfer procedure
+  ([Meyer & Genoni, 2018](https://doi.org/10.1021/acs.jpca.8b09056)) and, for a
+  HAR-ELMO calculation, the HAR-ELMO implementation
+  ([Malaspina *et al.*, 2019](https://doi.org/10.1021/acs.jpclett.9b02646)).
+- **GAMESS-US:** cite the release actually used and follow the
+  [official GAMESS citation instructions](https://www.msg.chem.iastate.edu/gamess/citation.html),
+  which require the version identifier as well as the current program paper.
+- **Crystal23:** cite the installed Crystal23 release and the
+  [official Crystal23 manual](https://www.crystal.unito.it/include/manuals/crystal23.pdf),
+  together with method-specific references requested by that release.
+
+These citations identify software and methods; they do not imply that every
+combination exposed by the interface has been validated.
+
 ## Linux and WSL
 
 From the repository root, run the installer as the ordinary user:

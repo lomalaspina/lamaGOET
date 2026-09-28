@@ -1037,6 +1037,21 @@ class RunnerRegressionTest(unittest.TestCase):
                 for letter in "abcdef":
                     self.assertIn(f"shelxl_weight_{letter}=", options)
 
+    def test_flack_selection_reaches_every_xray_data_block(self):
+        for name, text in self.runner_text.items():
+            for function in (
+                "TONTO_IAM_BLOCK",
+                "CRYSTAL_BLOCK",
+                "PERIODIC_XCW_CRYSTAL_BLOCK",
+            ):
+                with self.subTest(runner=name, function=function):
+                    body = function_body(text, function)
+                    self.assertIn("WRITE_FLACK_OPTIONS", body)
+            with self.subTest(runner=name, function="flack options"):
+                options = function_body(text, "WRITE_FLACK_OPTIONS")
+                self.assertIn("${CALCULATE_FLACK_PARAMETER:-false}", options)
+                self.assertIn("calculate_flack_parameter= true", options)
+
     def test_solver_selection_reaches_every_xray_data_block(self):
         for name, text in self.runner_text.items():
             for function in (

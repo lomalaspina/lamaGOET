@@ -135,7 +135,9 @@ SHELX HKL files may place the `l` index and intensity in adjoining fixed-width
 columns. Tonto's whitespace reader cannot infer the boundary from a joined
 token. Preserve the source file and create a converted copy with explicit
 separation. Confirm the observation count, index extrema, negative
-intensities, and standard uncertainties before use.
+intensities, and standard uncertainties before use. The fixed-column HKL and
+`MERG` conventions are documented in the [official SHELXL instruction
+reference](https://shelx.uni-goettingen.de/shelxl_html.php).
 
 ### Unexpected reflection count or 222 retained in Diamond
 
@@ -155,13 +157,21 @@ the final FCF row count.
 
 ## Basis-set and method failures
 
+Basis definitions selected in the GUI originate from the [Basis Set
+Exchange](https://www.basissetexchange.org/) and its published resource
+([Pritchard *et al.*,
+2019](https://doi.org/10.1021/acs.jcim.9b00725)); the errors below concern
+program-specific conversion or suitability, not silent changes to that source
+metadata.
+
 ### `gen` is treated as a Tonto basis name
 
 `GEN` tells Gaussian/Crystal23 that an external block follows; it is not a
 basis available under `tonto/basis_sets`. The runner must carry the external
 basis definition or exact paired Tonto sidecar into every consumer, including
 periodic TREXIO export. Update both lamaGOET and the compatible Tonto if an
-export log says `could not find basis 'gen'`.
+export log says `could not find basis 'gen'`. Container requirements are
+defined by the [TREXIO specification](https://trex-coe.github.io/trexio/).
 
 ### Gaussian external basis crashes
 
@@ -218,7 +228,8 @@ a formatting error. Check, in order:
 If `auto` and a documented screening set both fail, use a periodic-optimized
 basis or remove the genuinely diffuse/dependent function only with a recorded
 overlap-eigenvalue analysis. Tightening thresholds is not guaranteed to cure
-a physically redundant basis.
+a physically redundant basis. Confirm keyword placement and meaning against
+the [official CRYSTAL23 manual](https://www.crystal.unito.it/include/manuals/crystal23.pdf).
 
 ### Gaussian PBE names and Tonto functionals
 

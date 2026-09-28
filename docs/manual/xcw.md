@@ -17,6 +17,20 @@ calculation should reproduce the unconstrained reference at the supplied fixed
 geometry. Increasing $\lambda$ follows a restraint path rather than a new
 structural least-squares cycle.
 
+The method originates in Jayatilaka's extraction of an X-ray-constrained
+single-determinant wavefunction
+([1998](https://doi.org/10.1103/PhysRevLett.80.798)) and the subsequent theory
+and implementation series by Jayatilaka and Grimwood
+([2001, part I](https://doi.org/10.1107/S0108767300013155);
+[2001, part II](https://doi.org/10.1107/S0108767300013167)). The modern
+Hirshfeld-atom formulation, terminology and halting problem are reviewed by
+Davidson, Grabowsky and Jayatilaka
+([2022](https://doi.org/10.1107/S2052520622004097)). Tonto is the program that
+performs XCW here ([Jayatilaka & Grimwood,
+2003](https://doi.org/10.1007/3-540-44864-0_15)); lamaGOET supplies input
+translation, workflow control and result collection. See {doc}`references` for
+the complete XCW/XWR bibliography.
+
 The vocabulary in lamaGOET is:
 
 - **XCW only**: use the supplied geometry and perform only the constrained
@@ -96,6 +110,10 @@ lambda path, convergence, and fitted quantities.
 
 - Molecular XCW is a Tonto wavefunction optimization; selecting Gaussian or
   ORCA as the HAR producer does not make those programs perform XCW.
+- lamaGOET's automated HAR-to-XCW sequencing and artifact collection are
+  interface/orchestration features. They do not change the XCW functional
+  defined by Tonto and should be reported with the exact lamaGOET and Tonto
+  revisions.
 - Experimental information is filtered through model phases, resolution,
   uncertainties, reflection selection, and the finite basis.
 - The constrained wavefunction is not determined uniquely by a reduced set of

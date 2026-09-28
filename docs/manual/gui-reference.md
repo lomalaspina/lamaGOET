@@ -48,6 +48,12 @@ program. A basis that cannot be represented for that element is therefore not
 offered. This validates conversion, not SCF convergence or suitability for a
 particular charge state, lattice, or relativistic Hamiltonian.
 
+Basis metadata and element coverage come from the [Basis Set
+Exchange](https://www.basissetexchange.org/) and its published data model
+([Pritchard *et al.*,
+2019](https://doi.org/10.1021/acs.jcim.9b00725)); lamaGOET's program-specific
+rendering and periodic suitability checks remain separate responsibilities.
+
 ## Gaussian options
 
 | Entry | Key | Meaning |
@@ -56,7 +62,14 @@ particular charge state, lattice, or relativistic Hamiltonian.
 | Use relativistic method | `GAUSSREL` | activate the runner's supported scalar-relativistic Gaussian input |
 
 These controls are visible only for Gaussian; they are not Tonto experimental
-dispersion or generic controls for another program.
+dispersion or generic controls for another program. The empirical option is
+the D3 correction with Becke--Johnson damping described by [Grimme *et al.*
+(2010)](https://doi.org/10.1063/1.3382344) and [Grimme, Ehrlich and Goerigk
+(2011)](https://doi.org/10.1002/jcc.21759). The scalar-relativistic option uses
+the Douglas--Kroll--Hess family ([Douglas and Kroll,
+1974](https://doi.org/10.1016/0003-4916(74)90333-9); [Hess,
+1986](https://doi.org/10.1103/PhysRevA.33.3742)) and therefore requires a
+compatible all-electron basis.
 
 ## Charge, spin, resources, and convergence
 
@@ -150,13 +163,23 @@ periodic environment; ELMOdb has its own transfer/tail controls.
 | Elongate X-H bond lengths | `XHALONG` | modify starting X-H geometry |
 | B-H, C-H, N-H, O-H | `BHBOND`, `CHBOND`, `NHBOND`, `OHBOND` | starting bond lengths in Å |
 | Apply experimental dispersion correction | `DISP` | Tonto experimental dispersion correction |
+| Refine extinction correction | `EXTI` | expose and activate the selected extinction model |
 
 The H-position choice is independent of **Refine H ADPs** and **H atoms
 isotropic**. The riding option applies the parent coordinate shift to H while
 leaving the selected H displacement-parameter treatment unchanged. Dynamic
 observed density has fixed coordinates by definition, so the interface selects
 and locks **Keep fixed** in that mode.
-| Refine extinction correction | `EXTI` | expose and activate the selected extinction model |
+
+The implemented riding control is intentionally narrower than the full
+SHELXL `AFIX`/`HFIX` family documented in the [official instruction
+reference](https://shelx.uni-goettingen.de/shelxl_html.php). Third- and
+fourth-order coefficients use the crystallographic Gram--Charlier/ADP
+conventions discussed by [Johnson
+(1969)](https://doi.org/10.1107/S0567739469000325) and [Trueblood *et al.*
+(1996)](https://doi.org/10.1107/S0108767396005697). Experimental dispersion
+uses the CIF $f'$/$f''$ quantities defined by the [IUCr CIF Core
+dictionary](https://www.iucr.org/resources/cif/dictionaries/cif_core).
 
 ### Extinction panel
 
@@ -169,7 +192,11 @@ and locks **Keep fixed** in that mode.
 | Absorption-weighted mean path | `EXTINCTION_MEAN_PATH_MM` | specimen-specific value in mm |
 
 The explanation box changes with the selected model and is part of the
-scientific warning, not merely interface decoration.
+scientific warning, not merely interface decoration. The terminology and CIF
+reporting requirements follow the [IUCr extinction-method
+definition](https://www.iucr.org/__data/iucr/cifdic_html/3/CORE_DIC/Irefine_ls.extinction_method.html),
+with the underlying Zachariasen--Larson and Becker--Coppens sources collected
+in {doc}`references`.
 
 ## CP2K periodic all-electron settings
 
@@ -202,6 +229,12 @@ Executable and basis-file paths are on **Settings**.
 | Cap severed bonds | `FINITE_WAVEFUNCTION_CAP_BOUNDARIES` | optional H capping for extended covalent networks |
 | Prepare only | `FINITE_WAVEFUNCTION_PREPARE_ONLY` | validate clusters/inputs without running Tonto |
 
+The periodic container follows the [TREXIO
+specification](https://trex-coe.github.io/trexio/) and published format
+description ([Posenitskiy *et al.*,
+2023](https://doi.org/10.1063/5.0148161)); it is not interchangeable with the
+finite `.47`/WFN/WFX exports.
+
 ## Advanced HAR tab
 
 | Entry | Key | Meaning |
@@ -214,17 +247,7 @@ Executable and basis-file paths are on **Settings**.
 | Nonlinear least-squares solver | `TONTO_LEAST_SQUARES_SOLVER` | established full-matrix Gauss--Newton, SHELXL-style fixed damping, or adaptive Levenberg--Marquardt; applies to the Tonto geometry fit for every HAR backend |
 | DAMP / LIMSE | `SHELXL_DAMP`, `SHELXL_LIMSE` | fixed diagonal multiplier control and uniform structural shift/esd ceiling; visible only for SHELXL-style damping |
 | LM initial lambda / up / down / maximum trials | `LM_INITIAL_LAMBDA`, `LM_LAMBDA_UP`, `LM_LAMBDA_DOWN`, `LM_MAX_TRIALS` | adaptive retry controls; visible only for Levenberg--Marquardt |
-
-For an $F^2$/SHELXL calculation, Tonto reports a variance-flattening A--B
-recommendation for the **next** least-squares fit.  lamaGOET never adopts it
-silently during the fit that generated it; copy the proposed values into the
-WGHT fields only after reviewing the refinement and the binned variance.
-
-The solver selector changes how Tonto accepts a nonlinear parameter step; it
-does not change the target or weighting selected above it.  Gauss--Newton is
-the compatibility default and emits no solver keyword.  The explanatory text
-in the GUI states the active algorithm and the uncertainty limitation of fixed
-damping.
+| Calculate post-refinement Flack x | `CALCULATE_FLACK_PARAMETER` | apply the Parsons quotient estimator after the accepted structural fit; default off |
 | Maximum Crystal cycles | `MAXXTALCYCLE` | Crystal23 SCF cap; blank automatic |
 | Crystal BIPOSIZE | `BIPOSIZE` | optional Crystal Coulomb buffer size |
 | Crystal ILASIZE | `ILASIZE` | optional Crystal ILA array dimension |
@@ -241,6 +264,56 @@ damping.
 | Becke pruning scheme | `BECKEPRUNINGSCHEME` | `none`, `sg1`, or `robust` |
 | Stationary-wavefunction energy tolerance | `HAR_ENERGY_REPEAT_TOL` | repeated-cycle energy threshold |
 | Stationary-wavefunction RMSD tolerance | `HAR_SCF_RMSD_TOL` | repeated-cycle SCF-density threshold |
+
+For an $F^2$/SHELXL calculation, Tonto reports a variance-flattening A--B
+recommendation for the **next** least-squares fit.  lamaGOET never adopts it
+silently during the fit that generated it; copy the proposed values into the
+WGHT fields only after reviewing the refinement and the binned variance.
+
+The solver selector changes how Tonto accepts a nonlinear parameter step; it
+does not change the target or weighting selected above it.  Gauss--Newton is
+the compatibility default and emits no solver keyword.  The explanatory text
+in the GUI states the active algorithm and the uncertainty limitation of fixed
+damping.
+
+The `MERG`, `WGHT`, and `DAMP` names and fixed-damping convention follow the
+[official SHELXL instruction
+reference](https://shelx.uni-goettingen.de/shelxl_html.php). The adaptive
+solver follows the original [Levenberg
+(1944)](https://doi.org/10.1090/qam/10666) and [Marquardt
+(1963)](https://doi.org/10.1137/0111030) algorithms; selecting it does not make
+Tonto a SHELXL implementation.
+
+Tonto's multicentre integration grid is based on Becke's partitioning scheme
+([Becke, 1988](https://doi.org/10.1063/1.454033)). The retained NoSpherA2 route
+should be cited to [Kleemiss *et al.*
+(2021)](https://doi.org/10.1039/D0SC05526C); the legacy powder-transfer route
+also depends on the separately installed [JANA crystallographic computing
+system](https://jana.fzu.cz/).
+
+### Absolute-structure analysis
+
+**Calculate post-refinement Flack x** is available in the **Absolute-structure
+analysis** group on **Advanced HAR** for workflows that refine diffraction
+data; it is hidden for the two SCCC-only optimization choices. When selected,
+the GUI requires all of
+the following before it saves or starts the job:
+
+- `MERG 2`, so symmetry equivalents are merged but Friedel opposites remain
+  separate;
+- **Apply experimental dispersion correction**, with physically appropriate
+  $f'$ and $f''$ values for the measurement wavelength; and
+- a data set containing both members of enough Friedel pairs to support the
+  regression.
+
+The space group itself must be acentric and noncentrosymmetric; that condition
+is checked by Tonto from the loaded structure.  The estimator follows
+[Parsons, Flack and Wagner
+(2013)](https://doi.org/10.1107/S2052519213010014) and runs only after the
+ordinary coordinate/ADP least-squares fit.  It neither places the Flack
+parameter in the structural normal matrix nor changes the residual map.  See
+{doc}`principles` for the equations and the distinction from explicit
+inversion-twin refinement, and {doc}`outputs` for the CIF fields.
 
 ## ELMO advanced tab
 

@@ -14,6 +14,14 @@ This manual describes lamaGOET, how the graphical controls map
 to the generated inputs, what evidence supports each implementation, and where
 the present scientific and software boundaries lie.
 
+The interface itself is described by Malaspina, Genoni and Grabowsky
+([2021](https://doi.org/10.1107/S1600576721002545)); its refinement and
+wavefunction engine is Tonto, whose software architecture is described by
+Jayatilaka and Grimwood
+([2003](https://doi.org/10.1007/3-540-44864-0_15)). Cite both, together with
+the method and electronic-structure program actually used. See
+{doc}`references` for the workflow bibliography and publication checklist.
+
 </div>
 
 :::{admonition} Scope and version
@@ -108,7 +116,7 @@ exchange-correlation-potential grids. Current limitations are explicit.
 :::{rubric} Terminology used here
 :::
 
-- **HAR** refines structural parameters using aspherical atomic form factos
+- **HAR** refines structural parameters using aspherical atomic form factors
   based on theoretically calculated wavefunctions and Hirshfeld weights for
   electron density partitioning.
 - **XCW** is performed by Tonto at a fixed geometry and optimizes a
@@ -117,7 +125,7 @@ exchange-correlation-potential grids. Current limitations are explicit.
 - **Periodic HAR** and **periodic XCW** preserve translational periodicity in
   their respective density or orbital representations.
 - **IAM** denotes an independent-atom model with spherical tabulated atomic
-  scatering factors.
+  scattering factors.
 
 The terminology is deliberately strict: a CP2K or Crystal23 HAR is still HAR
 performed by Tonto using the CP2K or Crystal23 densities; a fixed-geometry

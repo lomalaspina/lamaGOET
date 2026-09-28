@@ -66,11 +66,13 @@ publisher or software project wherever possible.
     Cryst.* B**78** (2022), 312–332.
     [doi:10.1107/S2052520622004097](https://doi.org/10.1107/S2052520622004097).
 
-14. [X-ray constrained wavefunctions based on Hirshfeld atoms. II.
-    Reproducibility of electron densities in crystals of α-oxalic acid
-    dihydrate](https://journals.iucr.org/b/issues/2022/03/01/so5075/),
-    *Acta Cryst.* B**78** (2022). This paper is especially relevant to the
-    halting/overfitting and reproducibility problem.
+14. M. L. Davidson, S. Grabowsky and D. Jayatilaka, “X-ray constrained
+    wavefunctions based on Hirshfeld atoms. II. Reproducibility of electron
+    densities in crystals of α-oxalic acid dihydrate,” *Acta Cryst.* B**78**
+    (2022), 397–415.
+    [doi:10.1107/S2052520622004103](https://doi.org/10.1107/S2052520622004103).
+    This paper is especially relevant to the halting/overfitting and
+    reproducibility problem.
 
 ## Crystallographic definitions
 
@@ -82,13 +84,24 @@ publisher or software project wherever possible.
 16. [CIF Core definition of `_refine_ls.extinction_method`](https://www.iucr.org/__data/iucr/cifdic_html/3/CORE_DIC/Irefine_ls.extinction_method.html)
     and [definition of `_refine_ls.extinction_coef`](https://www.iucr.org/__data/iucr/cifdic_html/3_orig/CORE_DIC/Irefine_ls.extinction_coef.html).
 
-17. W. H. Zachariasen, *Acta Cryst.* **23** (1967), 558–564; A. C. Larson,
-    *Acta Cryst.* **23** (1967), 664–665. These are the primary references for
-    the commonly named Zachariasen/Larson extinction treatment.
+17. W. H. Zachariasen, “A general theory of X-ray diffraction in crystals,”
+    *Acta Cryst.* **23** (1967), 558–564,
+    [doi:10.1107/S0365110X67003202](https://doi.org/10.1107/S0365110X67003202);
+    A. C. Larson, “Inclusion of secondary extinction in least-squares
+    calculations,” *Acta Cryst.* **23** (1967), 664–665,
+    [doi:10.1107/S0365110X67003366](https://doi.org/10.1107/S0365110X67003366).
+    These are the primary references for the commonly named
+    Zachariasen/Larson treatment.
 
-18. P. J. Becker and P. Coppens, *Acta Cryst.* A**30** (1974), 129–147 and
-    148–153. These papers define the Becker–Coppens extinction classifications
-    and distributions.
+18. P. J. Becker and P. Coppens, “Extinction within the limit of validity of
+    the Darwin transfer equations. I. General formalism for primary and
+    secondary extinction and their applications to spherical crystals,”
+    *Acta Cryst.* A**30** (1974), 129–147,
+    [doi:10.1107/S0567739474000337](https://doi.org/10.1107/S0567739474000337),
+    and “II. Refinement of extinction in spherical crystals of SrF2 and LiF,”
+    *Acta Cryst.* A**30** (1974), 148–153,
+    [doi:10.1107/S0567739474000349](https://doi.org/10.1107/S0567739474000349).
+    These papers define the Becker–Coppens classifications and distributions.
 
 19. G. M. Sheldrick, “Crystal structure refinement with SHELXL,” *Acta
     Cryst.* C**71** (2015), 3–8.
@@ -150,6 +163,186 @@ publisher or software project wherever possible.
     input syntax in lamaGOET must still be checked against the manual for the
     installed licensed version.
 
+## Additional method references used by implemented controls
+
+28. H. D. Flack, “On enantiomorph-polarity estimation,” *Acta Cryst.*
+    A**39** (1983), 876–881.
+    [doi:10.1107/S0108767383001762](https://doi.org/10.1107/S0108767383001762).
+
+29. S. Parsons, H. D. Flack and T. Wagner, “Use of intensity quotients and
+    differences in absolute structure refinement,” *Acta Cryst.* B**69**
+    (2013), 249–259.
+    [doi:10.1107/S2052519213010014](https://doi.org/10.1107/S2052519213010014).
+
+30. IUCr CIF Core definitions of
+    [`_refine_ls_abs_structure_Flack`](https://www.iucr.org/__data/iucr/cifdic_html/3/CORE_DIC/Irefine_ls.abs_structure_Flack.html)
+    and
+    [`_refine_ls_abs_structure_details`](https://www.iucr.org/__data/iucr/cifdic_html/3/CORE_DIC/Irefine_ls.abs_structure_details.html).
+
+31. IUCr CIF Core definitions of the anomalous-scattering terms
+    [`_atom_type_scat_dispersion_real`](https://www.iucr.org/__data/iucr/cifdic_html/3/CORE_DIC/Iatom_type.scat_dispersion_real.html)
+    and
+    [`_atom_type_scat_dispersion_imag`](https://www.iucr.org/__data/iucr/cifdic_html/3/CORE_DIC/Iatom_type.scat_dispersion_imag.html).
+
+32. K. Levenberg, “A method for the solution of certain non-linear problems
+    in least squares,” *Q. Appl. Math.* **2** (1944), 164–168.
+    [doi:10.1090/qam/10666](https://doi.org/10.1090/qam/10666).
+
+33. D. W. Marquardt, “An algorithm for least-squares estimation of nonlinear
+    parameters,” *SIAM J. Appl. Math.* **11** (1963), 431–441.
+    [doi:10.1137/0111030](https://doi.org/10.1137/0111030).
+
+34. C. K. Johnson, “The effect of thermal motion on interatomic distances and
+    angles,” *Acta Cryst.* A**25** (1969), 187–194.
+    [doi:10.1107/S0567739469000325](https://doi.org/10.1107/S0567739469000325).
+
+35. K. N. Trueblood *et al.*, “Atomic displacement parameter nomenclature.
+    Report of a subcommittee on atomic displacement parameter nomenclature,”
+    *Acta Cryst.* A**52** (1996), 770–781.
+    [doi:10.1107/S0108767396005697](https://doi.org/10.1107/S0108767396005697).
+
+36. S. Grimme, J. Antony, S. Ehrlich and H. Krieg, “A consistent and accurate
+    *ab initio* parametrization of density functional dispersion correction
+    (DFT-D) for the 94 elements H–Pu,” *J. Chem. Phys.* **132** (2010),
+    154104. [doi:10.1063/1.3382344](https://doi.org/10.1063/1.3382344).
+
+37. S. Grimme, S. Ehrlich and L. Goerigk, “Effect of the damping function in
+    dispersion corrected density functional theory,” *J. Comput. Chem.*
+    **32** (2011), 1456–1465.
+    [doi:10.1002/jcc.21759](https://doi.org/10.1002/jcc.21759).
+
+38. M. Douglas and N. M. Kroll, “Quantum electrodynamical corrections to the
+    fine structure of helium,” *Ann. Phys.* **82** (1974), 89–155.
+    [doi:10.1016/0003-4916(74)90333-9](https://doi.org/10.1016/0003-4916(74)90333-9).
+
+39. B. A. Hess, “Relativistic electronic-structure calculations employing a
+    two-component no-pair formalism with external-field projection
+    operators,” *Phys. Rev. A* **33** (1986), 3742–3748.
+    [doi:10.1103/PhysRevA.33.3742](https://doi.org/10.1103/PhysRevA.33.3742).
+
+40. A. D. Becke, “A multicenter numerical integration scheme for polyatomic
+    molecules,” *J. Chem. Phys.* **88** (1988), 2547–2553.
+    [doi:10.1063/1.454033](https://doi.org/10.1063/1.454033).
+
+41. E. Posenitskiy *et al.*, “TREXIO: A file format and library for quantum
+    chemistry,” *J. Chem. Phys.* **158** (2023), 174801.
+    [doi:10.1063/5.0148161](https://doi.org/10.1063/5.0148161).
+
+42. F. Kleemiss *et al.*, “Accurate crystal structures and chemical
+    properties from NoSpherA2,” *Chem. Sci.* **12** (2021), 1675–1692.
+    [doi:10.1039/D0SC05526C](https://doi.org/10.1039/D0SC05526C).
+
+43. M. Woińska *et al.*, “Hirshfeld atom refinement for modelling strong
+    hydrogen bonds,” *Sci. Adv.* **2** (2016), e1600192.
+    [doi:10.1126/sciadv.1600192](https://doi.org/10.1126/sciadv.1600192).
+
+44. M. Fugel *et al.*, “Probing the accuracy and precision of Hirshfeld atom
+    refinement with HARt,” *IUCrJ* **5** (2018), 32–44.
+    [doi:10.1107/S2052252517016010](https://doi.org/10.1107/S2052252517016010).
+
+## Program, functional, basis and advanced-model references
+
+45. D. Jayatilaka and D. J. Grimwood, “Tonto: A Fortran based
+    object-oriented system for quantum chemistry and crystallography,” in
+    *Computational Science — ICCS 2003*, LNCS **2660** (Springer, 2003),
+    142–151.
+    [doi:10.1007/3-540-44864-0_15](https://doi.org/10.1007/3-540-44864-0_15).
+
+46. D. Jayatilaka, “Wave function for beryllium from X-ray diffraction
+    data,” *Phys. Rev. Lett.* **80** (1998), 798–801.
+    [doi:10.1103/PhysRevLett.80.798](https://doi.org/10.1103/PhysRevLett.80.798).
+
+47. F. Neese, F. Wennmohs, U. Becker and C. Riplinger, “The ORCA quantum
+    chemistry program package,” *J. Chem. Phys.* **152** (2020), 224108.
+    [doi:10.1063/5.0004608](https://doi.org/10.1063/5.0004608). Also follow
+    the [version-specific ORCA citation
+    guidance](https://orca-manual.mpi-muelheim.mpg.de/contents/appendix/public.html)
+    for the methods actually used.
+
+48. P. R. Spackman, “Open Computational Chemistry (OCC) — A portable
+    software library and program for quantum chemistry and crystallography,”
+    *J. Open Source Softw.* **11** (2026), 9609.
+    [doi:10.21105/joss.09609](https://doi.org/10.21105/joss.09609).
+
+49. B. Meyer and A. Genoni, “Libraries of Extremely Localized Molecular
+    Orbitals. 3. Construction and preliminary assessment of the new
+    databanks,” *J. Phys. Chem. A* **122** (2018), 8965–8981.
+    [doi:10.1021/acs.jpca.8b09056](https://doi.org/10.1021/acs.jpca.8b09056).
+
+50. G. M. J. Barca *et al.*, “Recent developments in the general atomic and
+    molecular electronic structure system,” *J. Chem. Phys.* **152** (2020),
+    154102.
+    [doi:10.1063/5.0005188](https://doi.org/10.1063/5.0005188). GAMESS-US
+    requests additional method-specific citations where applicable.
+
+51. Gaussian citations are release-specific. Use the exact program revision
+    printed by the executable and the vendor's
+    [official citation guidance](https://gaussian.com/citation/), together
+    with primary papers for the selected electronic-structure method.
+
+52. A. D. Becke, “Density-functional exchange-energy approximation with
+    correct asymptotic behavior,” *Phys. Rev. A* **38** (1988), 3098–3100.
+    [doi:10.1103/PhysRevA.38.3098](https://doi.org/10.1103/PhysRevA.38.3098).
+
+53. C. Lee, W. Yang and R. G. Parr, “Development of the Colle–Salvetti
+    correlation-energy formula into a functional of the electron density,”
+    *Phys. Rev. B* **37** (1988), 785–789.
+    [doi:10.1103/PhysRevB.37.785](https://doi.org/10.1103/PhysRevB.37.785).
+
+54. A. D. Becke, “Density-functional thermochemistry. III. The role of exact
+    exchange,” *J. Chem. Phys.* **98** (1993), 5648–5652.
+    [doi:10.1063/1.464913](https://doi.org/10.1063/1.464913).
+
+55. J. P. Perdew, K. Burke and M. Ernzerhof, “Generalized gradient
+    approximation made simple,” *Phys. Rev. Lett.* **77** (1996), 3865–3868.
+    [doi:10.1103/PhysRevLett.77.3865](https://doi.org/10.1103/PhysRevLett.77.3865).
+
+56. C. Adamo and V. Barone, “Toward reliable density functional methods
+    without adjustable parameters: The PBE0 model,” *J. Chem. Phys.* **110**
+    (1999), 6158–6170.
+    [doi:10.1063/1.478522](https://doi.org/10.1063/1.478522).
+
+57. F. Weigend and R. Ahlrichs, “Balanced basis sets of split valence,
+    triple zeta valence and quadruple zeta valence quality for H to Rn:
+    Design and assessment of accuracy,” *Phys. Chem. Chem. Phys.* **7**
+    (2005), 3297–3305.
+    [doi:10.1039/B508541A](https://doi.org/10.1039/B508541A).
+
+58. V. Petříček, M. Dušek and L. Palatinus, “Crystallographic computing
+    system JANA2006: General features,” *Z. Kristallogr. Cryst. Mater.*
+    **229** (2014), 345–352.
+    [doi:10.1515/zkri-2014-1737](https://doi.org/10.1515/zkri-2014-1737).
+
+59. C. K. Johnson and H. A. Levy, “Thermal-motion analysis using Bragg
+    diffraction data,” in *International Tables for X-ray Crystallography*,
+    Vol. IV, edited by J. A. Ibers and W. C. Hamilton (Kynoch Press, 1974),
+    311–335. This is the primary tabulation used for third- and fourth-order
+    Gram–Charlier thermal-motion coefficients; use the nomenclature in
+    reference 35 when reporting them.
+
+60. M. Hudák, D. Jayatilaka, L. Perašínová, S. Biskupič, J. Kožíšek and
+    L. Bučinský, “X-ray constrained unrestricted Hartree–Fock and
+    Douglas–Kroll–Hess wavefunctions,” *Acta Cryst.* A**66** (2010), 78–92.
+    [doi:10.1107/S0108767309038744](https://doi.org/10.1107/S0108767309038744).
+
+61. L. Bučinský, D. Jayatilaka and S. Grabowsky, “Importance of relativistic
+    effects and electron correlation in structure factors and electron
+    density of diphenyl mercury and triphenyl bismuth,” *J. Phys. Chem. A*
+    **120** (2016), 6650–6669.
+    [doi:10.1021/acs.jpca.6b05769](https://doi.org/10.1021/acs.jpca.6b05769).
+
+62. S. Pawlędzio *et al.*, “Relativistic Hirshfeld atom refinement of an
+    organo-gold(I) compound,” *IUCrJ* **8** (2021), 608–620.
+    [doi:10.1107/S2052252521004541](https://doi.org/10.1107/S2052252521004541).
+
+63. A. L. Spek, “Single-crystal structure validation with the program
+    PLATON,” *J. Appl. Cryst.* **36** (2003), 7–13.
+    [doi:10.1107/S0021889802022112](https://doi.org/10.1107/S0021889802022112).
+
+64. A. L. Spek, “Structure validation in chemical crystallography,” *Acta
+    Cryst.* D**65** (2009), 148–155.
+    [doi:10.1107/S090744490804362X](https://doi.org/10.1107/S090744490804362X).
+
 ## Citation practice
 
 For a publication, cite lamaGOET, Tonto, the electronic-structure program,
@@ -157,3 +350,12 @@ the method/basis, and the methodological paper appropriate to the workflow.
 Also report the actual repository revisions and executable versions. Citing a
 software package does not replace disclosure of the options that define the
 scientific calculation.
+
+For a Basis Set Exchange selection, retain the basis-specific bibliography
+returned in its metadata in addition to references 23–24: the general Basis
+Set Exchange paper is not a substitute for the authors' citation of the
+selected basis family. Likewise, a generic program citation does not replace
+method-specific references requested by that program. Finite-wavefunction
+outputs such as NBO `.47`, WFN and WFX have program dialects; report the
+producing program/version and do not describe a dialect as a universal
+standard unless a normative specification has been identified.

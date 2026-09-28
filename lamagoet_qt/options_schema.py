@@ -59,6 +59,7 @@ OPTION_DEFAULTS: dict[str, str] = {
     "CP2K_TERMINAL_VERBOSE": "true",
     "CP2K_TONTO_SLATER_BASIS_FILE": "",
     "CP2K_XC_FUNCTIONAL": "BLYP",
+    "CALCULATE_FLACK_PARAMETER": "false",
     "CRYSTAL_BIN": "runcry23",
     "CRYSTAL_LDREMO": "",
     "CRYSTAL_PARALLEL_BIN": "",

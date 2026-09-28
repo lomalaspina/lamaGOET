@@ -91,7 +91,10 @@ algorithm; lamaGOET/Tonto deliberately does not infer an undocumented
 sigma-dependent factor. Consequently, this is a transparent comparison of the
 nominal published coefficient, not a complete SHELXL residual-map
 implementation, not a claim of byte-for-byte identity with the SHELXL
-executable, and not an Olex2/CCTBX map.
+executable, and not an Olex2/CCTBX map. The coefficient and `FMAP 2` meaning
+are documented in the [official SHELXL instruction
+reference](https://shelx.uni-goettingen.de/shelxl_html.php); the least-squares
+`WGHT` law is discussed separately in {doc}`options-reference`.
 
 Both Tonto cubes use the identical current merged reflections and sampling
 grid. Residual extrema can change substantially with grid spacing, so compare

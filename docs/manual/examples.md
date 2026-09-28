@@ -32,6 +32,9 @@ bash /path/to/lamaGOET/lamaGOET.sh \
 ```
 
 Inspect `my_job.lst`, `my_job.archive.cif`, and `my_job.archive.fcf` together.
+Control meanings are defined in {doc}`gui-reference` and
+{doc}`options-reference`; cite the workflow's primary methods from
+{doc}`references`, not this worked-example page alone.
 
 ## Example 1: epoxide Tonto control
 
@@ -47,6 +50,11 @@ compatible Tonto executable.
 | Reflection handling | packaged unmerged HKL; MERG 2 |
 | Structure completion | off; the asymmetric unit contains the molecule |
 | Starting model | Tonto IAM |
+
+The `MERG 2` label follows the [official SHELXL instruction
+reference](https://shelx.uni-goettingen.de/shelxl_html.php); the retained
+reflection counts below, rather than the label alone, establish what this run
+actually used.
 
 The current end-to-end control gives:
 
@@ -194,6 +202,12 @@ For a scientifically useful report include:
 - every outer-cycle maximum shift/e.s.d. and energy;
 - final CIF/FCF statistics, residual extrema, key distances and ADPs;
 - relevant executable and source revisions, and any warnings.
+
+For a GUI-selected external basis, include the exact [Basis Set
+Exchange](https://www.basissetexchange.org/) identifier/revision and cite its
+data-resource paper ([Pritchard *et al.*,
+2019](https://doi.org/10.1021/acs.jcim.9b00725)); a family name alone is not
+complete provenance.
 
 Copying only the lowest R factor omits the evidence needed to reproduce or
 interpret the model.

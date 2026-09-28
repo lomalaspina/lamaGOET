@@ -263,8 +263,9 @@ while a weighted residual and goodness of fit contain the supplied standard
 uncertainties and the actual degrees of freedom. Do not compare a Tonto
 F-refinement scale, $R$, or goodness of fit directly with a SHELXL $F^2$
 refinement without first matching input normalization, selected observations,
-refined parameters, and correction models, remembering that the weigting scheme
-will always be different between the two.
+refined parameters, and correction models, remembering that the weighting
+scheme may also differ unless the objective and weighting are explicitly
+matched.
 
 ## Nonlinear least-squares step solvers
 
@@ -332,6 +333,77 @@ The CIF Core dictionary requires mixed or anisotropic multiple coefficients to
 be recorded in `_refine_special_details`, not compressed into the scalar
 `_refine_ls_extinction_coef`. The mean path length is specimen-dependent; the
 GUI default is an input convenience, not a calibrated crystal property.
+
+## Post-refinement absolute-structure estimate
+
+For an acentric, noncentrosymmetric structure measured with useful anomalous
+signal, lamaGOET can ask Tonto to estimate the Flack parameter *after* the
+structural least-squares fit.  The implementation follows the intensity-
+quotient method of [Parsons, Flack and Wagner
+(2013)](https://doi.org/10.1107/S2052519213010014), rather than adding an
+inversion-twin fraction to the structural normal matrix.
+
+For each measured Friedel pair, let $I^+$ and $I^-$ be the observed
+intensities and $I_c^+$ and $I_c^-$ the corresponding final calculated
+intensities.  Tonto forms
+
+$$
+Q_{\mathrm{obs}}=
+\frac{I^+-I^-}{I^++I^-},
+\qquad
+Q_{\mathrm{single}}=
+\frac{I_c^+-I_c^-}{I_c^++I_c^-}.
+$$
+
+The observed-quotient uncertainty is propagated as
+
+$$
+u(Q_{\mathrm{obs}})=
+\frac{2\sqrt{(I^+)^2u(I^-)^2+(I^-)^2u(I^+)^2}}
+{(I^++I^-)^2},
+$$
+
+and the origin-constrained weighted slope is
+
+$$
+m=\frac{\sum_h w_h Q_{\mathrm{single},h}Q_{\mathrm{obs},h}}
+        {\sum_h w_h Q_{\mathrm{single},h}^2},
+\qquad
+w_h=\frac{1}{u(Q_{\mathrm{obs},h})^2}.
+$$
+
+The reported parameter and standard uncertainty are
+
+$$
+x=\frac{1-m}{2},
+\qquad
+u(x)=\frac{u(m)}{2}.
+$$
+
+The implemented Parsons selections require both observations in a pair to
+exceed $3u(I)$ and reject an observed Friedel difference whose magnitude is
+greater than twice the largest calculated Friedel difference in the data set.
+The calculated quotients come from the accepted final model, including its
+active scale and extinction treatment.  Symmetry equivalents must first be
+merged while Friedel opposites remain separate; in lamaGOET this is the
+`MERG 2` contract.  Experimental anomalous-dispersion corrections must also be
+enabled, because without meaningful $f'$ and $f''$ the quotient regression
+cannot determine absolute structure.
+
+This switch is deliberately diagnostic.  It does **not** refine $x$ together
+with coordinates, ADPs, scale, or extinction; it does not change
+$F_{\mathrm{calc}}$ or the residual-density map.  Sheldrick's discussion of
+SHELXL explains why the Parsons post-refinement estimate is preferred for
+routine absolute-structure reporting: placing $x$ in the full least-squares
+matrix can substantially overestimate its uncertainty
+([Sheldrick, 2015](https://doi.org/10.1107/S2053229614024218)).  A genuine
+inversion twin with an intermediate fraction for which the twin contribution
+must alter calculated intensities requires an explicit inversion-twin model;
+the post-refinement checkbox is not a substitute.  The original definition of
+the inversion parameter is given by [Flack
+(1983)](https://doi.org/10.1107/S0108767383001762).  Controls and output fields
+are cross-referenced in {doc}`gui-reference`, {doc}`options-reference`, and
+{doc}`outputs`; the primary bibliography is collected in {doc}`references`.
 
 ## HAR, XCW, and XWR
 

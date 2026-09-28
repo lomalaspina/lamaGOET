@@ -8,6 +8,17 @@ self-consistent representation of the crystal environment. They are included
 for crystal-field theoretical optimization and frequency workflows; they are
 not a crystallographic least-squares HAR and do not require a reflection file.
 
+The cross-program cycle is lamaGOET orchestration
+([Malaspina *et al.*, 2021](https://doi.org/10.1107/S1600576721002545)) around
+Tonto ([Jayatilaka & Grimwood,
+2003](https://doi.org/10.1007/3-540-44864-0_15)) and the selected external
+optimizer. It is not a native one-program periodic optimization. For Gaussian,
+use the exact revision citation printed by the executable and the
+[official citation page](https://gaussian.com/citation/). For ORCA, follow its
+[version-specific official guidance](https://www.faccts.de/docs/orca/6.1/manual/contents/preface/howtocite.html)
+and method-specific recommendations. See {doc}`references` for the reporting
+checklist.
+
 Use:
 
 - **SC cluster optimization: Gaussian + Tonto** (`SCFCALCPROG=optgaussian`), or

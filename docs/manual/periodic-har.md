@@ -19,6 +19,14 @@ An apparently reasonable molecular test does not validate these contracts for
 an extended solid. Off-cell density blocks can contribute strongly to bonding
 while being weakly exercised in a small molecular crystal.
 
+Periodic HAR using periodic electronic densities has precedent in the
+PAW-based formulation of
+[Ruth, Herbst-Irmer and Stalke (2022)](https://doi.org/10.1107/S2052252522001385).
+The native GRED and CP2K interfaces documented here are separate,
+branch-specific lamaGOET/Tonto implementations and must be validated on their
+own import contracts; that paper is methodological context, not validation of
+these readers.
+
 ## Crystal23 interfaces
 
 The **Crystal23 density interface** selector offers:
@@ -29,6 +37,9 @@ lamaGOET runs Crystal23 properties and passes the formatted
 `<JOBNAME>.GRED` file to Tonto. The native reader imports Crystal23's
 atom-resolved periodic basis and direct-lattice density representation rather
 than asking Tonto to reconstruct it from a molecular-library basis name.
+CRYSTAL input keywords, basis conventions, properties, and executable limits
+are defined by the
+[official CRYSTAL23 manual](https://www.crystal.unito.it/include/manuals/crystal23.pdf).
 
 This corrected the historic failure mode in which a syntactically valid XML
 contained a periodic density, but Tonto reconstructed it in an incompatible AO
@@ -61,6 +72,13 @@ k-point calculation and current CP2K output support. CP2K's official manual
 describes GAPW as the all-electron extension of GPW and `.mokp` as the
 k-resolved MO interchange containing cell, atoms, basis/AO ranges, k points,
 weights, occupations, eigenvalues, and complex coefficients.
+
+CP2K and Quickstep are described by
+[Kühne *et al.* (2020)](https://doi.org/10.1063/5.0007045); the applicable
+all-electron method is the
+[official CP2K GAPW formulation](https://manual.cp2k.org/trunk/methods/dft/gapw.html),
+and `.mokp` generation is controlled by the
+[official `MO_KP` print section](https://manual.cp2k.org/trunk/CP2K_INPUT/FORCE_EVAL/DFT/PRINT/MO_KP.html).
 
 The Fock/Kohn-Sham matrix is not reconstructed from occupied orbitals. Tonto
 validates dimensions, mirror translations, electron trace, overlap
@@ -117,6 +135,14 @@ The Crystal23 menu suggests periodic-optimized POB families. External Basis
 Set Exchange definitions are converted to Crystal syntax by lamaGOET, including
 formal shell electron charges and a single final `99 0`. The converter preserves
 separate S and P shells; it must not infer an SP shell from adjacency.
+
+External definitions originate from the
+[Basis Set Exchange](https://www.basissetexchange.org/) and its published data
+model ([Pritchard *et al.*, 2019](https://doi.org/10.1021/acs.jcim.9b00725)).
+Archive the generated CRYSTAL/CP2K basis text and record every per-element
+basis name, BSE revision/date, formatter, and lamaGOET revision. Successful
+conversion establishes syntax and provenance, not periodic numerical
+conditioning.
 
 For any external basis:
 
@@ -185,6 +211,10 @@ population and net partial charge to an atom because the periodic total density,
 not the neutral proatom density, is being divided. Its outputs are therefore
 environment-specific aspherical atom-in-crystal scattering factors, rather than
 tabulated spherical integer-ion factors.
+The stockholder definition originates with
+[Hirshfeld (1977)](https://doi.org/10.1007/BF00549096); periodic repetition of
+the procrystal is an implementation choice and does not by itself make H0 an
+iterative ionic-reference model.
 
 Do not confuse the periodic orbital basis with Tonto's stockholder-reference
 library. For example, a Crystal23 input may use `POB-TZVP-REV2`; that basis is
@@ -205,6 +235,12 @@ clamping when a required ion is unavailable or a charge leaves the supported
 improve refinement statistics and is not yet publication-validated. The
 equations, physical interpretation, and validation requirements are given in
 {doc}`principles` and {doc}`validation`.
+This branch-specific implementation is based on the periodic Hirshfeld-I
+fixed-point construction of
+[Vanpoucke, Bultinck and Van Driessche (2013)](https://doi.org/10.1002/jcc.23088),
+but its restricted reference library, mixing, failure policy, and coupling to
+Tonto form factors are implementation details that require separate ionic
+validation.
 
 After partitioning, Tonto applies the crystallographic site-symmetry treatment
 so an atom on a special position produces a symmetry-compatible atomic density
@@ -218,6 +254,13 @@ an infinite Bloch wavefunction. Select **Write the final CP2K/Crystal23
 wavefunction as TREXIO** for the periodic state. Crystal23 orbitals are
 reconstructed from compatible periodic overlap and Fock/Kohn-Sham matrices;
 CP2K orbitals come from `.mokp` with the native Fock information.
+
+TREXIO is the interoperable container specified by
+[Posenitskiy *et al.* (2023)](https://doi.org/10.1063/5.0148161) and the
+[official TREXIO documentation](https://trex-coe.github.io/trexio/).
+The branch-specific exporter must still be validated for AO ordering,
+periodicity, complex coefficients, occupations, and electron count; choosing
+TREXIO does not make a finite WFN/WFX representation exact.
 
 The optional **finite all-electron crystal-cluster calculation** instead starts
 a new finite Tonto SCF on an active region plus buffer and writes `.47`, WFN,

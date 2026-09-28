@@ -69,6 +69,16 @@ for every system. Values saved by the GUI override them.
 | `BECKEPRUNINGSCHEME` | `none` | Becke pruning: `none`, `sg1`, or `robust` |
 | `LINEDEP` | *(empty)* | explicit Tonto linear-dependence threshold |
 
+Basis names and element metadata are obtained from the [Basis Set
+Exchange](https://www.basissetexchange.org/) ([Pritchard *et al.*,
+2019](https://doi.org/10.1021/acs.jcim.9b00725)); conversion to each consumer's
+syntax is a lamaGOET operation. The grid controls refer to Becke's multicentre
+integration scheme ([Becke, 1988](https://doi.org/10.1063/1.454033)). The
+Douglas--Kroll--Hess safeguard reflects the original scalar-relativistic
+formulation ([Douglas and Kroll,
+1974](https://doi.org/10.1016/0003-4916(74)90333-9); [Hess,
+1986](https://doi.org/10.1103/PhysRevA.33.3742)).
+
 ## Executables and installation paths
 
 | Variable | Default | Meaning |
@@ -114,6 +124,10 @@ for every system. Values saved by the GUI override them.
 | `OHBOND` | `0.983` | starting O-H distance in Å |
 | `DISP` | `no` | Tonto experimental dispersion correction |
 | `MINCORCOEF` | *(empty)* | optional minimum correlation coefficient |
+| `POWDER_HAR` | `false` | legacy powder-HAR/Jana route |
+| `USENOSPHERA2` | `false` | legacy NoSpherA2/Jana form-factor route |
+| `NSA2ACC` | `2` | NoSpherA2 accuracy integer |
+| `RESDENS` | `false` | retained residual-density workflow flag |
 
 `H_POSITION_MODEL=riding` makes each H coordinate follow the coordinate shift
 of its single bonded non-hydrogen parent. It does not constrain the X-H
@@ -122,10 +136,18 @@ treatment. A missing or ambiguous non-hydrogen parent is reported by Tonto
 rather than guessed. Older files containing only `REFHPOS=false` are migrated
 to `fixed`; an explicit `H_POSITION_MODEL` always takes precedence. Dynamic
 observed-density refinement fixes coordinates and therefore forces `fixed`.
-| `POWDER_HAR` | `false` | legacy powder-HAR/Jana route |
-| `USENOSPHERA2` | `false` | legacy NoSpherA2/Jana form-factor route |
-| `NSA2ACC` | `2` | NoSpherA2 accuracy integer |
-| `RESDENS` | `false` | retained residual-density workflow flag |
+
+The riding option is a deliberately limited parent-shift model, not the full
+SHELXL `AFIX`/`HFIX` system in the [official instruction
+reference](https://shelx.uni-goettingen.de/shelxl_html.php). Gram--Charlier
+orders follow crystallographic ADP conventions ([Johnson,
+1969](https://doi.org/10.1107/S0567739469000325); [Trueblood *et al.*,
+1996](https://doi.org/10.1107/S0108767396005697)), while `DISP` uses the CIF
+$f'$/$f''$ anomalous-scattering quantities defined by the [IUCr CIF Core
+dictionary](https://www.iucr.org/resources/cif/dictionaries/cif_core).
+NoSpherA2 should be cited to [Kleemiss *et al.*
+(2021)](https://doi.org/10.1039/D0SC05526C), and the legacy powder path also
+requires the external [JANA system](https://jana.fzu.cz/).
 
 ## Extinction
 
@@ -137,6 +159,28 @@ observed-density refinement fixes coordinates and therefore forces `fixed`.
 | `EXTINCTION_DISTRIBUTION` | `gaussian` | Gaussian or Lorentzian mosaic distribution |
 | `EXTINCTION_ANISOTROPIC` | `false` | isotropic when false; anisotropic when true |
 | `EXTINCTION_MEAN_PATH_MM` | `0.3` | absorption-weighted mean path length in mm |
+
+The model names and required CIF description follow the [IUCr CIF Core
+extinction definition](https://www.iucr.org/__data/iucr/cifdic_html/3/CORE_DIC/Irefine_ls.extinction_method.html).
+Primary Zachariasen--Larson and Becker--Coppens references are listed in
+{doc}`references`.
+
+## Post-refinement absolute structure
+
+| Variable | Default | Meaning |
+|---|---|---|
+| `CALCULATE_FLACK_PARAMETER` | `false` | calculate the post-refinement Parsons intensity-quotient estimate of Flack $x$ from paired Friedel observations |
+
+The runners omit the Tonto keyword when this option is false, preserving the
+established calculation.  When true, they write
+`calculate_flack_parameter= true` in each supported Tonto `xray_data` block.
+The GUI requires `MERGCODE=2` and `DISP=yes`; the structure must also be
+acentric and noncentrosymmetric, and the input must retain unmerged Friedel
+opposites.  This option does not select a refinement target or weighting
+scheme, and it does not add an inversion-twin fraction to the least-squares
+matrix.  The estimator and data-selection rules follow [Parsons, Flack and
+Wagner (2013)](https://doi.org/10.1107/S2052519213010014); see
+{doc}`principles` for the equations and {doc}`limitations` for interpretation.
 
 ## Least-squares weighting
 
@@ -157,6 +201,12 @@ used C--F terms. Selecting SHELXL automatically selects and locks the
 $F^2$ target. With `sigma`, either target remains available. The default
 combination (`f` plus `sigma`) emits no new Tonto keywords and therefore does
 not change existing lamaGOET calculations.
+
+`MERG` and `WGHT` syntax and the SHELXL intensity-weighting convention are
+defined in the [official SHELXL instruction
+reference](https://shelx.uni-goettingen.de/shelxl_html.php). lamaGOET exposes
+them as optional compatibility choices; the established Tonto objective
+remains the default.
 
 After an $F^2$/SHELXL fit, Tonto prints a **SHELXL-style WGHT recommendation**
 for the next fit.  It orders reflections by $F_c^2$ and searches the A--B
@@ -184,6 +234,13 @@ so an unchanged lamaGOET job remains usable with a Tonto executable that
 predates selectable solvers.  Fixed-damping and LM controls are written only
 for their respective modes.  Solver selection is independent of
 `TONTO_REFINEMENT_TARGET` and `TONTO_WEIGHTING_SCHEME`.
+
+The fixed diagonal multiplier follows SHELXL `DAMP` as documented in the
+[official instruction
+reference](https://shelx.uni-goettingen.de/shelxl_html.php). The adaptive mode
+implements the algorithms introduced by [Levenberg
+(1944)](https://doi.org/10.1090/qam/10666) and [Marquardt
+(1963)](https://doi.org/10.1137/0111030).
 
 ## Molecular environment
 
@@ -311,6 +368,11 @@ for their respective modes.  Solver selection is independent of
 | `FINITE_WAVEFUNCTION_CAP_BOUNDARIES` | `true` | H-cap severed network bonds where supported |
 | `FINITE_WAVEFUNCTION_PREPARE_ONLY` | `false` | prepare/validate inputs without running finite SCF |
 
+The periodic export follows the [TREXIO
+specification](https://trex-coe.github.io/trexio/) and format paper
+([Posenitskiy *et al.*, 2023](https://doi.org/10.1063/5.0148161)); the finite
+exports are separate approximations.
+
 ## ELMOdb
 
 | Variable | Default | Meaning |
@@ -349,6 +411,11 @@ for their respective modes.  Solver selection is independent of
 | `WIDTHX` | `10` | X extent |
 | `WIDTHY` | `10` | Y extent |
 | `WIDTHZ` | `10` | Z extent |
+
+`SHELXL_RESIDUAL_MAP` implements only the nominal `FMAP 2` coefficient stated
+in the [official SHELXL instruction
+reference](https://shelx.uni-goettingen.de/shelxl_html.php); see {doc}`plots`
+for the equation and explicit limitations.
 
 ## Completeness guarantee
 

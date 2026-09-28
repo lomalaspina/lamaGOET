@@ -62,8 +62,9 @@ include:
 
 The suffixes `all`, `gt`, and the historical Tonto alias `ref` must not be
 treated as interchangeable labels. The archive writer recomputes each value
-for its stated population. The definitions follow the IUCr CIF Core
-dictionary; see {doc}`references`.
+for its stated population. The definitions follow the [IUCr CIF Core
+dictionary](https://www.iucr.org/resources/cif/dictionaries/cif_core); see
+{doc}`references` for the archival standard.
 
 ### Scale and extinction
 
@@ -84,7 +85,41 @@ When extinction is refined, the CIF should contain:
 Zachariasen--Larson and Becker--Coppens models are different physical models;
 their coefficients are not directly interchangeable. For anisotropic or
 mixed Becker--Coppens models, multiple parameters may additionally require a
-description in `_refine_special_details`.
+description in `_refine_special_details`. The required nomenclature is set by
+the [IUCr extinction-method
+definition](https://www.iucr.org/__data/iucr/cifdic_html/3/CORE_DIC/Irefine_ls.extinction_method.html);
+the primary model papers are collected in {doc}`references`.
+
+### Post-refinement Flack result
+
+When **Calculate post-refinement Flack x** is enabled and a valid Parsons
+regression is available, Tonto prints a labelled absolute-structure block in
+`stdout` containing $x$, its standard uncertainty, and the number of selected
+Friedel quotients.  The archive CIF records the result as
+
+```text
+_refine_ls_abs_structure_details
+;
+Flack x determined using N quotients [(I+)-(I-)]/[(I+)+(I-)]
+(Parsons, Flack and Wagner, Acta Cryst. B69 (2013) 249-259).
+;
+_refine_ls_abs_structure_Flack      x(su)
+```
+
+Here `N` is the number of pairs remaining after the published intensity and
+outlier selections, and `x(su)` is written with its calculated standard
+uncertainty.  If the option is off or no valid estimate exists, both CIF items
+are written as unavailable (`.`); the program does not invent a value.
+
+These data names follow the IUCr CIF Core definitions of
+[`_refine_ls_abs_structure_Flack`](https://www.iucr.org/__data/iucr/cifdic_html/3/CORE_DIC/Irefine_ls.abs_structure_Flack.html)
+and
+[`_refine_ls_abs_structure_details`](https://www.iucr.org/__data/iucr/cifdic_html/3/CORE_DIC/Irefine_ls.abs_structure_details.html).
+The method text and equations follow [Parsons, Flack and Wagner
+(2013)](https://doi.org/10.1107/S2052519213010014).  This is a post-refinement
+estimate: it does not state that an inversion-twin fraction was present in the
+coordinate/ADP least-squares model.  See {doc}`principles` and
+{doc}`limitations` before interpreting the number.
 
 ## Residual-density outputs
 
@@ -101,7 +136,10 @@ SHELXL FMAP 2 coefficient map** block and
 `JOBNAME.shelxl_residual_density,cell.cube` is archived alongside the standard
 cube. A requested comparison cube that is missing or empty is a hard runner
 error, preventing a stale result from being reported as current. Both outputs
-use the same final reflection population and grid.
+use the same final reflection population and grid. The comparison coefficient
+is the nominal `FMAP 2` expression documented in the [official SHELXL
+instruction reference](https://shelx.uni-goettingen.de/shelxl_html.php), not
+an emulation of undocumented executable behavior.
 
 At the start of every job, the runner removes the same-name working comparison
 cube and any same-name cycle or CP2K archive copies. This happens even when the
@@ -148,7 +186,10 @@ For Crystal23 and CP2K, **Write final periodic wavefunction as TREXIO** writes
 `JOBNAME.periodic.trexio`, its metadata sidecar when present, and
 `JOBNAME.periodic-wavefunction-export.log`. TREXIO is the exact-output route
 for the cell, k-point weights, complex Bloch coefficients, density, overlap,
-and Fock/KS information supported by the selected native interface.
+and Fock/KS information supported by the selected native interface. The
+container is defined by the [TREXIO
+specification](https://trex-coe.github.io/trexio/) and [Posenitskiy *et al.*
+(2023)](https://doi.org/10.1063/5.0148161).
 
 The optional finite-cluster `.47`/WFN/WFX route is a *new finite all-electron
 calculation* performed on a cluster cut from the converged periodic structure.

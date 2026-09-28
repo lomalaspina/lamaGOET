@@ -1533,6 +1533,31 @@ class MainWindow(QMainWindow):
         solver_form.addRow("Adaptive LM controls", self.tonto_lm_parameters)
         form.addRow(self.tonto_solver_group)
 
+        self.absolute_structure_group = QGroupBox(
+            "Absolute-structure analysis"
+        )
+        absolute_structure_form = QFormLayout(
+            self.absolute_structure_group
+        )
+        self.calculate_flack_parameter = QCheckBox(
+            "Calculate post-refinement Flack x"
+        )
+        self.calculate_flack_parameter.setToolTip(
+            "Calculate the Parsons quotient estimate after the structural "
+            "least-squares fit. This does not add x to the coordinate/ADP "
+            "normal matrix or alter the residual-density map. It requires a "
+            "noncentrosymmetric structure, anomalous dispersion, and MERG 2."
+        )
+        absolute_structure_form.addRow(self.calculate_flack_parameter)
+        absolute_structure_note = QLabel(
+            "Parsons, Flack and Wagner, Acta Cryst. B69 (2013) 249-259; "
+            "reported in CIF as _refine_ls_abs_structure_Flack with the "
+            "method in _refine_ls_abs_structure_details."
+        )
+        absolute_structure_note.setWordWrap(True)
+        absolute_structure_form.addRow(absolute_structure_note)
+        form.addRow(self.absolute_structure_group)
+
         # Keep every HAR-level Crystal23 control together in Advanced HAR. The
         # executable path remains in Settings, while XCW-only/shared periodic
         # export controls remain in their own purpose-specific sections.
@@ -2367,6 +2392,9 @@ class MainWindow(QMainWindow):
         )
         self.lm_max_trials.setValue(self._int_option("LM_MAX_TRIALS", 8))
         self._solver_controls_changed()
+        self.calculate_flack_parameter.setChecked(
+            self._bool_option("CALCULATE_FLACK_PARAMETER")
+        )
         self.max_ls_cycles.setValue(self._int_option("MAXLSCYCLE", 30))
         self.max_xtal_cycles.setText(self._option("MAXXTALCYCLE"))
         self.crystal_biposize.setText(self._option("BIPOSIZE"))
@@ -2937,6 +2965,7 @@ class MainWindow(QMainWindow):
         self.hkl_label.setVisible(has_reflections)
         self.hkl_row.setVisible(has_reflections)
         self.header_group.setVisible(has_reflections)
+        self.absolute_structure_group.setVisible(has_reflections)
         self.initial_adp_group.setVisible(program == "elmodb")
         self.nuclear_interaction.setVisible(program in {"Orca", "optorca"})
         self.cp2k_group.setVisible(program == "CP2K")
@@ -3454,6 +3483,20 @@ class MainWindow(QMainWindow):
             raise ValueError(
                 "SHELXL WGHT requires the F-squared least-squares target."
             )
+        if (
+            program not in {"optgaussian", "optorca"}
+            and self.calculate_flack_parameter.isChecked()
+        ):
+            if int(self.merg_code.currentData()) != 2:
+                raise ValueError(
+                    "Post-refinement Flack analysis requires MERG 2: "
+                    "symmetry equivalents merged, Friedel opposites separate."
+                )
+            if not self.dispersion_correction.isChecked():
+                raise ValueError(
+                    "Post-refinement Flack analysis requires anomalous "
+                    "dispersion correction to be enabled."
+                )
         if program in {"Gaussian", "optgaussian"} and self.relativistic.isChecked():
             basis_name = self.basis.currentText().strip()
             manual_dkh_basis = (
@@ -3767,6 +3810,9 @@ class MainWindow(QMainWindow):
                 self.extinction_nature.currentData() == "anisotropic"
             ),
             "EXTINCTION_MEAN_PATH_MM": self.extinction_mean_path.value(),
+            "CALCULATE_FLACK_PARAMETER": _bool_text(
+                self.calculate_flack_parameter.isChecked()
+            ),
             "CONVTOLE": self.energy_convergence.text().strip(),
             "LINEDEP": self.linear_dependence.text().strip(),
             "TONTO_REFINEMENT_TARGET": (

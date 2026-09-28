@@ -59,6 +59,54 @@ of the external programs.
   wavelength, cell, symmetry, angular limit, and observation population. A
   missing prerequisite must be represented as unavailable, not invented.
 
+The `MERG` code meanings and the associated SHELXL data-treatment convention
+are documented in the [official SHELXL instruction
+reference](https://shelx.uni-goettingen.de/shelxl_html.php). Matching a code
+does not by itself establish that two programs used the same observation
+population.
+
+## Absolute structure and inversion twinning
+
+The optional Flack value is a post-refinement Parsons quotient estimate, not a
+generic chirality test and not an inversion-twin refinement.  Its scientific
+use requires all of the following:
+
+- an acentric, noncentrosymmetric structure;
+- unmerged observations with both Friedel opposites retained, followed by
+  `MERG 2` treatment;
+- experimentally appropriate anomalous-dispersion terms for the measurement
+  wavelength; and
+- enough precise Friedel pairs with appreciable calculated anomalous
+  differences to define the weighted slope.
+
+The parameter is poorly determined when the anomalous signal is weak, Friedel
+coverage is incomplete, absorption or scaling errors dominate the pair
+differences, or the reported $f'$/$f''$ values are inappropriate.  A numerical
+$x$ close to zero is not by itself proof of absolute configuration; report the
+standard uncertainty, selected quotient count, radiation/wavelength, Friedel
+coverage, and data-reduction procedure.  These limitations follow the original
+absolute-structure parameter of [Flack
+(1983)](https://doi.org/10.1107/S0108767383001762) and the quotient estimator of
+[Parsons, Flack and Wagner
+(2013)](https://doi.org/10.1107/S2052519213010014).
+PLATON/checkCIF independently treats a missing uncertainty, a high uncertainty,
+or a value that deviates significantly from zero as an issue that must be
+interpreted rather than hidden; see the [IUCr PLATON validation-test
+descriptions](https://iucrdata.iucr.org/services/cif/checking/platon.html) and
+the PLATON references in {doc}`references`.
+
+Because the estimate is calculated after the accepted structural fit, enabling
+it does not correct an inversion-twinned model, alter calculated intensities,
+or change a residual map.  A genuine inversion twin with a significant
+intermediate fraction must be represented by an explicit inversion-twin model
+during least squares; that is a different procedure and is not activated by
+`CALCULATE_FLACK_PARAMETER`.  The reason for keeping routine quotient
+estimation outside the full structural matrix, including the risk of
+overestimated uncertainty when $x$ is refined there, is discussed by
+[Sheldrick (2015)](https://doi.org/10.1107/S2053229614024218).  See
+{doc}`principles` for the implemented equations and {doc}`outputs` for the CIF
+semantics.
+
 ## Geometry and disorder
 
 The routine workflow assumes a crystallographically interpretable ordered
@@ -66,6 +114,12 @@ model. Severe disorder, anharmonic motion, occupational modulation, twinning,
 incommensurability, and multiphase data require model-specific treatment not
 provided by a generic checkbox. Constraints and restraints must be justified
 and inspected in the generated Tonto input.
+
+For anharmonic displacement parameters, the crystallographic tensor and
+Gram--Charlier conventions should be reported according to [Johnson
+(1969)](https://doi.org/10.1107/S0567739469000325) and [Trueblood *et al.*
+(1996)](https://doi.org/10.1107/S0108767396005697); enabling an order in the GUI
+does not demonstrate that the data support it.
 
 Completing a molecule for the quantum calculation does not change the
 crystallographic asymmetric unit. Manual growth creates a new starting CIF;
@@ -78,6 +132,9 @@ Tonto requires all-electron information for the density and atom partition.
 An ECP/pseudopotential basis is not interchangeable with an all-electron
 basis. A basis retrieved from Basis Set Exchange may be mathematically valid
 in a molecular code yet unsuitable or linearly dependent in a periodic solid.
+The source and metadata model are described by [Pritchard *et al.*
+(2019)](https://doi.org/10.1021/acs.jcim.9b00725); conversion success is not a
+periodic-basis validation.
 
 For Crystal23 and CP2K:
 
@@ -120,6 +177,18 @@ required picture-change density and structure-factor operators. This explicit
 failure prevents a relativistic request from silently running as a
 nonrelativistic calculation. Tonto's retained Pauli/ZORA source is not exposed
 as a validated lamaGOET HAR route.
+
+The scalar Hamiltonian belongs to the Douglas--Kroll--Hess family
+([Douglas and Kroll,
+1974](https://doi.org/10.1016/0003-4916(74)90333-9); [Hess,
+1986](https://doi.org/10.1103/PhysRevA.33.3742)); those references do not remove
+the need to validate basis compatibility and picture-change treatment.
+Relativistic XCW/HAR applications and their crystallographic consequences are
+discussed by [Hudák *et al.*
+(2010)](https://doi.org/10.1107/S0108767309038744), [Bučinský, Jayatilaka and
+Grabowsky (2016)](https://doi.org/10.1021/acs.jpca.6b05769), and [Pawlędzio
+*et al.* (2021)](https://doi.org/10.1107/S2052252521004541). Those studies do
+not validate an untested executable/basis combination automatically.
 
 ## Stockholder atoms
 
@@ -175,7 +244,11 @@ assumptions. Becker--Coppens type 1, type 2, mixed, Gaussian/Lorentzian, and
 isotropic/anisotropic choices require data capable of supporting those
 parameters. A refined coefficient with a small numerical e.s.d. is not proof
 that the model is physically identifiable. Compare residual trends versus
-intensity and angle and report the complete model in the CIF.
+intensity and angle and report the complete model in the CIF. The [IUCr CIF
+Core extinction
+definition](https://www.iucr.org/__data/iucr/cifdic_html/3/CORE_DIC/Irefine_ls.extinction_method.html)
+specifies the required model description; the primary Zachariasen--Larson and
+Becker--Coppens papers are listed in {doc}`references`.
 
 ## Wavefunction exports
 
@@ -184,7 +257,9 @@ an infinite k-periodic state exactly. Periodic TREXIO is the authoritative
 periodic export. A finite crystal-cluster calculation can produce conventional
 molecular files for local analysis, but boundary termination, charge,
 multiplicity, embedding, and cluster convergence must be reported and it must
-not be relabelled as the periodic wavefunction.
+not be relabelled as the periodic wavefunction. See the [TREXIO
+specification](https://trex-coe.github.io/trexio/) and [format
+paper](https://doi.org/10.1063/5.0148161) for container semantics.
 
 ## Platform and external-program limits
 
