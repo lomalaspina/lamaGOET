@@ -43,9 +43,7 @@ publisher or software project wherever possible.
    3170–3179.
    [doi:10.1021/acs.jpclett.5c03918](https://doi.org/10.1021/acs.jpclett.5c03918).
    This is the primary publication for the lamaGOET/Tonto pHAR implementation.
-   Its reported calculations used the historical Crystal23 XML interface;
-   cite the present software revision separately when using the corrected
-   native periodic-density interfaces.
+   Its reported calculations used the historical Crystal23 XML interface.
 
 9. D. E. P. Vanpoucke, P. Bultinck and I. Van Driessche, “Extending
    Hirshfeld-I to bulk and periodic materials,” *J. Comput. Chem.* **34**
