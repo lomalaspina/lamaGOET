@@ -26,7 +26,11 @@ below are lamaGOET/Tonto implementation details.
 | SC cluster optimization: ORCA + Tonto | as above through ORCA | theoretical optimization, not a crystallographic HAR |
 
 Crystal23 and CP2K are periodic routes and are described in
-{doc}`periodic-har`.
+{doc}`periodic-har`. The lamaGOET/Tonto pHAR implementation and its original
+legacy-XML applications were published by
+[Chu *et al.* (2026)](https://doi.org/10.1021/acs.jpclett.5c03918); current
+native-interface corrections and their validation scope are distinguished on
+that page.
 
 For publication, cite the exact external engine and version as well as the
 HAR method: use Gaussian's [release-specific citation

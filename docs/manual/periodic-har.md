@@ -19,13 +19,27 @@ An apparently reasonable molecular test does not validate these contracts for
 an extended solid. Off-cell density blocks can contribute strongly to bonding
 while being weakly exercised in a small molecular crystal.
 
-Periodic HAR using periodic electronic densities has precedent in the
+The lamaGOET/Tonto implementation lineage documented here was introduced as
+periodic Hirshfeld atom refinement (pHAR) by
+[Chu *et al.* (2026)](https://doi.org/10.1021/acs.jpclett.5c03918). That
+publication is the primary citation for the pHAR method, its Crystal23--Tonto
+workflow, and its published molecular and molecular-ion applications.
+
+The calculations reported by Chu *et al.* used the then-current legacy
+Crystal23 XML transfer. They predate the later corrections to basis, AO,
+contraction, normalization, translation-block, and phase handling described in
+this manual. Consequently, those results do not validate the corrected native
+GRED interface or extended covalent periodic networks such as diamond and
+silicon. Reproduction of the published calculations should select **Legacy
+XML** and record the exact historical code revision; new production work
+should normally use the validated native interface.
+
+Periodic HAR using periodic electronic densities also has precedent in the
 PAW-based formulation of
 [Ruth, Herbst-Irmer and Stalke (2022)](https://doi.org/10.1107/S2052252522001385).
 The native GRED and CP2K interfaces documented here are separate,
 branch-specific lamaGOET/Tonto implementations and must be validated on their
-own import contracts; that paper is methodological context, not validation of
-these readers.
+own import contracts; neither publication by itself validates these readers.
 
 ## Crystal23 interfaces
 
