@@ -166,6 +166,25 @@ the cycle that created them. Absence of a requested cube is reported as a
 warning because it usually means the chosen Tonto executable predates the
 feature or the requested label did not match the current structure.
 
+## Anharmonic atomic probability-density cubes
+
+With **Export anharmonic atomic probability-density cubes** enabled, Tonto
+writes files matching
+`JOBNAME.anharmonic_pdf_*,gaussian.cube` after the final-model calculation.
+The runner deletes same-name working and cycle-archive cubes before that
+calculation, then archives only files produced by the current run. A requested
+export that produces no cube is a hard error, preventing an older result from
+being reported as current.
+
+Each cube header identifies the atom and included second-, third-, and/or
+fourth-order contributions. Values follow the Gaussian-cube atomic-unit
+convention (bohr$^{-3}$). Standard output reports the signed positive and
+negative integrals, and records the equal-magnitude positive/negative contour
+suggestion in bohr$^{-3}$ and Å$^{-3}$. Adjacent unit-cell/image atoms may be
+included in the cube atom list to preserve bonding context; they do not add
+probability density to the selected atom's field. See {doc}`principles` for
+the equations and {doc}`validation` for the XD/XDPDF numerical check.
+
 ## Molecular orbital exports
 
 For a finite canonical molecular-orbital calculation, the final residual step

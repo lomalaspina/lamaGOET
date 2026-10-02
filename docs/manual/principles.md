@@ -280,9 +280,13 @@ the local linearization used to solve the nonlinear problem.
 Three step controllers are available, without changing the selected $F$ or
 $F^2$ objective or its weights:
 
-- **Gauss--Newton** is the established Tonto default.  lamaGOET emits no new
-  solver keyword in this mode, preserving compatibility with older Tonto
-  executables and established results.
+- **Gauss--Newton** is the established Tonto default for harmonic refinements.
+  lamaGOET emits no new solver keyword in this mode, preserving compatibility
+  with older Tonto executables and established results.  The exception is a
+  third- or fourth-order Gram--Charlier refinement: an unchanged/default
+  Gauss--Newton selection is promoted to adaptive LM because an unguarded
+  high-order step can leave the valid displacement model before the next
+  objective evaluation.
 - **SHELXL-style fixed damping** multiplies every diagonal normal-matrix
   element by $1+d/1000$ before inversion, where $d$ is `SHELXL_DAMP`.  If the
   largest structural shift/esd exceeds `SHELXL_LIMSE`, all structural shifts
@@ -307,6 +311,94 @@ LM is preferable for an unstable or oscillatory starting model because it
 tests the actual nonlinear objective rather than accepting every linearized
 step.  Neither method repairs an incorrect model, reflection set, weighting
 law, or near-singular parameterization.
+
+For an anharmonic fit, lamaGOET uses at least 20 LM trial steps and 200 inner
+fit iterations.  These are safety/convergence budgets, not a requirement that
+all 200 iterations be used.  A deliberately selected SHELXL-style damped
+solver remains available and is not replaced.
+
+## Anharmonic atomic probability density
+
+For an atom displaced by the Cartesian vector $\mathbf u$ with harmonic ADP
+tensor $U$, the normalized harmonic probability density is
+
+$$
+P_0(\mathbf u)=
+\frac{\exp[-\tfrac12\mathbf u^T U^{-1}\mathbf u]}
+{(2\pi)^{3/2}\sqrt{\det U}}.
+$$
+
+Tonto evaluates the crystallographic Gram--Charlier expansion directly in
+Cartesian coordinates as additive contributions,
+
+$$
+P^{(2)}(\mathbf u)=P_0(\mathbf u),
+$$
+
+$$
+P^{(3)}(\mathbf u)=P_0(\mathbf u)
+\frac{1}{3!}\sum_{ijk}U^{ijk}H_{ijk}(\mathbf u),
+\qquad
+P^{(4)}(\mathbf u)=P_0(\mathbf u)
+\frac{1}{4!}\sum_{ijkl}U^{ijkl}H_{ijkl}(\mathbf u).
+$$
+
+The exported field is the sum of the terms selected in the GUI. Selecting all
+three gives $P=P^{(2)}+P^{(3)}+P^{(4)}$; selecting only third or fourth order
+gives the corresponding signed correction rather than a normalized
+probability distribution. The refinement order and export order are separate
+controls so that an already refined model can be decomposed without changing
+its parameters.
+
+Here the generalized Hermite tensors are formed from
+$\mathbf v=U^{-1}\mathbf u$. For example,
+
+$$
+H_{ijk}=v_i v_j v_k-(U^{-1})_{ij}v_k
+-(U^{-1})_{ik}v_j-(U^{-1})_{jk}v_i.
+$$
+
+The fourth-order tensor is evaluated with the analogous six single-contraction
+and three double-contraction terms. This coordinate-free form avoids assuming
+that $U$ is diagonal and uses the same Cartesian third- and fourth-order
+quasi-moments as the refinement. The harmonic tensor must be positive
+definite. A cube containing $P^{(2)}$ should integrate to one once the boundary
+is large enough; an isolated odd correction should integrate to zero in the
+infinite-domain limit. Discretization and a finite box control the remaining
+error.
+
+For a requested harmonic-reference probability $q$, Tonto solves for the
+three-dimensional chi-square quantile $x_q$ from
+
+$$
+q=\operatorname{erf}\!\left(\sqrt{x_q/2}\right)
+-\sqrt{\frac{2x_q}{\pi}}\exp(-x_q/2),
+$$
+
+and reports the symmetric contour pair
+
+$$
+\rho_q^{\pm}=\pm P_0(\mathbf 0)\exp(-x_q/2).
+$$
+
+These levels are metadata for visualization. They do not change the signed
+grid values and they deliberately use the same probability for positive and
+negative contours.
+
+Because a finite Gram--Charlier series is not guaranteed to remain positive,
+the cube writer preserves signed values. A substantial negative region is not
+clipped: it warns that the fitted truncated probability model is unphysical or
+poorly conditioned. These cubes describe nuclear positional probability, not
+electron density. The convention follows the anharmonic probability-density
+treatment in [XD/XDPDF, Chapter
+11.3](https://www.chem.gla.ac.uk/~louis/xdworkshop/workshop/documentation/xd2006manual.pdf)
+and the crystallographic ADP conventions of [Johnson
+(1969)](https://doi.org/10.1107/S0567739469000325), [Kuhs
+(1992)](https://doi.org/10.1107/S0108767391009510), and [Trueblood *et al.*
+(1996)](https://doi.org/10.1107/S0108767396005697). MoleCoolQt/MolIso
+`.face` files are triangulated isosurface meshes, not volumetric grids; they
+are therefore useful visualization references but are not interchangeable
+with Gaussian cube files or XD `.grd` data.
 
 ## Scale and extinction
 

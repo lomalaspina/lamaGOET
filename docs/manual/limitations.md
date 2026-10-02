@@ -36,7 +36,8 @@ are part of the method definition, not merely software caveats.
 | Periodic XCW | Crystal23 GRED+KRED / Tonto | Experimental; λ-zero and small nonzero engineering controls exist for Diamond |
 | Observed-density reconstruction | Tonto | Experimental research model; not equivalent to ordinary HAR or a periodic inverse-Kohn--Sham solution |
 | Dynamic observed density | Tonto | Experimental fixed-structure density-shape analysis; conventional ADPs are not independently identifiable from the same smeared density |
-| Plots/cubes | Tonto | Input generation exists; the full plotting workflow is currently not release-validated |
+| Legacy plot panel | Tonto | Input generation exists; the full plot-panel workflow is currently not release-validated |
+| Final residual/Hirshfeld/anharmonic cubes | Tonto | Targeted regression coverage exists; the anharmonic PDF writer has an XD/XDPDF signed-integral control, not universal physical validation |
 | SCCC optimization | Gaussian/ORCA with Tonto | Available molecular cluster workflow; not a periodic geometry optimizer |
 
 The table describes the repository snapshot, not a guarantee for all versions

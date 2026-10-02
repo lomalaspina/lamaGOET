@@ -351,6 +351,70 @@ publisher or software project wherever possible.
     Cryst.* D**65** (2009), 148–155.
     [doi:10.1107/S090744490804362X](https://doi.org/10.1107/S090744490804362X).
 
+66. D. T. Cromer and D. A. Liberman, “Relativistic calculation of anomalous
+    scattering factors for X rays,” *J. Chem. Phys.* **53** (1970),
+    1891–1898.
+    [doi:10.1063/1.1674266](https://doi.org/10.1063/1.1674266).
+
+67. S. Brennan and P. L. Cowan, “A suite of programs for calculating X-ray
+    absorption, reflection, and diffraction performance for a variety of
+    materials at arbitrary wavelengths,” *Rev. Sci. Instrum.* **63** (1992),
+    850–853.
+    [doi:10.1063/1.1142625](https://doi.org/10.1063/1.1142625).
+
+68. M. Wojdyr, “Gemmi: A library for structural biology,” *J. Open Source
+    Softw.* **7** (2022), 4200.
+    [doi:10.21105/joss.04200](https://doi.org/10.21105/joss.04200).
+
+69. B. H. Toby and R. B. Von Dreele, “GSAS-II: the genesis of a modern
+    open-source all purpose crystallography software package,” *J. Appl.
+    Cryst.* **46** (2013), 544–549.
+    [doi:10.1107/S0021889813003531](https://doi.org/10.1107/S0021889813003531).
+    lamaGOET's FPRIME numerical path is an independently integrated port of
+    the public GSAS-II `FPcalc` algorithm and uses a pinned, checksum-verified
+    copy of its traditional `Xsect.dat` orbital table.
+
+70. W. F. Kuhs, “Generalized atomic displacements in crystallographic
+    structure analysis,” *Acta Cryst.* A**48** (1992), 80–98.
+    [doi:10.1107/S0108767391009510](https://doi.org/10.1107/S0108767391009510).
+    The Cartesian Gram--Charlier probability-density implementation and its
+    second-, third-, and fourth-order decomposition use these crystallographic
+    conventions together with references 36 and 60.
+
+71. A. Volkov, P. Macchi, L. J. Farrugia, C. Gatti, P. Mallinson,
+    T. Richter and T. Koritsanszky, *XD2006 - A Computer Program Package for
+    Multipole Refinement, Topological Analysis of Charge Densities and
+    Evaluation of Intermolecular Energies from Experimental and Theoretical
+    Structure Factors* (2006), and the
+    [XD2015 manual](https://www.chem.gla.ac.uk/~louis/xd-home/docs/xd2015manual.pdf).
+    The XDPDF output supplied with the validation data is the external
+    numerical reference for the integrated third-order O(1) probability.
+
+72. C. B. Hübschle and B. Dittrich, “MoleCoolQt - a molecule viewer for
+    charge-density research,” *J. Appl. Cryst.* **44** (2011), 238–240.
+    [doi:10.1107/S0021889810042482](https://doi.org/10.1107/S0021889810042482).
+
+73. C. B. Hübschle and P. Luger, “MolIso - a program for colour-mapped
+    iso-surfaces,” *J. Appl. Cryst.* **39** (2006), 901–904.
+    [doi:10.1107/S0021889806041859](https://doi.org/10.1107/S0021889806041859).
+
+74. C. B. Hübschle, C. Ruhmlieb, A. Burkhardt, S. van Smaalen and
+    B. Dittrich, “On avoiding negative electron density in Gram-Charlier
+    refinements of anharmonic motion: the example of glutathione,”
+    *Z. Kristallogr. Cryst. Mater.* **233** (2018), 695–706.
+    [doi:10.1515/zkri-2018-2060](https://doi.org/10.1515/zkri-2018-2060).
+    This provides the physical-negative-density discussion and the published
+    visualization convention behind the comparison with MoleCoolQt.
+
+75. A. E. Whitten, P. Turner, W. T. Klooster, R. O. Piltz and
+    M. A. Spackman, “Reassessment of Large Dipole Moment Enhancements in
+    Crystals: A Detailed Experimental and Theoretical Charge Density Analysis
+    of 2-Methyl-4-nitroaniline,” *J. Phys. Chem. A* **110** (2006),
+    8763–8776.
+    [doi:10.1021/jp061830n](https://doi.org/10.1021/jp061830n).
+    This is the provenance reference for the diffraction dataset used in the
+    retained XD/Tonto anharmonic probability-density regression.
+
 ## Citation practice
 
 For a publication, cite lamaGOET, Tonto, the electronic-structure program,

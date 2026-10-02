@@ -64,6 +64,15 @@ from .crystal import (
     crystal23_spacegroup_record,
     write_grown_cif,
 )
+from .dispersion import (
+    DispersionCoefficient,
+    DispersionError,
+    calculate_dispersion,
+    parse_overrides,
+    resolve_dispersion,
+    serialize_coefficients,
+    serialize_overrides,
+)
 from .job_options import cp2k_basis_names, load_job_options, save_job_options
 from .viewer import StructureView
 
@@ -268,6 +277,8 @@ class MainWindow(QMainWindow):
         self._live_cif_update_count = 0
         self.local_process: subprocess.Popen | None = None
         self.cluster_job_id: str | None = None
+        self._dispersion_manual_overrides: dict[str, tuple[float, float]] = {}
+        self._anharmonic_pdf_selected_atoms: list[str] = []
         self._build_ui()
         self.load_options(self.option_path)
         self.cif_timer = QTimer(self)
@@ -602,11 +613,61 @@ class MainWindow(QMainWindow):
         wave_layout.setContentsMargins(0, 0, 0, 0)
         wave_layout.addWidget(QLabel("Wavelength (Å)"))
         self.wave = QLineEdit("0.71073")
+        self.wave.editingFinished.connect(self._update_dispersion_summary)
         wave_layout.addWidget(self.wave)
         wave_layout.addWidget(QLabel("F/sigma cutoff"))
         self.fcut = QLineEdit("3")
         wave_layout.addWidget(self.fcut)
         form.addRow(wave_row)
+        dispersion_row = QWidget()
+        dispersion_layout = QHBoxLayout(dispersion_row)
+        dispersion_layout.setContentsMargins(0, 0, 0, 0)
+        self.dispersion_correction = QCheckBox(
+            "Apply anomalous dispersion correction"
+        )
+        self.dispersion_correction.setToolTip(
+            "Resolve wavelength-specific f-prime and f-double-prime values "
+            "for every element in the loaded CIF and pass the exact values "
+            "to Tonto."
+        )
+        self.dispersion_correction.toggled.connect(
+            self._dispersion_controls_changed
+        )
+        dispersion_layout.addWidget(self.dispersion_correction)
+        dispersion_layout.addWidget(QLabel("source"))
+        self.dispersion_source = QComboBox()
+        self.dispersion_source.addItem(
+            "FPRIME — Cromer–Liberman / Kissel–Pratt", "fprime"
+        )
+        self.dispersion_source.addItem(
+            "Brennan–Cowan — Gemmi", "brennan"
+        )
+        self.dispersion_source.setToolTip(
+            "FPRIME follows the WinGX/GSAS-II Cromer–Liberman calculation "
+            "with the Kissel–Pratt correction and no Jensen term. "
+            "Brennan–Cowan uses Gemmi's independent Cromer–Liberman "
+            "implementation."
+        )
+        self.dispersion_source.currentIndexChanged.connect(
+            self._dispersion_source_changed
+        )
+        dispersion_layout.addWidget(self.dispersion_source, 1)
+        self.dispersion_override_button = QPushButton(
+            "Review / override by element…"
+        )
+        self.dispersion_override_button.clicked.connect(
+            self.edit_dispersion_coefficients
+        )
+        dispersion_layout.addWidget(self.dispersion_override_button)
+        form.addRow(dispersion_row)
+        self.dispersion_summary = QLabel(
+            "Enable dispersion correction and open a CIF to resolve f′ and f″."
+        )
+        self.dispersion_summary.setWordWrap(True)
+        self.dispersion_summary.setTextInteractionFlags(
+            Qt.TextInteractionFlag.TextSelectableByMouse
+        )
+        form.addRow("Resolved coefficients", self.dispersion_summary)
         processor_row = QWidget()
         processor_layout = QHBoxLayout(processor_row)
         processor_layout.setContentsMargins(0, 0, 0, 0)
@@ -1077,6 +1138,16 @@ class MainWindow(QMainWindow):
         self.refine_h_adps = QCheckBox("Refine H ADPs")
         self.refine_h_adps.setChecked(True)
         self.h_adp = QCheckBox("H atoms isotropic")
+        self.refine_h_adps.setToolTip(
+            "Anisotropic H displacement parameters are supported in HAR. "
+            "They are usually poorly determined in an IAM-only refinement, "
+            "so inspect the model and conditioning for that case."
+        )
+        self.h_adp.setToolTip(
+            "Use one isotropic displacement parameter for each refined H atom. "
+            "This is useful for an IAM control; anisotropic H displacement "
+            "parameters remain supported in an aspherical HAR."
+        )
         hydrogen_layout.addWidget(QLabel("H positions"))
         hydrogen_layout.addWidget(self.h_position_model)
         hydrogen_layout.addWidget(self.refine_h_adps)
@@ -1087,6 +1158,12 @@ class MainWindow(QMainWindow):
         anharmonic_layout = QHBoxLayout(anharmonic_row)
         anharmonic_layout.setContentsMargins(0, 0, 0, 0)
         self.refine_anharmonic = QCheckBox("Refine anharmonic ADPs")
+        self.refine_anharmonic.setToolTip(
+            "Third- and fourth-order Gram-Charlier fits are strongly "
+            "nonlinear. lamaGOET therefore selects adaptive "
+            "Levenberg-Marquardt with at least 20 trial steps and 200 fit "
+            "iterations when this option is enabled."
+        )
         self.refine_anharmonic.toggled.connect(self._refinement_controls_changed)
         self.anharmonic_atoms = QLineEdit()
         self.third_order = QCheckBox("3rd order")
@@ -1097,6 +1174,51 @@ class MainWindow(QMainWindow):
         anharmonic_layout.addWidget(self.third_order)
         anharmonic_layout.addWidget(self.fourth_order)
         refinement_form.addRow(anharmonic_row)
+        self.anharmonic_h_warning = QLabel(
+            "IAM warning: anisotropic H ADPs are normally poorly determined "
+            "by a spherical independent-atom model. This does not prohibit "
+            "anisotropic H refinement in HAR. For this IAM stage, consider "
+            "isotropic/fixed H ADPs or inspect the eigenvalues and ellipsoids "
+            "before using the geometry."
+        )
+        self.anharmonic_h_warning.setObjectName("anharmonicHWarning")
+        self.anharmonic_h_warning.setWordWrap(True)
+        self.anharmonic_h_warning.setStyleSheet(
+            "QLabel#anharmonicHWarning { color: #8a4b00; }"
+        )
+        refinement_form.addRow(self.anharmonic_h_warning)
+        anharmonic_pdf_row = QWidget()
+        anharmonic_pdf_layout = QHBoxLayout(anharmonic_pdf_row)
+        anharmonic_pdf_layout.setContentsMargins(0, 0, 0, 0)
+        self.output_anharmonic_pdf_cubes = QCheckBox(
+            "Export anharmonic atomic probability-density cubes"
+        )
+        self.output_anharmonic_pdf_cubes.setToolTip(
+            "Write one signed Gram-Charlier probability-density cube for each "
+            "selected independent atom after the final Tonto calculation. "
+            "The atom-selection dialog uses one checkbox per asymmetric-unit "
+            "atom; automatic mode exports every atom carrying coefficients "
+            "for the selected anharmonic orders."
+        )
+        self.output_anharmonic_pdf_cubes.toggled.connect(
+            self._anharmonic_pdf_controls_changed
+        )
+        self.anharmonic_pdf_cube_atoms = QLineEdit()
+        self.anharmonic_pdf_cube_atoms.setReadOnly(True)
+        self.anharmonic_pdf_cube_atoms.setPlaceholderText(
+            "automatic: all atoms with selected anharmonic coefficients"
+        )
+        self.select_anharmonic_pdf_atoms = QPushButton("Select atoms…")
+        self.select_anharmonic_pdf_atoms.clicked.connect(
+            self._choose_anharmonic_pdf_atoms
+        )
+        anharmonic_pdf_layout.addWidget(self.output_anharmonic_pdf_cubes)
+        anharmonic_pdf_layout.addWidget(QLabel("atoms"))
+        anharmonic_pdf_layout.addWidget(self.anharmonic_pdf_cube_atoms, 1)
+        anharmonic_pdf_layout.addWidget(self.select_anharmonic_pdf_atoms)
+        refinement_form.addRow(anharmonic_pdf_row)
+        self.refine_h_adps.toggled.connect(self._refinement_controls_changed)
+        self.h_adp.toggled.connect(self._refinement_controls_changed)
 
         xh_row = QWidget()
         xh_layout = QGridLayout(xh_row)
@@ -1120,10 +1242,6 @@ class MainWindow(QMainWindow):
             xh_layout.addWidget(widget, 1, column * 2 + 1)
         refinement_form.addRow(xh_row)
 
-        self.dispersion_correction = QCheckBox(
-            "Apply experimental dispersion correction"
-        )
-        refinement_form.addRow(self.dispersion_correction)
         self.extinction_correction = QCheckBox("Refine extinction correction")
         self.extinction_correction.toggled.connect(
             self._extinction_controls_changed
@@ -1883,6 +2001,103 @@ class MainWindow(QMainWindow):
 
     def _plots_panel(self) -> QScrollArea:
         form = QFormLayout()
+        self.anharmonic_pdf_options = QGroupBox(
+            "Anharmonic atomic probability-density cubes"
+        )
+        anharmonic_pdf_form = QFormLayout(self.anharmonic_pdf_options)
+        self.anharmonic_pdf_auto_size = QCheckBox(
+            "Automatically size each cube from its boundary density"
+        )
+        self.anharmonic_pdf_auto_size.setChecked(True)
+        self.anharmonic_pdf_auto_size.toggled.connect(
+            self._anharmonic_pdf_controls_changed
+        )
+        anharmonic_pdf_form.addRow(self.anharmonic_pdf_auto_size)
+        self.anharmonic_pdf_boundary_cutoff = QDoubleSpinBox()
+        self.anharmonic_pdf_boundary_cutoff.setDecimals(6)
+        self.anharmonic_pdf_boundary_cutoff.setRange(0.000001, 1.0)
+        self.anharmonic_pdf_boundary_cutoff.setSingleStep(0.001)
+        self.anharmonic_pdf_boundary_cutoff.setValue(0.001)
+        self.anharmonic_pdf_boundary_cutoff.setSuffix(" Å⁻³")
+        self.anharmonic_pdf_boundary_cutoff.setToolTip(
+            "Auto-sizing expands the box until the maximum absolute signed "
+            "probability density on every face is no larger than this value."
+        )
+        anharmonic_pdf_form.addRow(
+            "Boundary |P(u)| cutoff", self.anharmonic_pdf_boundary_cutoff
+        )
+        self.anharmonic_pdf_separation = QDoubleSpinBox()
+        self.anharmonic_pdf_separation.setDecimals(3)
+        self.anharmonic_pdf_separation.setRange(0.01, 1.0)
+        self.anharmonic_pdf_separation.setSingleStep(0.01)
+        self.anharmonic_pdf_separation.setValue(0.1)
+        self.anharmonic_pdf_separation.setSuffix(" Å")
+        anharmonic_pdf_form.addRow(
+            "Grid separation", self.anharmonic_pdf_separation
+        )
+        anharmonic_pdf_widths = QWidget()
+        anharmonic_pdf_widths_layout = QHBoxLayout(anharmonic_pdf_widths)
+        anharmonic_pdf_widths_layout.setContentsMargins(0, 0, 0, 0)
+        self.anharmonic_pdf_width_x = QDoubleSpinBox()
+        self.anharmonic_pdf_width_y = QDoubleSpinBox()
+        self.anharmonic_pdf_width_z = QDoubleSpinBox()
+        for label, widget in (
+            ("X", self.anharmonic_pdf_width_x),
+            ("Y", self.anharmonic_pdf_width_y),
+            ("Z", self.anharmonic_pdf_width_z),
+        ):
+            widget.setDecimals(2)
+            widget.setRange(0.2, 100.0)
+            widget.setSingleStep(0.5)
+            widget.setValue(4.0)
+            widget.setSuffix(" Å")
+            anharmonic_pdf_widths_layout.addWidget(QLabel(label))
+            anharmonic_pdf_widths_layout.addWidget(widget)
+        anharmonic_pdf_form.addRow("Manual box widths", anharmonic_pdf_widths)
+        self.anharmonic_pdf_include_neighbours = QCheckBox(
+            "Include nearby periodic-image atoms in the cube atom list"
+        )
+        self.anharmonic_pdf_include_neighbours.setChecked(True)
+        anharmonic_pdf_form.addRow(self.anharmonic_pdf_include_neighbours)
+        anharmonic_pdf_orders = QWidget()
+        anharmonic_pdf_orders_layout = QHBoxLayout(anharmonic_pdf_orders)
+        anharmonic_pdf_orders_layout.setContentsMargins(0, 0, 0, 0)
+        self.anharmonic_pdf_second_order = QCheckBox("2nd (harmonic)")
+        self.anharmonic_pdf_third_order = QCheckBox("3rd")
+        self.anharmonic_pdf_fourth_order = QCheckBox("4th")
+        for order in (
+            self.anharmonic_pdf_second_order,
+            self.anharmonic_pdf_third_order,
+            self.anharmonic_pdf_fourth_order,
+        ):
+            order.setChecked(True)
+            order.toggled.connect(self._anharmonic_pdf_controls_changed)
+            anharmonic_pdf_orders_layout.addWidget(order)
+        anharmonic_pdf_orders_layout.addStretch(1)
+        anharmonic_pdf_form.addRow("Included PDF contributions", anharmonic_pdf_orders)
+        self.anharmonic_pdf_contour_probability = QSpinBox()
+        self.anharmonic_pdf_contour_probability.setRange(1, 99)
+        self.anharmonic_pdf_contour_probability.setValue(50)
+        self.anharmonic_pdf_contour_probability.setSuffix(" %")
+        self.anharmonic_pdf_contour_probability.setToolTip(
+            "Harmonic-reference enclosed probability used to report equal-"
+            "magnitude positive and negative contour levels. It does not "
+            "clip or rescale the cube."
+        )
+        anharmonic_pdf_form.addRow(
+            "Symmetric contour probability",
+            self.anharmonic_pdf_contour_probability,
+        )
+        anharmonic_pdf_note = QLabel(
+            "Second order is the normalized harmonic P₀ term; third and fourth "
+            "order are signed Gram–Charlier corrections. Checked terms are "
+            "summed without clipping. The percentage supplies the same absolute "
+            "contour magnitude for positive and negative surfaces; it does not "
+            "reproduce MoleCoolQt's special −99% negative contour."
+        )
+        anharmonic_pdf_note.setWordWrap(True)
+        anharmonic_pdf_form.addRow(anharmonic_pdf_note)
+        form.addRow(self.anharmonic_pdf_options)
         self.shelxl_residual_map = QCheckBox(
             "Also calculate the nominal SHELXL FMAP 2 coefficient comparison"
         )
@@ -2201,6 +2416,21 @@ class MainWindow(QMainWindow):
         self.charge.setValue(self._int_option("CHARGE", 0))
         self.multiplicity.setValue(self._int_option("MULTIPLICITY", 1))
         self.wave.setText(self._option("WAVE", "0.71073"))
+        dispersion_source = self._option("DISPERSION_SOURCE", "fprime")
+        dispersion_source_index = self.dispersion_source.findData(
+            dispersion_source
+        )
+        self.dispersion_source.setCurrentIndex(
+            max(0, dispersion_source_index)
+        )
+        try:
+            self._dispersion_manual_overrides = parse_overrides(
+                self._option("DISPERSION_MANUAL_OVERRIDES", "{}")
+            )
+        except DispersionError:
+            # Preserve compatibility with hand-written/old option files. A
+            # fresh save replaces malformed legacy text with a valid mapping.
+            self._dispersion_manual_overrides = {}
         self.fcut.setText(self._option("FCUT", "3"))
         self.processors.setValue(self._int_option("NUMPROC", 1))
         self.tonto_processors.setValue(self._int_option("NUMPROCTONTO", 1))
@@ -2321,12 +2551,58 @@ class MainWindow(QMainWindow):
         self.anharmonic_atoms.setText(self._option("ANHARMATOMS"))
         self.third_order.setChecked(self._bool_option("THIRDORD"))
         self.fourth_order.setChecked(self._bool_option("FOURTHORD"))
+        self.output_anharmonic_pdf_cubes.setChecked(
+            self._bool_option("OUTPUT_ANHARMONIC_PDF_CUBES")
+        )
+        self._anharmonic_pdf_selected_atoms = self._option(
+            "ANHARMONIC_PDF_CUBE_ATOMS"
+        ).split()
+        self._update_anharmonic_pdf_atom_summary()
+        self.anharmonic_pdf_auto_size.setChecked(
+            self._bool_option("ANHARMONIC_PDF_CUBE_AUTOSIZE", True)
+        )
+        self.anharmonic_pdf_boundary_cutoff.setValue(
+            self._float_option(
+                "ANHARMONIC_PDF_CUBE_BOUNDARY_CUTOFF", 0.001
+            )
+        )
+        self.anharmonic_pdf_separation.setValue(
+            self._float_option("ANHARMONIC_PDF_CUBE_SEPARATION", 0.1)
+        )
+        self.anharmonic_pdf_width_x.setValue(
+            self._float_option("ANHARMONIC_PDF_CUBE_WIDTH_X", 4.0)
+        )
+        self.anharmonic_pdf_width_y.setValue(
+            self._float_option("ANHARMONIC_PDF_CUBE_WIDTH_Y", 4.0)
+        )
+        self.anharmonic_pdf_width_z.setValue(
+            self._float_option("ANHARMONIC_PDF_CUBE_WIDTH_Z", 4.0)
+        )
+        self.anharmonic_pdf_include_neighbours.setChecked(
+            self._bool_option(
+                "ANHARMONIC_PDF_CUBE_INCLUDE_NEIGHBOURS", True
+            )
+        )
+        self.anharmonic_pdf_second_order.setChecked(
+            self._bool_option("ANHARMONIC_PDF_CUBE_SECOND_ORDER", True)
+        )
+        self.anharmonic_pdf_third_order.setChecked(
+            self._bool_option("ANHARMONIC_PDF_CUBE_THIRD_ORDER", True)
+        )
+        self.anharmonic_pdf_fourth_order.setChecked(
+            self._bool_option("ANHARMONIC_PDF_CUBE_FOURTH_ORDER", True)
+        )
+        self.anharmonic_pdf_contour_probability.setValue(
+            self._int_option("ANHARMONIC_PDF_CUBE_CONTOUR_PROBABILITY", 50)
+        )
+        self._anharmonic_pdf_controls_changed()
         self.elongate_xh.setChecked(self._bool_option("XHALONG"))
         self.bh_bond.setText(self._option("BHBOND", "1.190"))
         self.ch_bond.setText(self._option("CHBOND", "1.083"))
         self.nh_bond.setText(self._option("NHBOND", "1.009"))
         self.oh_bond.setText(self._option("OHBOND", "0.983"))
         self.dispersion_correction.setChecked(self._bool_option("DISP"))
+        self._dispersion_controls_changed()
         self.extinction_correction.setChecked(self._bool_option("EXTI"))
         extinction_model = self._option("EXTINCTION_MODEL", "zachariasen")
         model_index = self.extinction_model.findData(extinction_model)
@@ -2630,8 +2906,7 @@ class MainWindow(QMainWindow):
         self._set_combo_text(
             self.cp2k_functional, self._option("CP2K_XC_FUNCTIONAL", "BLYP")
         )
-        if self.cif_path.text():
-            self._load_cif_from_field()
+        self._load_cif_from_field()
         self._header_changed()
         self._initial_adp_changed()
         self._external_basis_changed()
@@ -2771,9 +3046,131 @@ class MainWindow(QMainWindow):
         self.anharmonic_atoms.setEnabled(anharmonic)
         self.third_order.setEnabled(anharmonic)
         self.fourth_order.setEnabled(anharmonic)
+        self.anharmonic_h_warning.setVisible(
+            anharmonic
+            and (self.iam_tonto.isChecked() or self.only_iam_tonto.isChecked())
+            and self.refine_h_adps.isChecked()
+            and not self.h_adp.isChecked()
+        )
+        if anharmonic:
+            self._apply_anharmonic_solver_safeguard()
         elongate = self.elongate_xh.isChecked()
         for widget in (self.bh_bond, self.ch_bond, self.nh_bond, self.oh_bond):
             widget.setEnabled(elongate)
+
+    def _anharmonic_pdf_controls_changed(self, *_args) -> None:
+        enabled = self.output_anharmonic_pdf_cubes.isChecked()
+        self.anharmonic_pdf_cube_atoms.setEnabled(enabled)
+        self.select_anharmonic_pdf_atoms.setEnabled(enabled)
+        self.anharmonic_pdf_options.setEnabled(enabled)
+        auto_size = enabled and self.anharmonic_pdf_auto_size.isChecked()
+        self.anharmonic_pdf_boundary_cutoff.setEnabled(auto_size)
+        for widget in (
+            self.anharmonic_pdf_width_x,
+            self.anharmonic_pdf_width_y,
+            self.anharmonic_pdf_width_z,
+        ):
+            widget.setEnabled(enabled and not auto_size)
+
+    def _update_anharmonic_pdf_atom_summary(self) -> None:
+        if self._anharmonic_pdf_selected_atoms:
+            summary = " ".join(self._anharmonic_pdf_selected_atoms)
+        else:
+            summary = "automatic: all atoms with selected-order coefficients"
+        self.anharmonic_pdf_cube_atoms.setText(summary)
+
+    def _choose_anharmonic_pdf_atoms(self) -> None:
+        if self.structure is None:
+            QMessageBox.information(
+                self,
+                "Select anharmonic PDF atoms",
+                "Open the input CIF first so lamaGOET can list its "
+                "asymmetric-unit atoms.",
+            )
+            return
+
+        atoms = self.structure.asymmetric_unit()
+        dialog = QDialog(self)
+        dialog.setWindowTitle("Select atoms for anharmonic PDF cubes")
+        layout = QVBoxLayout(dialog)
+        automatic = QCheckBox(
+            "All atoms carrying coefficients for the selected orders (automatic)"
+        )
+        automatic.setChecked(not self._anharmonic_pdf_selected_atoms)
+        layout.addWidget(automatic)
+
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        contents = QWidget()
+        atom_layout = QVBoxLayout(contents)
+        selected = {label.casefold() for label in self._anharmonic_pdf_selected_atoms}
+        refinement_atoms = {
+            label.casefold() for label in self.anharmonic_atoms.text().split()
+        }
+        atom_checks: list[tuple[str, QCheckBox]] = []
+        for atom in atoms:
+            checkbox = QCheckBox(f"{atom.label} ({atom.element})")
+            checkbox.setChecked(
+                atom.label.casefold() in selected
+                or (
+                    not selected
+                    and atom.label.casefold() in refinement_atoms
+                )
+            )
+            atom_checks.append((atom.label, checkbox))
+            atom_layout.addWidget(checkbox)
+        atom_layout.addStretch(1)
+        scroll.setWidget(contents)
+        layout.addWidget(scroll)
+
+        def update_enabled(checked: bool) -> None:
+            for _label, checkbox in atom_checks:
+                checkbox.setEnabled(not checked)
+
+        automatic.toggled.connect(update_enabled)
+        update_enabled(automatic.isChecked())
+
+        buttons = QDialogButtonBox(
+            QDialogButtonBox.StandardButton.Ok
+            | QDialogButtonBox.StandardButton.Cancel
+        )
+
+        def accept_selection() -> None:
+            if automatic.isChecked():
+                self._anharmonic_pdf_selected_atoms = []
+            else:
+                chosen = [
+                    label for label, checkbox in atom_checks if checkbox.isChecked()
+                ]
+                if not chosen:
+                    QMessageBox.warning(
+                        dialog,
+                        "No atom selected",
+                        "Select at least one atom, or enable automatic mode.",
+                    )
+                    return
+                self._anharmonic_pdf_selected_atoms = chosen
+            self._update_anharmonic_pdf_atom_summary()
+            dialog.accept()
+
+        buttons.accepted.connect(accept_selection)
+        buttons.rejected.connect(dialog.reject)
+        layout.addWidget(buttons)
+        dialog.resize(460, min(650, 170 + 28 * len(atom_checks)))
+        dialog.exec()
+
+    def _apply_anharmonic_solver_safeguard(self) -> None:
+        """Promote only the unsafe default solver for anharmonic fits."""
+        solver = self.tonto_least_squares_solver.currentData()
+        if solver not in {"gauss-newton", "levenberg-marquardt"}:
+            return
+        if solver == "gauss-newton":
+            lm_index = self.tonto_least_squares_solver.findData(
+                "levenberg-marquardt"
+            )
+            self.tonto_least_squares_solver.setCurrentIndex(lm_index)
+        self.lm_max_trials.setValue(max(20, self.lm_max_trials.value()))
+        self.max_ls_cycles.setValue(max(200, self.max_ls_cycles.value()))
 
     def _extinction_controls_changed(self, *_args) -> None:
         enabled = self.extinction_correction.isChecked()
@@ -2846,6 +3243,11 @@ class MainWindow(QMainWindow):
         self.tonto_weighting_explanation.setText(explanation)
 
     def _solver_controls_changed(self, *_args) -> None:
+        if (
+            self.refine_anharmonic.isChecked()
+            and self.tonto_least_squares_solver.currentData() == "gauss-newton"
+        ):
+            self._apply_anharmonic_solver_safeguard()
         solver = self.tonto_least_squares_solver.currentData()
         shelxl_damped = solver == "shelxl-damped"
         levenberg_marquardt = solver == "levenberg-marquardt"
@@ -3097,6 +3499,178 @@ class MainWindow(QMainWindow):
     def _program_activated(self, *_args) -> None:
         self.program.hidePopup()
 
+    def _dispersion_elements(self) -> list[str]:
+        if self.structure is None:
+            return []
+        return sorted(
+            {atom.element for atom in self.structure.asymmetric_unit()},
+            key=str.casefold,
+        )
+
+    def _dispersion_wavelength(self) -> float:
+        try:
+            wavelength = float(self.wave.text().strip())
+        except ValueError as exc:
+            raise DispersionError(
+                "The wavelength must be a positive number before dispersion "
+                "coefficients can be calculated."
+            ) from exc
+        if not math.isfinite(wavelength) or wavelength <= 0.0:
+            raise DispersionError(
+                "The wavelength must be a positive finite number before "
+                "dispersion coefficients can be calculated."
+            )
+        return wavelength
+
+    def _resolved_dispersion_values(self) -> list[DispersionCoefficient]:
+        elements = self._dispersion_elements()
+        if not elements:
+            raise DispersionError(
+                "Open the job CIF before enabling anomalous dispersion so "
+                "lamaGOET can determine all element types."
+            )
+        return resolve_dispersion(
+            elements,
+            self._dispersion_wavelength(),
+            self.dispersion_source.currentData() or "fprime",
+            self._dispersion_manual_overrides,
+        )
+
+    def _dispersion_source_changed(self, *_args) -> None:
+        self._update_dispersion_summary()
+
+    def _dispersion_controls_changed(self, *_args) -> None:
+        enabled = self.dispersion_correction.isChecked()
+        self.dispersion_source.setEnabled(enabled)
+        self.dispersion_override_button.setEnabled(enabled)
+        self.dispersion_summary.setEnabled(enabled)
+        self._update_dispersion_summary()
+
+    def _update_dispersion_summary(self, *_args) -> None:
+        if not self.dispersion_correction.isChecked():
+            self.dispersion_summary.setText(
+                "Dispersion correction is disabled; Tonto will use f′ = f″ = 0."
+            )
+            return
+        if self.structure is None:
+            self.dispersion_summary.setText(
+                "Open the job CIF to resolve one f′/f″ pair per element."
+            )
+            return
+        try:
+            values = self._resolved_dispersion_values()
+        except DispersionError as exc:
+            self.dispersion_summary.setText(f"Not resolved: {exc}")
+            return
+        source = (self.dispersion_source.currentData() or "fprime").upper()
+        entries = [
+            f"{value.element}: f′={value.fp:.6g}, f″={value.fpp:.6g}"
+            + (" (manual)" if value.manual else "")
+            for value in values
+        ]
+        self.dispersion_summary.setText(
+            f"{source} at λ={self._dispersion_wavelength():.7g} Å — "
+            + "; ".join(entries)
+        )
+
+    def edit_dispersion_coefficients(self) -> None:
+        if self.structure is None:
+            QMessageBox.information(
+                self,
+                "Open a CIF first",
+                "The CIF is needed to create one dispersion row per element.",
+            )
+            return
+        try:
+            wavelength = self._dispersion_wavelength()
+        except DispersionError as exc:
+            QMessageBox.critical(self, "Dispersion coefficients", str(exc))
+            return
+        source = self.dispersion_source.currentData() or "fprime"
+        dialog = QDialog(self)
+        dialog.setWindowTitle("Anomalous-dispersion coefficients")
+        dialog.resize(760, 320)
+        layout = QVBoxLayout(dialog)
+        explanation = QLabel(
+            "Each unchecked row follows the selected source at the current "
+            "wavelength. Tick Manual only for elements whose f′ and f″ you "
+            "want to replace. The resolved table is saved in job_options.txt "
+            "so local and cluster runs use exactly the same numbers."
+        )
+        explanation.setWordWrap(True)
+        layout.addWidget(explanation)
+        page = QWidget()
+        grid = QGridLayout(page)
+        for column, heading in enumerate(
+            ("Element", "Calculated source value", "Manual", "f′", "f″")
+        ):
+            label = QLabel(f"<b>{heading}</b>")
+            grid.addWidget(label, 0, column)
+        controls: dict[str, tuple[QCheckBox, QDoubleSpinBox, QDoubleSpinBox]] = {}
+        errors: list[str] = []
+        for row, element in enumerate(self._dispersion_elements(), start=1):
+            baseline: DispersionCoefficient | None = None
+            try:
+                baseline = calculate_dispersion(element, wavelength, source)
+                baseline_text = f"f′={baseline.fp:.8g}, f″={baseline.fpp:.8g}"
+            except DispersionError as exc:
+                baseline_text = "unavailable"
+                errors.append(f"{element}: {exc}")
+            manual = QCheckBox()
+            manual.setChecked(element in self._dispersion_manual_overrides)
+            fp = QDoubleSpinBox()
+            fpp = QDoubleSpinBox()
+            for editor in (fp, fpp):
+                editor.setDecimals(10)
+                editor.setRange(-999.0, 999.0)
+                editor.setSingleStep(0.001)
+            if element in self._dispersion_manual_overrides:
+                fp_value, fpp_value = self._dispersion_manual_overrides[element]
+            elif baseline is not None:
+                fp_value, fpp_value = baseline.fp, baseline.fpp
+            else:
+                fp_value, fpp_value = 0.0, 0.0
+                manual.setChecked(True)
+            fp.setValue(fp_value)
+            fpp.setValue(fpp_value)
+            fp.setEnabled(manual.isChecked())
+            fpp.setEnabled(manual.isChecked())
+            manual.toggled.connect(fp.setEnabled)
+            manual.toggled.connect(fpp.setEnabled)
+            grid.addWidget(QLabel(element), row, 0)
+            grid.addWidget(QLabel(baseline_text), row, 1)
+            grid.addWidget(manual, row, 2, Qt.AlignmentFlag.AlignCenter)
+            grid.addWidget(fp, row, 3)
+            grid.addWidget(fpp, row, 4)
+            controls[element] = (manual, fp, fpp)
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setWidget(page)
+        layout.addWidget(scroll, 1)
+        if errors:
+            warning = QLabel(
+                "A source value was unavailable for the following row(s); "
+                "enter a manual value: " + " | ".join(errors)
+            )
+            warning.setWordWrap(True)
+            warning.setStyleSheet("color: #8a4b00;")
+            layout.addWidget(warning)
+        buttons = QDialogButtonBox(
+            QDialogButtonBox.StandardButton.Ok
+            | QDialogButtonBox.StandardButton.Cancel
+        )
+        buttons.accepted.connect(dialog.accept)
+        buttons.rejected.connect(dialog.reject)
+        layout.addWidget(buttons)
+        if dialog.exec() != QDialog.DialogCode.Accepted:
+            return
+        self._dispersion_manual_overrides = {
+            element: (fp.value(), fpp.value())
+            for element, (manual, fp, fpp) in controls.items()
+            if manual.isChecked()
+        }
+        self._update_dispersion_summary()
+
     def _reload_cp2k_bases(self) -> None:
         current = self.cp2k_basis.currentText() or "aug-SZV-MOLOPT-ae-SR"
         choices = cp2k_basis_names(self.cp2k_basis_file.text())
@@ -3110,7 +3684,10 @@ class MainWindow(QMainWindow):
 
     def _load_cif_from_field(self) -> None:
         value = self.cif_path.text().strip()
-        if not value or not re_is_cif_path(Path(value)):
+        if not value:
+            self._clear_structure_view()
+            return
+        if not re_is_cif_path(Path(value)):
             return
         path = Path(value).expanduser()
         if not path.is_absolute():
@@ -3118,8 +3695,27 @@ class MainWindow(QMainWindow):
         try:
             self._load_structure(path)
         except (CifError, OSError, ValueError) as exc:
-            self.structure = None
+            self._clear_structure_view()
             QMessageBox.critical(self, "Could not load CIF", str(exc))
+
+    def _clear_structure_view(self) -> None:
+        """Remove a preceding job's structure when no valid CIF is loaded."""
+
+        self.structure = None
+        self._last_structure_with_adps = None
+        self.visible_atoms = []
+        self.current_grow_description = self.UNGROWN_DESCRIPTION
+        self._displayed_cif = None
+        self._initial_cif = None
+        self._latest_cif_stamp = None
+        self._cif_watch_baseline = {}
+        self._live_cif_update_count = 0
+        self.viewer.cell = None
+        self.viewer.atoms = []
+        self.viewer.bonds = []
+        self.viewer.clear_selection()
+        self.structure_status.setText("Structure: no CIF loaded")
+        self._update_dispersion_summary()
 
     def _load_structure(self, path: Path, *, automatic: bool = False) -> None:
         structure = CrystalStructure.from_cif(path)
@@ -3178,6 +3774,7 @@ class MainWindow(QMainWindow):
             f"{len(structure.symmetry_operations)} symmetry operations{adp_note}",
             10000,
         )
+        self._update_dispersion_summary()
 
     @staticmethod
     def _cif_cycle_number(path: Path) -> int | None:
@@ -3476,6 +4073,47 @@ class MainWindow(QMainWindow):
 
     def _current_values(self) -> dict[str, object]:
         program = self.program.currentData() or "Gaussian"
+        if self.output_anharmonic_pdf_cubes.isChecked() and not any(
+            (
+                self.anharmonic_pdf_second_order.isChecked(),
+                self.anharmonic_pdf_third_order.isChecked(),
+                self.anharmonic_pdf_fourth_order.isChecked(),
+            )
+        ):
+            raise ValueError(
+                "Select at least one of the second-, third-, or fourth-order "
+                "contributions for the anharmonic PDF cubes."
+            )
+        if (
+            self.output_anharmonic_pdf_cubes.isChecked()
+            and self._anharmonic_pdf_selected_atoms
+        ):
+            if self.structure is None:
+                raise ValueError(
+                    "Open the input CIF before exporting explicitly selected "
+                    "anharmonic PDF atoms."
+                )
+            requested = {
+                label.casefold() for label in self._anharmonic_pdf_selected_atoms
+            }
+            atoms = self.structure.asymmetric_unit()
+            available = {atom.label.casefold(): atom.label for atom in atoms}
+            missing = sorted(
+                label
+                for label in self._anharmonic_pdf_selected_atoms
+                if label.casefold() not in available
+            )
+            if missing:
+                raise ValueError(
+                    "The selected anharmonic PDF atom label(s) are not in the "
+                    f"loaded CIF: {', '.join(missing)}"
+                )
+            # Save exact CIF spelling in asymmetric-unit order even when a
+            # legacy options file used different case or ordering.
+            self._anharmonic_pdf_selected_atoms = [
+                atom.label for atom in atoms if atom.label.casefold() in requested
+            ]
+            self._update_anharmonic_pdf_atom_summary()
         if (
             self.tonto_weighting_scheme.currentData() == "shelxl"
             and self.tonto_refinement_target.currentData() != "f2"
@@ -3642,6 +4280,14 @@ class MainWindow(QMainWindow):
                 raise ValueError(
                     "The periodic XCW convergence tolerance must be a positive finite number."
                 )
+        dispersion_coefficients = ""
+        if self.dispersion_correction.isChecked():
+            try:
+                dispersion_coefficients = serialize_coefficients(
+                    self._resolved_dispersion_values()
+                )
+            except DispersionError as exc:
+                raise ValueError(str(exc)) from exc
         result: dict[str, object] = {
             "SCFCALCPROG": program,
             "JOBNAME": self.job_name.text().strip() or "my_job",
@@ -3794,12 +4440,58 @@ class MainWindow(QMainWindow):
             "FOURTHORD": _bool_text(
                 self.fourth_order.isChecked() and not dynamic_observed
             ),
+            "OUTPUT_ANHARMONIC_PDF_CUBES": _bool_text(
+                self.output_anharmonic_pdf_cubes.isChecked()
+            ),
+            "ANHARMONIC_PDF_CUBE_ATOMS": (
+                " ".join(self._anharmonic_pdf_selected_atoms)
+            ),
+            "ANHARMONIC_PDF_CUBE_AUTOSIZE": _bool_text(
+                self.anharmonic_pdf_auto_size.isChecked()
+            ),
+            "ANHARMONIC_PDF_CUBE_BOUNDARY_CUTOFF": (
+                self.anharmonic_pdf_boundary_cutoff.value()
+            ),
+            "ANHARMONIC_PDF_CUBE_SEPARATION": (
+                self.anharmonic_pdf_separation.value()
+            ),
+            "ANHARMONIC_PDF_CUBE_WIDTH_X": (
+                self.anharmonic_pdf_width_x.value()
+            ),
+            "ANHARMONIC_PDF_CUBE_WIDTH_Y": (
+                self.anharmonic_pdf_width_y.value()
+            ),
+            "ANHARMONIC_PDF_CUBE_WIDTH_Z": (
+                self.anharmonic_pdf_width_z.value()
+            ),
+            "ANHARMONIC_PDF_CUBE_INCLUDE_NEIGHBOURS": _bool_text(
+                self.anharmonic_pdf_include_neighbours.isChecked()
+            ),
+            "ANHARMONIC_PDF_CUBE_SECOND_ORDER": _bool_text(
+                self.anharmonic_pdf_second_order.isChecked()
+            ),
+            "ANHARMONIC_PDF_CUBE_THIRD_ORDER": _bool_text(
+                self.anharmonic_pdf_third_order.isChecked()
+            ),
+            "ANHARMONIC_PDF_CUBE_FOURTH_ORDER": _bool_text(
+                self.anharmonic_pdf_fourth_order.isChecked()
+            ),
+            "ANHARMONIC_PDF_CUBE_CONTOUR_PROBABILITY": (
+                self.anharmonic_pdf_contour_probability.value()
+            ),
             "XHALONG": _bool_text(self.elongate_xh.isChecked()),
             "BHBOND": self.bh_bond.text().strip(),
             "CHBOND": self.ch_bond.text().strip(),
             "NHBOND": self.nh_bond.text().strip(),
             "OHBOND": self.oh_bond.text().strip(),
             "DISP": "yes" if self.dispersion_correction.isChecked() else "no",
+            "DISPERSION_SOURCE": (
+                self.dispersion_source.currentData() or "fprime"
+            ),
+            "DISPERSION_MANUAL_OVERRIDES": serialize_overrides(
+                self._dispersion_manual_overrides
+            ),
+            "DISPERSION_COEFFICIENTS": dispersion_coefficients,
             "EXTI": "yes" if self.extinction_correction.isChecked() else "no",
             "EXTINCTION_MODEL": self.extinction_model.currentData(),
             "EXTINCTION_TYPE": self.extinction_type.currentData(),

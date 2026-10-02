@@ -36,6 +36,48 @@ def main() -> int:
         assert window.crystal_density_interface.currentData() == "gred"
         assert window.crystal_ldremo.text() == ""
         assert window.crystal_group.isHidden()
+        assert window.anharmonic_pdf_cube_atoms.isReadOnly()
+        assert not window.output_anharmonic_pdf_cubes.isChecked()
+        assert window.anharmonic_pdf_second_order.isChecked()
+        assert window.anharmonic_pdf_third_order.isChecked()
+        assert window.anharmonic_pdf_fourth_order.isChecked()
+        assert window.anharmonic_pdf_contour_probability.value() == 50
+        window._anharmonic_pdf_selected_atoms = ["O1", "O2"]
+        window._update_anharmonic_pdf_atom_summary()
+        assert window._current_values()["ANHARMONIC_PDF_CUBE_ATOMS"] == "O1 O2"
+        window.output_anharmonic_pdf_cubes.setChecked(True)
+        window.anharmonic_pdf_second_order.setChecked(False)
+        window.anharmonic_pdf_third_order.setChecked(False)
+        window.anharmonic_pdf_fourth_order.setChecked(False)
+        try:
+            window._current_values()
+        except ValueError as exc:
+            assert "at least one" in str(exc).lower()
+        else:
+            raise AssertionError("empty anharmonic PDF order selection was accepted")
+        window.anharmonic_pdf_third_order.setChecked(True)
+        window.anharmonic_pdf_contour_probability.setValue(99)
+        window.cif_path.setText(str(ROOT / "Tests" / "inputs" / "calc.cif"))
+        window._load_cif_from_field()
+        window._anharmonic_pdf_selected_atoms = ["c2", "c1"]
+        pdf_values = window._current_values()
+        assert pdf_values["ANHARMONIC_PDF_CUBE_ATOMS"] == "C1 C2"
+        assert pdf_values["ANHARMONIC_PDF_CUBE_SECOND_ORDER"] == "false"
+        assert pdf_values["ANHARMONIC_PDF_CUBE_THIRD_ORDER"] == "true"
+        assert pdf_values["ANHARMONIC_PDF_CUBE_FOURTH_ORDER"] == "false"
+        assert pdf_values["ANHARMONIC_PDF_CUBE_CONTOUR_PROBABILITY"] == 99
+        window._anharmonic_pdf_selected_atoms = ["NO_SUCH_ATOM"]
+        try:
+            window._current_values()
+        except ValueError as exc:
+            assert "not in the loaded cif" in str(exc).lower()
+        else:
+            raise AssertionError("invalid anharmonic PDF atom label was accepted")
+        window.output_anharmonic_pdf_cubes.setChecked(False)
+        window.cif_path.clear()
+        window._load_cif_from_field()
+        assert window.structure is None
+        assert window.viewer.atoms == []
         assert window.advanced_har_tab.widget().isAncestorOf(window.crystal_group)
         assert not window.shelxl_residual_map.isChecked()
         fmap2_text = (
@@ -156,6 +198,42 @@ def main() -> int:
         assert lm_values["LM_LAMBDA_UP"] == 12.0
         assert lm_values["LM_LAMBDA_DOWN"] == 0.2
         assert lm_values["LM_MAX_TRIALS"] == 17
+        window.lm_max_trials.setValue(8)
+        window.max_ls_cycles.setValue(30)
+        window.tonto_least_squares_solver.setCurrentIndex(
+            window.tonto_least_squares_solver.findData("gauss-newton")
+        )
+        window.refine_anharmonic.setChecked(True)
+        assert window.anharmonic_h_warning.isHidden()
+        window.iam_tonto.setChecked(True)
+        assert not window.anharmonic_h_warning.isHidden()
+        window.h_adp.setChecked(True)
+        assert window.anharmonic_h_warning.isHidden()
+        window.h_adp.setChecked(False)
+        assert not window.anharmonic_h_warning.isHidden()
+        window.iam_tonto.setChecked(False)
+        assert window.anharmonic_h_warning.isHidden()
+        assert (
+            window.tonto_least_squares_solver.currentData()
+            == "levenberg-marquardt"
+        )
+        assert window.lm_max_trials.value() == 20
+        assert window.max_ls_cycles.value() == 200
+        # The unsafe undamped choice cannot silently be restored while the
+        # high-order model is active.
+        window.tonto_least_squares_solver.setCurrentIndex(
+            window.tonto_least_squares_solver.findData("gauss-newton")
+        )
+        assert (
+            window.tonto_least_squares_solver.currentData()
+            == "levenberg-marquardt"
+        )
+        window.refine_anharmonic.setChecked(False)
+        window.tonto_least_squares_solver.setCurrentIndex(
+            window.tonto_least_squares_solver.findData("levenberg-marquardt")
+        )
+        window.lm_max_trials.setValue(17)
+        window.max_ls_cycles.setValue(30)
         assert window.xcw_mode.currentData() == "molecular"
         assert not window.molecular_xcw_options.isHidden()
         assert window.periodic_xcw_options.isHidden()
@@ -228,7 +306,20 @@ def main() -> int:
         window.extinction_correction.setChecked(True)
         assert window._current_values()["EXTI"] == "yes"
         assert not window.extinction_options.isHidden()
+        # Dispersion coefficients are resolved from the actual CIF elements at
+        # the selected wavelength and persisted as exact numbers.  Use the
+        # dependency-backed Brennan route here so this smoke test does not
+        # depend on an optional system WinGX/FPRIME installation.
+        window.cif_path.setText(str(ROOT / "Tests" / "inputs" / "calc.cif"))
+        window._load_cif_from_field()
         window.dispersion_correction.setChecked(True)
+        window.dispersion_source.setCurrentIndex(
+            window.dispersion_source.findData("brennan")
+        )
+        dispersion_values = window._current_values()
+        assert dispersion_values["DISPERSION_SOURCE"] == "brennan"
+        assert dispersion_values["DISPERSION_COEFFICIENTS"]
+        assert "C " in dispersion_values["DISPERSION_COEFFICIENTS"]
         window.calculate_flack_parameter.setChecked(True)
         assert window._current_values()["CALCULATE_FLACK_PARAMETER"] == "true"
         assert window.extinction_model.currentData() == "zachariasen"
@@ -581,6 +672,32 @@ def main() -> int:
         window._refresh_latest_cif()
         assert window._displayed_cif == batch_final.resolve()
         window.close()
+
+        legacy_anharmonic_options = (
+            Path(directory) / "legacy_anharmonic_job_options.txt"
+        )
+        legacy_anharmonic_options.write_text(
+            'SCFCALCPROG="Orca"\n'
+            'REFANHARM="true"\n'
+            'ANHARMATOMS="O1 O2"\n'
+            'THIRDORD="true"\n'
+            'FOURTHORD="false"\n'
+            'TONTO_LEAST_SQUARES_SOLVER="gauss-newton"\n'
+            'LM_MAX_TRIALS="8"\n'
+            'MAXLSCYCLE="30"\n',
+            encoding="utf-8",
+        )
+        legacy_anharmonic_window = MainWindow(legacy_anharmonic_options)
+        assert legacy_anharmonic_window.refine_anharmonic.isChecked()
+        assert legacy_anharmonic_window.third_order.isChecked()
+        assert not legacy_anharmonic_window.fourth_order.isChecked()
+        assert (
+            legacy_anharmonic_window.tonto_least_squares_solver.currentData()
+            == "levenberg-marquardt"
+        )
+        assert legacy_anharmonic_window.lm_max_trials.value() == 20
+        assert legacy_anharmonic_window.max_ls_cycles.value() == 200
+        legacy_anharmonic_window.close()
 
         # A remotely running calculation overwrites one stable live-CIF path
         # on every cycle.  Exercise three such updates, including same-size

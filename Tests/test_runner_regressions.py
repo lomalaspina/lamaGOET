@@ -45,6 +45,154 @@ class RunnerRegressionTest(unittest.TestCase):
             text,
         )
 
+    def test_dispersion_coefficients_are_noninteractive_and_reproducible(self):
+        for runner, text in self.runner_text.items():
+            with self.subTest(runner=runner):
+                self.assertIn("PREPARE_DISPERSION_COEFFICIENTS(){", text)
+                self.assertIn("${DISPERSION_COEFFICIENTS}", text)
+                self.assertIn("dispersion_coefficients= {", text)
+                self.assertNotIn(
+                    "Enter experimental dispersion correction coefficients",
+                    text,
+                )
+                self.assertNotIn("--entry --title=\"Experimental dispersion", text)
+
+                if os.name == "posix" and shutil.which("bash"):
+                    definition = (
+                        "PREPARE_DISPERSION_COEFFICIENTS(){\n"
+                        + function_body(text, "PREPARE_DISPERSION_COEFFICIENTS")
+                        + "DISPERSION_COEF(){\n"
+                        + function_body(text, "DISPERSION_COEF")
+                    )
+                    with tempfile.TemporaryDirectory() as directory:
+                        result = subprocess.run(
+                            [
+                                "bash",
+                                "-c",
+                                definition
+                                + '\nDISP="yes"\n'
+                                + 'DISPERSION_COEFFICIENTS="C 0.003 0.002 I -0.157 1.817"\n'
+                                + ": > stdin\n"
+                                + "DISPERSION_COEF\n"
+                                + "cat stdin\n",
+                            ],
+                            cwd=directory,
+                            text=True,
+                            capture_output=True,
+                            check=True,
+                        )
+                    self.assertIn(
+                        "C 0.003 0.002 I -0.157 1.817", result.stdout
+                    )
+
+    def test_anharmonic_pdf_cube_keywords_and_archiving_are_wired(self):
+        keywords = (
+            "anharmonic_pdf_cube_atoms=",
+            "anharmonic_pdf_cube_spacing=",
+            "anharmonic_pdf_cube_cutoff=",
+            "anharmonic_pdf_cube_auto_size=",
+            "anharmonic_pdf_cube_widths=",
+            "anharmonic_pdf_cube_neighbors=",
+            "anharmonic_pdf_cube_second=",
+            "anharmonic_pdf_cube_third=",
+            "anharmonic_pdf_cube_fourth=",
+            "anharmonic_pdf_probability=",
+            "put_anharmonic_pdf_cubes",
+        )
+        for runner, text in self.runner_text.items():
+            with self.subTest(runner=runner):
+                body = function_body(text, "WRITE_ANHARMONIC_PDF_OPTIONS")
+                for keyword in keywords:
+                    self.assertIn(keyword, body)
+                self.assertNotIn("anharmonic_pdf_cube_widths= {", body)
+                archive = function_body(
+                    text, "_lamagoet_archive_anharmonic_pdf_cubes"
+                )
+                self.assertIn("anharmonic_pdf_", archive)
+                self.assertIn("gaussian.cube", archive)
+                self.assertIn('rm -f -- "$target/${J:-0}.anharmonic_pdf_"*', archive)
+                residual = function_body(text, "GET_RESIDUALS")
+                self.assertIn(
+                    'rm -f -- "${JOBNAME}.anharmonic_pdf_"*,gaussian.cube',
+                    residual,
+                )
+
+                if os.name == "posix" and shutil.which("bash"):
+                    with tempfile.TemporaryDirectory() as directory:
+                        directory_path = Path(directory)
+                        target = directory_path / "3.tonto_cycle.case"
+                        target.mkdir()
+                        stale = target / "3.anharmonic_pdf_old,gaussian.cube"
+                        stale.write_text("stale", encoding="utf-8")
+                        current = (
+                            directory_path
+                            / "case.anharmonic_pdf_O1,gaussian.cube"
+                        )
+                        current.write_text("current", encoding="utf-8")
+                        subprocess.run(
+                            [
+                                "bash",
+                                "-c",
+                                "archive_fn(){\n"
+                                + archive
+                                + '\nOUTPUT_ANHARMONIC_PDF_CUBES="true"\n'
+                                + 'JOBNAME="case"\nJ=3\narchive_fn\n',
+                            ],
+                            cwd=directory,
+                            text=True,
+                            capture_output=True,
+                            check=True,
+                        )
+                        self.assertFalse(stale.exists())
+                        copied = target / "3.anharmonic_pdf_O1,gaussian.cube"
+                        self.assertEqual(copied.read_text(encoding="utf-8"), "current")
+
+                if os.name == "posix" and shutil.which("bash"):
+                    with tempfile.TemporaryDirectory() as directory:
+                        result = subprocess.run(
+                            [
+                                "bash",
+                                "-c",
+                                "WRITE_ANHARMONIC_PDF_OPTIONS(){\n"
+                                + body
+                                + '\nOUTPUT_ANHARMONIC_PDF_CUBES="true"\n'
+                                + 'ANHARMONIC_PDF_CUBE_ATOMS="O1 O2"\n'
+                                + 'ANHARMONIC_PDF_CUBE_WIDTH_X="3"\n'
+                                + 'ANHARMONIC_PDF_CUBE_WIDTH_Y="4"\n'
+                                + 'ANHARMONIC_PDF_CUBE_WIDTH_Z="5"\n'
+                                + 'ANHARMONIC_PDF_CUBE_SECOND_ORDER="false"\n'
+                                + 'ANHARMONIC_PDF_CUBE_THIRD_ORDER="true"\n'
+                                + 'ANHARMONIC_PDF_CUBE_FOURTH_ORDER="false"\n'
+                                + 'ANHARMONIC_PDF_CUBE_CONTOUR_PROBABILITY="99"\n'
+                                + ": > stdin\n"
+                                + "WRITE_ANHARMONIC_PDF_OPTIONS\n"
+                                + "cat stdin\n",
+                            ],
+                            cwd=directory,
+                            text=True,
+                            capture_output=True,
+                            check=True,
+                        )
+                    self.assertIn(
+                        "anharmonic_pdf_cube_atoms= { O1 O2 }", result.stdout
+                    )
+                    self.assertIn(
+                        "anharmonic_pdf_cube_widths= 3 4 5 angstrom",
+                        result.stdout,
+                    )
+                    self.assertIn(
+                        "anharmonic_pdf_cube_second= false", result.stdout
+                    )
+                    self.assertIn(
+                        "anharmonic_pdf_cube_third= true", result.stdout
+                    )
+                    self.assertIn(
+                        "anharmonic_pdf_cube_fourth= false", result.stdout
+                    )
+                    self.assertIn(
+                        "anharmonic_pdf_probability= 99", result.stdout
+                    )
+
     def test_orca_archives_point_charges_only_when_they_exist(self):
         guard = 'if [[ "$SCCHARGES" == "true" && -f "$JOBNAME.qxyz" ]]'
         for runner, text in self.runner_text.items():
@@ -346,6 +494,7 @@ class RunnerRegressionTest(unittest.TestCase):
                 self.assertRegex(
                     residuals,
                     r'rm -f -- "\$\{JOBNAME\}\.shelxl_residual_density,cell\.cube"\s*'
+                    r'rm -f -- "\$\{JOBNAME\}\.anharmonic_pdf_"\*,gaussian\.cube\s*'
                     r'rm -f stdout stde',
                 )
                 self.assertIn("ARCHIVE_SHELXL_RESIDUAL_MAP", residuals)
@@ -1163,6 +1312,84 @@ class RunnerRegressionTest(unittest.TestCase):
                 )
             self.assertNotEqual(result.returncode, 0)
             self.assertIn("Unsupported TONTO_LEAST_SQUARES_SOLVER", result.stderr)
+
+    @unittest.skipUnless(
+        os.name == "posix" and shutil.which("bash"),
+        "anharmonic solver-normalization test requires bash",
+    )
+    def test_anharmonic_default_uses_guarded_solver_in_both_runners(self):
+        for runner, text in self.runner_text.items():
+            definition = (
+                '_lower(){ printf "%s" "$1" | tr "[:upper:]" "[:lower:]"; }\n'
+                + "NORMALISE_ANHARMONIC_SOLVER_OPTIONS(){\n"
+                + function_body(text, "NORMALISE_ANHARMONIC_SOLVER_OPTIONS")
+                + "WRITE_TONTO_SOLVER_OPTIONS(){\n"
+                + function_body(text, "WRITE_TONTO_SOLVER_OPTIONS")
+            )
+            with (
+                self.subTest(runner=runner, solver="legacy default"),
+                tempfile.TemporaryDirectory() as directory,
+            ):
+                result = subprocess.run(
+                    [
+                        "bash",
+                        "-c",
+                        definition
+                        + '\nREFANHARM="true"\n'
+                        + 'IAMTONTO="true"\n'
+                        + 'REFHADP="true"\n'
+                        + 'HADP="no"\n'
+                        + 'TONTO_LEAST_SQUARES_SOLVER="gauss-newton"\n'
+                        + 'LM_MAX_TRIALS="8"\n'
+                        + 'MAXLSCYCLE="30"\n'
+                        + "NORMALISE_ANHARMONIC_SOLVER_OPTIONS\n"
+                        + 'printf "effective=%s,%s,%s\\n" '
+                        + '"$TONTO_LEAST_SQUARES_SOLVER" '
+                        + '"$LM_MAX_TRIALS" "$MAXLSCYCLE"\n'
+                        + "WRITE_TONTO_SOLVER_OPTIONS\n"
+                        + "cat stdin\n",
+                    ],
+                    cwd=directory,
+                    text=True,
+                    capture_output=True,
+                    check=True,
+                )
+            self.assertIn(
+                "effective=levenberg-marquardt,20,200", result.stdout
+            )
+            self.assertIn(
+                "anisotropic H ADPs are normally poorly determined in the requested Tonto IAM stage",
+                result.stderr,
+            )
+            self.assertIn(
+                "least_squares_solver= levenberg-marquardt", result.stdout
+            )
+            self.assertIn("lm_max_trials= 20", result.stdout)
+
+            with (
+                self.subTest(runner=runner, solver="explicit fixed damping"),
+                tempfile.TemporaryDirectory() as directory,
+            ):
+                result = subprocess.run(
+                    [
+                        "bash",
+                        "-c",
+                        definition
+                        + '\nREFANHARM="true"\n'
+                        + 'TONTO_LEAST_SQUARES_SOLVER="shelxl-damped"\n'
+                        + 'LM_MAX_TRIALS="8"\n'
+                        + 'MAXLSCYCLE="30"\n'
+                        + "NORMALISE_ANHARMONIC_SOLVER_OPTIONS\n"
+                        + 'printf "effective=%s,%s,%s\\n" '
+                        + '"$TONTO_LEAST_SQUARES_SOLVER" '
+                        + '"$LM_MAX_TRIALS" "$MAXLSCYCLE"\n',
+                    ],
+                    cwd=directory,
+                    text=True,
+                    capture_output=True,
+                    check=True,
+                )
+            self.assertIn("effective=shelxl-damped,8,30", result.stdout)
 
     @unittest.skipUnless(
         os.name == "posix" and shutil.which("bash"),

@@ -662,6 +662,125 @@ path is grounded in [Levenberg
 (1963)](https://doi.org/10.1137/0111030), but the numerical checks above concern
 this implementation rather than claiming identity with another program.
 
+### Third-order anharmonic safeguard regression
+
+**Failure reproduced.** The supplied ORCA/B3LYP/def2-SVP calculation refined
+third-order Gram--Charlier coefficients for O1 and O2 while attempting 190
+effective structural parameters.  Its saved options selected the undamped
+Gauss--Newton default, 8 LM trials, and 30 iterations.  The first accepted
+linearized step raised $\chi^2$ from 26.801945 to 8129.789414 and raised
+$R(F)$ from 0.041048 to 0.997480; the next iteration became nonfinite.  The
+reported `update_fragment_info` segmentation fault occurred only after that
+invalid state had already been printed and was therefore secondary.
+
+**Independent model check.** The supplied XD third-order-only refinement is a
+valid higher-order model and converges with matrix inversion plus damping.  It
+uses 118 variables, including 20 third-order oxygen coefficients, whereas the
+lamaGOET job also refined a substantially larger coordinate/ADP set.  The XD
+result is therefore a semantic/control reference, not a numerically identical
+least-squares oracle.
+
+**Guarded replay.** The exact failing first-cycle Tonto input was replayed in
+an isolated directory while deliberately retaining its legacy
+`gauss-newton` and `max_iterations=30` text.  Tonto detected the active
+anharmonic model and selected adaptive LM with 20 trials and 200 iterations.
+The first three objective-increasing trial steps (approximately 8305.04,
+8304.46, and 8296.11) were rejected from the unchanged $\chi^2=26.801945$
+model.  The first accepted value was 22.917631.  The fit converged at accepted
+iteration 110 with $\chi^2=16.637373$, $R(F)=0.036617$,
+$R_w(F)=0.044720$, and maximum shift/esd 0.009440 for a tolerance of 0.01.
+No NaN or segmentation fault occurred.
+
+That numerical convergence is **not** a physically acceptable result.  The
+same 190-parameter replay drove one hydrogen coordinate by approximately
+5.8 Angstrom and produced pathological/non-positive hydrogen displacement
+tensors.  The safeguarded solver removed the crash but also exposed a second,
+independent problem: six freely refined anisotropic ADP components for every
+H atom over-parameterized this already ill-conditioned anharmonic fit.
+This is a finding about the supplied parameterization, not a prohibition on
+anisotropic H ADPs in HAR.  In fact, the saved options identify this replay as
+an ORCA HAR (`IAMTONTO=false`, `ONLYIAMTONTO=false`), and the Tonto input uses
+`partition_model=oc-hirshfeld` followed by `ha_fit`.
+
+Three matched controls used the same 4920 reflections.  Refining O1/O2 through
+third order while refining H ADPs isotropically converged at iteration 47 to
+$\chi^2=18.253432$, $R(F)=0.037999$, and $R_w(F)=0.047039$ (149 fit
+parameters).  Keeping H ADPs fixed converged at iteration 12 to
+$\chi^2=18.609498$, $R(F)=0.038020$, and $R_w(F)=0.047536$ (141 fit
+parameters).  The harmonic/isotropic-H control converged at iteration 42 to
+$\chi^2=19.104993$, $R(F)=0.038858$, and $R_w(F)=0.048225$ (130 fit
+parameters).  H coordinates remained near the starting structure in all
+three constrained-H controls.  The isotropic third-order result still had 42
+filtered near-zero eigendirections and one weakly determined H $U_{iso}$ of
+about 0.065(7) Angstrom squared, so it is a stability regression rather than
+a claim that this is the final physical model.
+
+The automatic replay and a separately prepared explicit-LM replay produced
+byte-identical fractional/archive CIFs
+(`SHA-256 a21acc3768ff325fd94f95fd7d2f04734dac57ae18a9e14de9f46b84f35ef4de`)
+and FCF6 files
+(`SHA-256 e44274e494c71efad5af801add0df3306fe0b592b0959babd2c199bfcc71943d`).
+The focused Tonto tests `least_squares_solvers`,
+`gram_charlier_derivatives`, `so2_read_anharmonic_GC_cif`, and
+`so2_read_anharmonic_U_cif` passed 4/4.  The Gram--Charlier invariant checks
+the production signs, factorials and lexical tensor mappings, then
+independently finite-differences all 10 third-order and 15 fourth-order
+coefficients.
+The lamaGOET local and cluster runner regressions passed 60/60, the related
+options/parity/documentation tests passed 26/26, and the off-screen Qt smoke
+test confirmed both interactive selection and migration of a legacy saved
+job.
+
+**Conclusion.** Third-order-only refinement was not intrinsically defective.
+The crash and exploded model had two separable causes: an unguarded nonlinear
+step could accept an enormous objective increase, and freely refined
+anisotropic H ADPs left an over-parameterized model capable of converging to
+an unphysical minimum even after step control was repaired.  Harmonic/default
+calculations retain their established solver path; anharmonic calculations
+now use guarded trial steps.  Anisotropic H ADPs remain available for HAR.
+lamaGOET gives the stronger H-ADP warning only for an IAM stage, where a
+spherical independent-atom model normally cannot determine anisotropic H
+motion reliably; it does not rewrite a HAR job.
+
+### XD/XDPDF O1 probability-density regression
+
+The anharmonic cube writer was checked against the supplied XD_IAM/XDPDF
+calculation for O(1), rather than only against a synthetic tensor. The crystal
+and diffraction data are from the 100 K 2-methyl-4-nitroaniline study of
+[Whitten *et al.* (2006)](https://doi.org/10.1021/jp061830n). The compact
+fixture uses the XD harmonic $U_{ij}$ tensor and all ten third-order
+coefficients, requests the isolated third-order correction, and reproduces the
+XD grid of $51^3$ points, a 1.6 Å box, and 0.032 Å spacing.
+
+XDPDF reports integrated signed probabilities of +1.954% and -1.954%.
+Tonto reports +1.9563% and -1.9563%; the 0.0023 percentage-point difference is
+consistent with printed-coefficient precision and grid quadrature. At the 99%
+harmonic-reference probability, Tonto reports equal-magnitude contours of
+$+0.096715$ and $-0.096715$ Å$^{-3}$. The automated regression verifies the
+grid dimensions, spacing, selected-order metadata, signed-integral balance,
+and agreement with the XD integrated probability.
+
+The retained `xd_pdf.out` explicitly states that the supplied map sections are
+parallel to the cell axes and that the displacements use reciprocal axial
+directions, consistent with [XD/XDPDF Chapter
+11.3](https://www.chem.gla.ac.uk/~louis/xdworkshop/workshop/documentation/xd2006manual.pdf).
+The raw amplitude scale in `xd_pdf.grd` is therefore not compared point by
+point because Gaussian cube files instead use Cartesian axes and atomic-unit
+density. The
+integrated signed probability is invariant to that representation and is the
+appropriate cross-program check. The accompanying MoleCoolQt `testpdf.face`
+file was also decoded as a triangulated surface mesh (vertex normals followed
+by polygon connectivity), not as a volumetric reference grid. Tonto therefore
+continues to write standard Gaussian cubes and records the symmetric contour
+pair as metadata rather than copying the `.face` convention.
+
+This check is retained in
+`tests/data/anharmonic_pdf_xd_o1/` and is run with
+`ctest --output-on-failure -R anharmonic_pdf_xd_o1` from the Tonto build
+directory. It passed on 2026-10-02 together with the independent synthetic
+cube, rectangular-grid, Gram--Charlier derivative, and CIF tensor-reading
+tests.
+
 ## Post-refinement Flack parameter
 
 **Question.** Does the optional absolute-structure analysis reproduce the

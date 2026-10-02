@@ -154,6 +154,15 @@ run_admin ln -sf "$localdir/finite_crystal_wavefunction.py" \
 # now, instead of reporting success and failing on the user's first launch.
 run_user python3 "$localdir/GUI_lamaGOET_qt.py" --check-install
 
+# Cache the pinned Cromer--Liberman orbital table used by the FPRIME
+# anomalous-dispersion option while network access is already expected.  The
+# resolved f-prime/f-double-prime values are subsequently stored in each
+# job_options.txt, so compute nodes do not require this table or network access.
+echo "lamaGOET: installing the FPRIME anomalous-dispersion table..."
+run_user env PYTHONPATH="$localdir${PYTHONPATH:+:$PYTHONPATH}" \
+    "$localdir/.venv-qt/bin/python" -c \
+    'from lamagoet_qt.dispersion import ensure_fprime_data; print(ensure_fprime_data())'
+
 cat <<'DONE'
 
 lamaGOET installed and its Qt interface passed the startup check.

@@ -261,11 +261,26 @@ uses isotropic hydrogen displacement parameters. An anharmonic model can be
 requested for named atoms at third and/or fourth order Gram-Charlier coefficients.
 The number of parameters grows quickly, so verify data resolution, parameter
 correlations, positive density/probability behavior, and significance.
+Anisotropic H ADPs are supported in an aspherical HAR model.  They are usually
+poorly determined by a spherical IAM, however, so lamaGOET warns when an IAM
+stage combines Gram--Charlier parameters with freely refined anisotropic H
+ADPs.  The warning does not alter the HAR setting.  For an IAM control, prefer
+isotropic or fixed H ADPs (or a riding model) unless the data and conditioning
+demonstrably support the larger parameter set.
+Because this high-order objective is strongly nonlinear, enabling anharmonic
+refinement promotes the undamped default to adaptive Levenberg--Marquardt and
+uses minimum budgets of 20 trial steps and 200 inner iterations.  This rejects
+objective-increasing/nonfinite trial geometries instead of carrying them into
+the fragment rebuild.  An explicitly selected SHELXL-style damped solver is
+retained.
 The interpretation and reporting of such higher-order displacement models
 should follow Johnson and Levy's Gram--Charlier treatment and the
 crystallographic ADP conventions discussed by
 [Johnson (1969)](https://doi.org/10.1107/S0567739469000325) and the
 [IUCr ADP nomenclature report](https://doi.org/10.1107/S0108767396005697).
+The per-atom PDF export can decompose the harmonic, third-order, and
+fourth-order contributions without changing the refinement; see
+{doc}`principles`, {doc}`plots`, and the XD comparison in {doc}`validation`.
 
 **Elongate X-H bond lengths** sets starting B-H, C-H, N-H, and O-H distances.
 These are starting-geometry controls, not restraints on the final HAR unless a
@@ -297,9 +312,24 @@ Do not lower thresholds merely to force termination. Inspect whether:
 
 ## Experimental and extinction corrections
 
-**Apply experimental dispersion correction** requests the Tonto experimental
-dispersion treatment. This is distinct from Gaussian's **Use Grimme dispersion
-(GD3BJ)**, which modifies the electronic energy/model.
+**Apply anomalous dispersion correction** resolves crystallographic $f'$ and
+$f''$ for every element in the selected CIF at the wavelength shown in the
+GUI. **FPRIME** uses the traditional Cromer--Liberman orbital-table algorithm
+with the Kissel--Pratt correction and without the Jensen term. The table is
+installed and checksum-verified by `install.sh`. **Brennan--Cowan** uses
+Gemmi's implementation of that approximation. Hydrogen and helium are assigned
+zero, as in the traditional tables. The review dialog shows the calculated
+baseline and permits an explicit per-element override; an unchecked row keeps
+the selected table value.
+
+The GUI writes the *resolved numerical coefficients* to `job_options.txt`.
+Consequently a cluster node does not recalculate them, require Gemmi or the
+FPRIME table, or silently change after a library update. These are neutral
+free-atom corrections; near-edge experiments should use measured or otherwise
+experiment-specific values through the manual overrides.
+
+This treatment is distinct from Gaussian's **Use Grimme dispersion (GD3BJ)**,
+which modifies the electronic energy/model.
 
 GD3BJ combines Grimme's D3 correction
 ([Grimme *et al.*, 2010](https://doi.org/10.1063/1.3382344)) with

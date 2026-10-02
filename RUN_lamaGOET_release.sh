@@ -79,6 +79,26 @@ _lamagoet_archive_hirshfeld_atom_cubes() {
     fi
 }
 
+_lamagoet_archive_anharmonic_pdf_cubes() {
+    [[ "${OUTPUT_ANHARMONIC_PDF_CUBES:-false}" == "true" ]] || return 0
+
+    local target="${J:-0}.tonto_cycle.${JOBNAME:-job}"
+    local artifact
+    local found=false
+    mkdir -p -- "$target"
+    rm -f -- "$target/${J:-0}.anharmonic_pdf_"*,gaussian.cube
+    shopt -s nullglob
+    for artifact in "${JOBNAME}.anharmonic_pdf_"*,gaussian.cube; do
+        found=true
+        cp -- "$artifact" "$target/${J:-0}.${artifact#${JOBNAME}.}"
+    done
+    shopt -u nullglob
+    if [[ "$found" != "true" ]]; then
+        printf 'RUN_lamaGOET: warning: anharmonic probability-density cube output was requested but no cube file was produced\n' >&2
+        return 1
+    fi
+}
+
 # The periodic CP2K implementation is maintained in the monolithic launcher.
 # A cluster-side RUN_lamaGOET invocation delegates only CP2K jobs to it, while
 # all legacy backends continue through this runner unchanged.
@@ -1098,6 +1118,38 @@ VALIDATE_OBSERVED_DENSITY_MOTION_MODEL(){
 	fi
 }
 
+NORMALISE_ANHARMONIC_SOLVER_OPTIONS(){
+	local solver trials cycles h_adp_mode iam_mode only_iam_mode
+	[[ "${REFANHARM:-false}" == "true" ]] || return 0
+	h_adp_mode=$(_lower "${HADP:-no}")
+	iam_mode=$(_lower "${IAMTONTO:-false}")
+	only_iam_mode=$(_lower "${ONLYIAMTONTO:-false}")
+	if [[ ( "$iam_mode" == "true" || "$only_iam_mode" == "true" ) && "${REFHADP:-true}" == "true" && "$h_adp_mode" != "yes" && "$h_adp_mode" != "true" ]]; then
+		echo "RUN_lamaGOET: WARNING: anisotropic H ADPs are normally poorly determined in the requested Tonto IAM stage. They remain supported for HAR; inspect the IAM conditioning or use isotropic/fixed H ADPs for that stage." >&2
+	fi
+	solver=$(_lower "${TONTO_LEAST_SQUARES_SOLVER:-gauss-newton}")
+	solver=${solver//_/-}
+	case "$solver" in
+		""|gauss-newton) TONTO_LEAST_SQUARES_SOLVER="levenberg-marquardt" ;;
+		levenberg-marquardt) ;;
+		*) return 0 ;;
+	esac
+
+	# Keep the cluster runner identical to the local runner: old/default
+	# anharmonic jobs use the guarded nonlinear path, while an explicitly
+	# selected damped solver remains untouched.
+	trials="${LM_MAX_TRIALS:-8}"
+	cycles="${MAXLSCYCLE:-30}"
+	if [[ ! "$trials" =~ ^[0-9]+$ || "$trials" -lt 20 ]]; then
+		LM_MAX_TRIALS=20
+	fi
+	if [[ ! "$cycles" =~ ^[0-9]+$ || "$cycles" -lt 200 ]]; then
+		MAXLSCYCLE=200
+	fi
+	export TONTO_LEAST_SQUARES_SOLVER LM_MAX_TRIALS MAXLSCYCLE
+	echo "RUN_lamaGOET: anharmonic refinement uses guarded Levenberg-Marquardt steps (at least 20 trials and 200 fit iterations)."
+}
+
 TONTO_FINAL_WAVEFUNCTION_EXPORTS_AVAILABLE(){
 	# These files require a finite canonical molecular-orbital expansion.
 	# Periodic Crystal23 densities and the observed-density model do not
@@ -1366,11 +1418,44 @@ TONTO_IAM_ONLY_INPUT(){
 	[[ "$SCFCALCPROG" == "Tonto" && "$J" == "0" && "$IAMTONTO" == "true" && "$ONLYIAMTONTO" == "true" ]]
 }
 
+PREPARE_DISPERSION_COEFFICIENTS(){
+	[[ "${DISP:-no}" == "yes" ]] || return 0
+	if [[ -n "${DISPERSION_COEFFICIENTS:-}" ]]; then
+		printf '%s\n' "$DISPERSION_COEFFICIENTS" > DISP_inst.txt
+	elif [[ -s DISP_inst.txt ]]; then
+		DISPERSION_COEFFICIENTS=$(tr '\n\r\t' '   ' < DISP_inst.txt | xargs)
+		printf '%s\n' "$DISPERSION_COEFFICIENTS" > DISP_inst.txt
+	else
+		echo "ERROR: dispersion correction is enabled, but no resolved f-prime/f-double-prime coefficients were supplied." >&2
+		echo "Open this job in lamaGOET Qt, choose FPRIME or Brennan-Cowan below the wavelength, and resubmit it." >&2
+		return 2
+	fi
+}
+
 DISPERSION_COEF(){
+	PREPARE_DISPERSION_COEFFICIENTS || return
 	echo "   	 dispersion_coefficients= {" >> stdin
-	echo "   	 $(cat DISP_inst.txt)" >> stdin
+	echo "   	 ${DISPERSION_COEFFICIENTS}" >> stdin
 	echo "   	 }" >> stdin
 	echo "" >> stdin
+}
+
+WRITE_ANHARMONIC_PDF_OPTIONS(){
+    [[ "${OUTPUT_ANHARMONIC_PDF_CUBES:-false}" == "true" ]] || return 0
+    if [[ -n "${ANHARMONIC_PDF_CUBE_ATOMS:-}" ]]; then
+        echo "   anharmonic_pdf_cube_atoms= { ${ANHARMONIC_PDF_CUBE_ATOMS} }" >> stdin
+    fi
+    echo "   anharmonic_pdf_cube_spacing= ${ANHARMONIC_PDF_CUBE_SEPARATION:-0.1} angstrom" >> stdin
+    echo "   anharmonic_pdf_cube_cutoff= ${ANHARMONIC_PDF_CUBE_BOUNDARY_CUTOFF:-0.001} angstrom^-3" >> stdin
+    echo "   anharmonic_pdf_cube_auto_size= ${ANHARMONIC_PDF_CUBE_AUTOSIZE:-true}" >> stdin
+    echo "   anharmonic_pdf_cube_widths= ${ANHARMONIC_PDF_CUBE_WIDTH_X:-4.0} ${ANHARMONIC_PDF_CUBE_WIDTH_Y:-4.0} ${ANHARMONIC_PDF_CUBE_WIDTH_Z:-4.0} angstrom" >> stdin
+    echo "   anharmonic_pdf_cube_neighbors= ${ANHARMONIC_PDF_CUBE_INCLUDE_NEIGHBOURS:-true}" >> stdin
+    echo "   anharmonic_pdf_cube_second= ${ANHARMONIC_PDF_CUBE_SECOND_ORDER:-true}" >> stdin
+    echo "   anharmonic_pdf_cube_third= ${ANHARMONIC_PDF_CUBE_THIRD_ORDER:-true}" >> stdin
+    echo "   anharmonic_pdf_cube_fourth= ${ANHARMONIC_PDF_CUBE_FOURTH_ORDER:-true}" >> stdin
+    echo "   anharmonic_pdf_probability= ${ANHARMONIC_PDF_CUBE_CONTOUR_PROBABILITY:-50}" >> stdin
+    echo "   put_anharmonic_pdf_cubes" >> stdin
+    echo "" >> stdin
 }
 
 WRITE_EXTINCTION_OPTIONS(){
@@ -3185,6 +3270,7 @@ GET_RESIDUALS(){
 	APPEND_SHELXL_RESIDUAL_MAP >> stdin
 	echo "" >> stdin
         echo "   put_fitting_plots" >> stdin
+	WRITE_ANHARMONIC_PDF_OPTIONS
 	if [[ "$export_final_wavefunction" == "true" ]]; then
 		APPEND_FINAL_WAVEFUNCTION_EXPORTS
 	fi
@@ -3204,6 +3290,7 @@ GET_RESIDUALS(){
 	echo "Calculating residual density at final geometry" 
 	J=$[ $J + 1 ]
 	rm -f -- "${JOBNAME}.shelxl_residual_density,cell.cube"
+	rm -f -- "${JOBNAME}.anharmonic_pdf_"*,gaussian.cube
         rm -f stdout stde
 	if [[ "$export_final_wavefunction" == "true" ]]; then
 		rm -f -- "$JOBNAME.47" "$JOBNAME.wfn" "$JOBNAME.wfx"
@@ -3256,6 +3343,7 @@ GET_RESIDUALS(){
 	ARCHIVE_SHELXL_RESIDUAL_MAP \
 		"$JOBNAME.shelxl_residual_density,cell.cube" \
 		"$J.tonto_cycle.$JOBNAME/$J.$JOBNAME.shelxl_residual_density,cell.cube"
+	_lamagoet_archive_anharmonic_pdf_cubes || return 1
 	if [[ "$export_final_wavefunction" == "true" ]]; then
 		for wavefunction_artifact in "$JOBNAME.47" "$JOBNAME.wfn" "$JOBNAME.wfx"; do
 			cp -- "$wavefunction_artifact" "$J.tonto_cycle.$JOBNAME/$J.$wavefunction_artifact"
@@ -4911,6 +4999,8 @@ fi
 
 RESOLVE_H_POSITION_MODEL || exit 2
 VALIDATE_OBSERVED_DENSITY_MOTION_MODEL || exit 2
+NORMALISE_ANHARMONIC_SOLVER_OPTIONS || exit 2
+PREPARE_DISPERSION_COEFFICIENTS || exit 2
 
 
 if [[ "$SCFCALCPROG" == "Crystal14" || ( "${XCW_MODE:-molecular}" == "periodic" && ( "${XCWONLY:-false}" == "true" || "${XWR:-false}" == "true" ) ) ]]; then

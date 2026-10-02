@@ -157,12 +157,16 @@ periodic environment; ELMOdb has its own transfer/tail controls.
 | Refine these atoms isotropically | `REFUISO`, `ATOMUISOLIST` | use isotropic displacement for listed labels |
 | H positions | `H_POSITION_MODEL`, `REFHPOS` | refine freely, keep fixed, or ride on the single bonded non-H parent; the legacy boolean is retained as a mirror |
 | Refine H ADPs | `REFHADP` | allow hydrogen displacement parameters |
-| H atoms isotropic | `HADP` | use isotropic H displacement treatment |
+| H atoms isotropic | `HADP` | use isotropic H displacement treatment; particularly useful for an IAM control, while anisotropic H remains supported in HAR |
 | Refine anharmonic ADPs | `REFANHARM`, `ANHARMATOMS` | enable selected anharmonic atoms |
 | 3rd / 4th order | `THIRDORD`, `FOURTHORD` | select Gram-Charlier orders |
+| Export anharmonic atomic probability-density cubes | `OUTPUT_ANHARMONIC_PDF_CUBES` | request final-model per-atom Gaussian cubes |
+| Select atoms... | `ANHARMONIC_PDF_CUBE_ATOMS` | checkbox-select asymmetric-unit labels; automatic mode selects all eligible atoms |
 | Elongate X-H bond lengths | `XHALONG` | modify starting X-H geometry |
 | B-H, C-H, N-H, O-H | `BHBOND`, `CHBOND`, `NHBOND`, `OHBOND` | starting bond lengths in Å |
-| Apply experimental dispersion correction | `DISP` | Tonto experimental dispersion correction |
+| Apply anomalous dispersion correction | `DISP` | apply wavelength-dependent crystallographic $f'$ and $f''$ values |
+| source | `DISPERSION_SOURCE` | FPRIME or Brennan--Cowan coefficient calculation |
+| Review / override by element | `DISPERSION_MANUAL_OVERRIDES`, `DISPERSION_COEFFICIENTS` | inspect the resolved CIF elements and optionally replace either coefficient for selected elements |
 | Refine extinction correction | `EXTI` | expose and activate the selected extinction model |
 
 The H-position choice is independent of **Refine H ADPs** and **H atoms
@@ -170,6 +174,12 @@ isotropic**. The riding option applies the parent coordinate shift to H while
 leaving the selected H displacement-parameter treatment unchanged. Dynamic
 observed density has fixed coordinates by definition, so the interface selects
 and locks **Keep fixed** in that mode.
+
+When an IAM stage combines anharmonic coefficients and freely refined
+anisotropic H ADPs, the interface displays a conditioning warning.  It does
+not silently rewrite the job, and it does not disable anisotropic H refinement
+for HAR.  For the IAM stage, select **H atoms isotropic**, clear **Refine H
+ADPs**, or use the riding model when that is the intended treatment.
 
 The implemented riding control is intentionally narrower than the full
 SHELXL `AFIX`/`HFIX` family documented in the [official instruction
@@ -244,7 +254,7 @@ finite `.47`/WFN/WFX exports.
 | Least-squares target | `TONTO_REFINEMENT_TARGET` | refine against $F$ amplitudes (default) or $F^2$ intensities independently of the weighting law |
 | Weighting scheme | `TONTO_WEIGHTING_SCHEME` | keep Tonto inverse-sigma weighting (default, supports either target) or use SHELXL WGHT, which automatically requires $F^2$ |
 | WGHT parameters A--F | `SHELXL_WEIGHT_A` ... `SHELXL_WEIGHT_F` | complete coefficients from the corresponding SHELXL `WGHT` instruction; shown only for the SHELXL scheme |
-| Nonlinear least-squares solver | `TONTO_LEAST_SQUARES_SOLVER` | established full-matrix Gauss--Newton, SHELXL-style fixed damping, or adaptive Levenberg--Marquardt; applies to the Tonto geometry fit for every HAR backend |
+| Nonlinear least-squares solver | `TONTO_LEAST_SQUARES_SOLVER` | established full-matrix Gauss--Newton, SHELXL-style fixed damping, or adaptive Levenberg--Marquardt; applies to the Tonto geometry fit for every HAR backend; enabling anharmonic ADPs promotes the unsafe undamped default to adaptive LM |
 | DAMP / LIMSE | `SHELXL_DAMP`, `SHELXL_LIMSE` | fixed diagonal multiplier control and uniform structural shift/esd ceiling; visible only for SHELXL-style damping |
 | LM initial lambda / up / down / maximum trials | `LM_INITIAL_LAMBDA`, `LM_LAMBDA_UP`, `LM_LAMBDA_DOWN`, `LM_MAX_TRIALS` | adaptive retry controls; visible only for Levenberg--Marquardt |
 | Calculate post-refinement Flack x | `CALCULATE_FLACK_PARAMETER` | apply the Parsons quotient estimator after the accepted structural fit; default off |
@@ -253,7 +263,7 @@ finite `.47`/WFN/WFX exports.
 | Crystal ILASIZE | `ILASIZE` | optional Crystal ILA array dimension |
 | Use Crystal SUPERCON | `SUPERCON` | enable the supported Crystal keyword |
 | SHRINK A/B | `SHRINKA`, `SHRINKB` | Crystal23 k-point shrinking factors |
-| Maximum least-squares cycles | `MAXLSCYCLE` | Tonto inner LS cap; dynamic observed mode uses it as the phase-updated outer cap |
+| Maximum least-squares cycles | `MAXLSCYCLE` | Tonto inner LS cap; dynamic observed mode uses it as the phase-updated outer cap; effective minimum 200 for lamaGOET anharmonic jobs using adaptive LM |
 | Maximum pHAR cycles | `MAXPHARCYCLE` | powder-HAR outer cap |
 | NoSpherA2 accuracy | `NSA2ACC` | accuracy integer passed to legacy NoSpherA2 route |
 | Minimum correlation coefficient | `MINCORCOEF` | supported correlation pruning threshold |
@@ -301,7 +311,7 @@ the following before it saves or starts the job:
 
 - `MERG 2`, so symmetry equivalents are merged but Friedel opposites remain
   separate;
-- **Apply experimental dispersion correction**, with physically appropriate
+- **Apply anomalous dispersion correction**, with physically appropriate
   $f'$ and $f''$ values for the measurement wavelength; and
 - a data set containing both members of enough Friedel pairs to support the
   regression.
@@ -334,6 +344,35 @@ The molecular and periodic controls are described in {doc}`xcw` and
 {doc}`options-reference`.
 
 ## Plots tab
+
+**Output anharmonic atomic probability-density cubes** writes one signed
+Gaussian cube for every selected asymmetric-unit atom. **Select atoms...**
+opens a scrollable checkbox list populated from the loaded CIF. Automatic mode
+retains the legacy behavior and exports every atom carrying a coefficient for
+one of the selected anharmonic orders; an explicit selection preserves the CIF
+labels and their asymmetric-unit order.
+
+The export toggle and atom selector are in the **HAR** tab; their grid and
+display controls are in **Plots**. The **2nd (harmonic)**, **3rd**, and **4th**
+checkboxes choose which additive
+probability-density terms are written. They are independent of the refinement
+order controls: an existing anharmonic CIF can therefore be inspected as a
+harmonic reference, an isolated signed third- or fourth-order correction, or
+any sum of those terms. At least one contribution must be selected. The
+**Symmetric contour probability** sets the harmonic-reference isoprobability
+level reported in the cube header and standard output. The same absolute level
+is reported for positive and negative surfaces; the percentage does not clip,
+normalize, or rescale the cube and does not reproduce MoleCoolQt's special
+-99% negative-contour convention.
+
+The default 0.1 Å spacing and 0.001 Å$^{-3}$ boundary criterion automatically
+enlarge the initial 4 Å box; manual x/y/z widths and automatic sizing can
+instead be selected explicitly. With **Include adjacent atoms** enabled,
+atoms from the unit cell and neighboring periodic images are placed in the
+cube header and filtered to the final box. The cube values are probability
+density in the Gaussian-cube atomic-unit convention (bohr$^{-3}$), not
+electron density. Negative regions are deliberately preserved as a diagnostic
+of a nonphysical truncated Gram--Charlier model.
 
 **Also calculate the nominal SHELXL FMAP 2 coefficient comparison**
 (`SHELXL_RESIDUAL_MAP`) leaves Tonto's established final residual path

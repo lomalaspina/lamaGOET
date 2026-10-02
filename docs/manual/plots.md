@@ -108,9 +108,24 @@ output, or leave it blank for all independent atoms. The cube is a diagnostic,
 not proof that the partition is unique or that a subsequent refinement is
 physically valid.
 
+### Anharmonic atomic probability-density cubes
+
+The final-model anharmonic PDF cubes are also separate from the unvalidated
+legacy plot path. Atom labels are selected by checkbox from the loaded CIF;
+automatic mode writes all atoms carrying a coefficient for a requested order.
+The second-, third-, and fourth-order terms can be exported separately or in
+combination. Grid values are signed probability density in bohr$^{-3}$, while
+the standard output also reports integrated positive/negative probabilities
+and the suggested symmetric contour pair in both bohr$^{-3}$ and Å$^{-3}$.
+
+The contour percentage is a harmonic-reference isoprobability level. It does
+not clip or renormalize negative parts of a truncated Gram--Charlier field. See
+{doc}`principles` for the equations, {doc}`outputs` for file naming, and
+{doc}`validation` for the retained XD/XDPDF O(1) comparison.
+
 ## Recovery procedure
 
-Until the plot path is revalidated:
+Until the legacy plot path is revalidated:
 
 1. save `job_options.txt`;
 2. inspect the generated plot block in Tonto `stdin`;

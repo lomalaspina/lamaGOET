@@ -122,7 +122,10 @@ formulation ([Douglas and Kroll,
 | `CHBOND` | `1.083` | starting C-H distance in Å |
 | `NHBOND` | `1.009` | starting N-H distance in Å |
 | `OHBOND` | `0.983` | starting O-H distance in Å |
-| `DISP` | `no` | Tonto experimental dispersion correction |
+| `DISP` | `no` | enable wavelength-dependent anomalous-scattering coefficients |
+| `DISPERSION_SOURCE` | `fprime` | GUI calculation source: `fprime` or `brennan` |
+| `DISPERSION_MANUAL_OVERRIDES` | `{}` | JSON mapping of checked element overrides to $[f',f'']$ |
+| `DISPERSION_COEFFICIENTS` | *(empty)* | resolved flat `element f' f''` list consumed by Tonto |
 | `MINCORCOEF` | *(empty)* | optional minimum correlation coefficient |
 | `POWDER_HAR` | `false` | legacy powder-HAR/Jana route |
 | `USENOSPHERA2` | `false` | legacy NoSpherA2/Jana form-factor route |
@@ -227,12 +230,15 @@ subsequent calculation only after inspecting the model and data quality.
 | `LM_INITIAL_LAMBDA` | `1.0E-3` | positive initial Levenberg--Marquardt trust/damping parameter |
 | `LM_LAMBDA_UP` | `10` | factor greater than one applied after a rejected LM trial |
 | `LM_LAMBDA_DOWN` | `0.1` | factor strictly between zero and one applied after an accepted LM trial |
-| `LM_MAX_TRIALS` | `8` | maximum trial steps attempted from one accepted model before stopping safely |
+| `LM_MAX_TRIALS` | `8` | maximum trial steps attempted from one accepted model before stopping safely; effective minimum 20 for lamaGOET anharmonic jobs |
 
-The Gauss--Newton default is intentionally omitted from generated Tonto input,
-so an unchanged lamaGOET job remains usable with a Tonto executable that
-predates selectable solvers.  Fixed-damping and LM controls are written only
-for their respective modes.  Solver selection is independent of
+The Gauss--Newton default is intentionally omitted from generated Tonto input
+for harmonic jobs, so an unchanged lamaGOET job remains usable with a Tonto
+executable that predates selectable solvers.  For a third- or fourth-order
+anharmonic job, lamaGOET promotes this default to adaptive LM and raises
+`LM_MAX_TRIALS` and `MAXLSCYCLE` to at least 20 and 200, respectively.  An
+explicit fixed-damping choice is preserved. Fixed-damping and LM controls are
+written only for their respective modes. Solver selection is independent of
 `TONTO_REFINEMENT_TARGET` and `TONTO_WEIGHTING_SCHEME`.
 
 The fixed diagonal multiplier follows SHELXL `DAMP` as documented in the
@@ -318,6 +324,19 @@ implements the algorithms introduced by [Levenberg
 | `OBSERVED_ZERO_PHASE_SIGN` | `0` | sign hypothesis for exactly zero model coefficient: -1, 0, or +1 |
 | `OUTPUT_HIRSHFELD_ATOM_CUBES` | `false` | write atomic-density cubes after partition |
 | `HIRSHFELD_ATOM_CUBE_LABEL` | *(empty)* | exact atom label; blank means all independent atoms |
+| `OUTPUT_ANHARMONIC_PDF_CUBES` | `false` | write signed per-atom Gram--Charlier probability-density cubes at the final model |
+| `ANHARMONIC_PDF_CUBE_ATOMS` | *(empty)* | exact checkbox-selected asymmetric-unit atom labels separated by spaces; blank means automatic selection of all atoms carrying a requested-order coefficient |
+| `ANHARMONIC_PDF_CUBE_SECOND_ORDER` | `true` | include the normalized harmonic second-order term $P_0$ |
+| `ANHARMONIC_PDF_CUBE_THIRD_ORDER` | `true` | include the signed third-order Gram--Charlier correction |
+| `ANHARMONIC_PDF_CUBE_FOURTH_ORDER` | `true` | include the signed fourth-order Gram--Charlier correction |
+| `ANHARMONIC_PDF_CUBE_CONTOUR_PROBABILITY` | `50` | harmonic-reference enclosed probability (1--99%) used to report equal-magnitude positive and negative contour levels; cube values are unchanged |
+| `ANHARMONIC_PDF_CUBE_AUTOSIZE` | `true` | enlarge each box until its boundary satisfies the cutoff |
+| `ANHARMONIC_PDF_CUBE_BOUNDARY_CUTOFF` | `0.001` | maximum absolute boundary probability density in Å$^{-3}$ |
+| `ANHARMONIC_PDF_CUBE_SEPARATION` | `0.1` | requested Cartesian point spacing in Å |
+| `ANHARMONIC_PDF_CUBE_WIDTH_X` | `4.0` | initial/manual x width in Å |
+| `ANHARMONIC_PDF_CUBE_WIDTH_Y` | `4.0` | initial/manual y width in Å |
+| `ANHARMONIC_PDF_CUBE_WIDTH_Z` | `4.0` | initial/manual z width in Å |
+| `ANHARMONIC_PDF_CUBE_INCLUDE_NEIGHBOURS` | `true` | include unit-cell and adjacent-image atoms in the cube header |
 
 ## Molecular XCW and XWR
 
