@@ -415,6 +415,39 @@ publisher or software project wherever possible.
     This is the provenance reference for the diffraction dataset used in the
     retained XD/Tonto anharmonic probability-density regression.
 
+76. L. Fotović, N. Bedeković and V. Stilinović, “Evaluation of
+    Halogenopyridinium Cations as Halogen Bond Donors,” *Cryst. Growth Des.*
+    **21** (2021), 6889–6901.
+    [doi:10.1021/acs.cgd.1c00805](https://doi.org/10.1021/acs.cgd.1c00805).
+    This is the provenance reference for the iodine-containing,
+    centrosymmetric 3-chloro-1-methylpyridinium iodide dataset (CCDC 2089228)
+    used in the retained anomalous-dispersion validation. Its *Pbca*
+    symmetry makes it unsuitable for a Flack-parameter test.
+
+77. R. M. F. Baptista, C. S. B. Gomes, B. Silva, J. Oliveira, B. Almeida,
+    C. Castro, P. V. Rodrigues, A. Machado, R. B. Freitas,
+    M. J. L. F. Rodrigues, E. de Matos Gomes and M. Belsley, “A Polymorph of
+    Dipeptide Halide Glycyl-L-Alanine Hydroiodide Monohydrate: Crystal
+    Structure, Optical Second Harmonic Generation, Piezoelectricity and
+    Pyroelectricity,” *Materials* **16** (2023), 3690.
+    [doi:10.3390/ma16103690](https://doi.org/10.3390/ma16103690).
+    The iodine-containing polar $P2_1$ polymorph (CCDC 2247398) is the
+    provenance dataset for the retained anomalous-dispersion and
+    Parsons--Flack controls. A local Olex2.refine Gram--Charlier model derived
+    from this dataset is used only for an exploratory interoperability and
+    stability comparison; that local anharmonic result is not reported or
+    validated by this paper.
+
+78. L. J. Bourhis, O. V. Dolomanov, R. J. Gildea, J. A. K. Howard and
+    H. Puschmann, “The anatomy of a comprehensive constrained, restrained
+    refinement program for the modern computing environment -- Olex2
+    dissected,” *Acta Cryst.* A**71** (2015), 59–75.
+    [doi:10.1107/S2053273314022207](https://doi.org/10.1107/S2053273314022207).
+    This is the software-method reference for Olex2.refine. In this manual it
+    establishes software provenance only: the supplied local CCDC 2247398
+    Olex2.refine anharmonic model and its CCTBX residual map are not treated as
+    trusted numerical references.
+
 ## Citation practice
 
 For a publication, cite lamaGOET, Tonto, the electronic-structure program,

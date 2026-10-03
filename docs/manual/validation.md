@@ -781,6 +781,172 @@ directory. It passed on 2026-10-02 together with the independent synthetic
 cube, rectangular-grid, Gram--Charlier derivative, and CIF tensor-reading
 tests.
 
+## Anomalous controls and exploratory anharmonic study
+
+**Purpose and provenance.** Two iodine-containing datasets were kept
+separate because they test different claims.  The 3-chloro-1-methylpyridinium
+iodide crystal reported by [Fotović, Bedeković and Stilinović
+(2021)](https://doi.org/10.1021/acs.cgd.1c00805), CCDC 2089228, is
+centrosymmetric *Pbca*.  It tests dispersion, merging, extinction and
+$F^2$/SHELXL weighting, but cannot test absolute structure.  The
+glycyl-L-alanine hydroiodide monohydrate polymorph reported by [Baptista
+*et al.* (2023)](https://doi.org/10.3390/ma16103690), CCDC 2247398, is polar
+$P2_1$.  Its retained Friedel pairs and iodine atom permit dispersion,
+Parsons--Flack and exploratory anharmonic comparisons.  All calculations
+used copies; the deposited source directories were not modified.  SHELXL is
+treated here as the trusted conventional harmonic-refinement control.  It
+does not refine Gram--Charlier coefficients.  The local Olex2.refine model
+derived from 2247398 is retained only as an interoperability and stability
+comparison: neither its higher-order coefficients nor its CCTBX residual map
+are accepted as a numerical reference.  The published XD/XDPDF comparison in
+the preceding section remains the external numerical validation of Tonto's
+anharmonic implementation.
+
+**Harmonic controls.** A local SHELXL-2019/3 executable first refined a
+harmonic model for each raw HKLF 4 dataset.  Tonto then used the same
+unmerged observations, `MERG 2`, the deposited wavelength and dispersion
+terms, a Zachariasen/Larson extinction parameter, an $F^2$ target and the
+corresponding SHELXL `WGHT` coefficients.  For 2089228 the SHELXL
+$2\theta_{max}=57.99$ degree limit was converted explicitly to
+$\sin\theta/\lambda=0.682129107$ Angstrom$^{-1}$; this reduced both programs
+to the same 2,215 merged reflections.  For 2247398 both retained 2,562.
+
+| Dataset and harmonic model | $N$ | $R_1$ all | $R_1$ gt | $wR_2$ all | GoF all |
+|---|---:|---:|---:|---:|---:|
+| 2089228, SHELXL | 2,215 | 0.0354 | 0.0252 | 0.0617 | 1.029 |
+| 2089228, Tonto | 2,215 | 0.038746 | 0.025995 | 0.061686 | 1.057738 |
+| 2247398, SHELXL | 2,562 | 0.0299 | 0.0286 | 0.0672 | 1.247 |
+| 2247398, Tonto | 2,562 | 0.031196 | 0.029577 | 0.070641 | 1.259636 |
+
+| Dataset and harmonic model | Extinction | Residual max / min (e Angstrom$^{-3}$) |
+|---|---:|---:|
+| 2089228, SHELXL | 0.064752 | +0.53 / -0.71 |
+| 2089228, Tonto | 0.066060 | +0.553 / -1.034 |
+| 2247398, SHELXL | 0.219578 | +0.69 / -1.76 |
+| 2247398, Tonto | 0.214643 | +0.707 / -1.808 |
+
+The matched populations remove reflection count as an explanation for the
+comparison.  The weighted statistics and extinction parameters are close,
+including near-identical 2089228 $wR_2$, but the 2089228 negative residual
+extremum is not reproduced exactly.  The direct Tonto controls fixed H atoms,
+whereas the SHELXL models retained their deposited riding constraints, and
+the Fourier implementations sample different grids.  These rows validate
+the dispersion/weighting path and expose the remaining map-level difference;
+they do not assert byte-identical refinement semantics.
+
+**Exploratory iodine anharmonic comparison.** The supplied local
+Olex2.refine model derived from 2247398 contains all ten third-order and
+fifteen fourth-order Gram--Charlier coefficients for I1.  That result was not
+published or independently validated by the Olex2.refine authors, so it is
+not used as reference truth.  Tonto was tested twice: first by reading the
+scale-tag-free Olex2 CIF, and then by starting all I1 higher-order
+coefficients from zero at the independently refined harmonic SHELXL geometry.
+Both Tonto fits converged without a rejected final state.  The harder
+zero-start diagnostic is tabulated below.
+
+| 2247398 model | $N$ | $R_1$ all | $R_1$ gt | $wR_2$ all | GoF all |
+|---|---:|---:|---:|---:|---:|
+| Supplied local Olex2.refine, I1 orders 3+4 | 2,562 | 0.0248 | 0.0235 | 0.0555 | 1.0372 |
+| Tonto, I1 orders 3+4 from zero | 2,562 | 0.025826 | 0.024358 | 0.057159 | 1.024087 |
+
+| 2247398 model | Extinction | Flack $x$ | Residual max / min (e Angstrom$^{-3}$) |
+|---|---:|---:|---:|
+| Supplied local Olex2.refine, I1 orders 3+4 | 0.244(6) | 0.06(2) | +0.387 / -0.765 |
+| Tonto, I1 orders 3+4 from zero | 0.251977 | 0.058(25) | +0.478 / -0.954 |
+
+For the ten third-order coefficients, the zero-start Tonto and supplied local
+Olex2.refine vectors have Pearson correlation 0.9468, an r.m.s. component
+difference of $0.433\times10^{-6}$ and a maximum component difference of
+$1.192\times10^{-6}$.  For the fifteen fourth-order coefficients the
+correlation is 0.8576, the r.m.s. difference is $4.365\times10^{-8}$ and the
+maximum difference is $9.60\times10^{-8}$.  Six mixed fourth-order terms
+remained effectively zero with large Tonto uncertainties, whereas the
+supplied local Olex2.refine model reports finite values.  These quantities
+show useful gross agreement for code interoperability and expose conditioning
+or model-constraint differences.  They do **not** validate the physical
+Gram--Charlier model, the Olex2.refine residual density, or
+component-by-component fourth-order equivalence.  In particular, the
+published XD/XDPDF control above, rather than this exploratory comparison, is
+the accepted anharmonic numerical reference.  The unresolved mixed terms
+remain a disclosed conditioning/model-constraint limitation.
+
+The scale-tag-free interoperability replay gave $R_1=0.025723$,
+$wR_2=0.056824$, GoF
+$=1.018086$, extinction 0.251617 and Flack $x=0.058(25)$.  It also motivated
+a reader regression: `anharmonic_pdf_cube` now rewrites its synthetic C3/C4
+fixture into the unscaled form used by Olex2.refine, omits Tonto's optional
+presentation-scale items, and requires the resulting cube values to remain
+identical within $10^{-12}$.  This test passed together with
+`gram_charlier_derivatives` and `anharmonic_pdf_xd_o1`.  This reader regression
+validates scale-tag-free CIF interoperability only; it is not a scientific
+validation of the supplied Olex2.refine anharmonic result.
+
+### Strict fourth-order-only XD/Tonto diagnostic
+
+**Question.** Does the fourth-order-only control really refine the fifteen
+$D_{ijkl}$ terms while keeping every third-order $C_{ijk}$ term fixed, even
+when anomalous dispersion is active?  This distinction matters for the
+iodine-containing 2247398 dataset: a nominally fourth-order-only run must not
+become an undocumented partial third-plus-fourth-order fit through the
+$f'+if''$ derivative path.
+
+**Failure found and corrected.** The ordinary structure-factor Jacobian
+already suppressed C3 derivatives in fourth-order-only mode, but the
+anomalous-dispersion Jacobian added those ten columns back.  Tonto therefore
+retained C3 storage for CIF compatibility and, for a dispersive atom, also
+gave those nominally fixed entries nonzero least-squares derivatives.  The
+corrected routine propagates the explicit fourth-order-only flag into every
+anomalous derivative call, omits the C3 anomalous derivatives, and removes
+exactly inactive columns from the effective normal equations and parameter
+count.  A source/algebra regression now checks all three requirements.  In
+the corrected production fits, every I1 C3 value and uncertainty remained
+exactly zero while D4 values refined normally.
+
+**Independent XD control.** A fresh XD model was started from the harmonic
+geometry with all C3 keys disabled, all D4 keys enabled for I1, and all D4
+values zero.  It converged after 14 cycles using 2,418 reflections.  Tonto
+was first run from the full 2,562-observation merged population.  A second
+Tonto run then used the same 2,418 Miller indices retained by XD, selected
+from the XD acceptance flags while preserving Tonto's own merged observed
+intensities and uncertainties.  This is a matched reflection-population
+comparison, not a claim that XD and Tonto use identical internal weights,
+parameter constraints, or observation preprocessing.
+
+| Strict I1 D4-only model | $N$ | $R(F)$ or $R_1$ | weighted $R(F^2)$ | reported GoF |
+|---|---:|---:|---:|---:|
+| XD, zero start | 2,418 | 0.0250 | 0.0605 | 1.1575 |
+| Tonto, matched Miller set | 2,418 | 0.025151 | 0.058879 | 1.076316 |
+| Tonto, full merged set | 2,562 | 0.027289 | 0.061180 | 1.093922 |
+
+The corrected matched-set Tonto objective decreased monotonically through
+accepted LM states from 1.173932 to 1.159467 and converged with 123 effective
+structural parameters.  The full-set objective decreased from 1.209700 to
+1.197648.  The close $R$ statistics are useful implementation evidence, while
+the different GoF conventions and effective parameterizations preclude an
+exact equality claim.  Raw $D_{ijkl}$ component vectors are not compared
+directly here because XD and Tonto print them in different tensor coordinate
+conventions; doing so without an explicit tensor transformation would be
+misleading.
+
+The corresponding probability-density integrations provide a second,
+coordinate-invariant diagnostic:
+
+| Strict I1 D4-only PDF | Positive | Negative | Integral/volume check |
+|---|---:|---:|---|
+| XD/XDPDF | 100.084% | -0.126% | negative volume 0.491 Angstrom$^3$ |
+| Tonto, matched Miller set | 100.120455% | -0.164251% | cube integral 0.999562 |
+| Tonto, full merged set | 100.187826% | -0.222370% | cube integral 0.999655 |
+
+**Scientific limitation.** XD reports a measured maximum
+$\sin\theta/\lambda=0.66671$ Angstrom$^{-1}$, whereas its Kuhs-resolution
+diagnostic requires approximately 0.67 Angstrom$^{-1}$ for I1 C3 and
+0.78 Angstrom$^{-1}$ for I1 D4.  The dataset therefore does not resolve a
+physically reliable fourth-order iodine model.  The nonzero negative PDF
+probability reinforces that warning.  This D4-only comparison validates mode
+selection, derivative isolation, nonlinear stability, CIF output, and cube
+generation; it must **not** be cited as validation of a physical fourth-order
+thermal model for this crystal.
+
 ## Post-refinement Flack parameter
 
 **Question.** Does the optional absolute-structure analysis reproduce the
@@ -788,9 +954,14 @@ Parsons-quotient result reported by SHELXL, while remaining a diagnostic after
 refinement rather than adding the Flack parameter to every least-squares
 matrix?
 
-**Design.** The retained anomalous-dispersion test was analysed with the
-origin-constrained quotient regression of Parsons, Flack and Wagner. For each
-retained Friedel pair,
+**Design.** The retained absolute-structure test uses the acentric
+[glycyl-L-alanine hydroiodide monohydrate polymorph (CCDC
+2247398)](https://doi.org/10.3390/ma16103690) reported by Baptista *et al.*
+(2023).  Its iodine-containing polar $P2_1$ crystal provides the strong
+anomalous signal required for a meaningful absolute-structure test.  CCDC
+2089228 is centrosymmetric and is therefore deliberately excluded from this
+section.  The 2247398 data were analysed with the origin-constrained quotient
+regression of Parsons, Flack and Wagner. For each retained Friedel pair,
 
 $$
 Q_{\mathrm{obs}}=\frac{I^+-I^-}{I^++I^-}, \qquad
@@ -849,24 +1020,20 @@ follows [Sheldrick
 
 ## Tonto regression-suite context
 
-On 28 September 2026, the current Tonto tree passed **71/74** short tests,
-including the nonlinear least-squares solver, SHELXL weighting, and algebraic
-residual-coefficient invariants. The new analytic Parsons-quotient test, ORCA
-pure-spherical import, and FILE47/WFN/WFX export regressions passed.
-Three pre-existing tests remained nonzero and are named rather than hidden:
+On 3 October 2026, the current Tonto tree passed **77/78** short tests,
+including nonlinear least-squares solvers, SHELXL weighting, anomalous
+dispersion, Parsons quotients, scale-tag-free Olex2-style Gram--Charlier CIF
+input, strict D4-only anomalous-derivative isolation, both anharmonic PDF cube
+checks, spherical external-basis import, and FILE47/WFN/WFX export. The
+previously stale `nh3_rhf_DZP_HAR` and
+compiler-sensitive `urea_ccsd_pob-TZVP_Salvador_properties` comparisons both
+passed in this build.
 
-- `rgbi_doctor_selftest`, because this workstation still lacks the optional
-  `pdfcrop` and `mol2chemfig` executables;
-- `nh3_rhf_DZP_HAR`, whose numerical comparison reported zero difference but
-  whose stale golden stdout has nine structural/alignment differences after
-  the intentional default suppression of between-cycle pruning text; and
-- `urea_ccsd_pob-TZVP_Salvador_properties`, whose compiler-sensitive retained
-  comparison has a largest relative difference of 2.99% (0.0065 versus
-  0.0067) and a largest last-digit difference of 9 units.
-
-These nonzero failure counts are disclosed because “most tests passed” is not
-equivalent to a clean suite.  None selects the new spherical external-basis
-path, but all three remain maintenance or environment work.
+The sole nonzero test was the environment-only `rgbi_doctor_selftest`: this
+workstation still lacks the optional `pdfcrop` and `mol2chemfig` executables.
+The failure does not exercise molecular, diffraction, dispersion or
+anharmonic numerical code, but it is disclosed because 77/78 is not a clean
+suite.
 
 ## Publication gates
 
