@@ -43,6 +43,12 @@ libraries; installs the lamaGOET desktop identity and taskbar icon; and builds
 and tests the private Python environment. It reports success only after Qt has
 initialized the current display backend.
 
+The installer generates only the `en_US.UTF-8` locale needed as a reliable Qt
+fallback; it does not install every language pack. If WSL starts with a legacy
+setting such as `LANG=en_US` (ISO-8859-1), `lamaGOET_qt.sh` selects the matching
+UTF-8 locale for the GUI process without changing the locale of your shell or
+the system-wide default.
+
 If you would rather not use it, install the corresponding packages manually:
 
 ```bash

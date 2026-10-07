@@ -346,6 +346,15 @@ class RunnerRegressionTest(unittest.TestCase):
             self.assertIn("hydrogen_position_model= fixed", result.stdout)
             self.assertNotIn("refine_H_positions=", result.stdout)
             self.assertIn("max_iterations= 12", result.stdout)
+            self.assertIn("put_atom_coordinates", result.stdout)
+            self.assertNotRegex(result.stdout, r"(?m)^\s*put\s*$")
+
+    def test_geometry_listing_does_not_emit_tonto_group_files(self):
+        for runner, text in self.runner_text.items():
+            with self.subTest(runner=runner):
+                geometry = function_body(text, "PUT_GEOM")
+                self.assertIn('echo "   put_atom_coordinates"', geometry)
+                self.assertNotRegex(geometry, r'echo\s+"\s*put\s*"')
 
     @unittest.skipUnless(
         os.name == "posix" and shutil.which("bash"),

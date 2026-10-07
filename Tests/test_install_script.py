@@ -43,6 +43,11 @@ class InstallScriptTest(unittest.TestCase):
             with self.subTest(package=package):
                 self.assertIn(package, self.script)
 
+    def test_installer_generates_one_utf8_locale_without_language_packs(self):
+        self.assertIn("locale-gen --no-purge en_US.UTF-8", self.script)
+        self.assertNotIn("language-pack-", self.script)
+        self.assertNotIn("locales-all", self.script)
+
     def test_installer_preserves_normal_user_ownership(self):
         self.assertIn('SUDO_USER', self.script)
         self.assertIn('run_user python3 "$localdir/GUI_lamaGOET_qt.py"', self.script)

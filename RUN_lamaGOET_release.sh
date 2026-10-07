@@ -1632,7 +1632,9 @@ TONTO_IAM_BLOCK(){
 	echo "" >> stdin
         if [[ "$SCFCALCPROG" != "Crystal14" && "$DEFRAGNETW" != "true" ]]; then
         	echo "   ! Geometry    " >> stdin
-	        echo "   put" >> stdin
+	        # Generic `put` also writes group-* molecular files when CIF
+	        # connectivity groups exist.  This input only needs coordinates.
+	        echo "   put_atom_coordinates" >> stdin
         	echo "" >> stdin
         fi
 	echo "   IAM_refinement" >> stdin
@@ -1825,7 +1827,7 @@ CRYSTAL_BLOCK(){
 PUT_GEOM(){
         if [[ "$SCFCALCPROG" != "Crystal14" && "$DEFRAGNETW" != "true" ]]; then
 	        echo "   ! Geometry    " >> stdin
-        	echo "   put" >> stdin
+	        echo "   put_atom_coordinates" >> stdin
         	echo "" >> stdin
         fi
 }

@@ -105,6 +105,13 @@ run_admin env DEBIAN_FRONTEND=noninteractive apt-get install -y \
     libxrender1 \
     libxtst6
 
+# Qt 6 needs a UTF-8 locale.  Generate one known locale explicitly instead of
+# installing a language pack or asking locale-gen to process every enabled
+# entry in /etc/locale.gen.  The launcher uses it only when the calling shell
+# still selects a legacy non-UTF-8 locale (for example LANG=en_US on WSL).
+echo "lamaGOET: generating the en_US.UTF-8 locale required by Qt..."
+run_admin locale-gen --no-purge en_US.UTF-8
+
 if ! python3 -c 'import sys; raise SystemExit(0 if sys.version_info >= (3, 10) else 1)'; then
     echo "lamaGOET Qt requires Python 3.10 or newer." >&2
     echo "The python3 supplied by this operating system is too old." >&2
