@@ -1525,6 +1525,21 @@ WRITE_TONTO_WEIGHTING_OPTIONS(){
 	esac
 }
 
+WRITE_TONTO_CUTOFF_OPTION(){
+	local scheme target
+	scheme=$(_lower "${TONTO_WEIGHTING_SCHEME:-sigma}")
+	target=$(_lower "${TONTO_REFINEMENT_TARGET:-f}")
+	[[ "${FCUT:-0}" == "0" ]] && return 0
+	# SHELXL WGHT fits every merged F2 observation. Tonto reports the
+	# conventional greater-than subset at I>2u(I), rather than pruning the fit.
+	[[ "$scheme" == "shelxl" ]] && return 0
+	if [[ "$target" == "f2" ]]; then
+		echo "         i_sigma_cutoff= $FCUT" >> stdin
+	else
+		echo "         f_sigma_cutoff= $FCUT" >> stdin
+	fi
+}
+
 WRITE_TONTO_SOLVER_OPTIONS(){
 	local solver
 	solver=$(_lower "${TONTO_LEAST_SQUARES_SOLVER:-gauss-newton}")
@@ -1592,9 +1607,7 @@ TONTO_IAM_BLOCK(){
 		echo "         read_fcf_file $HKL" >> stdin
 	fi
 	echo "         merg_code= ${MERGCODE:-2}" >> stdin
-	if [[ "$FCUT" != "0" ]]; then
-		echo "         f_sigma_cutoff= $FCUT" >> stdin
-	fi
+	WRITE_TONTO_CUTOFF_OPTION
 	if [[ "$MINCORCOEF" != "" ]]; then
 		echo "         min_correlation= $MINCORCOEF"  >> stdin
 	fi
@@ -1771,9 +1784,7 @@ CRYSTAL_BLOCK(){
 				echo "         read_fcf_file $HKL" >> stdin
 			fi
 	                echo "         merg_code= ${MERGCODE:-2}" >> stdin
-	                if [[ "$FCUT" != "0" ]]; then
-        		        echo "         f_sigma_cutoff= $FCUT" >> stdin
-                        fi
+	                WRITE_TONTO_CUTOFF_OPTION
         		if [[ "$PLOT_TONTO" == "false" ]]; then
         			if [[ "$MINCORCOEF" != "" ]]; then
         				echo "         min_correlation= $MINCORCOEF"  >> stdin
@@ -3576,9 +3587,7 @@ PERIODIC_XCW_CRYSTAL_BLOCK(){
 		echo "         REDIRECT $HKL" >> stdin
 	fi
 	echo "         merg_code= ${MERGCODE:-2}" >> stdin
-	if [[ "${FCUT:-0}" != "0" ]]; then
-		echo "         f_sigma_cutoff= $FCUT" >> stdin
-	fi
+	WRITE_TONTO_CUTOFF_OPTION
 	echo "         max_iterations= ${MAXLSCYCLE:-30}" >> stdin
 	echo "         do_residual_cube= true" >> stdin
 	echo "      }"
@@ -4102,6 +4111,128 @@ COMPLETECIFBLOCK(){
 
 
 
+_lamagoet_hkl_has_tonto_header(){
+	grep -q '^[[:space:]]*reflection_data[[:space:]]*=[[:space:]]*{' "$1"
+}
+
+_lamagoet_convert_shelx_hkl_records(){
+	local source=$1
+	local destination=$2
+
+	awk '
+		function integer(value) {
+			return value ~ /^[+-]?[0-9]+$/
+		}
+		function number(value) {
+			return value ~ /^[+-]?([0-9]+([.][0-9]*)?|[.][0-9]+)([EeDd][+-]?[0-9]+)?$/
+		}
+		function emit_record(h, k, l, observation, sigma) {
+			if (h == 0 && k == 0 && l == 0) {
+				terminated = 1
+				exit
+			}
+			gsub(/[dD]/, "E", observation)
+			gsub(/[dD]/, "E", sigma)
+			print h + 0, k + 0, l + 0, observation, sigma
+			seen = 1
+		}
+		{
+			line = $0
+			sub(/\r$/, "", line)
+
+			# Prefer an ordinary whitespace record when five data columns and
+			# an optional SHELX batch column are independently readable.
+			tokens = line
+			sub(/^[[:space:]]+/, "", tokens)
+			sub(/[[:space:]]+$/, "", tokens)
+			n = split(tokens, field, /[[:space:]]+/)
+			if ((n == 5 || n == 6) && integer(field[1]) &&
+				integer(field[2]) && integer(field[3]) &&
+				number(field[4]) && number(field[5]) &&
+				(n == 5 || integer(field[6]))) {
+				emit_record(field[1], field[2], field[3], field[4], field[5])
+				next
+			}
+
+			# In genuine fixed-width HKLF records, adjacent fields may touch.
+			# SHELX widths are 4,4,4,8,8 for h,k,l,F2,sigma(F2).
+			if (length(line) >= 28) {
+				h = substr(line, 1, 4)
+				k = substr(line, 5, 4)
+				l = substr(line, 9, 4)
+				observation = substr(line, 13, 8)
+				sigma = substr(line, 21, 8)
+				gsub(/[[:space:]]/, "", h)
+				gsub(/[[:space:]]/, "", k)
+				gsub(/[[:space:]]/, "", l)
+				gsub(/[[:space:]]/, "", observation)
+				gsub(/[[:space:]]/, "", sigma)
+				if (integer(h) && integer(k) && integer(l) &&
+					number(observation) && number(sigma)) {
+					emit_record(h, k, l, observation, sigma)
+					next
+				}
+			}
+
+			if (seen) exit 2
+		}
+		END {
+			if (!seen) exit 2
+		}
+	' "$source" > "$destination"
+}
+
+_lamagoet_prepare_tonto_hkl(){
+	local source=$HKL
+	local runtime
+	local records
+
+	if _lamagoet_hkl_has_tonto_header "$source"; then
+		echo "Tonto reflection header already present; using $source unchanged."
+		return 0
+	fi
+
+	if [[ "$WRITEHEADER" != "true" ]]; then
+		echo "You are missing the Tonto header in the hkl file."
+		return 0
+	fi
+
+	if [[ "$ONF" != "true" && "$ONF2" != "true" ]]; then
+		echo "ERROR: Please select the format of the hkl file for header (F or F^2)" | tee -a "$JOBNAME.lst"
+		return 1
+	fi
+
+	runtime="$PWD/$JOBNAME.tonto_runtime.hkl"
+	records="$runtime.records.$$"
+	if ! _lamagoet_convert_shelx_hkl_records "$source" "$records"; then
+		echo "ERROR: Could not parse SHELX reflections from $source" | tee -a "$JOBNAME.lst"
+		rm -f -- "$records"
+		return 1
+	fi
+
+	{
+		echo " reflection_data= {"
+		if [[ "$ONF" == "true" ]]; then
+			echo "  keys= { h= k= l= f_exp= f_sigma= }"
+		else
+			echo "  keys= { h= k= l= i_exp= i_sigma= }"
+		fi
+		echo "   data= {"
+		cat "$records"
+		echo "   }"
+		echo "  }"
+		echo " REVERT"
+	} > "$runtime.tmp.$$" || {
+		rm -f -- "$records" "$runtime.tmp.$$"
+		return 1
+	}
+	mv -- "$runtime.tmp.$$" "$runtime"
+	rm -f -- "$records"
+
+	HKL=$runtime
+	echo "SHELX reflections converted for Tonto in $runtime; source file $source was left unchanged."
+}
+
 run_script(){
 	SECONDS=0
 	# Remove same-name comparison cubes before any dispatch, including disabled
@@ -4132,80 +4263,9 @@ run_script(){
 	shopt -s nocasematch	
 
 	if [[ "$SCFCALCPROG" != "optgaussian" && "$SCFCALCPROG" != "optorca" && "$POWDER_HAR" != "true" ]]; then 
-		HKLEXT=$(echo $HKL | awk -F. '{print $NF}')
+		HKLEXT=$(echo "$HKL" | awk -F. '{print $NF}')
 		if [[ "$HKLEXT" != "fcf" ]]; then
-			# Convert raw SHELX HKLF records to five whitespace-separated
-			# columns before adding the Tonto header. SHELX uses fixed widths
-			# (4,4,4,8,8), so l and I can legitimately touch. Stop at the
-			# 0 0 0 terminator and ignore any .ins/.cif text appended after it.
-			if [[ -z "$(grep "reflection_data= {" "$HKL")" && "$WRITEHEADER" = "true" ]]; then
-				if ! awk '
-					BEGIN {
-						number = "^[+-]?([0-9]+([.][0-9]*)?|[.][0-9]+)([EeDd][+-]?[0-9]+)?$"
-						seen = 0
-					}
-					{
-						sub(/\r$/, "")
-						if (length($0) < 12) {
-							if (seen) exit
-							next
-						}
-						hs = substr($0,1,4); ks = substr($0,5,4); ls = substr($0,9,4)
-						gsub(/[[:space:]]/,"",hs); gsub(/[[:space:]]/,"",ks); gsub(/[[:space:]]/,"",ls)
-						if (hs !~ /^[+-]?[0-9]+$/ || ks !~ /^[+-]?[0-9]+$/ || ls !~ /^[+-]?[0-9]+$/) {
-							if (seen) exit
-							next
-						}
-						h = hs + 0; k = ks + 0; l = ls + 0
-						if (h == 0 && k == 0 && l == 0) exit
-						obs = substr($0,13,8); sig = substr($0,21,8)
-						gsub(/[[:space:]]/,"",obs); gsub(/[[:space:]]/,"",sig)
-						if (obs !~ number || sig !~ number) {
-							if (seen) exit 2
-							next
-						}
-						gsub(/[dD]/,"E",obs); gsub(/[dD]/,"E",sig)
-						print h, k, l, obs, sig
-						seen = 1
-					}
-					END { if (!seen) exit 2 }
-				' "$HKL" > "$JOBNAME.tonto_edited.hkl"; then
-					echo "ERROR: Could not parse SHELX fixed-width reflections from $HKL" | tee -a "$JOBNAME.lst"
-					rm -f "$JOBNAME.tonto_edited.hkl"
-					exit 1
-				fi
-				cp "$HKL" "$JOBNAME.your_input.hkl"
-				cp "$JOBNAME.tonto_edited.hkl" "$HKL"
-				rm "$JOBNAME.tonto_edited.hkl"
-				echo "WARNING: SHELX HKL was converted for Tonto; the original is $JOBNAME.your_input.hkl"
-			fi
-		
-			# writing header on hkl
-			if [ "$WRITEHEADER" = "true" ]; then
-			  	#checking if the header was not there already
-				if [[ ! -z "$(grep "reflection_data= {" $HKL)" ]]; then
-					echo "header was already in the hkl file, nothing to do."
-				else
-					#putting the header in
-					sed -i '1 i\   data= {' $HKL 
-					if [ "$ONF" = "true" ]; then
-						sed -i '1 i\  keys= { h= k= l= f_exp= f_sigma= }' $HKL 
-				     	elif [ "$ONF2" = "true" ]; then
-						sed -i '1 i\  keys= { h= k= l= i_exp= i_sigma= }' $HKL 
-					else
-						echo "ERROR: Please select the format of the hkl file for header (F or F^2)" | tee -a $JOBNAME.lst
-						exit 1
-					fi
-					sed -i '1 i\ reflection_data= {' $HKL 
-					sed -i '$ a\   }' $HKL
-					sed -i '$ a\  }' $HKL 
-					sed -i '$ a\ REVERT' $HKL 
-				fi
-			fi
-		
-			if [[ -z "$(grep "reflection_data= {" $HKL)" ]]; then
-				echo "You are missing the tonto header in the hkl file."
-			fi
+			_lamagoet_prepare_tonto_hkl || exit 1
 		else
 			ISFCF=true
 		fi
@@ -4249,7 +4309,13 @@ run_script(){
 	if [[ "$SCFCALCPROG" != "optgaussian" || "$SCFCALCPROG" != "optorca" ]]; then 
 		echo "Input hkl		: $HKL" >> $JOBNAME.lst
 		echo "Wavelenght		: $WAVE" Angstrom >> $JOBNAME.lst
-		echo "F_sigma_cutoff		: $FCUT" >> $JOBNAME.lst
+		if [[ "$(_lower "${TONTO_WEIGHTING_SCHEME:-sigma}")" == "shelxl" ]]; then
+			echo "I_sigma threshold (SHELXL *_gt only)	: 2" >> $JOBNAME.lst
+		elif [[ "$(_lower "${TONTO_REFINEMENT_TARGET:-f}")" == "f2" ]]; then
+			echo "I_sigma_cutoff		: $FCUT" >> $JOBNAME.lst
+		else
+			echo "F_sigma_cutoff		: $FCUT" >> $JOBNAME.lst
+		fi
 	fi
 	echo "Tol. for shift on esd	: $CONVTOL" >> $JOBNAME.lst
 	echo "Charge			: $CHARGE" >> $JOBNAME.lst

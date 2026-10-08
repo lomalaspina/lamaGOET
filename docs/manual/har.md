@@ -234,10 +234,14 @@ $F$ target and $1/u(F)^2$ weights.
 | 3 | merge space-group equivalents and Friedel opposites |
 | 4 | as MERG 3 and suppress anomalous-scattering corrections (`f''=0`) |
 
-The F/σ cutoff is applied to the individual observations before merging. The
-current aspherical $F_{calc}$ determines model-zero/systematic-absence pruning,
-and the immutable unmerged observations are revisited after every new
-partition. See {doc}`principles` for the lifecycle.
+The significance cutoff is applied to individual observations before merging:
+$F/u(F)$ for an $F$ target, or $I/u(I)$ for an $F^2$ target with inverse-sigma
+weighting. A SHELXL-WGHT fit retains all merged observations in the least-
+squares objective and reports its conventional `gt` subset at $I>2u(I)$; the
+GUI therefore disables the editable cutoff for that mode. The current
+aspherical $F_{calc}$ determines model-zero/systematic-absence pruning, and
+the immutable unmerged observations are revisited after every new partition.
+See {doc}`principles` for the lifecycle.
 
 ## Refinement controls
 

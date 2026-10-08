@@ -1186,6 +1186,7 @@ class RunnerRegressionTest(unittest.TestCase):
                 with self.subTest(runner=name, function=function):
                     body = function_body(text, function)
                     self.assertIn("WRITE_TONTO_WEIGHTING_OPTIONS", body)
+                    self.assertIn("WRITE_TONTO_CUTOFF_OPTION", body)
             with self.subTest(runner=name, function="weighting options"):
                 options = function_body(text, "WRITE_TONTO_WEIGHTING_OPTIONS")
                 self.assertIn('${TONTO_REFINEMENT_TARGET:-f}', options)
@@ -1194,6 +1195,54 @@ class RunnerRegressionTest(unittest.TestCase):
                 self.assertIn("weighting_scheme= shelxl", options)
                 for letter in "abcdef":
                     self.assertIn(f"shelxl_weight_{letter}=", options)
+
+    @unittest.skipUnless(
+        os.name == "posix" and shutil.which("bash"),
+        "generated cutoff-input test requires bash",
+    )
+    def test_cutoff_keyword_tracks_target_and_shelxl_keeps_all_data(self):
+        for runner, text in self.runner_text.items():
+            definition = (
+                '_lower(){ printf "%s" "$1" | tr "[:upper:]" "[:lower:]"; }\n'
+                + "WRITE_TONTO_CUTOFF_OPTION(){\n"
+                + function_body(text, "WRITE_TONTO_CUTOFF_OPTION")
+            )
+            cases = (
+                ("f", "sigma", "4", "f_sigma_cutoff= 4"),
+                ("f2", "sigma", "3", "i_sigma_cutoff= 3"),
+                ("f2", "shelxl", "4", ""),
+                ("f", "sigma", "0", ""),
+            )
+            for target, scheme, cutoff, expected in cases:
+                with (
+                    self.subTest(
+                        runner=runner,
+                        target=target,
+                        scheme=scheme,
+                        cutoff=cutoff,
+                    ),
+                    tempfile.TemporaryDirectory() as directory,
+                ):
+                    result = subprocess.run(
+                        [
+                            "bash",
+                            "-c",
+                            definition
+                            + f'\nTONTO_REFINEMENT_TARGET="{target}"\n'
+                            + f'TONTO_WEIGHTING_SCHEME="{scheme}"\n'
+                            + f'FCUT="{cutoff}"\n'
+                            + "WRITE_TONTO_CUTOFF_OPTION\n"
+                            + "cat stdin 2>/dev/null || true\n",
+                        ],
+                        cwd=directory,
+                        text=True,
+                        capture_output=True,
+                        check=True,
+                    )
+                if expected:
+                    self.assertIn(expected, result.stdout)
+                else:
+                    self.assertNotIn("_sigma_cutoff=", result.stdout)
 
     def test_flack_selection_reaches_every_xray_data_block(self):
         for name, text in self.runner_text.items():

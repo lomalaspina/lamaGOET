@@ -533,11 +533,53 @@ single scalar and listed its multiple coefficients in
 a real crystal requires an absorption-weighted mean path and data capable of
 supporting the selected model.
 
+A separate NiVPHO boundary regression exposed an input failure that can mimic
+an omitted extinction correction. The data were measured at 0.56087 Å, while
+an old saved job retained lamaGOET's 0.71073-Å default. At the measured
+resolution that mismatch requires $\sin\theta>1$; the old angle clamp then made
+the extinction denominator ill-conditioned and drove the coefficient toward
+zero. Tonto now rejects such a wavelength/data combination before refinement,
+and opening a CIF in the GUI adopts its reported wavelength. With the correct
+wavelength and the original $F$/inverse-sigma target, refining extinction gave
+$x=0.00575(98)$, $R(F)=0.019505$, and residual extrema
+$+1.6762/-3.0124$ e Å$^{-3}$; the otherwise identical no-extinction control
+gave $R(F)=0.019666$ and $+1.4884/-3.2797$ e Å$^{-3}$. Thus the coefficient was
+active even though the residual extrema remained asymmetric; extrema alone are
+not proof that extinction was omitted. The short regression also verifies that
+adding the extinction parameter does not remove special-position constraints.
+
 Model names and archive requirements were checked against the [IUCr CIF Core
 extinction
 definition](https://www.iucr.org/__data/iucr/cifdic_html/3/CORE_DIC/Irefine_ls.extinction_method.html);
 the underlying Zachariasen--Larson and Becker--Coppens references are listed in
 {doc}`references`.
+
+### Target-specific cutoff and SHELXL-WGHT regression
+
+**Question.** Does an $F^2$/SHELXL-WGHT IAM retain the SHELXL fitting set and
+report the same conventional greater-than subset, while an inverse-sigma fit
+applies its cutoff to the selected observable before merging?
+
+**Design.** The non-confidential L-alanine fixture uses the 776 merged
+reflections and the deposited SHELXL-2014/7 instruction
+`WGHT 0.0449 0.0365`, with $F=1/3$. The external CIF reports 772 reflections
+with $I>2u(I)$, 83 parameters, $R_1(all)=0.0239$, $R_1(gt)=0.0238$,
+$wR_2(all)=0.0620$, $wR_2(gt)=0.0616$, $S=1.148$, and residual extrema
+$+0.161/-0.233$ e Å$^{-3}$ (rms 0.062 e Å$^{-3}$).
+
+**Result.** Tonto retained the same 776/772 populations and 83 parameters. It
+gave $R_1(all)=0.024580$, $R_1(gt)=0.024466$, $wR_2(all)=0.066959$,
+$wR_2(gt)=0.066371$, $S=1.450875$, and residual extrema
+$+0.1525/-0.2173$ e Å$^{-3}$ (rms 0.0595 e Å$^{-3}$). The automated short
+test stores both stdout and archive CIF, so target, weights, populations,
+statistics, and map values cannot change silently.
+
+**Conclusion.** Reflection-set and `gt` semantics agree and the residual map
+is close, but the weighted refinement is not claimed to be numerically
+identical to SHELXL: the remaining $wR_2$/GoF difference is recorded explicitly
+for further work. Separate lamaGOET tests verify that inverse-sigma $F$ and
+$F^2$ targets emit `f_sigma_cutoff` and `i_sigma_cutoff`, respectively, while
+SHELXL WGHT emits neither fitting cutoff.
 
 ## Quartz scale-factor normalization
 

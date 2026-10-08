@@ -31,6 +31,9 @@ class CrystalGrowTest(unittest.TestCase):
         self.assertEqual(len(self.structure.symmetry_operations), 4)
         self.assertEqual(len(self.structure.unit_cell()), 100)
 
+    def test_cif_wavelength_is_available_to_the_gui(self):
+        self.assertAlmostEqual(self.structure.wavelength or 0.0, 0.710730)
+
     def test_all_grow_modes_produce_explicit_atoms(self):
         cell = self.structure.unit_cell()
         molecules = self.structure.complete_molecules()

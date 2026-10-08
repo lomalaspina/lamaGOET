@@ -230,7 +230,10 @@ by convergence of the inner charges.
 When unmerged observations are supplied, the implemented order is:
 
 1. retain an immutable copy of the full unmerged data;
-2. apply the weak-observation cutoff to individual observations;
+2. apply the target-specific weak-observation cutoff to individual
+   observations ($F/u(F)$ for an $F$ target or $I/u(I)$ for an $F^2$ target
+   with inverse-sigma weighting); a SHELXL-WGHT fit instead retains all merged
+   observations and uses $I>2u(I)$ only for its reported `gt` subset;
 3. transform indices and merge according to the selected MERG rule;
 4. calculate the model-specific structure factors;
 5. prune systematic absences only when the current model predicts a zero; and

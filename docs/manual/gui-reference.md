@@ -15,7 +15,7 @@ selected program. Hidden does not mean omitted.
 | Complete molecule(s) in CIF with Tonto | `COMPLETESTRUCT` | use Tonto `defragment` during the run; distinct from manual viewer growth |
 | Load precise ADPs and coordinates from a CIF | `INITADP`, `INITADPFILE` | ELMOdb-only initial-parameter source |
 | Reflection file | `HKL` | hidden for Gaussian/ORCA SCCC optimizations |
-| Write header | `WRITEHEADER` | write Tonto reflection metadata |
+| Write header | `WRITEHEADER` | create a Tonto-formatted runtime reflection file while leaving the supplied HKL unchanged |
 | on F / on F² | `ONF`, `ONF2` | declared observation type when header writing is enabled |
 | MERG code | `MERGCODE` | SHELXL-compatible merging rule 0–4; live explanation appears below the selector |
 | Method | `METHOD` | editable program-specific electronic method; hidden for CP2K, which has a dedicated functional |
@@ -25,6 +25,13 @@ selected program. Hidden does not mean omitted.
 The method/basis menus close after selection and change when the program
 changes. The text remains editable for expert keywords, but unsupported text
 is not automatically validated by Tonto.
+
+When header writing is enabled for a raw SHELX HKL file, lamaGOET accepts both
+whitespace-separated records and the fixed-width `4,4,4,8,8` layout in which
+the `l` and intensity fields can touch. Conversion stops at the `0 0 0`
+terminator and writes `JOBNAME.tonto_runtime.hkl`; the user's source HKL is
+never rewritten. A file that already contains a Tonto `reflection_data` header
+is used unchanged.
 
 ## External/custom basis definition
 
@@ -77,8 +84,8 @@ compatible all-electron basis.
 |---|---|---|
 | Charge | `CHARGE` | finite-fragment charge; also copied to CP2K cell charge |
 | Multiplicity | `MULTIPLICITY` | spin multiplicity; also copied to CP2K cell multiplicity |
-| Wavelength | `WAVE` | diffraction wavelength in Å |
-| F/sigma cutoff | `FCUT` | weak-observation criterion applied before merging |
+| Wavelength | `WAVE` | diffraction wavelength in Å; opening a CIF adopts its `_diffrn_radiation_wavelength`, while reopening saved options preserves the explicitly saved value |
+| Significance cutoff | `FCUT` | before merging, applies as $F/u(F)$ for an $F$ target or $I/u(I)$ for an $F^2$ target with inverse-sigma weighting; SHELXL WGHT instead fits all merged observations and reports the conventional `gt` subset at $I>2u(I)$ |
 | SCF processors | `NUMPROC` | external electronic-structure process/thread count; selects parallel Crystal driver when >1 |
 | Tonto processors | `NUMPROCTONTO` | Tonto parallel process count |
 | Maximum shift/s.u. | `CONVTOL` | main structural HAR convergence criterion |

@@ -615,8 +615,15 @@ class MainWindow(QMainWindow):
         self.wave = QLineEdit("0.71073")
         self.wave.editingFinished.connect(self._update_dispersion_summary)
         wave_layout.addWidget(self.wave)
-        wave_layout.addWidget(QLabel("F/sigma cutoff"))
+        self.fcut_label = QLabel("F/sigma(F) cutoff")
+        wave_layout.addWidget(self.fcut_label)
         self.fcut = QLineEdit("3")
+        self.fcut.setToolTip(
+            "For an F target this is F/sigma(F); for an F-squared target "
+            "with inverse-sigma weighting it is I/sigma(I). SHELXL WGHT "
+            "fits all merged observations and reports its conventional "
+            "greater-than subset at I>2 sigma(I)."
+        )
         wave_layout.addWidget(self.fcut)
         form.addRow(wave_row)
         dispersion_row = QWidget()
@@ -1527,6 +1534,9 @@ class MainWindow(QMainWindow):
             "independent of the weighting law, except that SHELXL WGHT is "
             "defined for F-squared and therefore requires that target."
         )
+        self.tonto_refinement_target.currentIndexChanged.connect(
+            self._weighting_controls_changed
+        )
         weighting_form.addRow(
             "Least-squares target", self.tonto_refinement_target
         )
@@ -1544,8 +1554,9 @@ class MainWindow(QMainWindow):
         self.tonto_weighting_explanation = QLabel(
             "The default preserves Tonto's established inverse-sigma "
             "least-squares weights for the selected target. Select SHELXL "
-            "only when reproducing a refinement whose "
-            "WGHT A-F coefficients are known."
+            "only when reproducing a refinement whose WGHT coefficients "
+            "are known. For the usual SHELXL instruction 'WGHT a b', use "
+            "A=a, B=b, C=D=E=0, and F=1/3."
         )
         self.tonto_weighting_explanation.setWordWrap(True)
         weighting_form.addRow(self.tonto_weighting_explanation)
@@ -1566,9 +1577,18 @@ class MainWindow(QMainWindow):
             parameter.setSingleStep(0.01)
             parameter.setValue(0.0)
             parameter.setMaximumWidth(150)
+            standard_mapping = {
+                "A": "For a standard 'WGHT a b' instruction, A=a.",
+                "B": "For a standard 'WGHT a b' instruction, B=b.",
+                "C": "For a standard 'WGHT a b' instruction, C=0.",
+                "D": "For a standard 'WGHT a b' instruction, D=0.",
+                "E": "For a standard 'WGHT a b' instruction, E=0.",
+                "F": "For a standard 'WGHT a b' instruction, F=1/3.",
+            }
             parameter.setToolTip(
-                f"SHELXL WGHT parameter {letter}; enter the value from the "
-                "refinement instruction or listing file."
+                f"SHELXL WGHT parameter {letter}. "
+                f"{standard_mapping[letter]} Only enter all six values when "
+                "the refinement explicitly supplies the extended form."
             )
             row = index // 3
             column = (index % 3) * 2
@@ -2906,7 +2926,9 @@ class MainWindow(QMainWindow):
         self._set_combo_text(
             self.cp2k_functional, self._option("CP2K_XC_FUNCTIONAL", "BLYP")
         )
-        self._load_cif_from_field()
+        # A saved job may intentionally override the wavelength reported by
+        # its CIF. Preserve that explicit WAVE value when options are loaded.
+        self._load_cif_from_field(adopt_wavelength=False)
         self._header_changed()
         self._initial_adp_changed()
         self._external_basis_changed()
@@ -3228,11 +3250,23 @@ class MainWindow(QMainWindow):
             )
         self.tonto_refinement_target.setEnabled(not shelxl)
         self.tonto_weighting_parameters.setVisible(shelxl)
+        target = self.tonto_refinement_target.currentData()
+        if shelxl:
+            self.fcut_label.setText("I/sigma(I) reporting threshold (fixed at 2)")
+            self.fcut.setEnabled(False)
+        else:
+            self.fcut_label.setText(
+                "I/sigma(I) cutoff" if target == "f2" else "F/sigma(F) cutoff"
+            )
+            self.fcut.setEnabled(True)
         if shelxl:
             explanation = (
-                "Use the six coefficients from a SHELXL WGHT instruction. "
-                "SHELXL WGHT is defined for F-squared, so that target has "
-                "been selected and locked while this weighting law is active."
+                "For the usual SHELXL instruction 'WGHT a b', enter A=a and "
+                "B=b; leave C, D, and E at zero and F at 1/3. Only use six "
+                "independent coefficients when the refinement explicitly "
+                "supplies the extended form. SHELXL WGHT is defined for "
+                "F-squared, so that target has been selected and locked while "
+                "this weighting law is active."
             )
         else:
             explanation = (
@@ -3682,7 +3716,7 @@ class MainWindow(QMainWindow):
         self.cp2k_basis.addItems(choices)
         self._set_combo_text(self.cp2k_basis, current)
 
-    def _load_cif_from_field(self) -> None:
+    def _load_cif_from_field(self, *, adopt_wavelength: bool = True) -> None:
         value = self.cif_path.text().strip()
         if not value:
             self._clear_structure_view()
@@ -3693,7 +3727,7 @@ class MainWindow(QMainWindow):
         if not path.is_absolute():
             path = self.option_path.parent / path
         try:
-            self._load_structure(path)
+            self._load_structure(path, adopt_wavelength=adopt_wavelength)
         except (CifError, OSError, ValueError) as exc:
             self._clear_structure_view()
             QMessageBox.critical(self, "Could not load CIF", str(exc))
@@ -3717,7 +3751,13 @@ class MainWindow(QMainWindow):
         self.structure_status.setText("Structure: no CIF loaded")
         self._update_dispersion_summary()
 
-    def _load_structure(self, path: Path, *, automatic: bool = False) -> None:
+    def _load_structure(
+        self,
+        path: Path,
+        *,
+        automatic: bool = False,
+        adopt_wavelength: bool = True,
+    ) -> None:
         structure = CrystalStructure.from_cif(path)
         retained_adps = 0
         incoming_has_adps = structure.has_displacement_parameters()
@@ -3740,6 +3780,8 @@ class MainWindow(QMainWindow):
             )
         atoms = structure.asymmetric_unit()
         self.structure = structure
+        if not automatic and adopt_wavelength and structure.wavelength is not None:
+            self.wave.setText(f"{structure.wavelength:.8g}")
         self.visible_atoms = atoms
         self.current_grow_description = self.UNGROWN_DESCRIPTION
         self._displayed_cif = path.resolve()

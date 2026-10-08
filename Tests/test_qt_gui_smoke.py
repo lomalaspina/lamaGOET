@@ -57,8 +57,10 @@ def main() -> int:
             raise AssertionError("empty anharmonic PDF order selection was accepted")
         window.anharmonic_pdf_third_order.setChecked(True)
         window.anharmonic_pdf_contour_probability.setValue(99)
+        window.wave.setText("9.9")
         window.cif_path.setText(str(ROOT / "Tests" / "inputs" / "calc.cif"))
         window._load_cif_from_field()
+        assert window.wave.text() == "0.71073"
         window._anharmonic_pdf_selected_atoms = ["c2", "c1"]
         pdf_values = window._current_values()
         assert pdf_values["ANHARMONIC_PDF_CUBE_ATOMS"] == "C1 C2"
@@ -127,6 +129,8 @@ def main() -> int:
         assert window.tonto_refinement_target.currentData() == "f"
         assert window.tonto_refinement_target.isEnabled()
         assert window.tonto_weighting_scheme.currentData() == "sigma"
+        assert window.fcut_label.text() == "F/sigma(F) cutoff"
+        assert window.fcut.isEnabled()
         assert window.tonto_weighting_parameters.isHidden()
         assert window.tonto_least_squares_solver.currentData() == "gauss-newton"
         assert not window.calculate_flack_parameter.isChecked()
@@ -151,11 +155,15 @@ def main() -> int:
         )
         assert window._current_values()["TONTO_REFINEMENT_TARGET"] == "f2"
         assert window._current_values()["TONTO_WEIGHTING_SCHEME"] == "sigma"
+        assert window.fcut_label.text() == "I/sigma(I) cutoff"
+        assert window.fcut.isEnabled()
         window.tonto_weighting_scheme.setCurrentIndex(
             window.tonto_weighting_scheme.findData("shelxl")
         )
         assert window.tonto_refinement_target.currentData() == "f2"
         assert not window.tonto_refinement_target.isEnabled()
+        assert "fixed at 2" in window.fcut_label.text()
+        assert not window.fcut.isEnabled()
         assert not window.tonto_weighting_parameters.isHidden()
         for parameter, value in zip(
             window.shelxl_weight_parameters,

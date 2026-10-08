@@ -534,6 +534,7 @@ class CrystalStructure:
     space_group_number: str = "1"
     source_path: Path | None = None
     space_group_hall: str = "P 1"
+    wavelength: float | None = None
 
     def has_displacement_parameters(self) -> bool:
         """Return whether the CIF supplies an ADP for at least one atom."""
@@ -593,6 +594,7 @@ class CrystalStructure:
                 self.space_group_number,
                 self.source_path,
                 self.space_group_hall,
+                self.wavelength,
             ),
             copied,
         )
@@ -825,6 +827,16 @@ class CrystalStructure:
             ),
             space_group_name,
         )
+        wavelength = None
+        for tag in (
+            "_diffrn_radiation_wavelength",
+            "_diffrn_radiation_wavelength.wavelength",
+        ):
+            if tag in scalars:
+                candidate = _number(scalars[tag])
+                if candidate > 0.0 and math.isfinite(candidate):
+                    wavelength = candidate
+                break
         return cls(
             cell,
             atoms,
@@ -833,6 +845,7 @@ class CrystalStructure:
             space_group_number,
             cif_path.resolve(),
             space_group_hall,
+            wavelength,
         )
 
     def asymmetric_unit(self) -> list[DisplayAtom]:

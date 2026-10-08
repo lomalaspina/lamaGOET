@@ -23,8 +23,8 @@ for every system. Values saved by the GUI override them.
 | `EMAIL` | *(empty)* | PBS notification address; cluster mode only |
 | `CHARGE` | `0` | molecular/cell charge as routed by the selected program |
 | `MULTIPLICITY` | `1` | spin multiplicity |
-| `WAVE` | `0.71073` | X-ray wavelength in Å |
-| `FCUT` | `3` | F/σ cutoff, applied to observations before merging |
+| `WAVE` | `0.71073` | X-ray wavelength in Å; opening a CIF in the GUI adopts its `_diffrn_radiation_wavelength`, while reopening saved options preserves their explicit value |
+| `FCUT` | `3` | significance cutoff applied before merging: $F/u(F)$ for an $F$ target, or $I/u(I)$ for an $F^2$ target with inverse-sigma weighting; ignored for SHELXL WGHT fits, whose `gt` subset is reported at $I>2u(I)$ |
 | `MERGCODE` | `2` | reflection merge rule 0–4 |
 | `WRITEHEADER` | `false` | write Tonto reflection-file header |
 | `ONF` | `false` | declare observations on F when header is written |
