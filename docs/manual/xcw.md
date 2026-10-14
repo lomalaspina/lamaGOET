@@ -48,12 +48,24 @@ The vocabulary in lamaGOET is:
    maximum lambda.
 4. At each lambda, Tonto optimizes the constrained wavefunction and writes the
    wavefunction/reflection outputs.
-5. lamaGOET preserves each XCW cycle and then calculates residual-density
-   artifacts for the accepted endpoint.
+5. For every converged lambda, Tonto recalculates $F_{\rm calc}$, diffraction
+   statistics, CIF/FCF output, and the requested residual-density cube from
+   that lambda's density; lamaGOET preserves the complete path as well as the
+   accepted endpoint.
 
 In XWR, the HAR phase is completed before step 1. The XCW step does not resume
 geometry refinement unless a distinct subsequent refinement is explicitly
 started.
+
+Coordinates and ADPs are fixed during XCW, but the residuals are not. Changing
+the constrained orbitals changes the density, atom-centred form factors, and
+structure factors. R factors and residual-density features must therefore be
+reported separately at every lambda.
+
+Fixing the geometry does not freeze the scale or extinction correction.
+When their optimization is enabled, Tonto reoptimizes them against the
+current calculated structure factors during the SCF density updates. Their
+values can therefore change along the lambda path.
 
 ## GUI controls
 
@@ -105,6 +117,21 @@ CIFs, FCF/FCO files, and the residual-density cube. The exact molecular
 wavefunction outputs depend on the current Tonto keywords and build. Keep the
 Tonto `stdin` and `stdout`: they are the authoritative record of method, basis,
 lambda path, convergence, and fitted quantities.
+
+Per-lambda files retain the established naming convention, for example:
+
+```text
+job,lambda=0.000100.archive.cif
+job,lambda=0.000100.archive.fcf
+job,lambda=0.000100.olex.fcf
+job,lambda=0.000100.archive.fco
+```
+
+Requested residual cubes use the same lambda-qualified stem. Preservation
+of these diffraction files does not depend on the legacy `do_outputs`
+switch; `do_residual_cube` still controls whether a cube is calculated.
+The cycle directory preserves these filenames, including the `.XCW` job
+prefix used after HAR in XWR, without replacing earlier lambda points.
 
 ## Boundaries
 

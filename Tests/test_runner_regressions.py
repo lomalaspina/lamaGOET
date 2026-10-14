@@ -787,6 +787,104 @@ class RunnerRegressionTest(unittest.TestCase):
         self.assertIn("C:core-decontracted-carbon", sidecar)
         self.assertEqual(sidecar.count("1   s"), 8)
 
+    def test_molecular_xcw_archives_each_lambda_without_optional_endpoint_files(self):
+        for runner, text in self.runner_text.items():
+            body = function_body(text, "_lamagoet_archive_molecular_xcw")
+            self.assertIn(
+                "_lamagoet_archive_molecular_xcw || return 1",
+                function_body(text, "XCW"),
+            )
+            if os.name != "posix" or not shutil.which("bash"):
+                continue
+            for xwr in (False, True):
+                for endpoints in (False, True):
+                    with self.subTest(runner=runner, xwr=xwr, endpoints=endpoints):
+                        with tempfile.TemporaryDirectory() as directory:
+                            root = Path(directory)
+                            prefix = "case.XCW" if xwr else "case"
+                            payloads = {}
+                            for lam in ("0.000000", "0.000100"):
+                                for suffix in (
+                                    "archive.cif", "cartesian.cif2", "fractional.cif1",
+                                    "archive.fcf", "olex.fcf", "archive.fco",
+                                    "residual_density,cell.cube", "ffn",
+                                ):
+                                    filename = f"{prefix},lambda={lam}.{suffix}"
+                                    payloads[filename] = f"{lam} {suffix}\n"
+                                for archive_kind in ("MOs", "MO_energies", "density_mx"):
+                                    filename = f"{prefix}.{archive_kind},lambda={lam},r"
+                                    payloads[filename] = f"{lam} {archive_kind}\n"
+                            for filename, content in payloads.items():
+                                (root / filename).write_text(content, encoding="utf-8")
+                            (root / "stdin").write_text("input\n", encoding="utf-8")
+                            (root / "stdout").write_text("output\n", encoding="utf-8")
+                            covariance = (
+                                "before\n"
+                                "# NOTE: Cartesian 9Nx9N covariance matrix in BOHR units\n"
+                                "covariance\n# ===========\nafter\n"
+                            )
+                            if endpoints:
+                                for suffix in ("cartesian.cif2", "fractional.cif1"):
+                                    (root / f"{prefix}.{suffix}").write_text(
+                                        covariance, encoding="utf-8"
+                                    )
+                                for suffix in ("archive.cif", "archive.fcf", "olex.fcf", "archive.fco"):
+                                    (root / f"{prefix}.{suffix}").write_text(
+                                        suffix, encoding="utf-8"
+                                    )
+                            if xwr:
+                                # Do not accidentally archive the preceding HAR endpoint.
+                                (root / "case.archive.cif").write_text("stale HAR", encoding="utf-8")
+                                (root / "case,lambda=9.000000.archive.cif").write_text(
+                                    "unrelated", encoding="utf-8"
+                                )
+                            other_prefix = "case" if xwr else "case.XCW"
+                            other_wavefunction = f"{other_prefix}.MOs,lambda=0.000100,r"
+                            (root / other_wavefunction).write_text("unrelated", encoding="utf-8")
+                            result = subprocess.run(
+                                ["bash", "-c", "archive_fn(){\n" + body
+                                 + f'\nJOBNAME="case"\nJ=3\nXWR={str(xwr).lower()}\narchive_fn\n'],
+                                cwd=directory, text=True, capture_output=True, check=True,
+                            )
+                            self.assertEqual(result.stderr, "")
+                            archive = root / "3.XCW_cycle.case"
+                            for filename, content in payloads.items():
+                                self.assertEqual((archive / filename).read_text(encoding="utf-8"), content)
+                            self.assertEqual((archive / "3.stdin").read_text(encoding="utf-8"), "input\n")
+                            self.assertEqual((archive / "3.stdout").read_text(encoding="utf-8"), "output\n")
+                            self.assertFalse((archive / "3.residual_density,cell.cube").exists())
+                            self.assertFalse((archive / other_wavefunction).exists())
+                            if endpoints:
+                                for suffix in ("cartesian.cif2", "fractional.cif1"):
+                                    self.assertEqual((root / f"{prefix}.{suffix}").read_text(encoding="utf-8"), covariance)
+                                    self.assertEqual((archive / f"3.{prefix}.{suffix}").read_text(encoding="utf-8"), "before\nafter\n")
+                                    stem, extension = suffix.rsplit(".", 1)
+                                    self.assertEqual((archive / f"3.{prefix}.{stem}_cov.{extension}").read_text(encoding="utf-8"), covariance)
+                                for suffix in ("archive.cif", "archive.fcf", "olex.fcf", "archive.fco"):
+                                    self.assertEqual((archive / f"3.{prefix}.{suffix}").read_text(encoding="utf-8"), suffix)
+                            if xwr:
+                                self.assertFalse((archive / "3.case.archive.cif").exists())
+                                self.assertFalse((archive / "case,lambda=9.000000.archive.cif").exists())
+
+    def test_molecular_xcw_archive_handles_legacy_endpoint_only(self):
+        if os.name != "posix" or not shutil.which("bash"):
+            self.skipTest("requires bash")
+        for runner, text in self.runner_text.items():
+            with self.subTest(runner=runner), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                for filename in ("stdin", "stdout", "case.archive.cif", "case.residual_density,cell.cube"):
+                    (root / filename).write_text(filename, encoding="utf-8")
+                result = subprocess.run(
+                    ["bash", "-c", "archive_fn(){\n"
+                     + function_body(text, "_lamagoet_archive_molecular_xcw")
+                     + '\nJOBNAME="case"\nJ=2\nXWR=false\narchive_fn\n'],
+                    cwd=directory, text=True, capture_output=True, check=True,
+                )
+                self.assertEqual(result.stderr, "")
+                archive = root / "2.XCW_cycle.case"
+                self.assertEqual((archive / "2.case.archive_cov.cif").read_text(encoding="utf-8"), "case.archive.cif")
+                self.assertEqual((archive / "2.residual_density,cell.cube").read_text(encoding="utf-8"), "case.residual_density,cell.cube")
+
     def test_periodic_xcw_input_and_dispatch_are_explicit(self):
         for name, text in self.runner_text.items():
             with self.subTest(runner=name):
@@ -826,10 +924,75 @@ class RunnerRegressionTest(unittest.TestCase):
                 self.assertIn("neutral, closed-shell Crystal23 reference", body)
                 self.assertIn("GenerateXML_dat.GRED.gz", body)
                 self.assertIn("GenerateXML_dat.KRED.gz", body)
+                self.assertIn('for artifact in "$xcw_job",lambda=*', body)
+                self.assertIn('"$xcw_job.periodic_xcw_objective_controls"', body)
                 dispatch = function_body(text, "RUN_XWR")
                 self.assertIn('${XCW_MODE:-molecular}', dispatch)
                 self.assertIn("PERIODIC_XCW", dispatch)
                 self.assertIn("XCW", dispatch)
+
+    def test_periodic_xcw_hf_and_pbe0_reference_controls(self):
+        expected_scf = {
+            "BLYP": (
+                "kind= rks",
+                "dft_exchange_functional= becke88",
+                "dft_correlation_functional= lyp",
+            ),
+            "PBE": (
+                "kind= rks",
+                "dft_exchange_functional= pbex",
+                "dft_correlation_functional= pbec",
+            ),
+            "HF": ("kind= rhf",),
+            "PBE0": (
+                "kind= rks",
+                "dft_exchange_functional= pbex",
+                "dft_correlation_functional= pbec",
+            ),
+        }
+        for name, text in self.runner_text.items():
+            with self.subTest(runner=name):
+                reference = function_body(
+                    text, "PERIODIC_XCW_PREPARE_CRYSTAL_REFERENCE"
+                )
+                self.assertIn("BLYP|PBE|PBE0", reference)
+                self.assertIn("HF)", reference)
+                self.assertIn("METHOD=rhf", reference)
+                periodic = function_body(text, "PERIODIC_XCW")
+                self.assertIn("periodic_xcw_exchange_radius=", periodic)
+                self.assertIn("PERIODIC_XCW_EXCHANGE_RADIUS:-4", periodic)
+                self.assertIn(': "${PERIODIC_XCW_EXCHANGE_RADIUS:=4}"', text)
+
+                if os.name != "posix" or not shutil.which("bash"):
+                    continue
+                definition = (
+                    "_upper(){ printf '%s' \"${1:-}\" | tr 'a-z' 'A-Z'; }\n"
+                    "PERIODIC_XCW_SCFDATA(){\n"
+                    + function_body(text, "PERIODIC_XCW_SCFDATA")
+                )
+                for method, expected in expected_scf.items():
+                    with self.subTest(runner=name, method=method):
+                        with tempfile.TemporaryDirectory() as directory:
+                            result = subprocess.run(
+                                [
+                                    "bash",
+                                    "-c",
+                                    definition
+                                    + f'\nPERIODIC_XCW_REFERENCE_DFT="{method}"\n'
+                                    + ": > stdin\n"
+                                    + "PERIODIC_XCW_SCFDATA\n"
+                                    + "cat stdin\n",
+                                ],
+                                cwd=directory,
+                                text=True,
+                                capture_output=True,
+                                check=True,
+                            )
+                        for line in expected:
+                            self.assertIn(line, result.stdout)
+                        if method == "HF":
+                            self.assertNotIn("dft_exchange_functional", result.stdout)
+                            self.assertNotIn("dft_correlation_functional", result.stdout)
 
     def test_crystal_har_uses_compact_gred_and_cp2k_keeps_legacy_xml(self):
         for name, text in self.runner_text.items():

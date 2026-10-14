@@ -113,6 +113,7 @@ class JobOptionsTest(unittest.TestCase):
         self.assertEqual(values["PERIODIC_XCW_TONTO_BASIS_FILE"], "")
         self.assertEqual(values["PERIODIC_XCW_TONTO_BASIS_NAME"], "")
         self.assertEqual(values["PERIODIC_XCW_GRID"], "24 24 24")
+        self.assertEqual(values["PERIODIC_XCW_EXCHANGE_RADIUS"], "4")
         self.assertEqual(values["PERIODIC_XCW_R_FREE_PERCENTAGE"], "10")
         self.assertEqual(values["PERIODIC_XCW_RESTART"], "false")
         self.assertEqual(values["PERIODIC_XCW_WRITE_CHECKPOINT"], "true")
@@ -321,13 +322,14 @@ class JobOptionsTest(unittest.TestCase):
                 path,
                 {
                     "XCW_MODE": "periodic",
-                    "PERIODIC_XCW_REFERENCE_DFT": "PBE",
+                    "PERIODIC_XCW_REFERENCE_DFT": "PBE0",
                     "PERIODIC_XCW_REFERENCE_BASIS": "pob-TZVP-rev2",
                     "PERIODIC_XCW_CRYSTAL_BASIS_FILE": "./crystal-basis.txt",
                     "PERIODIC_XCW_TONTO_BASIS_FILE": "./tonto-basis.sidecar",
                     "PERIODIC_XCW_TONTO_BASIS_NAME": "core-decontracted-carbon",
                     "PERIODIC_XCW_GRID": "20 22 24",
                     "PERIODIC_XCW_DENSITY_RADIUS": "2",
+                    "PERIODIC_XCW_EXCHANGE_RADIUS": "6",
                     "PERIODIC_XCW_CONVERGENCE": "2.5E-7",
                     "PERIODIC_XCW_DAMPING": "0.35",
                     "PERIODIC_XCW_MAX_ITERATIONS": "44",
@@ -338,7 +340,7 @@ class JobOptionsTest(unittest.TestCase):
             )
             result = load_job_options(path)
         self.assertEqual(result["XCW_MODE"], "periodic")
-        self.assertEqual(result["PERIODIC_XCW_REFERENCE_DFT"], "PBE")
+        self.assertEqual(result["PERIODIC_XCW_REFERENCE_DFT"], "PBE0")
         self.assertEqual(result["PERIODIC_XCW_REFERENCE_BASIS"], "pob-TZVP-rev2")
         self.assertEqual(
             result["PERIODIC_XCW_CRYSTAL_BASIS_FILE"],
@@ -354,6 +356,7 @@ class JobOptionsTest(unittest.TestCase):
         )
         self.assertEqual(result["PERIODIC_XCW_GRID"], "20 22 24")
         self.assertEqual(result["PERIODIC_XCW_DENSITY_RADIUS"], "2")
+        self.assertEqual(result["PERIODIC_XCW_EXCHANGE_RADIUS"], "6")
         self.assertEqual(result["PERIODIC_XCW_CONVERGENCE"], "2.5E-7")
         self.assertEqual(result["PERIODIC_XCW_DAMPING"], "0.35")
         self.assertEqual(result["PERIODIC_XCW_MAX_ITERATIONS"], "44")

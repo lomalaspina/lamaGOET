@@ -246,7 +246,7 @@ publisher or software project wherever possible.
 
 45. M. Fugel *et al.*, “Probing the accuracy and precision of Hirshfeld atom
     refinement with HARt,” *IUCrJ* **5** (2018), 32–44.
-    [doi:10.1107/S2052252517016010](https://doi.org/10.1107/S2052252517016010).
+    [doi:10.1107/S2052252517015548](https://doi.org/10.1107/S2052252517015548).
 
 ## Program, functional, basis and advanced-model references
 

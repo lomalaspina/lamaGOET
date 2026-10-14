@@ -251,7 +251,15 @@ def main() -> int:
         assert not window.periodic_xcw_options.isHidden()
         assert not window.periodic_xcw_custom_basis.isChecked()
         assert window.periodic_xcw_reference_basis.isEnabled()
+        assert window.periodic_xcw_reference_dft.findData("HF") >= 0
+        assert window.periodic_xcw_reference_dft.findData("PBE0") >= 0
+        window.periodic_xcw_reference_dft.setCurrentIndex(
+            window.periodic_xcw_reference_dft.findData("PBE0")
+        )
+        assert window.periodic_xcw_exchange_radius.isEnabled()
+        window.periodic_xcw_exchange_radius.setValue(6)
         window.periodic_xcw_reference_dft.setCurrentText("PBE")
+        assert not window.periodic_xcw_exchange_radius.isEnabled()
         window.periodic_xcw_reference_basis.setEditText("pob-TZVP-rev2")
         crystal_basis = Path(directory) / "custom-crystal-basis.txt"
         crystal_basis.write_text(
@@ -297,6 +305,7 @@ def main() -> int:
         assert (Path(directory) / "periodic_xcw_tonto_basis.sidecar").is_file()
         assert periodic_values["PERIODIC_XCW_GRID"] == "20 22 24"
         assert periodic_values["PERIODIC_XCW_DENSITY_RADIUS"] == 2
+        assert periodic_values["PERIODIC_XCW_EXCHANGE_RADIUS"] == 6
         assert periodic_values["PERIODIC_XCW_CONVERGENCE"] == "2.5E-7"
         assert periodic_values["PERIODIC_XCW_DAMPING"] == 0.35
         assert periodic_values["PERIODIC_XCW_MAX_ITERATIONS"] == 44

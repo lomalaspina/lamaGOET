@@ -3499,9 +3499,14 @@ PERIODIC_XCW_PREPARE_CRYSTAL_REFERENCE(){
 	fi
 	METHOD=$(_upper "$METHOD")
 	case "$METHOD" in
-		BLYP|PBE) ;;
+		BLYP|PBE|PBE0) ;;
+		HF)
+			# CRYSTAL23's closed-shell Hartree-Fock reference is selected by
+			# omitting a DFT block. TONTO_TO_CRYSTAL recognizes lowercase rhf.
+			METHOD=rhf
+			;;
 		*)
-			echo "ERROR: Periodic XCW currently supports only native BLYP or PBE references." | tee -a "$JOBNAME.lst" >&2
+			echo "ERROR: Periodic XCW reference method must be BLYP, PBE, HF, or PBE0." | tee -a "$JOBNAME.lst" >&2
 			return 1
 			;;
 	esac
@@ -3596,13 +3601,24 @@ PERIODIC_XCW_CRYSTAL_BLOCK(){
 
 PERIODIC_XCW_SCFDATA(){
 	echo "   scfdata= {" >> stdin
-	echo "      kind= rks" >> stdin
 	case "$(_upper "${PERIODIC_XCW_REFERENCE_DFT:-BLYP}")" in
 		BLYP)
+			echo "      kind= rks" >> stdin
 			echo "      dft_exchange_functional= becke88" >> stdin
 			echo "      dft_correlation_functional= lyp" >> stdin
 			;;
 		PBE)
+			echo "      kind= rks" >> stdin
+			echo "      dft_exchange_functional= pbex" >> stdin
+			echo "      dft_correlation_functional= pbec" >> stdin
+			;;
+		HF)
+			echo "      kind= rhf" >> stdin
+			;;
+		PBE0)
+			# The periodic-XCW solver combines this semilocal PBE part with
+			# 25% of its finite-lattice exact-exchange response.
+			echo "      kind= rks" >> stdin
 			echo "      dft_exchange_functional= pbex" >> stdin
 			echo "      dft_correlation_functional= pbec" >> stdin
 			;;
@@ -3680,6 +3696,11 @@ PERIODIC_XCW(){
 		echo "   periodic_xcw_lambda_step= ${LAMBDASTEP:-0.1}"
 		echo "   periodic_xcw_lambda_max= ${LAMBDAMAX:-1}"
 		echo "   periodic_xcw_reference_dft= $(_lower "${PERIODIC_XCW_REFERENCE_DFT:-BLYP}")"
+		case "$(_upper "${PERIODIC_XCW_REFERENCE_DFT:-BLYP}")" in
+			HF|PBE0)
+				echo "   periodic_xcw_exchange_radius= ${PERIODIC_XCW_EXCHANGE_RADIUS:-4}"
+				;;
+		esac
 		echo "   periodic_xcw_convergence= ${PERIODIC_XCW_CONVERGENCE:-1.0E-6}"
 		echo "   periodic_xcw_damping= ${PERIODIC_XCW_DAMPING:-0.5}"
 		echo "   periodic_xcw_max_iterations= ${PERIODIC_XCW_MAX_ITERATIONS:-20}"
@@ -3718,8 +3739,14 @@ PERIODIC_XCW(){
 		"$xcw_job.periodic_xcw_lambda" "$xcw_job.periodic_xcw_converged" \
 		"$xcw_job.periodic_xcw_nbf" "$xcw_job.periodic_xcw_nk" \
 		"$xcw_job.periodic_xcw_nelectron" \
-		"$xcw_job.periodic_xcw_reference_signature"
+		"$xcw_job.periodic_xcw_reference_signature" \
+		"$xcw_job.periodic_xcw_objective_controls"
 	do
+		[[ -f "$artifact" ]] && cp "$artifact" "$archive_dir/$artifact"
+	done
+	# Preserve every converged lambda point as well as the unsuffixed final
+	# endpoint.  Fixed geometry does not imply fixed Fcalc or residual density.
+	for artifact in "$xcw_job",lambda=*; do
 		[[ -f "$artifact" ]] && cp "$artifact" "$archive_dir/$artifact"
 	done
 	{
@@ -3786,6 +3813,54 @@ XCW_SCF_BLOCK(){
 	echo "} " >> stdin
 }
 
+_lamagoet_archive_molecular_xcw(){
+	local archive_dir="$J.XCW_cycle.$JOBNAME"
+	local xcw_job="$JOBNAME" artifact suffix archive_kind
+	[[ "$XWR" == "true" ]] && xcw_job="$JOBNAME.XCW"
+	mkdir -p -- "$archive_dir" || return 1
+	cp -- stdin "$archive_dir/$J.stdin" || return 1
+	cp -- stdout "$archive_dir/$J.stdout" || return 1
+	# Older Tonto builds may also write unsuffixed endpoint files.  Archive
+	# them when present, without requiring a cube or modifying the originals.
+	for suffix in cartesian.cif2 fractional.cif1; do
+		artifact="$xcw_job.$suffix"
+		if [[ -f "$artifact" ]]; then
+			cp -- "$artifact" "$archive_dir/$J.$xcw_job.${suffix%.*}_cov.${suffix##*.}" || return 1
+			sed '/# NOTE: Cartesian 9Nx9N covariance matrix in BOHR units/,/# ===========/d' \
+				"$artifact" > "$archive_dir/$J.$artifact" || return 1
+		fi
+	done
+	if [[ -f "$xcw_job.archive.cif" ]]; then
+		cp -- "$xcw_job.archive.cif" "$archive_dir/$J.$xcw_job.archive_cov.cif" || return 1
+	fi
+	for suffix in archive.cif archive.fcf olex.fcf archive.fco; do
+		artifact="$xcw_job.$suffix"
+		if [[ -f "$artifact" ]]; then
+			cp -- "$artifact" "$archive_dir/$J.$artifact" || return 1
+		fi
+	done
+	if [[ -f "$xcw_job.residual_density,cell.cube" ]]; then
+		cp -- "$xcw_job.residual_density,cell.cube" \
+			"$archive_dir/$J.residual_density,cell.cube" || return 1
+	fi
+	# Preserve every converged lambda, including CIF/FCF/FCO, cubes and the
+	# wavefunction archives (JOB.MOs,lambda=...,r etc.).  XWR uses
+	# name=JOBNAME.XCW, not name=JOBNAME.
+	for artifact in "$xcw_job",lambda=* "$xcw_job".*,lambda=*; do
+		if [[ "$artifact" == "$xcw_job".*,lambda=* ]]; then
+			archive_kind="${artifact#"$xcw_job."}"
+			archive_kind="${archive_kind%%,lambda=*}"
+			# Archive object names have no dots.  In a standalone XCW job,
+			# do not collect an older JOB.XCW.MOs file from a separate XWR.
+			[[ "$archive_kind" == *.* ]] && continue
+		fi
+		if [[ -f "$artifact" ]]; then
+			cp -- "$artifact" "$archive_dir/$artifact" || return 1
+		fi
+	done
+	return 0
+}
+
 XCW(){
 	TONTO_HEADER
 	if [[ "$XWR" == "true" ]]; then 
@@ -3819,22 +3894,7 @@ XCW(){
 		$TONTO
 	fi
 	echo "Tonto cycle number $J ended"
-        if [ ! -d "$J.XCW_cycle.$JOBNAME" ]; then
-	        mkdir $J.XCW_cycle.$JOBNAME
-        fi
-	cp stdin $J.XCW_cycle.$JOBNAME/$J.stdin
-	cp stdout $J.XCW_cycle.$JOBNAME/$J.stdout
-	cp $JOBNAME'.cartesian.cif2' $J.XCW_cycle.$JOBNAME/$J.$JOBNAME.cartesian_cov.cif2
-	cp $JOBNAME'.fractional.cif1' $J.XCW_cycle.$JOBNAME/$J.$JOBNAME.fractional_cov.cif1
-	cp $JOBNAME'.archive.cif' $J.XCW_cycle.$JOBNAME/$J.$JOBNAME.archive_cov.cif
-	sed -i '/# NOTE: Cartesian 9Nx9N covariance matrix in BOHR units/,/# ===========/d' $JOBNAME.cartesian.cif2
-	sed -i '/# NOTE: Cartesian 9Nx9N covariance matrix in BOHR units/,/# ===========/d' $JOBNAME.fractional.cif1
-	cp $JOBNAME'.cartesian.cif2' $J.XCW_cycle.$JOBNAME/$J.$JOBNAME.cartesian.cif2
-	cp $JOBNAME'.fractional.cif1' $J.XCW_cycle.$JOBNAME/$J.$JOBNAME.fractional.cif1
-	cp $JOBNAME'.archive.cif' $J.XCW_cycle.$JOBNAME/$J.$JOBNAME.archive.cif
-	cp $JOBNAME'.archive.fcf' $J.XCW_cycle.$JOBNAME/$J.$JOBNAME.archive.fcf
-	cp $JOBNAME'.archive.fco' $J.XCW_cycle.$JOBNAME/$J.$JOBNAME.archive.fco
-	cp $JOBNAME.residual_density,cell.cube $J.XCW_cycle.$JOBNAME/$J.residual_density,cell.cube
+	_lamagoet_archive_molecular_xcw || return 1
 	if ! grep -q 'Wall-clock time taken' "stdout"; then
 		echo "ERROR: problems in fit cycle, please check the $J.th stdout file for more details" | tee -a $JOBNAME.lst
 		exit 1
@@ -5020,6 +5080,7 @@ source ./job_options.txt
 : "${PERIODIC_XCW_REFERENCE_BASIS:=POB-TZVP-REV2}"
 : "${PERIODIC_XCW_GRID:=24 24 24}"
 : "${PERIODIC_XCW_DENSITY_RADIUS:=1}"
+: "${PERIODIC_XCW_EXCHANGE_RADIUS:=4}"
 : "${PERIODIC_XCW_CONVERGENCE:=1.0E-6}"
 : "${PERIODIC_XCW_DAMPING:=0.5}"
 : "${PERIODIC_XCW_MAX_ITERATIONS:=20}"

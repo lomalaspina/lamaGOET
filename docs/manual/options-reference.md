@@ -359,13 +359,14 @@ implements the algorithms introduced by [Levenberg
 
 | Variable | Default | Meaning |
 |---|---|---|
-| `PERIODIC_XCW_REFERENCE_DFT` | `BLYP` | restricted native Crystal23 reference functional |
+| `PERIODIC_XCW_REFERENCE_DFT` | `BLYP` | native Crystal23/Tonto reference method: BLYP, PBE, or experimental HF/PBE0 |
 | `PERIODIC_XCW_REFERENCE_BASIS` | `POB-TZVP-REV2` | common Crystal23/Tonto reference basis |
 | `PERIODIC_XCW_CRYSTAL_BASIS_FILE` | *(empty)* | optional custom Crystal23 basis block |
 | `PERIODIC_XCW_TONTO_BASIS_FILE` | *(empty)* | exact matching Tonto basis sidecar |
 | `PERIODIC_XCW_TONTO_BASIS_NAME` | *(empty)* | file-safe name assigned to the staged sidecar |
 | `PERIODIC_XCW_GRID` | `24 24 24` | periodic KS real-space grid dimensions |
 | `PERIODIC_XCW_DENSITY_RADIUS` | `1` | direct-density lattice radius |
+| `PERIODIC_XCW_EXCHANGE_RADIUS` | `4` | finite exact-exchange lattice radius for experimental HF/PBE0; converge per system |
 | `PERIODIC_XCW_CONVERGENCE` | `1.0E-6` | objective/projector convergence tolerance |
 | `PERIODIC_XCW_DAMPING` | `0.5` | old-iterate fraction |
 | `PERIODIC_XCW_MAX_ITERATIONS` | `20` | iteration cap at each lambda |

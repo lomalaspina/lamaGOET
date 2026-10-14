@@ -198,6 +198,12 @@ BASIS = {
 }
 
 CP2K_FUNCTIONALS = ("BLYP", "PBE")
+PERIODIC_XCW_REFERENCE_METHODS = (
+    ("BLYP", "BLYP"),
+    ("PBE", "PBE"),
+    ("HF (experimental finite-lattice exchange)", "HF"),
+    ("PBE0 (experimental finite-lattice exchange)", "PBE0"),
+)
 
 
 def _editable_combo() -> QComboBox:
@@ -1899,8 +1905,23 @@ class MainWindow(QMainWindow):
         )
         periodic_form = QFormLayout(self.periodic_xcw_options)
         self.periodic_xcw_reference_dft = QComboBox()
-        self.periodic_xcw_reference_dft.addItems(CP2K_FUNCTIONALS)
-        periodic_form.addRow("Native reference functional", self.periodic_xcw_reference_dft)
+        for label, value in PERIODIC_XCW_REFERENCE_METHODS:
+            self.periodic_xcw_reference_dft.addItem(label, value)
+        self.periodic_xcw_reference_dft.currentIndexChanged.connect(
+            self._periodic_xcw_reference_method_changed
+        )
+        periodic_form.addRow("Native reference method", self.periodic_xcw_reference_dft)
+        self.periodic_xcw_exchange_radius = QSpinBox()
+        self.periodic_xcw_exchange_radius.setRange(2, 12)
+        self.periodic_xcw_exchange_radius.setValue(4)
+        self.periodic_xcw_exchange_radius.setToolTip(
+            "Finite lattice-sum radius for experimental HF/PBE0 exact exchange. "
+            "Converge this value for every system; it is not used by BLYP or PBE."
+        )
+        periodic_form.addRow(
+            "Exact-exchange lattice radius",
+            self.periodic_xcw_exchange_radius,
+        )
         self.periodic_xcw_reference_basis = _editable_combo()
         self.periodic_xcw_reference_basis.addItems(BASIS["Crystal14"])
         periodic_form.addRow("Crystal23/Tonto all-electron basis", self.periodic_xcw_reference_basis)
@@ -2003,12 +2024,16 @@ class MainWindow(QMainWindow):
             "a finite k mesh does not uniquely determine the off-cell density "
             "blocks needed for real-space partitioning. For CP2K XWR the fresh "
             "Crystal23 step is required because the CP2K bridge has no "
-            "compatible orbital/overlap/Fock state."
+            "compatible orbital/overlap/Fock state. HF and PBE0 are experimental: "
+            "Tonto evaluates exact exchange with an explicit finite lattice sum, "
+            "so the exchange radius must be converged and the workload guard can "
+            "reject systems that are too large."
         )
         periodic_note.setWordWrap(True)
         periodic_form.addRow(periodic_note)
         form.addRow(self.periodic_xcw_options)
         self._periodic_xcw_custom_basis_changed(False)
+        self._periodic_xcw_reference_method_changed()
 
         self.lambda_initial = QLineEdit("0")
         self.lambda_step = QLineEdit("0.1")
@@ -2751,9 +2776,14 @@ class MainWindow(QMainWindow):
         self.lambda_initial.setText(self._option("LAMBDAINITIAL", "0"))
         self.lambda_step.setText(self._option("LAMBDASTEP", "0.1"))
         self.lambda_max.setText(self._option("LAMBDAMAX", "1"))
-        self._set_combo_text(
-            self.periodic_xcw_reference_dft,
-            self._option("PERIODIC_XCW_REFERENCE_DFT", "BLYP"),
+        periodic_method = self._option(
+            "PERIODIC_XCW_REFERENCE_DFT", "BLYP"
+        ).upper()
+        periodic_method_index = self.periodic_xcw_reference_dft.findData(
+            periodic_method
+        )
+        self.periodic_xcw_reference_dft.setCurrentIndex(
+            max(0, periodic_method_index)
         )
         self._set_combo_text(
             self.periodic_xcw_reference_basis,
@@ -2781,6 +2811,9 @@ class MainWindow(QMainWindow):
         self.periodic_xcw_density_radius.setValue(
             self._int_option("PERIODIC_XCW_DENSITY_RADIUS", 1)
         )
+        self.periodic_xcw_exchange_radius.setValue(
+            self._int_option("PERIODIC_XCW_EXCHANGE_RADIUS", 4)
+        )
         self.periodic_xcw_convergence.setText(
             self._option("PERIODIC_XCW_CONVERGENCE", "1.0E-6")
         )
@@ -2799,6 +2832,7 @@ class MainWindow(QMainWindow):
         self.periodic_xcw_write_checkpoint.setChecked(
             self._bool_option("PERIODIC_XCW_WRITE_CHECKPOINT", True)
         )
+        self._periodic_xcw_reference_method_changed()
         self._xcw_mode_changed()
         self.shelxl_residual_map.setChecked(
             self._bool_option("SHELXL_RESIDUAL_MAP")
@@ -3346,6 +3380,10 @@ class MainWindow(QMainWindow):
         self.periodic_xcw_tonto_basis_row.setEnabled(enabled)
         self.periodic_xcw_tonto_basis_name.setEnabled(enabled)
         self.periodic_xcw_reference_basis.setEnabled(not enabled)
+
+    def _periodic_xcw_reference_method_changed(self, *_args) -> None:
+        method = self.periodic_xcw_reference_dft.currentData()
+        self.periodic_xcw_exchange_radius.setEnabled(method in {"HF", "PBE0"})
 
     @staticmethod
     def _set_combo_text(combo: QComboBox, text: str) -> None:
@@ -4262,7 +4300,13 @@ class MainWindow(QMainWindow):
             if self.charge.value() != 0 or self.multiplicity.value() != 1:
                 raise ValueError(
                     "Periodic XCW currently requires charge 0 and multiplicity 1 "
-                    "because the implemented periodic reference is restricted closed-shell DFT."
+                    "because the implemented periodic reference is restricted to "
+                    "a neutral, closed-shell wavefunction."
+                )
+            periodic_method = self.periodic_xcw_reference_dft.currentData()
+            if periodic_method not in {"BLYP", "PBE", "HF", "PBE0"}:
+                raise ValueError(
+                    "Periodic XCW reference method must be BLYP, PBE, HF, or PBE0."
                 )
             if self.xray_restrained.isChecked() and program not in {
                 "Crystal14",
@@ -4607,7 +4651,7 @@ class MainWindow(QMainWindow):
             "LAMBDASTEP": self.lambda_step.text().strip(),
             "LAMBDAMAX": self.lambda_max.text().strip(),
             "PERIODIC_XCW_REFERENCE_DFT": (
-                self.periodic_xcw_reference_dft.currentText().strip()
+                self.periodic_xcw_reference_dft.currentData()
             ),
             "PERIODIC_XCW_REFERENCE_BASIS": (
                 self.periodic_xcw_reference_basis.currentText().strip()
@@ -4630,6 +4674,9 @@ class MainWindow(QMainWindow):
             "PERIODIC_XCW_GRID": self.periodic_xcw_grid.text().strip(),
             "PERIODIC_XCW_DENSITY_RADIUS": (
                 self.periodic_xcw_density_radius.value()
+            ),
+            "PERIODIC_XCW_EXCHANGE_RADIUS": (
+                self.periodic_xcw_exchange_radius.value()
             ),
             "PERIODIC_XCW_CONVERGENCE": (
                 self.periodic_xcw_convergence.text().strip()
