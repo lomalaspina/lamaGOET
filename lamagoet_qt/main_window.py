@@ -57,6 +57,7 @@ from .basis_exchange import (
 )
 from .cluster import SubmissionError, write_pbs_script
 from . import discovery
+from .diffraction_geometry import scan_cif_geometry
 from .crystal import (
     CifError,
     CrystalStructure,
@@ -1306,7 +1307,12 @@ class MainWindow(QMainWindow):
         self.extinction_nature_label = QLabel("Nature")
         self.extinction_nature = QComboBox()
         self.extinction_nature.addItem("Isotropic", "isotropic")
-        self.extinction_nature.addItem("Anisotropic", "anisotropic")
+        self.extinction_nature.addItem(
+            "Anisotropic (Tonto approximation)", "anisotropic"
+        )
+        self.extinction_nature.currentIndexChanged.connect(
+            self._extinction_controls_changed
+        )
         extinction_form.addRow(
             self.extinction_nature_label,
             self.extinction_nature,
@@ -1320,10 +1326,20 @@ class MainWindow(QMainWindow):
         self.extinction_mean_path.setDecimals(6)
         self.extinction_mean_path.setSingleStep(0.05)
         self.extinction_mean_path.setValue(0.3)
+        self.extinction_mean_path.setToolTip(
+            "Fixed absorption-weighted path for all reflections. XD assumes "
+            "0.5 mm for isotropic extinction when tbar is absent; enter 0.5 "
+            "to match that path assumption. The existing Tonto default is "
+            "0.3 mm. An assumed path sets the coefficient scale, but is not "
+            "a measured crystal property."
+        )
         extinction_form.addRow(
             self.extinction_mean_path_label,
             self.extinction_mean_path,
         )
+        self.extinction_geometry_scan = QPushButton("Inspect input CIF geometry…")
+        self.extinction_geometry_scan.clicked.connect(self._inspect_extinction_geometry)
+        extinction_form.addRow(self.extinction_geometry_scan)
         refinement_form.addRow(self.extinction_options)
         layout.addWidget(refinement)
 
@@ -3244,6 +3260,7 @@ class MainWindow(QMainWindow):
             widget.setVisible(becker_coppens)
         self.extinction_mean_path_label.setVisible(becker_coppens)
         self.extinction_mean_path.setVisible(becker_coppens)
+        self.extinction_geometry_scan.setVisible(becker_coppens)
         if not becker_coppens:
             explanation = (
                 "Zachariasen's single-parameter correction, also called the "
@@ -3266,15 +3283,58 @@ class MainWindow(QMainWindow):
                 ),
             }.get(self.extinction_type.currentData(), "")
             explanation = (
-                f"{type_text} Gaussian or Lorentzian selects the assumed "
-                "mosaic distribution; isotropic uses one coefficient, while "
-                "anisotropic refines Tonto's reciprocal-vector coefficient "
-                "tensor. A standard HKL file does not contain the measured "
-                "diffractometer azimuth needed for a full beam-direction "
-                "Thornley–Nelmes treatment. The mean path is crystal-specific; "
-                "0.3 mm is only a starting placeholder."
+                f"{type_text} Gaussian or Lorentzian selects the mosaic "
+                "distribution (it has no effect in the Type 2 limit). "
+                "An isotropic model can use a standard HKL with an assumed "
+                "fixed mean path. XD uses 0.5 mm when tbar is absent; "
+                "Tonto currently defaults to 0.3 mm. Enter 0.5 to match "
+                "XD's path assumption. The assumed path affects the physical "
+                "interpretation of the refined coefficient."
             )
+            if self.extinction_nature.currentData() == "anisotropic":
+                explanation += (
+                    " Tonto's anisotropic option uses the reciprocal-vector "
+                    "direction, not XD's beam-direction tensors. XD's full "
+                    "anisotropic treatment requires tbar and six direction "
+                    "cosines per observation, which a standard HKL lacks. "
+                    "These anisotropic implementations are not equivalent."
+                )
         self.extinction_explanation.setText(explanation)
+
+    def _inspect_extinction_geometry(self) -> None:
+        value = self.cif_path.text().strip()
+        if not value:
+            QMessageBox.information(self, "CIF geometry", "Select an input CIF first.")
+            return
+        path = Path(value).expanduser()
+        if not path.is_absolute():
+            path = self.option_path.parent / path
+        try:
+            reports = scan_cif_geometry(path)
+        except (OSError, ValueError, RuntimeError) as exc:
+            QMessageBox.warning(self, "Could not inspect CIF geometry", str(exc))
+            return
+        dialog = QDialog(self)
+        dialog.setWindowTitle("Input CIF geometry — read-only inventory")
+        layout = QVBoxLayout(dialog)
+        text = QPlainTextEdit()
+        text.setReadOnly(True)
+        text.setPlainText(
+            str(path) + "\n\n" + "\n\n".join(report.summary() for report in reports)
+            + "\n\nUB and a run list alone do not associate each intensity with "
+            "its measured orientation. Full beam-direction extinction also needs "
+            "the instrument axis conventions and observation-to-run/frame mapping "
+            "(or equivalent direction cosines), plus absorption-weighted paths. "
+            "Faces and mu can support path calculation after that geometry is known. "
+            "This inventory has not matched the CIF records to the selected HKL. "
+            "No geometry is passed to Tonto and no refinement options are changed."
+        )
+        layout.addWidget(text)
+        buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Close)
+        buttons.rejected.connect(dialog.reject)
+        layout.addWidget(buttons)
+        dialog.resize(720, 470)
+        dialog.exec()
 
     def _weighting_controls_changed(self, *_args) -> None:
         shelxl = self.tonto_weighting_scheme.currentData() == "shelxl"

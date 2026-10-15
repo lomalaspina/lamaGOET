@@ -344,7 +344,10 @@ atomic scattering factors.
 
 **Refine extinction correction** exposes Zachariasen or Becker-Coppens. For
 Becker-Coppens, select type, mosaic distribution, isotropic/anisotropic nature,
-and the absorption-weighted mean path length. See {doc}`principles` and the CIF
+and a fixed absorption-weighted mean path length. Isotropic refinement can use
+an ordinary HKL file: XD assumes 0.5 mm if its path column is missing, while
+Tonto defaults to 0.3 mm. The anisotropic Tonto approximation is different from
+XD's direction-cosine treatment. See {doc}`principles` and the CIF
 reporting rules in {doc}`outputs`.
 The terminology and required reporting follow the
 [IUCr CIF extinction-method definition](https://www.iucr.org/__data/iucr/cifdic_html/3/CORE_DIC/Irefine_ls.extinction_method.html);

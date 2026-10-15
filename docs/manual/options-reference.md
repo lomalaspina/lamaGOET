@@ -160,8 +160,8 @@ requires the external [JANA system](https://jana.fzu.cz/).
 | `EXTINCTION_MODEL` | `zachariasen` | `zachariasen` or `becker-coppens` |
 | `EXTINCTION_TYPE` | `type-1` | Becker-Coppens `type-1`, `type-2`, or `mixed` |
 | `EXTINCTION_DISTRIBUTION` | `gaussian` | Gaussian or Lorentzian mosaic distribution |
-| `EXTINCTION_ANISOTROPIC` | `false` | isotropic when false; anisotropic when true |
-| `EXTINCTION_MEAN_PATH_MM` | `0.3` | absorption-weighted mean path length in mm |
+| `EXTINCTION_ANISOTROPIC` | `false` | isotropic when false; reciprocal-vector tensor approximation when true (different from XD's beam-direction model) |
+| `EXTINCTION_MEAN_PATH_MM` | `0.3` | fixed absorption-weighted path in mm for every reflection; use 0.5 to match XD's isotropic fallback when tbar is absent |
 
 The model names and required CIF description follow the [IUCr CIF Core
 extinction definition](https://www.iucr.org/__data/iucr/cifdic_html/3/CORE_DIC/Irefine_ls.extinction_method.html).

@@ -547,9 +547,12 @@ single scalar and listed its multiple coefficients in
 `_refine_special_details`, consistent with CIF Core. The fixed mean path
 0.3 mm was a test input only.
 
-**Conclusion.** The software branches and CIF representation were exercised;
-a real crystal requires an absorption-weighted mean path and data capable of
-supporting the selected model.
+**Conclusion.** The software branches and CIF representation were exercised.
+An isotropic fit can use a fixed assumed path; XD itself assumes 0.5 mm when
+its reflection file omits `tbar`. Such an assumption affects the physical
+interpretation of the coefficient. These tests do not establish numerical
+equivalence to XD, particularly for Tonto's reciprocal-vector anisotropic
+approximation. See {doc}`principles` for the different input requirements.
 
 A separate NiVPHO boundary regression exposed an input failure that can mimic
 an omitted extinction correction. The data were measured at 0.56087 Å, while

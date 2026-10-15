@@ -426,8 +426,77 @@ Two extinction families are exposed:
 
 The CIF Core dictionary requires mixed or anisotropic multiple coefficients to
 be recorded in `_refine_special_details`, not compressed into the scalar
-`_refine_ls_extinction_coef`. The mean path length is specimen-dependent; the
-GUI default is an input convenience, not a calibrated crystal property.
+`_refine_ls_extinction_coef`.
+
+### Mean path length and comparison with XD
+
+An isotropic Becker-Coppens refinement can use an ordinary HKL file with a
+fixed assumed absorption-weighted mean path. XD does this too: section 4.6.8
+of the [XD manual](https://www.chem.gla.ac.uk/~louis/xd-home/docs/xd2015manual.pdf)
+specifies **0.5 mm for every reflection** when `tbar` is absent. Tonto currently
+uses the user-selected `EXTINCTION_MEAN_PATH_MM` for all reflections, with a
+default of **0.3 mm**. Set it to 0.5 to match XD's missing-`tbar` assumption.
+This matches the path convention; numerical equivalence of the complete
+refinements has not been established.
+
+In Tonto's pure type-1 formula, the secondary-extinction argument is
+proportional to $L g |F_c|^2 / \sin(2\theta)$. A fixed change in $L$ can therefore
+be absorbed by an inverse change in the refined $g$, without changing the
+calculated correction. The coefficient's inferred physical mosaic spread then
+depends on the assumed path. This simple rescaling does not generally hold for
+the type-2 and mixed models, which also include a primary contribution.
+Measured, reflection-dependent paths are preferable where available; Tonto's
+current interface accepts one fixed path, not an XD `tbar` column.
+
+The anisotropic implementations differ. XD uses beam/diffraction-plane
+directions and requires `tbar` plus six direction cosines per observation.
+Tonto's current option instead evaluates a positive-semidefinite tensor along
+the Cartesian reciprocal-lattice direction. An HKL index supplies that
+direction but does not determine the experimental diffraction-plane azimuth.
+The GUI labels this option as a Tonto approximation; it must not be reported
+as an implementation equivalent to XD's full anisotropic treatment.
+
+#### CIF orientation information and merged reflections
+
+The **Inspect input CIF geometry** button inventories each data block separately:
+the nine scalar `_diffrn_orient_matrix_UB_ij` values, matrix convention,
+run-list text, indexed measured-reflection angle rows, orientation-reference
+rows, face indices/distances and absorption coefficient. It is read-only and
+does not pass these fields to Tonto or enable a beam-direction model.
+Oxford-specific face fields are detected but not interpreted. A finite,
+nonsingular UB matrix is not by itself a validated instrument geometry.
+
+As explained in the [IUCr orientation-matrix definition](https://dictionary.iucr.org/Orientation_matrix),
+UB relates crystal reciprocal axes to diffractometer coordinates; the
+goniostat settings and coordinate conventions are also needed. A run list
+describes scan trajectories, not which observations actually contributed to
+each intensity. `_diffrn_orient_refln_*` describes orientation-reference
+reflections, not the full measured dataset. Crystal faces describe shape;
+they do not establish the incident/diffracted directions for each observation.
+
+For merged intensities, a geometry-dependent prediction must use the same
+contributing observations and merging weights. For a linear weighted merge
+with normalized weights $\alpha_{hj}$ and intensity correction $y_{hj}$,
+
+$$
+\overline{I}_{c,h}=s^2|F_{c,h}|^2\sum_j\alpha_{hj}y_{hj},
+\qquad \sum_j\alpha_{hj}=1.
+$$
+
+Here the merged observations are assumed to share the same underlying
+intensity and to be on the same scale. A correction evaluated at an averaged
+direction or path is generally not this average. Without observation mappings,
+orientations and weights, an exact observation-dependent correction cannot be
+recovered from the merged HKL file. The isotropic fixed-path model remains
+usable as an effective approximation; an assumed azimuthal average would be
+another approximation, not a reconstruction of the measurement geometry.
+
+For scalar extinction, the output places the coefficient and its standard
+uncertainty on separate lines. The uncertainty is conditional on fixed atomic
+parameters and includes the scale-extinction correlation, using the chosen
+refinement target and weights. It is not a full structural covariance estimate.
+An unavailable or singular covariance is identified explicitly; mixed and
+anisotropic coefficient uncertainties are not yet calculated.
 
 ## Post-refinement absolute-structure estimate
 

@@ -163,7 +163,9 @@ publisher or software project wherever possible.
 
 27. [XD2015 manual](https://www.chem.gla.ac.uk/~louis/xd-home/docs/xd2015manual.pdf)
     and [XD2006 workshop manual](https://www.chem.gla.ac.uk/~louis/xdworkshop/workshop/documentation/xd2006manual.pdf),
-    consulted for scientific-manual organization and crystallographic style.
+    consulted for scientific-manual organization and crystallographic style,
+    and section 4.6.8 for the isotropic extinction path-length fallback and
+    the extra path/direction data required by anisotropic extinction.
 
 28. [Gaussian keyword index](https://gaussian.com/keywords/) and
     [optimization keyword page](https://gaussian.com/opt/), consulted for the

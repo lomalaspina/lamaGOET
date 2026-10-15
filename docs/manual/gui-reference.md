@@ -205,8 +205,9 @@ dictionary](https://www.iucr.org/resources/cif/dictionaries/cif_core).
 | Correction | `EXTINCTION_MODEL` | Zachariasen or Becker-Coppens |
 | Becker-Coppens type | `EXTINCTION_TYPE` | type 1, type 2, or mixed |
 | Mosaic distribution | `EXTINCTION_DISTRIBUTION` | Gaussian or Lorentzian |
-| Nature | `EXTINCTION_ANISOTROPIC` | isotropic or anisotropic |
-| Absorption-weighted mean path | `EXTINCTION_MEAN_PATH_MM` | specimen-specific value in mm |
+| Nature | `EXTINCTION_ANISOTROPIC` | isotropic or Tonto's reciprocal-vector tensor approximation |
+| Absorption-weighted mean path | `EXTINCTION_MEAN_PATH_MM` | fixed path in mm; default 0.3, versus XD's isotropic fallback of 0.5 |
+| Inspect input CIF geometry | read-only inspection, no saved option | reports UB, run-list text, angle rows, faces and absorption coefficient; does not enable measured-beam extinction |
 
 The explanation box changes with the selected model and is part of the
 scientific warning, not merely interface decoration. The terminology and CIF

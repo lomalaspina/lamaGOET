@@ -6,6 +6,7 @@ import math
 import os
 import sys
 import tempfile
+from unittest.mock import patch
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
@@ -361,6 +362,11 @@ def main() -> int:
         assert extinction_values["EXTINCTION_ANISOTROPIC"] == "true"
         assert extinction_values["EXTINCTION_MEAN_PATH_MM"] == 0.425
         assert not window.extinction_mean_path.isHidden()
+        assert not window.extinction_geometry_scan.isHidden()
+        with patch("lamagoet_qt.main_window.QDialog.exec", return_value=0) as inspect_dialog:
+            window.extinction_geometry_scan.click()
+            inspect_dialog.assert_called_once()
+        assert window._current_values() == extinction_values
         assert window.save_options() == options
         saved_extinction = load_job_options(options)
         assert saved_extinction["EXTINCTION_MODEL"] == "becker-coppens"
