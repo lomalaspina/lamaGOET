@@ -421,8 +421,11 @@ Two extinction families are exposed:
 - **Zachariasen (SHELXL/Larson)**: the established scalar correction used by
   the lamaGOET/Tonto path;
 - **Becker-Coppens**: type 1 (mosaic-spread dominated), type 2 (particle-size
-  dominated with a primary component), or mixed; Gaussian/Lorentzian mosaic
-  distribution; isotropic/anisotropic nature.
+  dominated), or mixed; Gaussian/Lorentzian mosaic distribution;
+  isotropic/anisotropic nature. The implemented pure type-1 and type-2
+  limits follow XD/Xtal without a separate primary-extinction multiplier;
+  the mixed model retains that multiplier. This specific convention is
+  described in [Xtal LSLS section 4.32.5](https://www.iucr.org/__data/iucr/cif/software/xtal/xtal372htmlman/html/lsls-desc.html).
 
 The CIF Core dictionary requires mixed or anisotropic multiple coefficients to
 be recorded in `_refine_special_details`, not compressed into the scalar
@@ -436,17 +439,45 @@ of the [XD manual](https://www.chem.gla.ac.uk/~louis/xd-home/docs/xd2015manual.p
 specifies **0.5 mm for every reflection** when `tbar` is absent. Tonto currently
 uses the user-selected `EXTINCTION_MEAN_PATH_MM` for all reflections, with a
 default of **0.3 mm**. Set it to 0.5 to match XD's missing-`tbar` assumption.
-This matches the path convention; numerical equivalence of the complete
-refinements has not been established.
+The full-data Tonto IAM and matched-effective-data XD comparison are recorded in
+[Validation: isotropic Becker-Coppens](validation.md#isotropic-becker-coppens-against-xd).
+They establish close numerical agreement for that matched model, not
+identity for arbitrary choices of scattering functions, weights or paths.
 
 In Tonto's pure type-1 formula, the secondary-extinction argument is
 proportional to $L g |F_c|^2 / \sin(2\theta)$. A fixed change in $L$ can therefore
 be absorbed by an inverse change in the refined $g$, without changing the
 calculated correction. The coefficient's inferred physical mosaic spread then
-depends on the assumed path. This simple rescaling does not generally hold for
-the type-2 and mixed models, which also include a primary contribution.
+depends on the assumed path. The pure type-2 limit similarly depends on
+$L\rho$. This simple rescaling does not generally hold for the mixed model,
+which also includes a primary contribution depending on $\rho^2$.
 Measured, reflection-dependent paths are preferable where available; Tonto's
 current interface accepts one fixed path, not an XD `tbar` column.
+
+For unpolarized incident radiation, let $c=\cos(2\theta)$ and define the
+primary factors $p_\perp=Y_p(x_p)$ and $p_\parallel=Y_p(c^2x_p)$.
+The intensity multiplier is
+
+$$
+y=\frac{p_\perp Y_s(p_\perp x_s)
+       +c^2p_\parallel Y_s(c^2p_\parallel x_s)}{1+c^2}.
+$$
+
+Here $Y_p$ and $Y_s$ are the selected primary and secondary attenuation
+functions, and $x_p=0$ in the pure type-1/type-2 limits. In the mixed model
+the primary factor also enters the secondary argument. The polarization
+factors **inside** their arguments are 1 and $c^2$, not the normalized
+averaging weights. Normalization occurs only in the final average.
+The amplitude multiplier is $\sqrt{y}$.
+
+Tonto's existing scalar reporting convention is retained: divide a printed
+Becker-Coppens coefficient by $10^4$ to compare it with XD `ISOEX` in the
+matched isotropic equations. Do not copy the number unchanged between the
+programs. Tonto records this convention and the equations in the CIF;
+the common CIF tag alone does not prescribe interchangeable units across
+different extinction models. The coefficient standard uncertainty currently
+comes from Tonto's conditional scale/extinction fit, not XD's full structural
+covariance, and is not validated as equivalent to XD's uncertainty.
 
 The anisotropic implementations differ. XD uses beam/diffraction-plane
 directions and requires `tbar` plus six direction cosines per observation.

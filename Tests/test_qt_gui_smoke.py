@@ -348,6 +348,8 @@ def main() -> int:
         window.extinction_type.setCurrentIndex(
             window.extinction_type.findData("type-2")
         )
+        assert "without an additional primary-extinction multiplier" in window.extinction_explanation.text()
+        assert "+ primary" not in window.extinction_type.currentText()
         window.extinction_distribution.setCurrentIndex(
             window.extinction_distribution.findData("lorentzian")
         )

@@ -1287,7 +1287,7 @@ class MainWindow(QMainWindow):
             "Type 1 — mosaic-spread dominated", "type-1"
         )
         self.extinction_type.addItem(
-            "Type 2 — particle-size dominated + primary", "type-2"
+            "Type 2 — particle-size dominated", "type-2"
         )
         self.extinction_type.addItem("Mixed — types 1 and 2", "mixed")
         self.extinction_type.currentIndexChanged.connect(
@@ -3275,7 +3275,8 @@ class MainWindow(QMainWindow):
                 ),
                 "type-2": (
                     "Type 2 models secondary extinction dominated by finite "
-                    "particle size and includes primary extinction."
+                    "particle size. This pure Type 2 limit follows XD/Xtal "
+                    "without an additional primary-extinction multiplier."
                 ),
                 "mixed": (
                     "Mixed refines separate Type 1 and Type 2 contributions "

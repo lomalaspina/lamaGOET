@@ -552,7 +552,9 @@ An isotropic fit can use a fixed assumed path; XD itself assumes 0.5 mm when
 its reflection file omits `tbar`. Such an assumption affects the physical
 interpretation of the coefficient. These tests do not establish numerical
 equivalence to XD, particularly for Tonto's reciprocal-vector anisotropic
-approximation. See {doc}`principles` for the different input requirements.
+approximation. The later [matched isotropic XD validation](#isotropic-becker-coppens-against-xd)
+adds independent numerical coverage. See {doc}`principles` for the different
+input requirements.
 
 A separate NiVPHO boundary regression exposed an input failure that can mimic
 an omitted extinction correction. The data were measured at 0.56087 Å, while
@@ -1128,6 +1130,86 @@ The equations and selection procedure follow [Parsons, Flack and Wagner
 post-refinement quotient analysis and full-matrix inversion-twin refinement
 follows [Sheldrick
 (2015)](https://doi.org/10.1107/S2053229614024218).
+
+## Isotropic Becker-Coppens against XD
+
+On 15-16 October 2026, the published iodine-containing chiral structure
+[CCDC 2247398, Materials 16 (2023), 3690](https://doi.org/10.3390/ma16103690)
+was refined independently with XD2024.1 and Tonto. This is an
+**extinction-enabled** comparison, not the earlier Zachariasen or
+dispersion-only check. Both report all 2,562 reflections and 110 parameters,
+International Tables IAM scattering functions, the same dispersion values,
+fixed H coordinates/Uiso, an F-squared target and fixed SHELXL weights
+($a=0.027136$, $b=c=d=e=0$, $f=0.3333$). The extinction model is isotropic
+Type I Lorentzian, with the same assumed 0.5 mm mean path. Both converge
+after ten cycles. However, an independent matrix audit found that the installed
+XD2024.1 executable omits seven trailing observations from its normal equations,
+despite including them in its reported reflection count and final statistics.
+The main Tonto test retains all 2,562 observations.
+
+| Quantity | XD | Tonto |
+| --- | ---: | ---: |
+| R1, all data | 0.029872 | 0.029869 |
+| wR2 | 0.067665 | 0.067659 |
+| GoF | 1.251445 | 1.251347 |
+| Extinction on XD ISOEX scale | 0.024470 | 0.024658965 |
+| Amplitude scale | 1.004280 | 1.004416 |
+
+The coefficient difference is 0.028 of XD's reported standard uncertainty
+(0.006748). This is close agreement, not an identical-objective comparison. Tonto's printed
+scalar is divided by $10^4$ for this comparison; its conditional
+scale/extinction uncertainty is not equated with XD's full-matrix uncertainty.
+The missing XD normal-matrix contributions explain the remaining parameter
+differences. Summing XD's own saved derivatives reproduces its normal matrix
+only after excluding exactly the last seven rows (normalized matrix error
+$6.5\times10^{-15}$). Reversing the input order moves the omissions to the
+new end and changes the refined parameters. This finding is specific to the
+installed executable; it is not a statement about every XD release.
+
+A separately labelled **diagnostic control**, using the same effective 2,555
+reflections as XD's matrix, agrees to 0.000001 in fractional coordinates and
+Uij (Angstrom-squared). Its R1/wR2/GoF are 0.029857/0.067598/1.251258 in Tonto,
+versus 0.029857339/0.067598387/1.251258331 evaluated from XD on that set.
+The normalized extinction coefficients are 0.024472279 and 0.024470.
+The ordinary Tonto example is **not** changed to this reduced set, and its
+successful saved output is the full-data refinement above.
+
+Independent frozen-geometry XD on/off factors exposed and guided correction
+of two errors: polarization was normalized inside the attenuation arguments
+as well as in the final average, and the pure Type-II limit included an
+extra primary multiplier. The mixed model correctly retains primary
+extinction. A new 384-factor production-kernel test covers weak and strong
+Type I Gaussian/Lorentzian, Type II, and mixed Gaussian/Lorentzian cases,
+plus zero-intensity/zero-extinction and pure-Type-II distribution limits.
+Its absolute tolerance is $2\times10^{-5}+1.1\times10^{-5}/|F_c|^2$, allowing
+for XD's printed precision and legacy constants.
+The maximum observed factor discrepancy after correction is $4.1636\times10^{-6}$.
+
+The Tonto short example `iodine_IAM_becker_coppens_XD` has a commented
+`stdin`, complete reflection input, successful reference output and retained
+XD inputs/results. Separate semantic checks require actual convergence,
+finite values, the complete final reflection set, positive-definite ADPs,
+unchanged fixed H parameters and agreement with XD on identical effective data.
+An independent Python forward-model check also verifies full-data stationarity
+in three sensitive ADP directions. The full Tonto fit passes; the XD result
+with the seven omitted contributions fails that check. This guards against
+silently dropping data while still reporting the full reflection count.
+Compressed external matrices, inputs, output and hashes are retained so that
+the discrepancy can be reproduced without changing acceptance tolerances.
+The earlier XD run used numerical-HF rather than International Tables
+scattering functions and excluded 144 reflections: these settings must be
+matched before attributing a difference to extinction.
+
+This validates a full-data Tonto Type-I isotropic IAM refinement, parameter
+parity with XD on identical effective data, and fixed-structure factors for
+the three isotropic types. It does not validate XD-equivalent
+anisotropic extinction, full refined Type-II/mixed covariance, or agreement
+between residual-map implementations. The formulas and path convention are
+explained in [Scale and extinction](principles.md#scale-and-extinction).
+
+The complete short suite passed **91/91** on 16 October 2026, including
+periodic-XCW HF/PBE0 end-to-end, exchange-invariant and F-squared derivative
+checks. No periodic-XCW source was changed by this extinction correction.
 
 ## Tonto regression-suite context
 
