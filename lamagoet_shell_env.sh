@@ -596,13 +596,41 @@ _lamagoet_run_crystal23_properties() {
         "$runner" "$nproc" "$input_name" "$wavefunction_name"
 }
 
+# Report this SCF output, not ENERGIA/RMSD retained from the preceding HAR
+# cycle. CRYSTAL's DE is an energy increment, not a density RMSD. This helper
+# deliberately does not update the variables used by CHECK_ENERGY.
+_lamagoet_report_crystal_energy() {
+    awk -v cycle="$2" '
+        /SCF ENDED - CONVERGENCE ON ENERGY/ {
+            energy = ""
+            delta = ""
+            for (i = 1; i < NF; i++)
+                if ($i == "E(AU)") energy = $(i + 1)
+        }
+        /^[[:space:]]*TOTAL ENERGY/ {
+            for (i = 1; i < NF; i++)
+                if ($i == "DE") delta = $(i + 1)
+        }
+        END {
+            if (energy == "") {
+                print "WARNING: no converged Crystal23 energy available for cycle " cycle
+                exit
+            }
+            printf "Crystal cycle number %s, final energy is: %s hartree", cycle, energy
+            if (delta != "") printf ", final SCF delta E is: %s hartree", delta
+            printf "\n"
+        }
+    ' "$1"
+}
+
 export -f _upper _lower _lamagoet_gaussian_method_keyword \
     _lamagoet_crystal_tolinteg _lamagoet_write_crystal_ldremo \
     _lamagoet_write_crystal_size \
     _lamagoet_command_path _lamagoet_crystal_parallel_runner \
     _lamagoet_prepare_crystal_machinefile \
     _lamagoet_run_crystal_driver_quietly _lamagoet_run_crystal23 \
-    _lamagoet_crystal_properties_runner _lamagoet_run_crystal23_properties
+    _lamagoet_crystal_properties_runner _lamagoet_run_crystal23_properties \
+    _lamagoet_report_crystal_energy
 
 LAMAGOET_SHELL_ENV_LOADED=1
 export LAMAGOET_SHELL_ENV_LOADED

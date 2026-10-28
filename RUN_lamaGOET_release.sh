@@ -2740,7 +2740,7 @@ TONTO_TO_CRYSTAL(){
         fi
 	echo "" >> $JOBNAME.lst
 #       echo "###############################################################################################" >> $JOBNAME.lst
-	echo "Crystal cycle number $I, final energy is: $ENERGIA, RMSD is: $RMSD "
+	_lamagoet_report_crystal_energy "$JOBNAME.out" "$I"
         if [ ! -d "$I.$SCFCALCPROG.cycle.$JOBNAME" ]; then
 	        mkdir $I.$SCFCALCPROG.cycle.$JOBNAME
         fi
@@ -3193,7 +3193,7 @@ GET_RESIDUALS(){
 	if [ "$SCFCALCPROG" = "Tonto" ]; then 
 		TONTO_BASIS_SET
 	fi
-	if [ "$DISP" = "yes" ]; then 
+	if [[ "$DISP" == "yes" && "$SCFCALCPROG" != "Crystal14" ]]; then
 		DISPERSION_COEF
 	fi
 	if [ "$SCFCALCPROG" = "Crystal14" ]; then
@@ -3204,6 +3204,11 @@ GET_RESIDUALS(){
 		CHARGE_MULT
 	if [ "$SCFCALCPROG" = "Crystal14" ]; then
 		READ_CRYSTAL_WFN
+		# CIF= only selects a file here; the GRED/XML import creates the atoms.
+		# Dispersion coefficients must follow that import, as in SCF_TO_TONTO.
+		if [[ "$DISP" == "yes" ]]; then
+			DISPERSION_COEF
+		fi
 		CRYSTAL_BLOCK
 		DEFINE_JOB_NAME
 	fi
