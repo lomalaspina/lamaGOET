@@ -268,7 +268,7 @@ implements the algorithms introduced by [Levenberg
 | `CRYSTAL_SETTING` | `auto` | automatic, hexagonal (`h`), or rhombohedral (`r`) axes |
 | `USEHMSYM` | `false` | use Hermann-Mauguin symbol route |
 | `DEFRAGNETW` | `false` | network-compound outputs/geometry path |
-| `USEGUESS` | `false` | reuse previous-cycle Crystal guess |
+| `USEGUESS` | `false` | request reuse of a verified compatible Crystal restart; otherwise start SCF afresh with a warning |
 | `SHRINKA` | `2` | Crystal reciprocal shrinking factor A |
 | `SHRINKB` | `2` | Crystal reciprocal shrinking factor B |
 | `CRYSTAL_TOLINTEG` | `auto` | `auto`, `default`, or five Crystal TOLINTEG integers |

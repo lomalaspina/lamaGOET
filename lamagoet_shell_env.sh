@@ -477,6 +477,94 @@ _lamagoet_run_crystal_driver_quietly() {
     return "$command_status"
 }
 
+# GUESSP does not validate the old/new atom or shell correspondence. Even a
+# geometry-only change can alter CRYSTAL's integral-distribution ordering.
+# Until a complete FIXINDEX/reference-geometry workflow is validated, reuse is
+# deliberately limited to an unchanged ordered input and a provenance-bound
+# restart. A fresh SCF costs iterations, but does not change the physical model.
+# No XML/GRED reader or binary density-matrix permutation is involved here.
+_lamagoet_crystal_sha256() {
+    local value
+    if command -v sha256sum >/dev/null 2>&1; then
+        value=$(sha256sum "$1") || return 1
+    elif command -v shasum >/dev/null 2>&1; then
+        value=$(shasum -a 256 "$1") || return 1
+    else
+        return 1
+    fi
+    value=${value%% *}
+    [ "${#value}" -eq 64 ] || return 1
+    case "$value" in *[!0-9a-f]*) return 1 ;; esac
+    printf '%s\n' "$value"
+}
+
+_lamagoet_crystal_input_signature() (
+    # Subshell confines pipefail and local scratch cleanup to this helper.
+    set -o pipefail
+    [ -s "$1" ] || exit 1
+    awk '
+        NR == 1 { next } # job title only
+        { sub(/\r$/, ""); $1=$1 }
+        NR == 2 && $0 != "CRYSTAL" { bad=1 }
+        NF && $0 != "GUESSP" { print; last=$0; n++ }
+        END { if (bad || n < 6 || last != "END") exit 1 }
+    ' "$1" | _lamagoet_crystal_sha256 -
+)
+
+_lamagoet_crystal_restart_record_path() {
+    printf '.lamagoet_crystal_mpi/%s.restart-provenance\n' "$1"
+}
+
+_lamagoet_invalidate_crystal_restart() {
+    local record
+    record=$(_lamagoet_crystal_restart_record_path "$1")
+    mkdir -p "$(dirname "$record")" || return 1
+    printf '%s\n' 'INVALID: no completed SCF recorded' > "$record"
+}
+
+_lamagoet_record_crystal_restart() {
+    local job=$1 context=$2 record temporary input_hash restart_hash context_hash
+    _lamagoet_invalidate_crystal_restart "$job" || return 1
+    [ -s "$job.f9" ] && [ -s "$job.out" ] || return 1
+    grep -q 'SCF ENDED - CONVERGENCE ON ENERGY' "$job.out" || return 1
+    if grep -Ei 'ERROR[[:space:]]+\*|(^|[^[:alnum:]_])NaN([^[:alnum:]_]|$)' "$job.out" >/dev/null; then
+        return 1
+    fi
+    input_hash=$(_lamagoet_crystal_input_signature "$job.d12") || return 1
+    restart_hash=$(_lamagoet_crystal_sha256 "$job.f9") || return 1
+    context_hash=$(printf '%s\n' "$context" | _lamagoet_crystal_sha256 -) || return 1
+    record=$(_lamagoet_crystal_restart_record_path "$job")
+    temporary=$(mktemp "$record.XXXXXX") || return 1
+    if ! printf '%s\n' 'LAMAGOET_CRYSTAL_RESTART_V1' "$input_hash" \
+            "$restart_hash" "$context_hash" > "$temporary"; then
+        rm -f -- "$temporary"
+        return 1
+    fi
+    mv -f -- "$temporary" "$record"
+}
+
+_lamagoet_can_reuse_crystal_restart() {
+    local job=$1 context=$2 record input_hash restart_hash context_hash
+    LAMAGOET_CRYSTAL_RESTART_REASON='no valid record of a previous successful SCF'
+    record=$(_lamagoet_crystal_restart_record_path "$job")
+    [ -r "$record" ] || return 1
+    [ "$(sed -n '1p' "$record")" = 'LAMAGOET_CRYSTAL_RESTART_V1' ] || return 1
+    [ "$(wc -l < "$record" | tr -d '[:space:]')" = 4 ] || return 1
+    # Reject a changed input before hashing a potentially large wavefunction.
+    LAMAGOET_CRYSTAL_RESTART_REASON='ordered geometry, basis or calculation settings changed (FIXINDEX reuse is not yet validated)'
+    input_hash=$(_lamagoet_crystal_input_signature "$job.d12") || return 1
+    [ "$input_hash" = "$(sed -n '2p' "$record")" ] || return 1
+    LAMAGOET_CRYSTAL_RESTART_REASON='launcher or processor configuration changed'
+    context_hash=$(printf '%s\n' "$context" | _lamagoet_crystal_sha256 -) || return 1
+    [ "$context_hash" = "$(sed -n '4p' "$record")" ] || return 1
+    LAMAGOET_CRYSTAL_RESTART_REASON='restart file is missing or its checksum changed'
+    [ -s "$job.f9" ] || return 1
+    restart_hash=$(_lamagoet_crystal_sha256 "$job.f9") || return 1
+    [ "$restart_hash" = "$(sed -n '3p' "$record")" ] || return 1
+    LAMAGOET_CRYSTAL_RESTART_REASON='unchanged ordered input and verified restart'
+    return 0
+}
+
 # Run one CRYSTAL23 SCF calculation using the driver's actual command-line
 # contract.  The optional fourth argument is the restart prefix used by GUESSP.
 _lamagoet_run_crystal23() {

@@ -730,6 +730,12 @@ class MainWindow(QMainWindow):
         self.use_hm_symbol = QCheckBox("Use Hermann–Mauguin symbol")
         self.network_compound = QCheckBox("Network compound outputs")
         self.use_previous_crystal_guess = QCheckBox("Reuse previous-cycle guess")
+        self.use_previous_crystal_guess.setToolTip(
+            "Reuse requires a verified restart and unchanged ordered CRYSTAL input. "
+            "Changed geometry, atom order, basis or settings currently trigger a "
+            "warning and a fresh SCF guess. Safe inter-cycle acceleration with "
+            "FIXINDEX is not yet validated; this preference remains saved."
+        )
         crystal_flags_layout.addWidget(self.use_hm_symbol)
         crystal_flags_layout.addWidget(self.network_compound)
         crystal_flags_layout.addWidget(self.use_previous_crystal_guess)

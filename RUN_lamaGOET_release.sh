@@ -2678,16 +2678,24 @@ TONTO_TO_CRYSTAL(){
                 echo "MAXCYCLE"  >> $JOBNAME.d12
                 echo "$MAXXTALCYCLE"  >> $JOBNAME.d12
         fi
-        if [[ $I -ge 2 && "$USEGUESS" == "true" ]]; then
-		echo "GUESSP" >> $JOBNAME.d12
-	fi
        	echo "END"  >> $JOBNAME.d12
 #       I=$"1"
 	echo "Running Crystal, cycle number $I" 
 	crystal_restart=""
 	if [[ $I -ge 2 && "$USEGUESS" == "true" ]]; then
-		crystal_restart=$JOBNAME
+		if _lamagoet_can_reuse_crystal_restart "$JOBNAME" "${SCFCALC_BIN}|${NUMPROC}"; then
+			# The same decision controls both GUESSP and the driver's restart argument.
+			if ! sed -i '$iGUESSP' "$JOBNAME.d12"; then
+				echo "ERROR: could not prepare Crystal23 restart input" >&2
+				exit 1
+			fi
+			crystal_restart=$JOBNAME
+		else
+			echo "WARNING: Crystal23 USEGUESS not applied: $LAMAGOET_CRYSTAL_RESTART_REASON. Starting a fresh SCF guess; USEGUESS preference is unchanged." | tee -a "$JOBNAME.lst" >&2
+		fi
 	fi
+	_lamagoet_invalidate_crystal_restart "$JOBNAME" || \
+		echo "WARNING: could not invalidate Crystal23 restart provenance" >&2
 	if ! _lamagoet_run_crystal23 "$SCFCALC_BIN" "$NUMPROC" \
 		"$JOBNAME" "$crystal_restart"; then
 		echo "ERROR: Crystal23 launcher failed for cycle $I" | tee -a "$JOBNAME.lst" >&2
@@ -2701,6 +2709,10 @@ TONTO_TO_CRYSTAL(){
 			echo "ERROR: Crystal job finished with error; check $JOBNAME.out and .lamagoet_crystal_mpi/$JOBNAME.scf-wrapper.log" | tee -a "$JOBNAME.lst" >&2
 		fi
 		exit 1
+	fi
+	if [[ "$USEGUESS" == "true" ]]; then
+		_lamagoet_record_crystal_restart "$JOBNAME" "${SCFCALC_BIN}|${NUMPROC}" || \
+			echo "WARNING: this Crystal23 SCF could not be certified for restart reuse" | tee -a "$JOBNAME.lst" >&2
 	fi
         if [[ ! -f GenerateXML.d3  ]]; then
                 echo "CRYAPI_OUT"  > GenerateXML.d3

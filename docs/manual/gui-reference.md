@@ -103,11 +103,32 @@ expert Crystal controls are grouped on **Advanced HAR**.
 |---|---|---|
 | Use Hermann-Mauguin symbol | `USEHMSYM` | use the supported symbol-based structure route |
 | Network compound outputs | `DEFRAGNETW` | activate outputs/geometry handling for extended networks |
-| Reuse previous-cycle guess | `USEGUESS` | pass the preceding periodic SCF state as the next guess |
+| Reuse previous-cycle guess | `USEGUESS` | request reuse of the preceding periodic SCF state, subject to restart compatibility checks |
 | Rhombohedral setting | `CRYSTAL_SETTING` | automatic, hexagonal axes, or rhombohedral axes |
 | Integral screening (TOLINTEG) | `CRYSTAL_TOLINTEG` | `auto`, default, or explicit five integers |
 | Crystal23 density interface | `LAMAGOET_CRYSTAL_DENSITY_INTERFACE` | native GRED (recommended) or legacy XML |
 | Overlap-eigenvector removal | `CRYSTAL_LDREMO` | expert LDREMO integer; blank disables it |
+
+### Restart safety and current limitation
+
+`USEGUESS` is a request, not an instruction to reuse an arbitrary `.f9` file.
+CRYSTAL's `GUESSP` requires compatible symmetry and atom, shell and basis-function
+ordering; the program does not establish the old-to-new atom correspondence.
+Even a geometry change with unchanged atom order can change integral-distribution
+indexing. See `GUESSP` and `FIXINDEX` in the
+[CRYSTAL23 manual](https://www.crystal.unito.it/include/manuals/crystal23.pdf).
+
+For now, lamaGOET permits reuse only when its record of a successful preceding
+SCF matches the current `.f9` checksum, launcher/processor configuration, and
+the complete ordered input (apart from title, whitespace and the `GUESSP`
+keyword). Changed coordinates, atom order, basis or settings, or missing
+provenance, produce a warning and a fresh atomic-density SCF guess. The saved
+`USEGUESS` preference is not changed. This conservative safeguard therefore
+normally disables restart acceleration between changing HAR geometries; it does
+not alter the requested physical model or refinement target. A complete
+reference-geometry `FIXINDEX` workflow still needs separate validation before
+safe inter-cycle acceleration can be enabled. No binary restart is permuted,
+and this check does not read XML or GRED data.
 
 ## Density partition
 
