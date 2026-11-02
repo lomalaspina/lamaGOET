@@ -4915,6 +4915,10 @@ TONTO_TO_CRYSTAL(){
         fi
        	echo "END"  >> $JOBNAME.d12
 #       I=$"1"
+	if ! _lamagoet_crystal_cycle_zero "$JOBNAME" "$I" "$SCFCALC_BIN" "$NUMPROC"; then
+		echo "ERROR: Crystal23 geometry/atom-order preparation failed; SCF was not started" | tee -a "$JOBNAME.lst" >&2
+		exit 1
+	fi
 	echo "Running Crystal, cycle number $I" 
 	crystal_restart=""
 	if [[ $I -ge 2 && "$USEGUESS" == "true" ]]; then
@@ -4992,6 +4996,7 @@ TONTO_TO_CRYSTAL(){
 	        mkdir $I.$SCFCALCPROG.cycle.$JOBNAME
         fi
 	cp $JOBNAME.d12 $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.d12
+	cp "$JOBNAME.d12.atom-order.json" "$I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.atom-order.json"
 	cp $JOBNAME.f98 $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.f98
 	cp $JOBNAME.f9 $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.f9
 #       cp $JOBNAME.d3 $I.$SCFCALCPROG.cycle.$JOBNAME/$I.$JOBNAME.d3

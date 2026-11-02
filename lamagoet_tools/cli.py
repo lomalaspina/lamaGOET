@@ -9,6 +9,10 @@ from collections.abc import Callable, Sequence
 
 
 _COMMANDS: dict[str, tuple[str, str]] = {
+    "crystal-geometry": (
+        "lamagoet_tools.crystal_geometry",
+        "prepare and validate geometry-only CRYSTAL cycle zero and stable atom ordering",
+    ),
     "orca-basis": (
         "lamagoet_tools.orca_basis",
         "validate or convert an external basis to native ORCA input",

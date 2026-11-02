@@ -153,6 +153,9 @@ I=1 JOBNAME=job SPACEGROUPHM=unused CIF=input.cif
 USEHMSYM=false XTALSETTING=0 SUPERCON=false GAUSGEN=false
 BASISSETG=POB-TZVP-REV2 METHOD=pbe SHRINKA=4 SHRINKB=4
 SCFCALC_BIN=runcry23 NUMPROC=1
+# Isolate the restart guard here. Cycle-zero ordering has separate integration
+# tests, including restoration of a same-element permutation before this guard.
+_lamagoet_crystal_cycle_zero() { return 0; }
 _lamagoet_run_crystal23() { printf 'RESTART_ARGUMENT=%s\\n' "${4:-}"; exit 0; }
 '''
         for runner in RUNNERS:

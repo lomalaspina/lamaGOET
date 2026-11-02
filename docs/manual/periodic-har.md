@@ -43,6 +43,40 @@ own import contracts; neither publication by itself validates these readers.
 
 ## Crystal23 interfaces
 
+### Geometry-only cycle zero and restart ordering
+
+Before the first Crystal23 SCF, both lamaGOET runners perform an isolated
+`EXTPRT`/`TESTGEOM` calculation, using the geometry block of the generated
+input. No basis evaluation or SCF is requested. Crystal23's machine-readable
+primitive lattice, symmetry operations and atomic positions (`fort.34`, saved
+by the launcher as `geometry.gui`) are retained in
+`.lamagoet_crystal_cycle0/<job>.<unique suffix>/`, together with the source CIF,
+input, output and validation record. These keywords are documented in the
+[CRYSTAL23 manual](https://www.crystal.unito.it/include/manuals/crystal23.pdf).
+
+The initial asymmetric-atom order is recorded by matching the generated
+fractional coordinates to labels in Tonto's CIF. Subsequent Crystal inputs
+retain that labelled order, even if Tonto prints the atoms in a different
+order. Only complete input rows are reordered: coordinates are not rounded
+or moved, and the CIF, ADPs and quantum-chemical basis are not rewritten.
+Grown-fragment CIFs are permitted; their extra symmetry-related atoms do not
+become additional independent input atoms. Invalid cycle-zero geometry stops
+before SCF. If a later mapping is ambiguous or legacy Tonto has renamed the
+fragment, the current input is left unchanged and restart provenance is
+invalidated: SCF starts afresh, with a warning, rather than guessing a mapping.
+An atom-order audit is saved with each archived Crystal input.
+
+This is a geometry export and ordering safeguard, not a conversion of the
+refinement CIF into a primitive-cell CIF. The XML/GRED importers must still
+map cells and symmetry-equivalent representatives on every import. It also
+does not certify arbitrary `GUESSP` reuse: geometry changes can affect
+integral bookkeeping even when atom order is unchanged. `USEGUESS=true`
+therefore retains the separate provenance/compatibility check and falls back
+to a fresh SCF when that check fails. No binary restart matrix is permuted.
+Existing interrupted jobs without a cycle-zero record use the fresh-SCF
+fallback. Restart their workflow from cycle zero to establish an ordering
+record; do not invent one for an unverified restart.
+
 The **Crystal23 density interface** selector offers:
 
 ### Native GRED (recommended)

@@ -20,8 +20,11 @@
 #
 #     source "$LAMAGOET_DIR/lamagoet_shell_env.sh"
 
-# Sourcing twice is free.
-if [ -n "${LAMAGOET_SHELL_ENV_LOADED:-}" ]; then
+# Sourcing twice in this shell is free. Child shells can inherit the flag
+# without inheriting all functions, so the flag alone is not sufficient.
+if [ -n "${LAMAGOET_SHELL_ENV_LOADED:-}" ] &&
+   declare -F _lamagoet_crystal_cycle_zero >/dev/null 2>&1 &&
+   declare -F _lamagoet_can_reuse_crystal_restart >/dev/null 2>&1; then
     return 0 2>/dev/null || true
 fi
 
@@ -565,8 +568,54 @@ _lamagoet_can_reuse_crystal_restart() {
     return 0
 }
 
+# Capture CRYSTAL's own primitive geometry before the first SCF, then keep the
+# labelled asymmetric input order stable. This does not authorize GUESSP reuse.
+_lamagoet_crystal_cycle_zero() {
+    local job_name=$1 cycle=$2 configured=$3 nproc=$4
+    local tool=$LAMAGOET_DIR/lamagoet_tools_cli.py
+    local python_command folder record
+    case "$job_name" in
+        ""|*/*|*\\*) printf '%s\n' 'lamaGOET: invalid cycle-zero job name' >&2; return 2 ;;
+    esac
+    if [ -x "$LAMAGOET_DIR/.venv-qt/bin/python" ]; then
+        python_command=$LAMAGOET_DIR/.venv-qt/bin/python
+    else
+        python_command=$(command -v python3) || return 2
+    fi
+    record=".lamagoet_crystal_cycle0/$job_name.order.json"
+    if [ "$cycle" -eq 1 ]; then
+        mkdir -p .lamagoet_crystal_cycle0 || return 2
+        folder=$(mktemp -d ".lamagoet_crystal_cycle0/$job_name.XXXXXX") || return 2
+        "$python_command" "$tool" crystal-geometry prepare \
+            "$job_name.d12" "$job_name.fractional.cif1" "$folder" || return 2
+        printf '%s\n' 'Running CRYSTAL cycle zero: EXTPRT/TESTGEOM (no basis or SCF)'
+        # Resolve a relative launcher before entering the isolated evidence folder.
+        configured=$(_lamagoet_command_path "$configured") || return 2
+        configured=$(cd "$(dirname "$configured")" && printf '%s/%s\n' "$PWD" "$(basename "$configured")") || return 2
+        # Vendor SCF wrappers can complain about absent fort.9 after TESTGEOM;
+        # retain that diagnostic without presenting it as an SCF failure.
+        if ! (cd "$folder" && export CRY23_INP="$PWD" OUTFILE=out &&
+            _lamagoet_run_crystal23 "$configured" "$nproc" geometry "") 2>"$folder/launcher.stderr"; then
+            cat "$folder/launcher.stderr" >&2
+            return 2
+        fi
+        "$python_command" "$tool" crystal-geometry accept "$folder" "$record" || return 2
+        printf 'CRYSTAL cycle-zero geometry and atom-order record: %s\n' "$folder"
+    fi
+    if ! "$python_command" "$tool" crystal-geometry order \
+        "$job_name.d12" "$job_name.fractional.cif1" "$record"; then
+        # Legacy Tonto can rename a whole fragment. Do not infer correspondence
+        # by nearest neighbours or reuse the previous AO density in that case.
+        # The current generated input remains valid for a fresh SCF; leave its
+        # atom rows alone and invalidate all old restart provenance.
+        _lamagoet_invalidate_crystal_restart "$job_name" || return 2
+        printf '%s\n' 'WARNING: Crystal23 atom ordering could not be certified; using the current geometry with a fresh SCF guess. See the atom-order JSON diagnostic.' >&2
+    fi
+    return 0
+}
+
 # Run one CRYSTAL23 SCF calculation using the driver's actual command-line
-# contract.  The optional fourth argument is the restart prefix used by GUESSP.
+# contract. The optional fourth argument is the restart prefix used by GUESSP.
 _lamagoet_run_crystal23() {
     local configured=${1:-}
     local nproc=${2:-1}

@@ -42,6 +42,7 @@ work. Run the files directly with `PYTHONPATH` set to the repository root.
 
 | | |
 |---|---|
+| `test_crystal_geometry.py` | geometry-only input/export checks, label-based row ordering, grown fragments, precision preservation, ambiguous mappings, and the cycle-zero/restart-guard connection |
 | `test_runner_parity.py` | the two runners have not drifted apart |
 | `test_runner_regressions.py` | contracts both runners must satisfy |
 | `test_qt_job_options.py` | reading and writing `job_options.txt` |
