@@ -116,12 +116,16 @@ class StructureView(QWidget):
         self.ellipsoid_probability = 50.0
         self.projection_mode = "perspective"
         self.depth_cueing = True
+        self.show_probability_clouds = False
+        self.probability_meshes = {}
 
     def set_structure(
         self, cell: Cell, atoms: Sequence[DisplayAtom], *, refit: bool = True
     ) -> None:
         self.cell = cell
         self.atoms = list(atoms)
+        # Never attach a cloud from a different structure to a matching label.
+        self.probability_meshes.clear()
         self.bonds = infer_bonds(self.atoms) if len(self.atoms) <= 1400 else []
         self._selected_indices.clear()
         self.atom_selected.emit(None)
@@ -136,6 +140,47 @@ class StructureView(QWidget):
         self.zoom = 1.0
         self.pan = QPointF(0.0, 0.0)
         self.update()
+
+    def set_probability_mesh(self, label, vertices, faces):
+        """Install a validated Cartesian displacement mesh for this structure."""
+        import numpy as np
+        if sum(a.label == label for a in self.atoms) != 1:
+            raise ValueError("Probability mesh needs one unambiguous atom in this view")
+        vertices = np.asarray(vertices, dtype=float)
+        faces = np.asarray(faces, dtype=int)
+        if vertices.ndim != 2 or vertices.shape[1] != 3 or faces.ndim != 2 or faces.shape[1] != 3:
+            raise ValueError("Invalid probability mesh")
+        if not np.isfinite(vertices).all() or faces.min() < 0 or faces.max() >= len(vertices):
+            raise ValueError("Invalid probability mesh coordinates or indices")
+        self.probability_meshes[label] = (vertices, faces)
+        self.update()
+
+    def _draw_probability_cloud(self, painter, atom, color, center, extent):
+        import numpy as np
+        vertices, faces = self.probability_meshes[atom.label]
+        relative = vertices + np.asarray(atom.cartesian) - np.asarray(center)
+        cy, sy = math.cos(self.yaw), math.sin(self.yaw)
+        cp, sp = math.cos(self.pitch), math.sin(self.pitch)
+        rotation = np.array([[cy, 0, sy], [sp * sy, cp, -sp * cy], [-cp * sy, sp, cp * cy]])
+        rotated = relative @ rotation.T
+        scale = max(80., min(self.width(), self.height()) - 70.) * .46 * self.zoom / extent
+        perspective = np.clip(1 + rotated[:, 2] / (extent * 7), .55, 1.65) if self.projection_mode == 'perspective' else 1
+        pixels = rotated[:, :2] * scale * np.asarray(perspective)[..., None]
+        pixels[:, 0] += self.width() / 2 + self.pan.x()
+        pixels[:, 1] = self.height() / 2 + self.pan.y() - pixels[:, 1]
+        tri = rotated[faces]
+        normals = np.cross(tri[:, 1] - tri[:, 0], tri[:, 2] - tri[:, 0])
+        norm = np.linalg.norm(normals, axis=1)
+        visible = np.flatnonzero((norm > 1e-16) & (normals[:, 2] > 0))
+        normals /= np.maximum(norm[:, None], 1e-16)
+        light = np.array([-.35, .45, .82]);light /= np.linalg.norm(light)
+        brightness = .38 + .62 * np.maximum(0, normals @ light)
+        for face in visible[np.argsort(tri[visible, :, 2].mean(axis=1))]:
+            shade = QColor.fromRgbF(*(min(1., v * brightness[face]) for v in (color.redF(), color.greenF(), color.blueF())))
+            painter.setPen(Qt.PenStyle.NoPen)
+            painter.setBrush(shade)
+            painter.drawPolygon(QPolygonF([QPointF(*p) for p in pixels[faces[face]]]))
+        return max(4., float(np.max(np.linalg.norm(vertices, axis=1))) * scale)
 
     @property
     def selected_indices(self) -> tuple[int, ...]:
@@ -674,7 +719,10 @@ class StructureView(QWidget):
             )
             ellipsoid_drawn = False
             label_extent = radius
-            if self.show_ellipsoids and (atom.u_aniso or atom.u_iso is not None):
+            if self.show_probability_clouds and atom.label in self.probability_meshes:
+                label_extent = self._draw_probability_cloud(painter, atom, color, center, extent)
+                ellipsoid_drawn = True
+            if not ellipsoid_drawn and self.show_ellipsoids and (atom.u_aniso or atom.u_iso is not None):
                 rendered_extent = self._draw_ellipsoid(
                     painter, atom, index, color, center, extent
                 )

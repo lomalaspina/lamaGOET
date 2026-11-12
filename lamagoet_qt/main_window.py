@@ -2381,6 +2381,10 @@ class MainWindow(QMainWindow):
             "Tonto fit cycle. The structure source shown below confirms each reload."
         )
         display_controls.addWidget(self.follow_latest_cif, 1, 3, 1, 2)
+        self.open_adp_cloud = QPushButton("Open displacement cloud…")
+        self.open_adp_cloud.setToolTip("Open a native Tonto curved.model.json artifact in a separate probability-cloud view. Does not change the loaded CIF or refinement model.")
+        self.open_adp_cloud.clicked.connect(self._open_adp_cloud)
+        display_controls.addWidget(self.open_adp_cloud, 1, 5)
         self.structure_status = QLabel("Structure: no CIF loaded")
         self.structure_status.setTextInteractionFlags(
             Qt.TextInteractionFlag.TextSelectableByMouse
@@ -5561,6 +5565,21 @@ class MainWindow(QMainWindow):
             f"Angle {first.label}–{vertex.label}–{third.label} "
             f"(vertex {vertex.label}): {angle:.3f}°"
         )
+
+    def _open_adp_cloud(self) -> None:
+        filename, _ = QFileDialog.getOpenFileName(
+            self, "Open native displacement model", str(self.options_path.parent) if hasattr(self, "options_path") else "",
+            "Tonto displacement model (*.json)", options=_dialog_options()
+        )
+        if not filename:
+            return
+        try:
+            from .adp_cloud_dialog import AdpCloudDialog
+            dialog = AdpCloudDialog(filename, self)
+            dialog.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
+            dialog.show()
+        except (OSError, ValueError, KeyError, TypeError) as exc:
+            QMessageBox.warning(self, "Cannot open displacement cloud", str(exc))
 
     def _display_changed(self) -> None:
         self.viewer.show_cell = self.show_cell.isChecked()
