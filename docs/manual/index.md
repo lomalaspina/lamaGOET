@@ -148,6 +148,7 @@ periodic-har
 xcw
 periodic-xcw
 sccc
+curved-adp
 plots
 ```
 

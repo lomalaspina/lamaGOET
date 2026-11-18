@@ -186,7 +186,7 @@ periodic environment; ELMOdb has its own transfer/tail controls.
 | H positions | `H_POSITION_MODEL`, `REFHPOS` | refine freely, keep fixed, or ride on the single bonded non-H parent; the legacy boolean is retained as a mirror |
 | Refine H ADPs | `REFHADP` | allow hydrogen displacement parameters |
 | H atoms isotropic | `HADP` | use isotropic H displacement treatment; particularly useful for an IAM control, while anisotropic H remains supported in HAR |
-| Refine anharmonic ADPs | `REFANHARM`, `ANHARMATOMS` | enable selected anharmonic atoms |
+| Refine anharmonic ADPs | `REFANHARM`, `ANHARMATOMS` | enable selected Gram–Charlier atoms; not the experimental curved-path model |
 | 3rd / 4th order | `THIRDORD`, `FOURTHORD` | select Gram-Charlier orders |
 | Export anharmonic atomic probability-density cubes | `OUTPUT_ANHARMONIC_PDF_CUBES` | request final-model per-atom Gaussian cubes |
 | Select atoms... | `ANHARMONIC_PDF_CUBE_ATOMS` | checkbox-select asymmetric-unit labels; automatic mode selects all eligible atoms |

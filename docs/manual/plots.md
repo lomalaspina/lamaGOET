@@ -1,5 +1,10 @@
 # Maps and plots
 
+For the separate, validated **Open displacement cloud…** viewer and its
+non-Gaussian probability surfaces, see {doc}`curved-adp`. It reads a native
+`curved.model.json` artifact; it neither uses the legacy plot panel below nor
+changes the refinement model selected in lamaGOET.
+
 :::{admonition} Current status
 :class: warning
 The plot panel is preserved in the interface, but the end-to-end plot workflow

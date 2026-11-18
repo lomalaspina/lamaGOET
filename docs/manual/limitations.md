@@ -45,6 +45,12 @@ of the external programs.
 
 ## Crystallographic data
 
+The opt-in curved-path displacement model has a separate detailed scope in
+{doc}`curved-adp`: one atomic target, explicit site symmetry, positive local
+Gaussian broadening, and either IAM or the supported single-partition molecular
+HAR route. It is not a cell-vibration/phonon refinement and does not replace
+harmonic ADPs by default. Its lamaGOET viewer does not activate refinement.
+
 - The user is responsible for absorption correction, detector corrections,
   scaling consistency, wavelength, uncertainty quality, and provenance of the
   measured intensities.

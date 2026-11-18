@@ -450,6 +450,13 @@ publisher or software project wherever possible.
     Olex2.refine anharmonic model and its CCTBX residual map are not treated as
     trusted numerical references.
 
+79. H. Butkiewicz, M. Chodkiewicz, A. Ø. Madsen and A. A. Hoser,
+    “Advancing dynamic quantum crystallography: enhanced models for accurate
+    structures and thermodynamic properties,” *IUCrJ* **12** (2025), 123–136.
+    [doi:10.1107/S2052252524011862](https://doi.org/10.1107/S2052252524011862).
+    This explains the normal-mode/frequency-based NoMoRe context. It does not
+    validate Tonto's distinct experimental finite-angle curved-path model.
+
 ## Citation practice
 
 For a publication, cite lamaGOET, Tonto, the electronic-structure program,
