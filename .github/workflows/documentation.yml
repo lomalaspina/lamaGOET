@@ -22,7 +22,10 @@ concurrency:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    # The shell runner requires GNU coreutils. ubuntu-latest moved to 26.04,
+    # whose default realpath is uutils, and the portability guard correctly
+    # rejects it. Keep publishing on the explicit GNU-based LTS environment.
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-python@v7
@@ -33,10 +36,16 @@ jobs:
       - name: Install manual dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y libegl1 latexmk texlive-xetex texlive-fonts-recommended texlive-latex-extra
+          sudo apt-get install -y gawk coreutils sed libegl1 latexmk texlive-xetex texlive-fonts-recommended texlive-latex-extra
           python -m pip install --upgrade pip
           python -m pip install -r requirements-qt.txt
           python -m pip install -r docs/requirements.txt
+      - name: Verify required GNU shell tools
+        run: |
+          source ./lamagoet_shell_env.sh
+          "$SED" --version
+          "$AWK" --version
+          "$REALPATH" --version
       - name: Run lamaGOET regression suite
         env:
           QT_QPA_PLATFORM: offscreen
@@ -59,7 +68,7 @@ jobs:
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     needs: build
     steps:
       - name: Deploy GitHub Pages
