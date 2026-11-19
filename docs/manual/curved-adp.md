@@ -3,10 +3,11 @@
 :::{admonition} Experimental, explicitly selected model
 :class: important
 This chapter documents the native Tonto **planar** and **two-direction surface**
-displacement models, checked against the implementation on 18 November 2026.
-They do not replace conventional harmonic ADPs by default. The command-line
-refinement is opt-in; lamaGOET currently provides a separate displacement-cloud
-viewer, not a GUI selector that activates this refinement. The existing
+displacement models, checked against the implementation on 19 November 2026.
+They do not replace conventional harmonic ADPs by default. Both the native
+command and lamaGOET's **Curved ADP refinement - opt-in** selector activate
+this refinement explicitly. The separate displacement-cloud viewer only
+displays saved results. The existing
 **Refine anharmonic ADPs** control selects Gram–Charlier coefficients, not this
 model.
 :::
@@ -459,7 +460,187 @@ resolution stability and held-out prediction; retain the full intended
 reflection population for the final fit. For the established generalized-ADP
 context see [Kuhs (1992)](https://doi.org/10.1107/S0108767391009510).
 
+### Quantitative resolution estimates: what can and cannot be predicted
+
+Here distinguish $s=\sin\theta/\lambda$ (in Å$^{-1}$), the real-space
+resolution $d=1/(2s)$ (in Å), and $q=|\mathbf q|=4\pi s=2\pi/d$.
+A larger $s_{\max}$, or a smaller $d_{\min}$, means higher resolution.
+For Gram–Charlier order $n$, a commonly used form of Kuhs' estimate is
+
+$$
+s_{\rm Kuhs,n}=\frac{\sqrt{2\ln2}}{(2\pi)^{3/2}}
+ \sqrt{\frac{n}{\langle u^2\rangle}}
+ \simeq 0.074758\sqrt{\frac{n}{\langle u^2\rangle}},\qquad
+d_{\rm Kuhs,n}=\frac{1}{2s_{\rm Kuhs,n}}.
+$$
+
+Use the mean-square displacement convention required by the particular Kuhs
+implementation; a tensor component, a principal variance and an averaged
+variance are not interchangeable for an anisotropic atom. The equation is
+reproduced in [Zwolenik and Makal (2025), equation
+7](https://journals.iucr.org/m/issues/2025/01/00/pen5002/index.html).
+It is an estimate of the resolution needed to resolve the chosen expansion,
+not a guarantee of reliable parameters. Independent precision, correlation
+and probability-density checks remain necessary, as illustrated by
+[Krause et al. (2017)](https://doi.org/10.1107/S2052252517005103).
+
+For our curved distribution there is no fixed displacement order $n$ to
+insert: even a single angular coefficient generates several displacement
+cumulants through the nonlinear geometry. This does **not** mean that a
+quantitative resolution assessment is impossible. The following two levels
+separate a useful shape-resolution estimate from actual statistical support.
+They are derived diagnostics, not an established universal replacement for
+Kuhs' empirical criterion.
+
+#### A directional Fourier-contrast estimate
+
+Compare the curved characteristic function $\Phi_C$ with a Gaussian $\Phi_G$
+having the **same mean and total covariance**. Along a unit direction
+$\mathbf n$, let $\kappa_m(\mathbf n)$ be the first nonzero cumulant beyond
+second order of $\mathbf n^T\mathbf u$. For a small leading correction,
+
+$$
+\frac{\Phi_C(q\mathbf n)}{\Phi_G(q\mathbf n)}-1
+ \simeq \frac{(iq)^m\kappa_m(\mathbf n)}{m!},\qquad m\ge3.
+$$
+
+For a specified dimensionless contrast threshold $\epsilon$, this gives
+
+$$
+q_{\rm req}\simeq\left(\frac{m!\epsilon}
+ {|\kappa_m(\mathbf n)|}\right)^{1/m},\qquad
+\boxed{d_{\min}\ \lesssim\ d_{\rm contrast}
+ =2\pi\left(\frac{|\kappa_m(\mathbf n)|}{m!\epsilon}\right)^{1/m}}.
+$$
+
+The cumulant has units Å$^m$, so $d_{\rm contrast}$ has units Å. If the
+directional third cumulant vanishes, for example by site symmetry, it cannot
+supply a third-order estimate; inspect the next nonzero cumulant. An angular
+coefficient called $T_3$ must not be substituted for $\kappa_3$.
+For larger corrections, evaluate the exact quadrature characteristic function
+and find the first $q$ satisfying
+$|\Phi_C-\Phi_G|/|\Phi_G|\ge\epsilon$ instead of using the truncated formula.
+
+This equation estimates **Fourier contrast**, not the minimum resolution
+that guarantees a successful refinement. $\epsilon$ must be stated, not
+silently assigned a universal value. A relative change can be large where
+the absolute scattering has already been attenuated below the measurement
+noise. Atomic form factors, interference with other atoms, experimental
+uncertainties and directional coverage also determine whether the change is
+measurable. The strongest direction alone does not validate all shape terms.
+
+#### A dataset-specific minimum-resolution equation
+
+A statistical criterion uses the actual intensity derivatives. At a fixed
+candidate geometry, weight model and electronic density, form the weighted
+Jacobian for reflections with $s_h\le s_{\max}$. Let $A$ contain nuisance
+columns (coordinates, local ADPs and scale) and $B$ the independent curved
+shape columns. Remove the part that nuisance parameters can mimic:
+
+$$
+B_\perp=(I-AA^+)B,\qquad
+\mathcal I_\alpha(s_{\max})=B_\perp^TB_\perp,\qquad
+C_\alpha(s_{\max})\simeq \hat\sigma^2\mathcal I_\alpha^{-1}.
+$$
+
+Here $A^+$ is a rank-aware pseudoinverse, implemented by a QR/SVD projection,
+not by forming a large observation-space projector. $\hat\sigma^2$ is one
+fixed, declared residual-variance estimate; it is one when the observation
+uncertainties are treated as known absolute errors. Hold weights and this
+estimate fixed across the resolution scan. For declared desired standard
+uncertainties $\delta_j$ in the independent shape coordinates, define
+
+$$
+s_{\rm req}=\inf\left\{s:\ \mathcal I_\alpha(s)\succ0\ \text{and}\quad
+ \sqrt{[C_\alpha(s)]_{jj}}\le\delta_j\ \text{for every }j\right\},
+\qquad \boxed{d_{\min}\le d_{\rm req}=\frac{1}{2s_{\rm req}}}.
+$$
+
+This is an explicit, **conditional** minimum-resolution definition. It asks
+whether every selected shape parameter can reach the specified precision
+after correlations with the ordinary model are accounted for. The required
+precision, parameter convention and reference model must be reported. A
+derived moment or other invariant shape observable can be tested instead by
+propagating $C_\alpha$ through its derivative. If no available resolution shell
+meets the conditions, report **not supported by this dataset**, not a guessed
+cutoff beyond the measured data. This local linearized criterion still needs
+nonlinear profile, alternate-start and predictive validation.
+
+The refinement already performs full-design rank and joint-uncertainty
+checks. The resolution-scan criterion above is a definition for a separate
+diagnostic, not a claim that a validated automatic cutoff is currently
+enforced by the command. Final scientific refinements retain the full intended
+reflection set. In particular, weak second-direction parameters must not be
+declared well determined merely because the fitted residual map is clean.
+
 ## How to run an opt-in refinement
+
+### Select the model in lamaGOET
+
+In the refinement controls, open **Curved ADP refinement - opt-in** and
+choose **Curved path - one transverse direction** or **Curved surface - two
+transverse directions**. **Off** is the default and retains the ordinary
+workflow. **Refine anharmonic ADPs** remains the separate Gram-Charlier option;
+it cannot be combined with the curved model in this GUI route.
+
+1. Select the input CIF and reflection file and explicitly select the **F²**
+   target. The curved job uses the wavelength, merging, dispersion, weights
+   and hydrogen settings from the main window. Numeric Tonto reflection files,
+   five-column/fixed-format SHELX HKL files and FCF input are supported. Signed
+   intensities, ordering and duplicate observations are preserved before the
+   selected native merging/cutoff operation. With SHELXL weights, all merged
+   observations enter the fit; the reporting threshold does not prune them.
+2. Choose **IAM** for spherical atoms with no SCF, or **Single-density HAR**
+   for one converged native molecular SCF followed by the curved fit. IAM
+   does not use the quantum-chemistry controls. For this HAR route select
+   **Tonto**, a restricted singlet RHF/PBE/BLYP/B3LYP calculation and its basis
+   library. Supply a complete molecule and confirm that no fragment is missing.
+   This route is nonrelativistic and unembedded; it does not import an arbitrary
+   Gaussian checkpoint, perform periodic partitioning or run an outer HAR loop.
+3. Enter exact **target** and **pivot** labels, the angular triples, frame
+   angle, Cartesian reference direction and pivot-image translation. These
+   are the same quantities as the namelist below. The model uses Tonto's
+   site-symmetry treatment; do not substitute an arbitrary visual axis for
+   the intended bond/image geometry.
+4. Confirm that the input target tensor is the **local Gaussian covariance**.
+   A previous curved result's total-U CIF is not a valid local-U restart.
+   The target must have an anisotropic starting tensor. Use a fresh output
+   subdirectory name and set both the refinement and whole-job time bounds.
+5. Run locally or submit through the usual runner. lamaGOET creates the new
+   subdirectory, copies the CIF/reflections, saves the options snapshot,
+   generates `stdin` and `curved.nml`, and invokes `tonto --curved-adp`.
+   `run.json` records input/executable hashes, limits and completion status.
+   Previous output directories are refused. A zero process exit code is not
+   enough: the wrapper requires `status converged` in `curved.summary`.
+
+This first GUI activation supports **one target, F², one intensity scale,
+zero fixed extinction and free/fixed hydrogen positions**. Unsupported
+combinations are rejected rather than silently ignored: riding H,
+simultaneous Gram-Charlier, atom-freezing/growth options, XCW, periodic HAR,
+external basis definitions and the ordinary map/cube export checkboxes are
+not connected to this route. Use its model-aware `curved.fcf` for subsequent
+residual mapping and `curved.model.json` for the cloud viewer. The curved
+solver, not the ordinary least-squares solver widgets, controls convergence.
+The runner uses one CPU thread and a 10 GiB process address-space limit.
+The whole-job time limit includes SCF and factor capture; the refinement
+limit starts in the native curved solver. Reaching either limit is failure
+to finish, not evidence of convergence.
+
+The supported single-density HAR command has passed a small converged native
+SCF/capture test. This does not resolve the separate large-system native SCF
+convergence investigation, or guarantee that any chosen molecular SCF converges.
+
+The same saved options can be prepared without starting a calculation:
+
+```sh
+python3 /path/to/lamaGOET/curved_refinement.py \
+  --job-options /path/to/job_options.txt --prepare-only
+```
+
+Preparation also reserves a fresh output directory. To run that prepared
+job, enter it and execute the native command below; do not ask the GUI to
+overwrite it. The existing command-line interface remains available for
+audited exact restarts and held-out fixed-parameter evaluations.
 
 ### Prepare the input
 
@@ -631,22 +812,75 @@ For each scientific use:
 6. Report software/build identity, all model and quadrature settings, the
    pivot image/reference, electronic provenance and unresolved limitations.
 
-The retained 18 November fixed-density HAR comparison used all 10,593
-observations and the same audited Gaussian density for its two fits. The
-harmonic and surface models gave $R_1=0.029659$ and $0.027870$, and
-$wR_2=0.064986$ and $0.060319$, respectively. The Cl-local residual extrema
-changed from approximately $-0.891/+1.058$ to $-0.237/+0.236$ e/Å$^3$ on the
-matched map. This is a **reduction, not elimination**, of the residual pattern.
-The second angular direction remained weakly determined. These results are
-an implementation control, not a transferable guarantee, a fitted phonon
-frequency or proof of a unique motion mechanism.
+### Matched Cl example: harmonic, curved and Gram–Charlier HAR
+
+The comparison collected on 19 November 2026 uses all 10,593 observations,
+the same frozen, audited Gaussian RB3LYP/def2-TZVP/DKH electronic density,
+$F^2$ target, SHELXL weights ($a=0.0494$, $b=0.1307$), dispersion corrections
+and free isotropic-H treatment, without extinction. It is one refinement
+against one electronic density, not a converged outer QM/HAR cycle. All four
+fits converged under their respective validated stopping criteria; the GC
+fits use a $10^{-5}$ maximum shift/esd criterion, whereas the curved fit also
+uses its stricter undamped objective-metric certificate.
+
+| Model | Total parameters | Added shape parameters | $R_1$ (all) | $wR_2$ (all) |
+|---|---:|---:|---:|---:|
+| Harmonic HAR | 647 | 0 | 0.0296594 | 0.0649855 |
+| Curved two-direction HAR | 654 | 7 | 0.0278696 | 0.0603187 |
+| GC third-order HAR | 657 | 10 | 0.0277796 | 0.0601194 |
+| GC third- plus fourth-order HAR | 672 | 25 | 0.0278516 | 0.0599201 |
+
+```{figure} _static/curved-adp-cl-matched-slices.png
+:width: 90%
+:alt: Four matched Cl residual-density slices: harmonic, curved two-direction, Gram-Charlier third order, and third plus fourth order. All use the same colour scale; the strong alternating harmonic lobes are substantially reduced in the other three panels.
+
+Matched Cl residual-density slices from the full 10,593-reflection nominal
+difference Fourier. The grid, view and colour scale are identical; no new
+resolution cutoff or weak-reflection attenuation is applied.
+```
+
+The strong alternating lobes in the harmonic HAR are much smaller in all
+three alternatives. Their Cl-local residual minima/maxima are, respectively,
+$-0.891/+1.058$, $-0.237/+0.236$, $-0.283/+0.308$ and $-0.411/+0.240$
+e/Å$^3$. The curved model has the smallest largest-magnitude local residual
+in this comparison. GC third plus fourth order has the lowest overall
+$wR_2$, but uses more parameters. These are distinct diagnostics, not a
+statistical ranking or proof of a motion mechanism.
+
+Both GC models reduce the Cl residual pattern substantially, as does the
+curved model. The fitted GC probability distributions nevertheless have
+negative regions. Defining their integrated negative mass by
+
+$$
+P_-=-\int\min[P(\mathbf u),0]\,d^3u,
+$$
+
+the third-order fit gives $100P_-=0.219568\%$ and the third- plus fourth-order
+fit gives $0.856207\%$. The signed integrals remain normalized to one; no
+negative values were clipped. Numerical integration was checked at two grid
+spacings. These negative regions are a physical limitation of these particular
+truncated expansions, not evidence that every Gram–Charlier refinement is
+invalid.
+
+The curved model avoids this **negative-probability** problem by construction:
+its probability density is an average of nonnegative, normalized local
+Gaussian densities with nonnegative normalized weights. It uses seven added
+shape parameters here, compared with ten or twenty-five for the two GC
+models. Positivity does not eliminate negative **residual electron density**,
+prove that every shape parameter is identifiable, or guarantee a better
+physical interpretation. The second angular direction remains weakly
+determined. This is an in-sample implementation comparison, not an independent
+held-out validation or a transferable guarantee.
 
 The large native molecular SCF attempted for that example did not converge;
 the successful comparison used a separately validated external wavefunction.
-The native-SCF diagnosis and a matched HAR Gram–Charlier comparison are
-separate ongoing checks. Do not describe them as completed by the curved-fit
-validation. The approximate uncertainty export also does not establish that
-every legacy raw CIF uncertainty writer is free of numerical roundoff issues.
+The native-SCF diagnosis remains a separate ongoing check. The matched GC
+comparison above is complete. A separately validated signed-PDF precision
+correction brings the saved GC endpoints into agreement with an independent
+Cholesky/Hermite evaluator to below $7\times10^{-16}$ without changing fitted
+coefficients or residual maps. A separate constrained-variance export correction
+removes roundoff-negative variances in fixed directions; neither correction
+turns weakly identified shape parameters into precise measurements.
 
 Despite inexpensive IAM atomic factors, this model evaluates angular
 quadrature, geometry derivatives, symmetry and rank/convergence checks.

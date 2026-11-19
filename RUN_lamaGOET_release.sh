@@ -104,6 +104,9 @@ _lamagoet_archive_anharmonic_pdf_cubes() {
 # all legacy backends continue through this runner unchanged.
 if [[ -f job_options.txt ]]; then
 	source ./job_options.txt
+	if [[ "${CURVED_MODEL:-off}" != "off" ]]; then
+		exec python3 "$_lamagoet_env_dir/curved_refinement.py" --job-options "$PWD/job_options.txt"
+	fi
 
 # Processor counts are used unquoted as `mpirun -n $NUMPROCTONTO`, so an option
 # file that predates them expands to `mpirun -n <binary>`: the -n flag consumes

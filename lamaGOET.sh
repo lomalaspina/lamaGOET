@@ -7508,6 +7508,9 @@ fi
 
 source "${LAMAGOET_BATCH_OPTIONS:-./job_options.txt}"
 : "${EXIT:=OK}"
+if [[ "${CURVED_MODEL:-off}" != "off" ]]; then
+    exec python3 "$_lamagoet_env_dir/curved_refinement.py" --job-options "${LAMAGOET_BATCH_OPTIONS:-./job_options.txt}"
+fi
 : "${XCW_MODE:=molecular}"
 : "${PERIODIC_XCW_REFERENCE_DFT:=BLYP}"
 : "${PERIODIC_XCW_REFERENCE_BASIS:=POB-TZVP-REV2}"

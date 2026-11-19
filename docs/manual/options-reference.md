@@ -36,6 +36,33 @@ for every system. Values saved by the GUI override them.
 
 ## Resources and convergence
 
+### Curved displacement refinement (explicit opt-in)
+
+These controls activate the native command rather than only opening its cloud
+viewer. See [Curved-path ADPs](curved-adp.md) for theory, supported combinations,
+local-versus-total covariance, site symmetry and uncertainty limitations.
+The ordinary workflow is unchanged when `CURVED_MODEL=off`.
+
+| Variable | Default | Meaning |
+|---|---|---|
+| `CURVED_MODEL` | `off` | `off`, `planar` or two-direction `surface` |
+| `CURVED_ELECTRONIC_SOURCE` | `iam` | `iam` or single-density `molecular_hirshfeld` |
+| `CURVED_TARGET` | *(empty)* | exact anisotropic target atom label |
+| `CURVED_PIVOT` | *(empty)* | distinct pivot atom label |
+| `CURVED_TRANSVERSE_1` | `0.05 0 0` | first angular T1/T2/T3 triple in radians; starting values, not universal recommendations |
+| `CURVED_TRANSVERSE_2` | `0.03 0 0` | second angular triple, surface only |
+| `CURVED_PLANE_ANGLE` | `0` | transverse-frame orientation in radians |
+| `CURVED_REFERENCE` | `0 0 1` | Cartesian reference direction; must not be parallel to the bond |
+| `CURVED_PIVOT_SHIFT` | `0 0 0` | Cartesian translation added to the pivot, in Å |
+| `CURVED_LOCAL_U_CONFIRMED` | `false` | required confirmation that starting target U is local Gaussian covariance |
+| `CURVED_MOLECULE_CONFIRMED` | `false` | required complete-fragment confirmation for native molecular HAR |
+| `CURVED_MAX_CYCLES` | `100` | native curved refinement iteration bound, 1–10000 |
+| `CURVED_TIME_LIMIT` | `3600` | native curved refinement time limit, seconds, 1–86400 |
+| `CURVED_JOB_TIMEOUT` | `86400` | whole-job time bound including SCF/capture, seconds, 1–604800 |
+| `CURVED_OUTPUT` | `curved-refinement` | new result subdirectory; existing directories are refused |
+
+### Ordinary workflow resources
+
 | Variable | Default | Meaning |
 |---|---|---|
 | `NUMPROC` | `1` | external-program processors; Crystal parallel dispatch uses >1 |

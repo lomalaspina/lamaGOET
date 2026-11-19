@@ -76,6 +76,8 @@ from .dispersion import (
 )
 from .job_options import cp2k_basis_names, load_job_options, save_job_options
 from .viewer import StructureView
+from .curved_controls import CurvedControls
+from .curved_job import validate_options as validate_curved_options
 
 
 PROGRAMS = (
@@ -1194,6 +1196,8 @@ class MainWindow(QMainWindow):
         anharmonic_layout.addWidget(self.third_order)
         anharmonic_layout.addWidget(self.fourth_order)
         refinement_form.addRow(anharmonic_row)
+        self.curved_controls = CurvedControls()
+        refinement_form.addRow(self.curved_controls)
         self.anharmonic_h_warning = QLabel(
             "IAM warning: anisotropic H ADPs are normally poorly determined "
             "by a spherical independent-atom model. This does not prohibit "
@@ -2622,6 +2626,7 @@ class MainWindow(QMainWindow):
         self.anharmonic_atoms.setText(self._option("ANHARMATOMS"))
         self.third_order.setChecked(self._bool_option("THIRDORD"))
         self.fourth_order.setChecked(self._bool_option("FOURTHORD"))
+        self.curved_controls.load(self.saved_options)
         self.output_anharmonic_pdf_cubes.setChecked(
             self._bool_option("OUTPUT_ANHARMONIC_PDF_CUBES")
         )
@@ -4843,6 +4848,8 @@ class MainWindow(QMainWindow):
                     "CP2K_ADDED_MOS": self.cp2k_added_mos.value(),
                 }
             )
+        result.update(self.curved_controls.values())
+        validate_curved_options(result)
         return result
 
     def _prepare_basis_definition(self) -> None:
