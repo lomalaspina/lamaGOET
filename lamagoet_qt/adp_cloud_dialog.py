@@ -30,7 +30,7 @@ class _BuildMesh(QRunnable):
 class AdpCloudDialog(QDialog):
     def __init__(self, path, parent=None):
         super().__init__(parent)
-        self.setWindowTitle("Displacement probability cloud — native Tonto model")
+        self.setWindowTitle("Multi-harmonic angular ADP - probability cloud")
         self.resize(900, 760)
         self.model = CloudModel.read(path)
         self.mesh = None

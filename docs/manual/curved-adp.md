@@ -1,16 +1,28 @@
-# Curved-path atomic displacement model
+# Multi-harmonic angular ADP
 
 :::{admonition} Experimental, explicitly selected model
 :class: important
 This chapter documents the native Tonto **planar** and **two-direction surface**
-displacement models, checked against the implementation on 19 November 2026.
+displacement models, checked against the implementation on 19 November 2026; displayed terminology
+updated on 21 November 2026.
 They do not replace conventional harmonic ADPs by default. Both the native
-command and lamaGOET's **Curved ADP refinement - opt-in** selector activate
+command and lamaGOET's **Multi-harmonic angular ADP refinement - opt-in** selector activate
 this refinement explicitly. The separate displacement-cloud viewer only
 displays saved results. The existing
 **Refine anharmonic ADPs** control selects Gram–Charlier coefficients, not this
 model.
 :::
+
+**Multi-harmonic angular ADP** is the displayed name of this atomic
+displacement model. "Multi-harmonic" refers to the angular expansion functions,
+not to measured frequencies or identified phonon modes. The probability-cloud
+shape is refined within the pivot-referenced angular geometry; a banana,
+mushroom or ellipsoid is not prescribed. This name does not change the
+equations, constraints or fitted parameters described below.
+
+For compatibility, the command `--curved-adp`, `CURVED_*` settings,
+`curved_adp` namelist, `curved.*` result files and this chapter's existing URL
+are retained. Existing inputs and saved model artifacts remain valid.
 
 ## What is being refined?
 
@@ -154,7 +166,7 @@ $T_3$ is not equivalent to adding third-order Gram–Charlier terms. Finite-angl
 geometry produces displacement moments of several orders even from a simple
 angular function.
 
-## Mean-preserving curved geometry
+## Mean-preserving angular geometry
 
 ### Two-direction surface
 
@@ -484,7 +496,7 @@ not a guarantee of reliable parameters. Independent precision, correlation
 and probability-density checks remain necessary, as illustrated by
 [Krause et al. (2017)](https://doi.org/10.1107/S2052252517005103).
 
-For our curved distribution there is no fixed displacement order $n$ to
+For our angular displacement distribution there is no fixed displacement order $n$ to
 insert: even a single angular coefficient generates several displacement
 cumulants through the nonlinear geometry. This does **not** mean that a
 quantitative resolution assessment is impossible. The following two levels
@@ -494,7 +506,7 @@ Kuhs' empirical criterion.
 
 #### A directional Fourier-contrast estimate
 
-Compare the curved characteristic function $\Phi_C$ with a Gaussian $\Phi_G$
+Compare the angular-model characteristic function $\Phi_C$ with a Gaussian $\Phi_G$
 having the **same mean and total covariance**. Along a unit direction
 $\mathbf n$, let $\kappa_m(\mathbf n)$ be the first nonzero cumulant beyond
 second order of $\mathbf n^T\mathbf u$. For a small leading correction,
@@ -534,7 +546,7 @@ measurable. The strongest direction alone does not validate all shape terms.
 A statistical criterion uses the actual intensity derivatives. At a fixed
 candidate geometry, weight model and electronic density, form the weighted
 Jacobian for reflections with $s_h\le s_{\max}$. Let $A$ contain nuisance
-columns (coordinates, local ADPs and scale) and $B$ the independent curved
+columns (coordinates, local ADPs and scale) and $B$ the independent angular-model
 shape columns. Remove the part that nuisance parameters can mimic:
 
 $$
@@ -577,21 +589,21 @@ declared well determined merely because the fitted residual map is clean.
 
 ### Select the model in lamaGOET
 
-In the refinement controls, open **Curved ADP refinement - opt-in** and
-choose **Curved path - one transverse direction** or **Curved surface - two
-transverse directions**. **Off** is the default and retains the ordinary
+In the refinement controls, open **Multi-harmonic angular ADP refinement - opt-in** and
+choose **One transverse direction (planar)** or **Two transverse directions
+(surface)**. **Off** is the default and retains the ordinary
 workflow. **Refine anharmonic ADPs** remains the separate Gram-Charlier option;
-it cannot be combined with the curved model in this GUI route.
+it cannot be combined with the multi-harmonic angular model in this GUI route.
 
 1. Select the input CIF and reflection file and explicitly select the **F²**
-   target. The curved job uses the wavelength, merging, dispersion, weights
+   target. The angular ADP job uses the wavelength, merging, dispersion, weights
    and hydrogen settings from the main window. Numeric Tonto reflection files,
    five-column/fixed-format SHELX HKL files and FCF input are supported. Signed
    intensities, ordering and duplicate observations are preserved before the
    selected native merging/cutoff operation. With SHELXL weights, all merged
    observations enter the fit; the reporting threshold does not prune them.
 2. Choose **IAM** for spherical atoms with no SCF, or **Single-density HAR**
-   for one converged native molecular SCF followed by the curved fit. IAM
+   for one converged native molecular SCF followed by the angular ADP fit. IAM
    does not use the quantum-chemistry controls. For this HAR route select
    **Tonto**, a restricted singlet RHF/PBE/BLYP/B3LYP calculation and its basis
    library. Supply a complete molecule and confirm that no fragment is missing.
@@ -603,7 +615,7 @@ it cannot be combined with the curved model in this GUI route.
    site-symmetry treatment; do not substitute an arbitrary visual axis for
    the intended bond/image geometry.
 4. Confirm that the input target tensor is the **local Gaussian covariance**.
-   A previous curved result's total-U CIF is not a valid local-U restart.
+   A previous angular-model result's total-U CIF is not a valid local-U restart.
    The target must have an anisotropic starting tensor. Use a fresh output
    subdirectory name and set both the refinement and whole-job time bounds.
 5. Run locally or submit through the usual runner. lamaGOET creates the new
@@ -619,11 +631,11 @@ combinations are rejected rather than silently ignored: riding H,
 simultaneous Gram-Charlier, atom-freezing/growth options, XCW, periodic HAR,
 external basis definitions and the ordinary map/cube export checkboxes are
 not connected to this route. Use its model-aware `curved.fcf` for subsequent
-residual mapping and `curved.model.json` for the cloud viewer. The curved
+residual mapping and `curved.model.json` for the cloud viewer. The angular-model
 solver, not the ordinary least-squares solver widgets, controls convergence.
 The runner uses one CPU thread and a 10 GiB process address-space limit.
 The whole-job time limit includes SCF and factor capture; the refinement
-limit starts in the native curved solver. Reaching either limit is failure
+limit starts in the native angular ADP solver. Reaching either limit is failure
 to finish, not evidence of convergence.
 
 The supported single-density HAR command has passed a small converged native
@@ -644,7 +656,7 @@ audited exact restarts and held-out fixed-parameter evaluations.
 
 ### Prepare the input
 
-1. Use a Tonto executable compiled with the experimental curved command.
+1. Use a Tonto executable compiled with the experimental angular ADP command.
    The build option is `TONTO_EXPERIMENTAL_CURVED_PATH=ON`; an ordinary older
    executable does not gain the model from opening a JSON file in lamaGOET.
 2. Work in a **new output directory**. Keep the source CIF, observations and
@@ -693,7 +705,7 @@ Run from that directory:
 Tonto reads the ordinary file named `stdin` in the working directory. For
 `model='planar'`, only the first angular triple and the plane angle participate.
 The run bounds are 1–10000 cycles and a positive time limit up to 86400 s;
-reaching a bound is not convergence. Existing curved result files are refused
+reaching a bound is not convergence. Existing angular-model result files are refused
 instead of being overwritten.
 
 For the supported native single-cycle HAR, change
@@ -729,11 +741,11 @@ refinement convergence.
 | `curved.accepted.parameters` | Exact structural/local-U checkpoint; not the total-U representation |
 | `curved.model.json` | Reproducible distribution: model/status, nodes, weights, cell, identities, site operations, local and total moments |
 | `curved.cif` | Conventional structural interchange; the target anisotropic tensor is the **total** second moment |
-| `curved.factors`, `curved.fcf` | Factors calculated from the full curved distribution, not merely its equivalent ellipsoid |
+| `curved.factors`, `curved.fcf` | Factors calculated from the full angular displacement distribution, not merely its equivalent ellipsoid |
 | `curved.covariance`, `curved.uncertainty.json` | Labelled joint covariance and propagated total-moment errors for accepted converged interior fits |
 
 Retain all artifacts together. A conventional CIF containing only the total
-tensor cannot reconstruct the curved distribution. In the LIST6-style FCF,
+tensor cannot reconstruct the angular displacement distribution. In the LIST6-style FCF,
 calculated $F_c$ is an amplitude with the full model phase; measured $F^2$ and
 its uncertainty are placed on the model scale by dividing by the fitted
 intensity scale. Do not confuse that scale with its square root.
@@ -771,10 +783,10 @@ grid, view and positive/negative electron-density isovalues. The same-looking
 Current supported scope is one selected target, planar or two-direction
 geometry, $F^2$, one scale and zero fixed extinction. The target requires
 anisotropic local U. Riding H, selected-target total-Uiso coupling,
-Gram–Charlier/curved combinations and amplitude-subtraction dispersion are
+Gram–Charlier/angular-model combinations and amplitude-subtraction dispersion are
 not supported. Ordinary isotropic-H constraints on other atoms remain intact.
 Periodic GRED/XML density capture, unrestricted/spin-polarized HAR capture,
-multiple curved targets and a general collective-motion refinement are not
+multiple angular-model targets and a general collective-motion refinement are not
 provided by this command. Unsupported combinations must fail explicitly.
 
 Positive local covariance, geometry guards and rank checks are mandatory.
@@ -793,7 +805,7 @@ structured residuals. An improved fit does not identify their physical cause.
 Gram–Charlier is an essential separate comparator, not an automatically
 invalid alternative. Its truncated probability density can have negative
 regions, which must be measured and reported rather than clipped. Conversely,
-positivity by construction does not prove the curved model's physical truth.
+positivity by construction does not prove the multi-harmonic angular model's physical truth.
 Use the existing signed-PDF tools described in {doc}`plots` for the
 Gram–Charlier control and preserve the different model definitions.
 
@@ -801,7 +813,7 @@ For each scientific use:
 
 1. Check an ordinary harmonic baseline and its site constraints.
 2. Match data, weights, dispersion, electronic source and H treatment across
-   harmonic, curved and any Gram–Charlier comparisons.
+   harmonic, multi-harmonic angular and any Gram–Charlier comparisons.
 3. Require actual numerical convergence, positive local tensors, preserved
    symmetry and independent factor/statistics checks.
 4. Inspect uncertainty, correlations, alternative starts and sensitivity to
@@ -812,7 +824,7 @@ For each scientific use:
 6. Report software/build identity, all model and quadrature settings, the
    pivot image/reference, electronic provenance and unresolved limitations.
 
-### Matched Cl example: harmonic, curved and Gram–Charlier HAR
+### Matched Cl example: harmonic, multi-harmonic angular and Gram–Charlier HAR
 
 The comparison collected on 19 November 2026 uses all 10,593 observations,
 the same frozen, audited Gaussian RB3LYP/def2-TZVP/DKH electronic density,
@@ -820,19 +832,43 @@ $F^2$ target, SHELXL weights ($a=0.0494$, $b=0.1307$), dispersion corrections
 and free isotropic-H treatment, without extinction. It is one refinement
 against one electronic density, not a converged outer QM/HAR cycle. All four
 fits converged under their respective validated stopping criteria; the GC
-fits use a $10^{-5}$ maximum shift/esd criterion, whereas the curved fit also
+fits use a $10^{-5}$ maximum shift/esd criterion, whereas the angular ADP fit also
 uses its stricter undamped objective-metric certificate.
 
-| Model | Total parameters | Added shape parameters | $R_1$ (all) | $wR_2$ (all) |
-|---|---:|---:|---:|---:|
-| Harmonic HAR | 647 | 0 | 0.0296594 | 0.0649855 |
-| Curved two-direction HAR | 654 | 7 | 0.0278696 | 0.0603187 |
-| GC third-order HAR | 657 | 10 | 0.0277796 | 0.0601194 |
-| GC third- plus fourth-order HAR | 672 | 25 | 0.0278516 | 0.0599201 |
+```{list-table}
+:header-rows: 1
+:widths: 36 14 18 16 16
+
+* - Model
+  - Total parameters
+  - Added shape parameters
+  - $R_1$ (all)
+  - $wR_2$ (all)
+* - Harmonic HAR
+  - 647
+  - 0
+  - 0.0296594
+  - 0.0649855
+* - Multi-harmonic angular HAR
+  - 654
+  - 7
+  - 0.0278696
+  - 0.0603187
+* - GC third-order HAR
+  - 657
+  - 10
+  - 0.0277796
+  - 0.0601194
+* - GC third- plus fourth-order HAR
+  - 672
+  - 25
+  - 0.0278516
+  - 0.0599201
+```
 
 ```{figure} _static/curved-adp-cl-matched-slices.png
 :width: 90%
-:alt: Four matched Cl residual-density slices: harmonic, curved two-direction, Gram-Charlier third order, and third plus fourth order. All use the same colour scale; the strong alternating harmonic lobes are substantially reduced in the other three panels.
+:alt: Four matched Cl residual-density slices: harmonic, multi-harmonic angular (two-direction), Gram-Charlier third order, and third plus fourth order. All use the same colour scale; the strong alternating harmonic lobes are substantially reduced in the other three panels.
 
 Matched Cl residual-density slices from the full 10,593-reflection nominal
 difference Fourier. The grid, view and colour scale are identical; no new
@@ -842,13 +878,13 @@ resolution cutoff or weak-reflection attenuation is applied.
 The strong alternating lobes in the harmonic HAR are much smaller in all
 three alternatives. Their Cl-local residual minima/maxima are, respectively,
 $-0.891/+1.058$, $-0.237/+0.236$, $-0.283/+0.308$ and $-0.411/+0.240$
-e/Å$^3$. The curved model has the smallest largest-magnitude local residual
+e/Å$^3$. The multi-harmonic angular model has the smallest largest-magnitude local residual
 in this comparison. GC third plus fourth order has the lowest overall
 $wR_2$, but uses more parameters. These are distinct diagnostics, not a
 statistical ranking or proof of a motion mechanism.
 
 Both GC models reduce the Cl residual pattern substantially, as does the
-curved model. The fitted GC probability distributions nevertheless have
+multi-harmonic angular model. The fitted GC probability distributions nevertheless have
 negative regions. Defining their integrated negative mass by
 
 $$
@@ -862,7 +898,7 @@ spacings. These negative regions are a physical limitation of these particular
 truncated expansions, not evidence that every Gram–Charlier refinement is
 invalid.
 
-The curved model avoids this **negative-probability** problem by construction:
+The multi-harmonic angular model avoids this **negative-probability** problem by construction:
 its probability density is an average of nonnegative, normalized local
 Gaussian densities with nonnegative normalized weights. It uses seven added
 shape parameters here, compared with ten or twenty-five for the two GC
@@ -885,7 +921,7 @@ turns weakly identified shape parameters into precise measurements.
 Despite inexpensive IAM atomic factors, this model evaluates angular
 quadrature, geometry derivatives, symmetry and rank/convergence checks.
 It can therefore be substantially slower than a harmonic IAM, especially in
-a weakly identified valley. No SCF is hidden inside an IAM curved trial; a
+a weakly identified valley. No SCF is hidden inside an IAM angular-model trial; a
 single-partition HAR also reuses its captured factors during refinement.
 
 Implementation provenance for this chapter is Tonto's

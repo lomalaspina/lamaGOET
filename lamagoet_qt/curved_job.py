@@ -1,4 +1,4 @@
-"""Explicit, bounded opt-in runner for the native curved ADP command.
+"""Explicit, bounded opt-in runner for the Multi-harmonic angular ADP command.
 
 Ordinary lamaGOET jobs never enter this module. Source data are copied into a
 new directory; failed/nonconverged native runs remain failed, with artifacts.
@@ -28,14 +28,14 @@ def enabled(value):
 def number(value):
     value = float(str(value).replace("D", "E").replace("d", "e"))
     if not math.isfinite(value):
-        raise ValueError("Curved-model numbers must be finite")
+        raise ValueError("Multi-harmonic angular model numbers must be finite")
     return value
 
 
 def vector(value):
     result = [number(x) for x in str(value).replace(",", " ").split()]
     if len(result) != 3:
-        raise ValueError("Curved-model vectors need exactly three numbers")
+        raise ValueError("Multi-harmonic angular model vectors need exactly three numbers")
     return result
 
 
@@ -50,39 +50,39 @@ def validate_options(o):
     if o.get("CURVED_MODEL", "off") == "off":
         return
     if o["CURVED_MODEL"] not in {"planar", "surface"}:
-        raise ValueError("Curved ADP model must be planar or surface")
+        raise ValueError("Multi-harmonic angular ADP model must be planar or surface")
     for key in ("CURVED_TARGET", "CURVED_PIVOT"):
         token(o.get(key, ""), key)
     if o["CURVED_TARGET"] == o["CURVED_PIVOT"]:
-        raise ValueError("Curved target and pivot must be different atoms")
+        raise ValueError("Multi-harmonic angular target and pivot must be different atoms")
     if not enabled(o.get("CURVED_LOCAL_U_CONFIRMED")):
-        raise ValueError("Confirm that the starting CIF contains LOCAL Gaussian U, not total curved U")
+        raise ValueError("Confirm that the starting CIF contains LOCAL Gaussian U, not total angular-model U")
     for key in ("CURVED_TRANSVERSE_1", "CURVED_TRANSVERSE_2", "CURVED_REFERENCE", "CURVED_PIVOT_SHIFT"):
         vector(o[key])
     if sum(x*x for x in vector(o["CURVED_REFERENCE"])) == 0:
-        raise ValueError("Curved reference direction cannot be zero")
+        raise ValueError("Multi-harmonic angular reference direction cannot be zero")
     number(o["CURVED_PLANE_ANGLE"])
     for key, upper in (("CURVED_MAX_CYCLES", 10000), ("CURVED_TIME_LIMIT", 86400), ("CURVED_JOB_TIMEOUT", 604800)):
         if not 1 <= int(o[key]) <= upper:
             raise ValueError(f"{key} must be between 1 and {upper}")
     output = o["CURVED_OUTPUT"]
     if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.-]*", output) or output in {".", ".."}:
-        raise ValueError("Curved output must be a new simple subdirectory name")
+        raise ValueError("Multi-harmonic angular output must be a new simple subdirectory name")
     if o.get("TONTO_REFINEMENT_TARGET") != "f2":
-        raise ValueError("Curved refinement requires the F² target; select F² explicitly")
+        raise ValueError("Multi-harmonic angular refinement requires the F² target; select F² explicitly")
     if o.get("TONTO_WEIGHTING_SCHEME") not in {"sigma", "shelxl"}:
-        raise ValueError("Curved refinement supports sigma or SHELXL weights")
+        raise ValueError("Multi-harmonic angular refinement supports sigma or SHELXL weights")
     if enabled(o.get("EXTI")):
-        raise ValueError("Curved refinement currently requires zero fixed extinction")
+        raise ValueError("Multi-harmonic angular refinement currently requires zero fixed extinction")
     if o.get("H_POSITION_MODEL", "refine") not in {"refine", "free", "fixed"}:
-        raise ValueError("Curved refinement does not yet support riding H atoms")
+        raise ValueError("Multi-harmonic angular refinement does not yet support riding H atoms")
     for key in ("REFANHARM", "REFNOTHING", "REFUISO", "POSONLY", "ADPSONLY", "XWR", "XCW",
                 "CALCULATE_FLACK_PARAMETER", "USENOSPHERA2", "GAUSGEN", "COMPLETESTRUCT", "XCWONLY",
                 "EXPLICITMOL", "DEFRAG", "DEFRAGEXPL", "DEFRAGNETW", "OUTPUT_ANHARMONIC_PDF_CUBES",
                 "INITADP", "POWDER_HAR", "FINITE_WAVEFUNCTION_EXPORT", "PERIODIC_WAVEFUNCTION_EXPORT",
                 "OUTPUT_HIRSHFELD_ATOM_CUBES", "SHELXL_RESIDUAL_MAP", "RESDENS", "PLOT_TONTO"):
         if enabled(o.get(key)):
-            raise ValueError(f"Curved job does not support {key}; disable it explicitly")
+            raise ValueError(f"Multi-harmonic angular job does not support {key}; disable it explicitly")
     if int(o.get("MERGCODE", 2)) not in {0, 1, 2, 3, 4}:
         raise ValueError("Unsupported reflection merging code")
     if number(o["WAVE"]) <= 0:
@@ -96,15 +96,15 @@ def validate_options(o):
         raise ValueError("Choose IAM or single-density native molecular HAR")
     if source == "molecular_hirshfeld":
         if o.get("SCFCALCPROG") != "Tonto" or str(o.get("MULTIPLICITY")) != "1":
-            raise ValueError("Curved HAR requires Tonto and a restricted singlet molecular SCF")
+            raise ValueError("Multi-harmonic angular HAR requires Tonto and a restricted singlet molecular SCF")
         if o.get("METHOD", "").lower() not in {"rhf", "pbe", "blyp", "b3lyp"}:
-            raise ValueError("Curved HAR supports native RHF/PBE/BLYP/B3LYP only")
+            raise ValueError("Multi-harmonic angular HAR supports native RHF/PBE/BLYP/B3LYP only")
         if not enabled(o.get("CURVED_MOLECULE_CONFIRMED")):
             raise ValueError("Confirm a complete molecular fragment in the CIF before single-density HAR")
         if enabled(o.get("SCCHARGES")) or enabled(o.get("GAUSSREL")):
             raise ValueError("This GUI route currently supports nonrelativistic, unembedded molecular HAR only")
         if o.get("PARTITION_MODEL", "oc-hirshfeld") != "oc-hirshfeld" or o.get("STOCKHOLDER_MODEL", "cluster") != "cluster":
-            raise ValueError("Curved molecular HAR requires conventional molecular Hirshfeld partitioning")
+            raise ValueError("Multi-harmonic angular molecular HAR requires conventional molecular Hirshfeld partitioning")
         token(o["BASISSETT"], "Tonto basis")
         int(o.get("CHARGE", 0))
         if str(o.get("LINEDEP", "")).strip() or o.get("BECKEPRUNINGSCHEME", "none") != "none":
@@ -226,7 +226,7 @@ def prepare(option_path):
     option_path = Path(option_path).resolve()
     o = load_job_options(option_path)
     if o.get("CURVED_MODEL", "off") == "off":
-        raise ValueError("Curved model is not selected")
+        raise ValueError("Multi-harmonic angular model is not selected")
     validate_options(o)
     root = option_path.parent
     def input_path(key):
@@ -240,16 +240,16 @@ def prepare(option_path):
     try:
         structure = CrystalStructure.from_cif(cif)
     except CifError as exc:
-        raise ValueError(f"Curved input CIF: {exc}") from exc
+        raise ValueError(f"Multi-harmonic angular input CIF: {exc}") from exc
     atoms = {a.label: a for a in structure.asymmetric_atoms}
     if len(atoms) != len(structure.asymmetric_atoms):
         raise ValueError("Duplicate atom labels in the input CIF")
     if not {o["CURVED_TARGET"], o["CURVED_PIVOT"]} <= atoms.keys():
         raise ValueError("Target and pivot must match distinct asymmetric-atom labels in the CIF")
     if atoms[o["CURVED_TARGET"]].u_aniso is None:
-        raise ValueError("The curved target needs a LOCAL anisotropic Gaussian U in the input CIF")
+        raise ValueError("The angular-model target needs a LOCAL anisotropic Gaussian U in the input CIF")
     if "_tonto_curved" in cif.read_text(errors="replace").lower():
-        raise ValueError("Do not restart from a curved total-U CIF; use the exact native restart interface")
+        raise ValueError("Do not restart from an angular-model total-U CIF; use the exact native restart interface")
     stdin, namelist = make_stdin(o), make_namelist(o)
     reflections = None if enabled(o.get("ISFCF")) else reflection_text(hkl, enabled(o.get("ONF")))
     executable = Path(o["TONTO"]).expanduser()
@@ -321,8 +321,8 @@ def main():
     args = parser.parse_args()
     try:
         out, record = prepare(args.job_options)
-        print(f"Curved ADP inputs/results: {out}", flush=True)
+        print(f"Multi-harmonic angular ADP inputs/results: {out}", flush=True)
         return 0 if args.prepare_only else run(out, record)
     except (ValueError, OSError, subprocess.TimeoutExpired) as exc:
-        print(f"Curved ADP job stopped: {exc}", flush=True)
+        print(f"Multi-harmonic angular ADP job stopped: {exc}", flush=True)
         return 2

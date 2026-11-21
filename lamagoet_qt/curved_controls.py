@@ -1,15 +1,15 @@
-"""Opt-in native curved displacement refinement controls (not just a viewer)."""
+"""Opt-in Multi-harmonic angular ADP controls (legacy input keys retained)."""
 from PySide6.QtWidgets import QCheckBox, QComboBox, QFormLayout, QGroupBox, QLabel, QLineEdit, QSpinBox, QWidget
 
 
 class CurvedControls(QGroupBox):
     def __init__(self, parent=None):
-        super().__init__("Curved ADP refinement — opt-in", parent)
+        super().__init__("Multi-harmonic angular ADP refinement - opt-in", parent)
         form = QFormLayout(self)
         self.model = QComboBox()
         for label, value in (("Off — ordinary ADPs / existing Gram–Charlier controls", "off"),
-                             ("Curved path — one transverse direction", "planar"),
-                             ("Curved surface — two transverse directions", "surface")):
+                             ("One transverse direction (planar)", "planar"),
+                             ("Two transverse directions (surface)", "surface")):
             self.model.addItem(label, value)
         form.addRow("Displacement model", self.model)
         self.details = QWidget()
@@ -28,7 +28,7 @@ class CurvedControls(QGroupBox):
                            ("CURVED_OUTPUT", "New result subdirectory")):
             self.fields[key] = QLineEdit()
             inner.addRow(label, self.fields[key])
-        self.local = QCheckBox("Starting target U is LOCAL Gaussian U, not a previous curved model's total U")
+        self.local = QCheckBox("Starting target U is LOCAL Gaussian U, not a previous angular model's total U")
         self.molecule = QCheckBox("For HAR: CIF contains the complete molecule; no crystal fragment is missing")
         inner.addRow(self.local)
         inner.addRow(self.molecule)
@@ -44,7 +44,7 @@ class CurvedControls(QGroupBox):
             "HKL, F² weights, merging, dispersion and H settings. One target only; site symmetry is "
             "enforced by Tonto. IAM ignores QM controls. HAR requires Tonto RHF/PBE/BLYP/B3LYP, "
             "singlet, complete molecule, no embedding/relativity. No periodic HAR, extinction, "
-            "riding H, XCW or simultaneous Gram–Charlier. The native curved solver controls "
+            "riding H, XCW or simultaneous Gram–Charlier. The native angular ADP solver controls "
             "convergence, not the ordinary solver widgets. Runs one CPU thread, with a 10 GiB "
             "address-space limit. Results are never overwritten. Small steps are not proof of convergence."
         )

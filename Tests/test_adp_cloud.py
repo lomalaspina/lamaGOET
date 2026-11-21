@@ -73,6 +73,7 @@ class CloudTests(unittest.TestCase):
             path = Path(tmp) / 'curved.model.json';path.write_text(json.dumps(artifact()))
             with patch.object(AdpCloudDialog, 'rebuild'):
                 dialog = AdpCloudDialog(path)
+            self.assertEqual(dialog.windowTitle(), 'Multi-harmonic angular ADP - probability cloud')
             dialog._completed(self.mesh);dialog.show();app.processEvents()
             self.assertTrue(dialog.viewer.show_probability_clouds)
             self.assertIn('Cl1', dialog.viewer.probability_meshes)

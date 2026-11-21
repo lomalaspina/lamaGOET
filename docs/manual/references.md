@@ -455,7 +455,7 @@ publisher or software project wherever possible.
     structures and thermodynamic properties,” *IUCrJ* **12** (2025), 123–136.
     [doi:10.1107/S2052252524011862](https://doi.org/10.1107/S2052252524011862).
     This explains the normal-mode/frequency-based NoMoRe context. It does not
-    validate Tonto's distinct experimental finite-angle curved-path model.
+    validate Tonto's distinct experimental Multi-harmonic angular ADP model.
 
 ## Citation practice
 

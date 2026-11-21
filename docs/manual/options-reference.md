@@ -36,10 +36,10 @@ for every system. Values saved by the GUI override them.
 
 ## Resources and convergence
 
-### Curved displacement refinement (explicit opt-in)
+### Multi-harmonic angular ADP refinement (explicit opt-in)
 
 These controls activate the native command rather than only opening its cloud
-viewer. See [Curved-path ADPs](curved-adp.md) for theory, supported combinations,
+viewer. See [Multi-harmonic angular ADP](curved-adp.md) for theory, supported combinations,
 local-versus-total covariance, site symmetry and uncertainty limitations.
 The ordinary workflow is unchanged when `CURVED_MODEL=off`.
 
@@ -56,8 +56,8 @@ The ordinary workflow is unchanged when `CURVED_MODEL=off`.
 | `CURVED_PIVOT_SHIFT` | `0 0 0` | Cartesian translation added to the pivot, in Å |
 | `CURVED_LOCAL_U_CONFIRMED` | `false` | required confirmation that starting target U is local Gaussian covariance |
 | `CURVED_MOLECULE_CONFIRMED` | `false` | required complete-fragment confirmation for native molecular HAR |
-| `CURVED_MAX_CYCLES` | `100` | native curved refinement iteration bound, 1–10000 |
-| `CURVED_TIME_LIMIT` | `3600` | native curved refinement time limit, seconds, 1–86400 |
+| `CURVED_MAX_CYCLES` | `100` | native angular ADP refinement iteration bound, 1–10000 |
+| `CURVED_TIME_LIMIT` | `3600` | native angular ADP refinement time limit, seconds, 1–86400 |
 | `CURVED_JOB_TIMEOUT` | `86400` | whole-job time bound including SCF/capture, seconds, 1–604800 |
 | `CURVED_OUTPUT` | `curved-refinement` | new result subdirectory; existing directories are refused |
 

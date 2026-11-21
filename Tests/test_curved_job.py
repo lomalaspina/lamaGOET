@@ -116,13 +116,16 @@ def main():
             from lamagoet_qt.curved_controls import CurvedControls
             app = QApplication.instance() or QApplication([])
             widget = CurvedControls()
+            assert widget.title() == "Multi-harmonic angular ADP refinement - opt-in"
+            assert widget.model.itemText(widget.model.findData("planar")) == "One transverse direction (planar)"
+            assert widget.model.itemText(widget.model.findData("surface")) == "Two transverse directions (surface)"
             widget.load(o)
             assert widget.values()["CURVED_TARGET"] == "Cl1"
             assert widget.values()["CURVED_MODEL"] == "surface"
             widget.load(OPTION_DEFAULTS)
             assert widget.values()["CURVED_MODEL"] == "off"
             assert not widget.local.isChecked()
-    print("Curved selector, reflection preservation, scope guards and convergence-status checks passed")
+    print("Multi-harmonic angular ADP selector, reflection preservation, scope guards and convergence-status checks passed")
 
 
 if __name__ == "__main__":
