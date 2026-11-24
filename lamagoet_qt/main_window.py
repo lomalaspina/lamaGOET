@@ -1197,6 +1197,7 @@ class MainWindow(QMainWindow):
         anharmonic_layout.addWidget(self.fourth_order)
         refinement_form.addRow(anharmonic_row)
         self.curved_controls = CurvedControls()
+        self.curved_controls.structure_loader = self._angular_input_structure
         refinement_form.addRow(self.curved_controls)
         self.anharmonic_h_warning = QLabel(
             "IAM warning: anisotropic H ADPs are normally poorly determined "
@@ -3829,6 +3830,16 @@ class MainWindow(QMainWindow):
         self.cp2k_basis.clear()
         self.cp2k_basis.addItems(choices)
         self._set_combo_text(self.cp2k_basis, current)
+
+    def _angular_input_structure(self):
+        """Read the job input, not a possibly different live result-viewer CIF."""
+        value=self.cif_path.text().strip()
+        if not value:
+            raise ValueError("Select an input CIF first.")
+        path=Path(value).expanduser()
+        if not path.is_absolute():
+            path=self.option_path.parent/path
+        return CrystalStructure.from_cif(path)
 
     def _load_cif_from_field(self, *, adopt_wavelength: bool = True) -> None:
         value = self.cif_path.text().strip()

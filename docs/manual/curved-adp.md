@@ -708,16 +708,29 @@ it cannot be combined with the multi-harmonic angular model in this GUI route.
    library. Supply a complete molecule and confirm that no fragment is missing.
    This route is nonrelativistic and unembedded; it does not import an arbitrary
    Gaussian checkpoint, perform periodic partitioning or run an outer HAR loop.
-3. Enter the exact **target** label. With **Automatic bond geometry and starting
-   values**, a terminal atom's unique bonded neighbour supplies the pivot; you
-   can also specify its label. The program resolves its lattice image and
+3. Enter the exact **target** label, or use **Choose target atom and bonded
+   neighbour…**. With **Determine bond and directions automatically**, a
+   unique bonded neighbour supplies the pivot. For a multiply bonded atom,
+   the selector lists **all** covalent neighbours, with distances, and requires
+   an explicit choice; it does not silently prefer the shortest bond. This is
+   not restricted to terminal atoms or particular elements. Connectivity uses
+   the viewer's Tonto-compatible covalent radii and periodic images, not a
+   guaranteed chemical bond assignment from the CIF bond table. Inspect unusual
+   coordination environments. The program resolves the selected lattice image and
    chooses a Cartesian reference that is not parallel to the bond. It refuses
    ambiguous choices, including an unspecified pivot for water oxygen, rather
-   than guessing a physical model. Add other independent atoms in the
+   than guessing a physical model. A selected reference bond defines this
+   model's geometry: it is **not** just a disposable numerical label. Add other independent atoms in the
    **Additional independent targets** table. For example, hydrogen targets
    `H6A` and `H6B` may both use `O6` as pivot. Each target may use the compact,
    planar or surface model, including different models in the same joint fit.
    These are illustrative labels, not an automatic assignment for every CIF.
+   Use **Choose atom/bond for selected row…** for additional targets. The present
+   native model still has **one reference bond per target**. Using several bonds
+   together to define a frame or a shared molecular motion requires a separate
+   geometric model and derivatives; the neighbour selector does not implement
+   it. A site without a meaningful bond requires a pivot-free model, not an
+   invented neighbour. Site-symmetry averaging remains enforced in the native fit.
 4. Confirm that **every** input target tensor is the **local Gaussian covariance**.
    A previous angular-model result's total-U CIF is not a valid local-U restart.
    Each target must have an anisotropic starting tensor. Turn off isotropic H
@@ -749,18 +762,31 @@ The whole-job time limit includes SCF and factor capture; the refinement
 limit starts in the native angular ADP solver. Reaching either limit is failure
 to finish, not evidence of convergence.
 
-**Advanced settings** expose manual initial angular coefficients, frame angle,
-Cartesian reference and pivot-image translation. These specify starting values
-and the bond/image geometry, not fixed fitted displacement directions. Automatic
-setup uses small nonzero triples `(0.05, 0.01, 0.005)` and `(0.03, 0.006, 0.003)`
+**Use suggested starting coefficients (not restraints)** is independent of
+automatic bond geometry. For a typical two-direction surface job, selecting
+the target and resolving its bond is sufficient: no direction vectors or image
+translations need to be typed. To customize the coefficients, clear that
+checkbox; **automatic geometry can remain enabled**. The initial coefficients
+and transverse orientation become editable. **Show advanced angular settings**
+also reveals the numerical reference and lattice-image translation; these are
+editable only when automatic geometry is disabled. The same controls apply to
+additional targets, including mixed models.
+
+Suggested starts are small nonzero triples `(0.05, 0.01, 0.005)` and `(0.03, 0.006, 0.003)`
 in radians for the higher-order surface; the compact option uses `(0.05, 0, 0)`
 and `(0.03, 0, 0)`. Nonzero T2/T3 values entered manually for the compact option
 are rejected rather than silently discarded. These are numerical starting values, not physical estimates or
-universal recommendations. Check convergence from alternative sensible starts.
+universal recommendations. They are **not restraint targets or uncertainties**:
+no additional penalty is added to the least-squares objective and the
+coefficients/orientation remain free to refine. There is no demonstrated
+globally optimal starting set. Check convergence from alternative sensible
+starts, especially near zero amplitudes and weakly identified directions.
 The pivot translation is a Cartesian **lattice-image** shift in Å; a general
 rotated symmetry mate needs a different coordinate chain rule and is not
 silently represented by a constant shift. Old saved active jobs retain manual
-geometry unless automatic setup is explicitly selected.
+geometry and coefficients unless automatic setup/defaults are explicitly
+selected. The resolved choices and numerical starts are saved in `curved.nml`
+and `run.json`; the original CIF is not changed.
 
 The supported single-density HAR command has passed a small converged native
 SCF/capture test. This does not resolve the separate large-system native SCF

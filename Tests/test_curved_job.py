@@ -17,7 +17,7 @@ from lamagoet_qt.options_schema import OPTION_DEFAULTS
 
 def main():
     o = dict(OPTION_DEFAULTS, CURVED_MODEL="surface", CURVED_TARGET="Cl1", CURVED_PIVOT="Cu1",
-             CURVED_AUTO_GEOMETRY="false",
+             CURVED_AUTO_GEOMETRY="false", CURVED_DEFAULT_STARTS="false",
              CURVED_LOCAL_U_CONFIRMED="true", TONTO_REFINEMENT_TARGET="f2", FCUT="0", HADP="yes")
     validate_options(o)
     compact=dict(o,CURVED_MODEL='harmonic_surface',CURVED_TRANSVERSE_1='.05 0 0',CURVED_TRANSVERSE_2='.03 0 0')

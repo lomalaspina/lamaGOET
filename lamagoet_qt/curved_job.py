@@ -25,6 +25,24 @@ def enabled(value):
     return str(value).lower() in {"true", "yes", "1", "on"}
 
 
+def default_starts_enabled(o):
+    """Legacy automatic setup chose starts too; manual jobs retain their values."""
+    return enabled(o.get("CURVED_DEFAULT_STARTS", o.get("CURVED_AUTO_GEOMETRY", "false")))
+
+
+def suggested_angular_starts(model):
+    """Nonzero numerical seeds, not restraints or optimized physical amplitudes.
+
+    Higher harmonics start away from a singular all-zero chart. Each target's
+    model selects its own seeds; no value depends on the experimental residuals.
+    """
+    if model == "harmonic_surface":
+        return dict(transverse_1="0.05 0 0", transverse_2="0.03 0 0", plane_angle="0")
+    if model in {"planar", "surface"}:
+        return dict(transverse_1="0.05 0.01 0.005", transverse_2="0.03 0.006 0.003", plane_angle="0")
+    raise ValueError("Unsupported angular starting-value model")
+
+
 def number(value):
     value = float(str(value).replace("D", "E").replace("d", "e"))
     if not math.isfinite(value):
@@ -66,6 +84,9 @@ def angular_targets(o):
         if not isinstance(row, dict) or set(row) != set(fields):
             raise ValueError("Each additional target needs label, pivot, model, two transverse vectors, angle, reference and image shift")
         targets.append(row.copy())
+    if default_starts_enabled(o):
+        for row in targets:
+            row.update(suggested_angular_starts(row["model"]))
     seen = set()
     for row in targets:
         target = token(row["target"], "angular target")
@@ -84,63 +105,76 @@ def angular_targets(o):
         if sum(x*x for x in vector(row["reference"])) == 0:
             raise ValueError("Multi-harmonic angular reference direction cannot be zero")
         number(row["plane_angle"])
-        if row['model']=='harmonic_surface' and not enabled(o.get('CURVED_AUTO_GEOMETRY')):
+        if row['model']=='harmonic_surface':
             if any(vector(row[key])[i] != 0 for key in ('transverse_1','transverse_2') for i in (1,2)):
                 raise ValueError("The nine-parameter harmonic model requires T2=T3=0 in both directions; coefficients are not silently discarded")
     return targets
 
 
-def resolve_angular_geometry(o, structure):
-    """Infer only unambiguous bonded images; never guess a water-centre pivot.
+def angular_bond_candidates(structure, target_label):
+    """All covalent neighbours, for any element/coordination, with image audit.
 
-    Native pivots currently support lattice translations, not a general
-    rotational symmetry mate with a different coordinate derivative.
+    Uses the viewer's Tonto-compatible connectivity, not a terminal-atom filter
+    or a claim that the closest bond is the preferred physical bending axis.
+    Native pivots support translations but not a general rotated image.
     """
-    rows = angular_targets(o)
-    if not enabled(o.get("CURVED_AUTO_GEOMETRY")):
-        return rows
     import numpy as np
     from .crystal import infer_bonds, _COVALENT_RADII, _TONTO_BOND_RANGE
     atoms = {atom.label: atom for atom in structure.asymmetric_unit()}
+    if target_label not in atoms:
+        raise ValueError(f"Unknown angular target {target_label}")
     direct = np.array(structure.cell.direct_matrix)
     inverse = np.linalg.inv(direct)
     radius = 2*max(_COVALENT_RADII.get(a.element,1.5) for a in atoms.values())+_TONTO_BOND_RANGE
     shell = max(1, int(np.ceil(radius*np.max(np.linalg.norm(inverse,axis=1)))))
     if shell > 3:
         raise ValueError("Automatic angular geometry does not support this unusually short/skew cell; select the image explicitly in Advanced settings")
+    target = atoms[target_label]
+    near = [target] + [a for a in structure._neighbourhood([target], shell)
+                       if np.linalg.norm(np.array(a.cartesian)-target.cartesian)>1e-7]
+    candidates = [near[right] for left,right in infer_bonds(near) if left==0]
+    unique = {}
+    for atom in candidates:
+        unique[(atom.label,tuple(np.round(atom.cartesian,7)))] = atom
+    result=[]
+    for pivot in unique.values():
+        translation=np.array(pivot.fractional)-atoms[pivot.label].fractional
+        rotated=np.max(abs(translation-np.rint(translation)))>1e-7
+        result.append(dict(pivot=pivot.label, distance=float(np.linalg.norm(np.array(pivot.cartesian)-target.cartesian)),
+                           shift=(direct@np.rint(translation)).tolist() if not rotated else None,
+                           supported=not rotated and pivot.label!=target_label,
+                           reason="rotated symmetry mate" if rotated else "same asymmetric atom" if pivot.label==target_label else "lattice image"))
+    return sorted(result,key=lambda row:(row['pivot'],row['distance'],str(row['shift'])))
+
+
+def resolve_angular_geometry(o, structure):
+    """Resolve a chosen or unique bond for terminal OR multiply bonded atoms."""
+    rows = angular_targets(o)
+    if not enabled(o.get("CURVED_AUTO_GEOMETRY")):
+        return rows
+    import numpy as np
+    atoms = {atom.label: atom for atom in structure.asymmetric_unit()}
     for row in rows:
-        if row['target'] not in atoms:
-            raise ValueError(f"Unknown angular target {row['target']}")
+        candidates = angular_bond_candidates(structure,row['target'])
         target = atoms[row['target']]
-        near = [target] + [a for a in structure._neighbourhood([target], shell)
-                           if np.linalg.norm(np.array(a.cartesian)-target.cartesian)>1e-7]
-        candidates = [near[right] for left,right in infer_bonds(near) if left==0]
         if row['pivot']:
-            candidates = [a for a in candidates if a.label==row['pivot']]
+            candidates = [a for a in candidates if a['pivot']==row['pivot']]
         # Distinct symmetry images of the same label still represent different
         # choices of pivot. A nearest-distance tie must not silently choose one.
-        unique = {}
-        for atom in candidates:
-            unique[(atom.label,tuple(np.round(atom.cartesian,7)))] = atom
-        candidates = list(unique.values())
         if len(candidates) != 1:
-            labels = ', '.join(sorted({a.label for a in candidates})) or 'none'
+            labels = ', '.join(sorted({a['pivot'] for a in candidates})) or 'none'
             raise ValueError(f"{row['target']}: automatic bond pivot is ambiguous or absent ({labels}). "
-                             "Choose the intended pivot; for water H atoms use their O. A central O has no unique angular pivot.")
-        pivot=candidates[0];source=atoms[pivot.label]
-        translation=np.array(pivot.fractional)-source.fractional
-        if np.max(abs(translation-np.rint(translation)))>1e-7:
-            raise ValueError(f"{row['target']}: bonded pivot requires a rotated symmetry mate, not just a lattice image. "
+                             "Choose a bonded neighbour in the atom/bond selector. Multiple bonds do not define a unique angular pivot.")
+        pivot=candidates[0];source=atoms[pivot['pivot']]
+        if not pivot['supported']:
+            raise ValueError(f"{row['target']}: bonded pivot requires a {pivot['reason']}, not a distinct translated atom. "
                              "That pivot chain rule is not supported by this native command; do not substitute a constant shift.")
-        shift=direct@np.rint(translation)
+        shift=np.array(pivot['shift'])
         bond=np.array(target.cartesian)-np.array(source.cartesian)-shift
         if np.linalg.norm(bond)<1e-7:raise ValueError("Coincident angular target and pivot")
         reference=np.eye(3)[np.argmin(abs(bond/np.linalg.norm(bond)))]
-        row.update(pivot=pivot.label,pivot_shift=' '.join(f'{x:.17g}' for x in shift),
-                   reference=' '.join(f'{x:.17g}' for x in reference),plane_angle='0',
-                   transverse_1='0.05 0.01 0.005',transverse_2='0.03 0.006 0.003')
-        if row['model']=='harmonic_surface':
-            row.update(transverse_1='0.05 0 0',transverse_2='0.03 0 0')
+        row.update(pivot=pivot['pivot'],pivot_shift=' '.join(f'{x:.17g}' for x in shift),
+                   reference=' '.join(f'{x:.17g}' for x in reference))
     return rows
 
 
@@ -266,7 +300,7 @@ def make_namelist(o, targets=None):
         if enabled(o.get("CURVED_AUTO_GEOMETRY")):
             raise ValueError("Automatic angular geometry must be resolved from the CIF before writing native input")
         targets = angular_targets(o)
-    if explicit_targets or len(targets) > 1 or enabled(o.get("CURVED_AUTO_GEOMETRY")):
+    if explicit_targets or len(targets) > 1 or enabled(o.get("CURVED_AUTO_GEOMETRY")) or default_starts_enabled(o):
         lines = ["&curved_adp", f" electronic_source='{o['CURVED_ELECTRONIC_SOURCE']}',",
                  f" n_targets={len(targets)}, initial_covariance_is_local=.true.,"]
         for i, row in enumerate(targets, 1):

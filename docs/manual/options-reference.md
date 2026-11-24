@@ -49,7 +49,8 @@ The ordinary workflow is unchanged when `CURVED_MODEL=off`.
 | `CURVED_ELECTRONIC_SOURCE` | `iam` | `iam` or single-density `molecular_hirshfeld` |
 | `CURVED_TARGET` | *(empty)* | exact anisotropic target atom label |
 | `CURVED_PIVOT` | *(empty)* | distinct pivot atom label; may be inferred only when the automatic choice is unique |
-| `CURVED_AUTO_GEOMETRY` | `true` for new jobs | infer an unambiguous bond image and numerical frame/starts; legacy active jobs remain manual |
+| `CURVED_AUTO_GEOMETRY` | `true` for new jobs | infer an unambiguous or explicitly selected bonded neighbour's image and numerical frame, for terminal or multiply bonded atoms; legacy active jobs remain manual |
+| `CURVED_DEFAULT_STARTS` | `true` for new jobs | use model-specific suggested starting coefficients and zero initial transverse orientation; clear independently of automatic geometry to customize starts; adds no restraint penalty |
 | `CURVED_ADDITIONAL_TARGETS` | `[]` | JSON list written by the additional-target table; each entry has `target`, `pivot`, `model`, `transverse_1`, `transverse_2`, `plane_angle`, `reference`, `pivot_shift`; all targets refine jointly |
 | `CURVED_TRANSVERSE_1` | `0.05 0 0` | first angular T1/T2/T3 triple in radians; starting values, not universal recommendations |
 | `CURVED_TRANSVERSE_2` | `0.03 0 0` | second angular triple, surface only |
