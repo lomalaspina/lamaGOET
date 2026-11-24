@@ -12,6 +12,35 @@ from pathlib import Path
 import numpy as np
 
 
+def model_paths(path):
+    """Resolve a bounded native joint manifest, or retain a single artifact.
+
+    Manifest entries must be sibling files, never arbitrary executable input
+    or paths outside the result directory. Loading a cloud still validates its
+    normalization, total moment and site symmetry through CloudModel.
+    """
+    path = Path(path).resolve()
+    if path.stat().st_size > 40 * 1024 * 1024:
+        raise ValueError("Model artifact exceeds the viewer size limit")
+    data = json.loads(path.read_text(encoding="utf-8"))
+    if data.get("schema") != "tonto.multi-angular-adp":
+        return [(str(data.get("target_label", "Target")), path)]
+    if data.get("version") != 1 or not isinstance(data.get("targets"), list) or not 1 <= len(data["targets"]) <= 64:
+        raise ValueError("Invalid joint angular model manifest")
+    result, labels = [], set()
+    for row in data["targets"]:
+        label, name = row.get("target_label"), row.get("model_file")
+        if not isinstance(label, str) or not label or label in labels:
+            raise ValueError("Missing or repeated joint angular target label")
+        if not isinstance(name, str) or not name or Path(name).name != name or "\\" in name:
+            raise ValueError("Joint model entries must be sibling artifact filenames")
+        target = (path.parent/name).resolve()
+        if target.parent != path.parent or target == path or not target.is_file():
+            raise ValueError("Joint model artifact is missing or outside its result directory")
+        labels.add(label); result.append((label, target))
+    return result
+
+
 @dataclass
 class ProbabilityMesh:
     vertices: np.ndarray

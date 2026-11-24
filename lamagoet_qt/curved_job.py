@@ -45,16 +45,112 @@ def token(value, label):
     return str(value)
 
 
+def angular_targets(o):
+    """Primary target plus explicit independent additional targets in order.
+
+    A common pivot is allowed; repeated targets are not. This defines marginal
+    atomic distributions, not phase-locked molecular normal modes.
+    """
+    fields = {"target": "CURVED_TARGET", "pivot": "CURVED_PIVOT", "model": "CURVED_MODEL",
+              "transverse_1": "CURVED_TRANSVERSE_1", "transverse_2": "CURVED_TRANSVERSE_2",
+              "plane_angle": "CURVED_PLANE_ANGLE", "reference": "CURVED_REFERENCE", "pivot_shift": "CURVED_PIVOT_SHIFT"}
+    primary = {key: o.get(option, "") for key, option in fields.items()}
+    try:
+        extra = json.loads(o.get("CURVED_ADDITIONAL_TARGETS", "[]"))
+    except (ValueError, TypeError) as exc:
+        raise ValueError("Additional angular targets must be a JSON list of target definitions") from exc
+    if not isinstance(extra, list) or len(extra) > 63:
+        raise ValueError("Choose between 1 and 64 independent angular targets")
+    targets = [primary]
+    for row in extra:
+        if not isinstance(row, dict) or set(row) != set(fields):
+            raise ValueError("Each additional target needs label, pivot, model, two transverse vectors, angle, reference and image shift")
+        targets.append(row.copy())
+    seen = set()
+    for row in targets:
+        target = token(row["target"], "angular target")
+        pivot = str(row["pivot"]).strip()
+        if pivot or not enabled(o.get("CURVED_AUTO_GEOMETRY")):
+            pivot = token(pivot, "angular pivot")
+        if target == pivot:
+            raise ValueError("Multi-harmonic angular target and pivot must be different atoms")
+        if target in seen:
+            raise ValueError(f"Repeated angular target {target}; symmetry equivalents are generated automatically")
+        seen.add(target)
+        if row["model"] not in {"harmonic_surface", "planar", "surface"}:
+            raise ValueError("Each angular target model must be harmonic_surface, planar or surface")
+        for key in ("transverse_1", "transverse_2", "reference", "pivot_shift"):
+            vector(row[key])
+        if sum(x*x for x in vector(row["reference"])) == 0:
+            raise ValueError("Multi-harmonic angular reference direction cannot be zero")
+        number(row["plane_angle"])
+        if row['model']=='harmonic_surface' and not enabled(o.get('CURVED_AUTO_GEOMETRY')):
+            if any(vector(row[key])[i] != 0 for key in ('transverse_1','transverse_2') for i in (1,2)):
+                raise ValueError("The nine-parameter harmonic model requires T2=T3=0 in both directions; coefficients are not silently discarded")
+    return targets
+
+
+def resolve_angular_geometry(o, structure):
+    """Infer only unambiguous bonded images; never guess a water-centre pivot.
+
+    Native pivots currently support lattice translations, not a general
+    rotational symmetry mate with a different coordinate derivative.
+    """
+    rows = angular_targets(o)
+    if not enabled(o.get("CURVED_AUTO_GEOMETRY")):
+        return rows
+    import numpy as np
+    from .crystal import infer_bonds, _COVALENT_RADII, _TONTO_BOND_RANGE
+    atoms = {atom.label: atom for atom in structure.asymmetric_unit()}
+    direct = np.array(structure.cell.direct_matrix)
+    inverse = np.linalg.inv(direct)
+    radius = 2*max(_COVALENT_RADII.get(a.element,1.5) for a in atoms.values())+_TONTO_BOND_RANGE
+    shell = max(1, int(np.ceil(radius*np.max(np.linalg.norm(inverse,axis=1)))))
+    if shell > 3:
+        raise ValueError("Automatic angular geometry does not support this unusually short/skew cell; select the image explicitly in Advanced settings")
+    for row in rows:
+        if row['target'] not in atoms:
+            raise ValueError(f"Unknown angular target {row['target']}")
+        target = atoms[row['target']]
+        near = [target] + [a for a in structure._neighbourhood([target], shell)
+                           if np.linalg.norm(np.array(a.cartesian)-target.cartesian)>1e-7]
+        candidates = [near[right] for left,right in infer_bonds(near) if left==0]
+        if row['pivot']:
+            candidates = [a for a in candidates if a.label==row['pivot']]
+        # Distinct symmetry images of the same label still represent different
+        # choices of pivot. A nearest-distance tie must not silently choose one.
+        unique = {}
+        for atom in candidates:
+            unique[(atom.label,tuple(np.round(atom.cartesian,7)))] = atom
+        candidates = list(unique.values())
+        if len(candidates) != 1:
+            labels = ', '.join(sorted({a.label for a in candidates})) or 'none'
+            raise ValueError(f"{row['target']}: automatic bond pivot is ambiguous or absent ({labels}). "
+                             "Choose the intended pivot; for water H atoms use their O. A central O has no unique angular pivot.")
+        pivot=candidates[0];source=atoms[pivot.label]
+        translation=np.array(pivot.fractional)-source.fractional
+        if np.max(abs(translation-np.rint(translation)))>1e-7:
+            raise ValueError(f"{row['target']}: bonded pivot requires a rotated symmetry mate, not just a lattice image. "
+                             "That pivot chain rule is not supported by this native command; do not substitute a constant shift.")
+        shift=direct@np.rint(translation)
+        bond=np.array(target.cartesian)-np.array(source.cartesian)-shift
+        if np.linalg.norm(bond)<1e-7:raise ValueError("Coincident angular target and pivot")
+        reference=np.eye(3)[np.argmin(abs(bond/np.linalg.norm(bond)))]
+        row.update(pivot=pivot.label,pivot_shift=' '.join(f'{x:.17g}' for x in shift),
+                   reference=' '.join(f'{x:.17g}' for x in reference),plane_angle='0',
+                   transverse_1='0.05 0.01 0.005',transverse_2='0.03 0.006 0.003')
+        if row['model']=='harmonic_surface':
+            row.update(transverse_1='0.05 0 0',transverse_2='0.03 0 0')
+    return rows
+
+
 def validate_options(o):
     """Validate scientific scope before writing any calculation files."""
     if o.get("CURVED_MODEL", "off") == "off":
         return
-    if o["CURVED_MODEL"] not in {"planar", "surface"}:
-        raise ValueError("Multi-harmonic angular ADP model must be planar or surface")
-    for key in ("CURVED_TARGET", "CURVED_PIVOT"):
-        token(o.get(key, ""), key)
-    if o["CURVED_TARGET"] == o["CURVED_PIVOT"]:
-        raise ValueError("Multi-harmonic angular target and pivot must be different atoms")
+    if o["CURVED_MODEL"] not in {"harmonic_surface", "planar", "surface"}:
+        raise ValueError("Multi-harmonic angular ADP model must be harmonic_surface, planar or surface")
+    angular_targets(o)
     if not enabled(o.get("CURVED_LOCAL_U_CONFIRMED")):
         raise ValueError("Confirm that the starting CIF contains LOCAL Gaussian U, not total angular-model U")
     for key in ("CURVED_TRANSVERSE_1", "CURVED_TRANSVERSE_2", "CURVED_REFERENCE", "CURVED_PIVOT_SHIFT"):
@@ -164,7 +260,23 @@ def reflection_text(path, on_f=False):
     return "reflection_data= { keys= { h= k= l= " + pair + " } data= {\n" + "\n".join(records) + "\n} }\nREVERT\n"
 
 
-def make_namelist(o):
+def make_namelist(o, targets=None):
+    explicit_targets = targets is not None
+    if targets is None:
+        if enabled(o.get("CURVED_AUTO_GEOMETRY")):
+            raise ValueError("Automatic angular geometry must be resolved from the CIF before writing native input")
+        targets = angular_targets(o)
+    if explicit_targets or len(targets) > 1 or enabled(o.get("CURVED_AUTO_GEOMETRY")):
+        lines = ["&curved_adp", f" electronic_source='{o['CURVED_ELECTRONIC_SOURCE']}',",
+                 f" n_targets={len(targets)}, initial_covariance_is_local=.true.,"]
+        for i, row in enumerate(targets, 1):
+            lines.append(f" target_labels({i})='{row['target']}', pivot_labels({i})='{row['pivot']}', target_models({i})='{row['model']}',")
+            for key, native in (("transverse_1", "target_transverse_1"), ("transverse_2", "target_transverse_2"),
+                                ("reference", "target_references"), ("pivot_shift", "target_pivot_shifts")):
+                lines.append(f" {native}(:,{i})=" + ",".join(f"{x:.17g}" for x in vector(row[key])) + ",")
+            lines.append(f" target_plane_angles({i})={number(row['plane_angle']):.17g},")
+        lines += [f" max_cycles={int(o['CURVED_MAX_CYCLES'])}, time_limit_seconds={int(o['CURVED_TIME_LIMIT'])}", "/"]
+        return "\n".join(lines) + "\n"
     lines = ["&curved_adp", f" model='{o['CURVED_MODEL']}', electronic_source='{o['CURVED_ELECTRONIC_SOURCE']}',",
              f" target_label='{o['CURVED_TARGET']}', pivot_label='{o['CURVED_PIVOT']}',",
              " initial_covariance_is_local=.true.,"]
@@ -244,13 +356,18 @@ def prepare(option_path):
     atoms = {a.label: a for a in structure.asymmetric_atoms}
     if len(atoms) != len(structure.asymmetric_atoms):
         raise ValueError("Duplicate atom labels in the input CIF")
-    if not {o["CURVED_TARGET"], o["CURVED_PIVOT"]} <= atoms.keys():
-        raise ValueError("Target and pivot must match distinct asymmetric-atom labels in the CIF")
-    if atoms[o["CURVED_TARGET"]].u_aniso is None:
-        raise ValueError("The angular-model target needs a LOCAL anisotropic Gaussian U in the input CIF")
+    targets = resolve_angular_geometry(o, structure)
+    for row in targets:
+        if not {row["target"], row["pivot"]} <= atoms.keys():
+            raise ValueError("Every target and pivot must match distinct asymmetric-atom labels in the CIF")
+        if atoms[row["target"]].u_aniso is None:
+            raise ValueError(f"Angular target {row['target']} needs a LOCAL anisotropic Gaussian U in the input CIF")
+        # An H target cannot be silently isotropized by the global H control.
+        if atoms[row["target"]].element == "H" and enabled(o.get("HADP")):
+            raise ValueError("Disable isotropic H ADPs when selecting hydrogen angular targets")
     if "_tonto_curved" in cif.read_text(errors="replace").lower():
         raise ValueError("Do not restart from an angular-model total-U CIF; use the exact native restart interface")
-    stdin, namelist = make_stdin(o), make_namelist(o)
+    stdin, namelist = make_stdin(o), make_namelist(o,targets)
     reflections = None if enabled(o.get("ISFCF")) else reflection_text(hkl, enabled(o.get("ONF")))
     executable = Path(o["TONTO"]).expanduser()
     if executable.is_absolute():
@@ -279,6 +396,7 @@ def prepare(option_path):
     shutil.copy2(option_path, out / "job_options.snapshot.txt")
     command = [exe, "--curved-adp", "curved.nml"]
     record = {"status": "prepared", "created_utc": datetime.now(timezone.utc).isoformat(), "command": command,
+              "angular_targets": targets,
               "source_cif": str(cif), "source_hkl": str(hkl), "electronic_source": o["CURVED_ELECTRONIC_SOURCE"],
               "job_timeout_seconds": int(o["CURVED_JOB_TIMEOUT"]), "address_limit_GiB": 10, "threads": 1,
               "sha256": {p.name: hashlib.sha256(p.read_bytes()).hexdigest() for p in out.iterdir() if p.is_file()},

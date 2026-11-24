@@ -4,7 +4,7 @@ import math
 import numpy as np
 from PySide6.QtCore import QObject, QRunnable, QThreadPool, Signal, Qt
 from PySide6.QtWidgets import QDialog, QVBoxLayout, QHBoxLayout, QLabel, QSpinBox, QComboBox, QCheckBox
-from .adp_cloud import CloudModel
+from .adp_cloud import CloudModel, model_paths
 from .crystal import Cell, DisplayAtom
 from .viewer import StructureView
 
@@ -32,10 +32,19 @@ class AdpCloudDialog(QDialog):
         super().__init__(parent)
         self.setWindowTitle("Multi-harmonic angular ADP - probability cloud")
         self.resize(900, 760)
-        self.model = CloudModel.read(path)
+        self.model_files = model_paths(path)
+        self.model = CloudModel.read(self.model_files[0][1])
+        if self.model.data['target_label'] != self.model_files[0][0]:
+            raise ValueError("Joint manifest and model atom identities disagree")
         self.mesh = None
         layout = QVBoxLayout(self)
-        self.source = QLabel(f"{Path(path).resolve()}\nModel: {self.model.data['model']} — status: {self.model.data.get('fit_status', 'unknown')}")
+        self.target_selector = QComboBox()
+        for label, filename in self.model_files:
+            self.target_selector.addItem(label, str(filename))
+        self.target_selector.setVisible(len(self.model_files) > 1)
+        self.target_selector.currentIndexChanged.connect(self._target_changed)
+        layout.addWidget(self.target_selector)
+        self.source = QLabel(f"{self.model_files[0][1]}\nModel: {self.model.data['model']} — status: {self.model.data.get('fit_status', 'unknown')}")
         self.source.setWordWrap(True)
         self.source.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
         layout.addWidget(self.source)
@@ -56,6 +65,20 @@ class AdpCloudDialog(QDialog):
         layout.addWidget(self.viewer, 1)
         self._set_structure()
         self.rebuild()
+
+    def _target_changed(self, index):
+        try:
+            label, path = self.model_files[index]
+            model = CloudModel.read(path)
+            if model.data['target_label'] != label:
+                raise ValueError("Joint manifest and model atom identities disagree")
+            self.model = model
+            self.mesh = None;self.viewer.probability_meshes.clear()
+            self.source.setText(f"{path}\nModel: {model.data['model']} — status: {model.data.get('fit_status', 'unknown')}")
+            self._set_structure();self.rebuild()
+        except (ValueError, OSError, KeyError) as exc:
+            self.mesh = None;self.viewer.probability_meshes.clear();self.viewer.setVisible(False)
+            self.status.setText(f"Cannot load selected angular target: {exc}")
 
     def _set_structure(self):
         vectors = self.model.direct.T
@@ -83,6 +106,7 @@ class AdpCloudDialog(QDialog):
         self.viewer.update()
 
     def rebuild(self):
+        self.target_selector.setEnabled(False)
         self.probability.setEnabled(False);self.mode.setEnabled(False)
         # Do not display the preceding percentage's cloud under a new label.
         self.mesh = None;self.viewer.probability_meshes.clear()
@@ -95,6 +119,7 @@ class AdpCloudDialog(QDialog):
         QThreadPool.globalInstance().start(self.worker)
 
     def _completed(self, mesh):
+        self.target_selector.setEnabled(True)
         self.mesh = mesh
         self.viewer.set_probability_mesh(self.model.data["target_label"], mesh.vertices, mesh.faces)
         self.status.setText(f"Actual cloud: {100 * mesh.enclosed_mass:.2f}% enclosed; grid integral {mesh.integrated_mass:.6f}; "
@@ -105,6 +130,7 @@ class AdpCloudDialog(QDialog):
         self._mode_changed()
 
     def _failed(self, message):
+        self.target_selector.setEnabled(True)
         self.status.setText("Cloud NOT displayed: " + message)
         self.probability.setEnabled(True)
         self.mesh = None;self.viewer.probability_meshes.clear();self.viewer.setEnabled(False)

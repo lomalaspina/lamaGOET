@@ -51,6 +51,8 @@ OPTION_DEFAULTS: dict[str, str] = {
     "CURVED_MODEL": "off",
     "CURVED_ELECTRONIC_SOURCE": "iam",
     "CURVED_TARGET": "",
+    "CURVED_ADDITIONAL_TARGETS": "[]",
+    "CURVED_AUTO_GEOMETRY": "true",
     "CURVED_PIVOT": "",
     "CURVED_TRANSVERSE_1": "0.05 0 0",
     "CURVED_TRANSVERSE_2": "0.03 0 0",
@@ -301,6 +303,10 @@ def complete_job_options(values: Mapping[str, object]) -> "OrderedDict[str, obje
 
     merged: dict[str, object] = dict(OPTION_DEFAULTS)
     merged.update(supplied)
+    # Never reinterpret an existing active angular job's explicit geometry.
+    # New jobs use the simpler automatic frame; old saved jobs remain manual.
+    if str(supplied.get("CURVED_MODEL", "off")) != "off" and "CURVED_AUTO_GEOMETRY" not in supplied:
+        merged["CURVED_AUTO_GEOMETRY"] = "false"
 
     # H_POSITION_MODEL is the authoritative three-state control.  Older
     # job_options files only contain REFHPOS, so migrate that boolean while

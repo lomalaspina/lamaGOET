@@ -10,15 +10,35 @@ from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
-from lamagoet_qt.curved_job import validate_options, make_stdin, make_namelist, reflection_text, run
+from lamagoet_qt.curved_job import validate_options, make_stdin, make_namelist, reflection_text, run, angular_targets
 from lamagoet_qt.job_options import load_job_options, save_job_options
 from lamagoet_qt.options_schema import OPTION_DEFAULTS
 
 
 def main():
     o = dict(OPTION_DEFAULTS, CURVED_MODEL="surface", CURVED_TARGET="Cl1", CURVED_PIVOT="Cu1",
+             CURVED_AUTO_GEOMETRY="false",
              CURVED_LOCAL_U_CONFIRMED="true", TONTO_REFINEMENT_TARGET="f2", FCUT="0", HADP="yes")
     validate_options(o)
+    compact=dict(o,CURVED_MODEL='harmonic_surface',CURVED_TRANSVERSE_1='.05 0 0',CURVED_TRANSVERSE_2='.03 0 0')
+    validate_options(compact)
+    assert "model='harmonic_surface'" in make_namelist(compact)
+    second = dict(target="H5", pivot="O21", model="planar", transverse_1=".1 .02 -.01", transverse_2=".03 0 0",
+                  plane_angle=".2", reference="0 1 0", pivot_shift="0 0 0")
+    multi = dict(o, CURVED_ADDITIONAL_TARGETS=json.dumps([second]))
+    validate_options(multi)
+    nml = make_namelist(multi)
+    assert "n_targets=2" in nml and "target_labels(2)='H5'" in nml
+    assert "target_models(2)='planar'" in nml and "target_references(:,2)=0,1,0" in nml
+    assert [row["target"] for row in angular_targets(multi)] == ["Cl1", "H5"]
+    for rows in ([dict(second, target="Cl1")], [dict(second, pivot="H5")], [dict(second, reference="0 0 0")],
+                 [dict(second, unknown="invalid")], "bad", [second]*64):
+        try:
+            validate_options(dict(o, CURVED_ADDITIONAL_TARGETS=json.dumps(rows)))
+        except ValueError:
+            pass
+        else:
+            raise AssertionError("Invalid additional target definition accepted")
     native = make_stdin(o).replace("= ", "=")
     assert "least_squares_target=f2" in native and "refine_H_U_iso=true" in native
     assert " scf\n" not in native and "refine_hirshfeld" not in native.lower()
@@ -72,6 +92,8 @@ def main():
         options = root / "job_options.txt"
         save_job_options(options, o)
         assert load_job_options(options)["CURVED_TARGET"] == "Cl1"
+        save_job_options(options, multi)
+        assert angular_targets(load_job_options(options)) == angular_targets(multi)
         (root / "curved.summary").write_text("status not_converged\n")
         rec = {"command": ["fake-tonto", "--curved-adp", "curved.nml"], "job_timeout_seconds": 60}
         with patch("lamagoet_qt.curved_job.subprocess.run", return_value=subprocess.CompletedProcess([], 0)):
@@ -122,6 +144,15 @@ def main():
             widget.load(o)
             assert widget.values()["CURVED_TARGET"] == "Cl1"
             assert widget.values()["CURVED_MODEL"] == "surface"
+            widget.load(compact)
+            assert widget.values()['CURVED_MODEL']=='harmonic_surface'
+            assert '9 displacement parameters' in widget.model.currentText()
+            widget.load(multi)
+            assert angular_targets(widget.values()) == angular_targets(multi)
+            widget.additional.selectRow(0); widget.remove_targets()
+            assert json.loads(widget.values()["CURVED_ADDITIONAL_TARGETS"]) == []
+            widget.add_target(second)
+            assert angular_targets(widget.values()) == angular_targets(multi)
             widget.load(OPTION_DEFAULTS)
             assert widget.values()["CURVED_MODEL"] == "off"
             assert not widget.local.isChecked()

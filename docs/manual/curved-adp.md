@@ -2,8 +2,10 @@
 
 :::{admonition} Experimental, explicitly selected model
 :class: important
-This chapter documents the native Tonto **planar** and **two-direction surface**
-displacement models, checked against the implementation on 19 November 2026; displayed terminology
+This chapter documents the native Tonto **planar**, **two-direction surface**
+and compact **two harmonic angular directions** displacement models; the compact
+option and joint-target interfaces were added on 23 November 2026. The original
+models were checked against the implementation on 19 November 2026; displayed terminology
 updated on 21 November 2026.
 They do not replace conventional harmonic ADPs by default. Both the native
 command and lamaGOET's **Multi-harmonic angular ADP refinement - opt-in** selector activate
@@ -167,6 +169,39 @@ geometry produces displacement moments of several orders even from a simple
 angular function.
 
 ## Mean-preserving angular geometry
+
+### Compact alternative: nine displacement parameters
+
+The compact `harmonic_surface` option restricts the two angular coordinates to
+
+$$
+\alpha(\theta)=A_1\cos\theta,\qquad
+\beta(\psi)=A_2\cos\psi.
+$$
+
+The independent phases, mean-preserving nonlinear geometry below and
+site-symmetry averaging are unchanged. There are just **three angular
+parameters**, $A_1,A_2,\varphi$. Together with the six local Gaussian $U_{ij}$
+components this gives **nine displacement parameters for an anisotropic atom
+at a general position**, excluding its mean coordinates and the common scale.
+Special-position constraints still apply. T2/T3 are absent from the parameter
+vector, not frozen parameters counted as refined.
+
+This option is not the sum of two independent Cartesian Gaussian
+displacements: their covariances add and the resulting displacement remains
+Gaussian. A weighted mixture of alternative distributions is a different
+model. The compact angular option retains a bond-defined geometry and does
+not become a general pivot-free ADP or a shared molecular-motion model.
+Suppressing higher angular harmonics reduces flexibility; synthetic recovery
+does not establish that this compact alternative removes the experimental Cl
+residual pattern. The matched experimental comparisons later in this chapter
+refer to the **seven-angular-parameter surface model**, not this new compact
+candidate.
+
+Both amplitudes need nonzero starting values. Near the ordinary harmonic
+limit, local Gaussian broadening and angular broadening can be difficult to
+separate; the same rank, physical-tensor and full-covariance checks are required.
+Fewer parameters do not guarantee adequate information at a chosen resolution.
 
 ### Two-direction surface
 
@@ -585,12 +620,76 @@ enforced by the command. Final scientific refinements retain the full intended
 reflection set. In particular, weak second-direction parameters must not be
 declared well determined merely because the fitted residual map is clean.
 
+## Joint refinement of several independent atoms
+
+Several independent atoms may use the angular model in the **same** refinement.
+Each target has its own angular coefficients and a selected mean bond pivot.
+Targets can share a pivot, and one target may also be another target's pivot.
+Coordinates, ordinary/local ADPs, the native symmetry constraints and one
+intensity scale remain shared parts of one parameter vector. Duplicate targets
+are rejected; symmetry-equivalent copies must not be entered as additional
+independent targets.
+
+Writing the angular characteristic function of target $a$ as $D_a$, the
+schematic structure-factor expression is
+
+$$
+F_{\mathbf h}=\sum_a f_a(\mathbf q)\,
+e^{i\mathbf q\cdot\bar{\mathbf r}_a}D_a(\mathbf q),
+\qquad I_{\mathbf h}=k|F_{\mathbf h}|^2.
+$$
+
+Here the usual crystallographic symmetry sum and occupancy factors are
+understood as in the preceding sections. Non-target atoms retain their ordinary
+Gaussian characteristic functions. Every target's contribution is combined
+in the **complex amplitude before squaring**; separate atom-by-atom fits or a
+sum of their intensities would not implement this joint model. The derivative
+of a shared pivot includes contributions from every target that uses it.
+
+Let $\mathbf z$ contain all structural parameters, all angular parameter blocks
+and the intensity scale, and let $M$ map independent parameters into this full
+vector, including the original site constraints and explicit origin gauge.
+With final weights held fixed, the joint weighted design is
+
+$$
+A= W^{1/2}\frac{\partial\mathbf I}{\partial\mathbf z}M,
+\qquad C_{\mathbf z}=\mathrm{GoF}^2\,
+M(A^{\mathsf T}A)^{-1}M^{\mathsf T}.
+$$
+
+The implementation evaluates the covariance using a column-scaled SVD, not by
+forming and inverting the normal matrix. It retains cross-target blocks and
+rejects a rank-deficient model. For the six Cartesian total-second-moment
+components $\mathbf u_a$, define $G_a=\partial\mathbf u_a/\partial\mathbf z$.
+Then
+
+$$
+\operatorname{Cov}(\mathbf u_a,\mathbf u_b)
+=G_a C_{\mathbf z}G_b^{\mathsf T}.
+$$
+
+This includes uncertainty in each target's local covariance, angular shape,
+target position and pivot position. Cross-target blocks are exported, not
+discarded after calculating individual standard uncertainties. These remain
+the frozen-weight Gauss–Newton approximations described above; a full-rank
+numerical fit alone does not establish an accurate physical model.
+
+**Joint parameter refinement is not shared molecular motion.** This option
+fits separate marginal atomic distributions. Correlations between estimated
+parameters do not measure the physical displacement correlation
+$\langle\mathbf u_a\mathbf u_b^{\mathsf T}\rangle$. In particular, selecting
+both water hydrogens with the oxygen as their pivot does not impose one
+phase-locked motion of the entire water molecule. A shared-water model and an
+oxygen-only, no-bond model are separate developments, not aliases for this
+option. A central oxygen has no uniquely defined bond pivot.
+
 ## How to run an opt-in refinement
 
 ### Select the model in lamaGOET
 
 In the refinement controls, open **Multi-harmonic angular ADP refinement - opt-in** and
-choose **One transverse direction (planar)** or **Two transverse directions
+choose **Two harmonic angular directions (9 displacement parameters)**,
+**One transverse direction (planar)** or **Two transverse directions
 (surface)**. **Off** is the default and retains the ordinary
 workflow. **Refine anharmonic ADPs** remains the separate Gram-Charlier option;
 it cannot be combined with the multi-harmonic angular model in this GUI route.
@@ -609,14 +708,20 @@ it cannot be combined with the multi-harmonic angular model in this GUI route.
    library. Supply a complete molecule and confirm that no fragment is missing.
    This route is nonrelativistic and unembedded; it does not import an arbitrary
    Gaussian checkpoint, perform periodic partitioning or run an outer HAR loop.
-3. Enter exact **target** and **pivot** labels, the angular triples, frame
-   angle, Cartesian reference direction and pivot-image translation. These
-   are the same quantities as the namelist below. The model uses Tonto's
-   site-symmetry treatment; do not substitute an arbitrary visual axis for
-   the intended bond/image geometry.
-4. Confirm that the input target tensor is the **local Gaussian covariance**.
+3. Enter the exact **target** label. With **Automatic bond geometry and starting
+   values**, a terminal atom's unique bonded neighbour supplies the pivot; you
+   can also specify its label. The program resolves its lattice image and
+   chooses a Cartesian reference that is not parallel to the bond. It refuses
+   ambiguous choices, including an unspecified pivot for water oxygen, rather
+   than guessing a physical model. Add other independent atoms in the
+   **Additional independent targets** table. For example, hydrogen targets
+   `H6A` and `H6B` may both use `O6` as pivot. Each target may use the compact,
+   planar or surface model, including different models in the same joint fit.
+   These are illustrative labels, not an automatic assignment for every CIF.
+4. Confirm that **every** input target tensor is the **local Gaussian covariance**.
    A previous angular-model result's total-U CIF is not a valid local-U restart.
-   The target must have an anisotropic starting tensor. Use a fresh output
+   Each target must have an anisotropic starting tensor. Turn off isotropic H
+   treatment when selecting a hydrogen target. Use a fresh output
    subdirectory name and set both the refinement and whole-job time bounds.
 5. Run locally or submit through the usual runner. lamaGOET creates the new
    subdirectory, copies the CIF/reflections, saves the options snapshot,
@@ -625,18 +730,37 @@ it cannot be combined with the multi-harmonic angular model in this GUI route.
    Previous output directories are refused. A zero process exit code is not
    enough: the wrapper requires `status converged` in `curved.summary`.
 
-This first GUI activation supports **one target, F², one intensity scale,
+This GUI activation supports **1–64 independent targets, F², one intensity scale,
 zero fixed extinction and free/fixed hydrogen positions**. Unsupported
 combinations are rejected rather than silently ignored: riding H,
 simultaneous Gram-Charlier, atom-freezing/growth options, XCW, periodic HAR,
 external basis definitions and the ordinary map/cube export checkboxes are
 not connected to this route. Use its model-aware `curved.fcf` for subsequent
-residual mapping and `curved.model.json` for the cloud viewer. The angular-model
+residual mapping and `curved.model.json` for the cloud viewer. For multiple
+targets this JSON is a manifest linking one `curved.target-N.json` per atom;
+the cloud viewer offers a target selector. All those files must remain together.
+`curved.covariance` contains the full parameter covariance, with labelled target
+blocks, and `curved.uncertainty.json` includes the joint total-moment covariance
+in Å⁴, ordered by target and then $U_{11},U_{22},U_{33},U_{12},U_{13},U_{23}$.
+The angular-model
 solver, not the ordinary least-squares solver widgets, controls convergence.
 The runner uses one CPU thread and a 10 GiB process address-space limit.
 The whole-job time limit includes SCF and factor capture; the refinement
 limit starts in the native angular ADP solver. Reaching either limit is failure
 to finish, not evidence of convergence.
+
+**Advanced settings** expose manual initial angular coefficients, frame angle,
+Cartesian reference and pivot-image translation. These specify starting values
+and the bond/image geometry, not fixed fitted displacement directions. Automatic
+setup uses small nonzero triples `(0.05, 0.01, 0.005)` and `(0.03, 0.006, 0.003)`
+in radians for the higher-order surface; the compact option uses `(0.05, 0, 0)`
+and `(0.03, 0, 0)`. Nonzero T2/T3 values entered manually for the compact option
+are rejected rather than silently discarded. These are numerical starting values, not physical estimates or
+universal recommendations. Check convergence from alternative sensible starts.
+The pivot translation is a Cartesian **lattice-image** shift in Å; a general
+rotated symmetry mate needs a different coordinate chain rule and is not
+silently represented by a constant shift. Old saved active jobs retain manual
+geometry unless automatic setup is explicitly selected.
 
 The supported single-density HAR command has passed a small converged native
 SCF/capture test. This does not resolve the separate large-system native SCF
@@ -665,11 +789,11 @@ audited exact restarts and held-out fixed-parameter evaluations.
    $F^2$ observations, with the correct wavelength, dispersion, weights,
    atom identities, space group and hydrogen treatment. Do not also execute
    an ordinary harmonic fit or an outer HAR loop in that input.
-4. Select one anisotropic target and a distinct pivot by their exact unique
+4. Select each anisotropic target and its distinct pivot by their exact unique
    fragment labels. Check their Cartesian bond/image and choose a reference
    vector with a substantial component perpendicular to it.
 5. Supply a physically sensible positive **local** starting covariance for
-   the target. Other atoms keep their conventional ADPs. Use nonzero starts
+   every target. Non-target atoms keep their conventional ADPs. Use nonzero starts
    in both directions for a surface refinement and investigate more than one
    sensible start; the following numbers are an input illustration, not
    fitted values or a universal recommendation.

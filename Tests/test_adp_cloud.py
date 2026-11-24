@@ -11,7 +11,7 @@ from unittest.mock import patch
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import numpy as np
-from lamagoet_qt.adp_cloud import CloudModel
+from lamagoet_qt.adp_cloud import CloudModel, model_paths
 
 
 def artifact(nodes=None, rotations=None):
@@ -28,6 +28,30 @@ def artifact(nodes=None, rotations=None):
 
 
 class CloudTests(unittest.TestCase):
+    def test_joint_manifest_selection(self):
+        from PySide6.QtWidgets import QApplication
+        from lamagoet_qt.adp_cloud_dialog import AdpCloudDialog
+        app = QApplication.instance() or QApplication([])
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            first = artifact(); second = artifact()
+            second['target_label'] = 'H5';second['atoms'][0]['label'] = 'H5'
+            (root/'first.json').write_text(json.dumps(first))
+            (root/'second.json').write_text(json.dumps(second))
+            manifest = dict(schema='tonto.multi-angular-adp',version=1,targets=[
+                dict(target_label='Cl1',model_file='first.json'),dict(target_label='H5',model_file='second.json')])
+            path=root/'curved.model.json';path.write_text(json.dumps(manifest))
+            self.assertEqual([label for label,_ in model_paths(path)], ['Cl1','H5'])
+            with patch.object(AdpCloudDialog, 'rebuild'):
+                dialog=AdpCloudDialog(path)
+                dialog.target_selector.setCurrentIndex(1)
+                self.assertEqual(dialog.model.data['target_label'], 'H5')
+                dialog.close()
+            for name in ('../outside.json', str(root/'first.json'), 'missing.json', 'curved.model.json'):
+                bad=copy.deepcopy(manifest);bad['targets'][0]['model_file']=name
+                path.write_text(json.dumps(bad))
+                with self.assertRaises(ValueError):model_paths(path)
+
     @classmethod
     def setUpClass(cls):
         cls.model = CloudModel(artifact())
