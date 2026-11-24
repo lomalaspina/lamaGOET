@@ -38,6 +38,9 @@ def suggested_angular_starts(model):
     """
     if model == "harmonic_surface":
         return dict(transverse_1="0.05 0 0", transverse_2="0.03 0 0", plane_angle="0")
+    if model == 'free_surface':
+        return dict(transverse_1="0.05 0.01 0.005",transverse_2="0.03 0.006 0.003",plane_angle="0",
+                    orientation="0 0 0",mean_length="1")
     if model in {"planar", "surface"}:
         return dict(transverse_1="0.05 0.01 0.005", transverse_2="0.03 0.006 0.003", plane_angle="0")
     raise ValueError("Unsupported angular starting-value model")
@@ -73,6 +76,8 @@ def angular_targets(o):
               "transverse_1": "CURVED_TRANSVERSE_1", "transverse_2": "CURVED_TRANSVERSE_2",
               "plane_angle": "CURVED_PLANE_ANGLE", "reference": "CURVED_REFERENCE", "pivot_shift": "CURVED_PIVOT_SHIFT"}
     primary = {key: o.get(option, "") for key, option in fields.items()}
+    if primary['model']=='free_surface':
+        primary.update(orientation=o.get('CURVED_ORIENTATION','0 0 0'),mean_length=o.get('CURVED_MEAN_LENGTH','1'))
     try:
         extra = json.loads(o.get("CURVED_ADDITIONAL_TARGETS", "[]"))
     except (ValueError, TypeError) as exc:
@@ -81,8 +86,17 @@ def angular_targets(o):
         raise ValueError("Choose between 1 and 64 independent angular targets")
     targets = [primary]
     for row in extra:
-        if not isinstance(row, dict) or set(row) != set(fields):
+        allowed=set(fields)
+        if isinstance(row,dict) and row.get('model')=='free_surface':
+            allowed|={'orientation','mean_length'}
+        if not isinstance(row, dict) or set(row)-allowed or not {'target','model'}<=set(row):
             raise ValueError("Each additional target needs label, pivot, model, two transverse vectors, angle, reference and image shift")
+        if row['model']=='free_surface':
+            row=dict(pivot='',reference='0 0 1',pivot_shift='0 0 0',plane_angle='0',
+                     transverse_1='0.05 0.01 0.005',transverse_2='0.03 0.006 0.003',
+                     orientation='0 0 0',mean_length='1')|row
+        elif set(row)!=set(fields):
+            raise ValueError("Bond-anchored targets require all reference fields")
         targets.append(row.copy())
     if default_starts_enabled(o):
         for row in targets:
@@ -90,16 +104,26 @@ def angular_targets(o):
     seen = set()
     for row in targets:
         target = token(row["target"], "angular target")
+        if row['model']=='free_surface':
+            # These are not physical inputs to the target-only model. Older
+            # stored bond settings survive in the UI, never in its native input.
+            row.update(pivot='',reference='0 0 1',pivot_shift='0 0 0',plane_angle='0')
+            rotation=vector(row['orientation'])
+            if sum(v*v for v in rotation)>=math.pi**2:
+                raise ValueError("Free orientation must be inside the rotation-vector pi chart")
+            length=number(row['mean_length'])
+            if not math.exp(-20)*.5291772108<=length<=math.exp(20)*.5291772108:
+                raise ValueError("Mean radial length must be positive and inside the native log-length chart")
         pivot = str(row["pivot"]).strip()
-        if pivot or not enabled(o.get("CURVED_AUTO_GEOMETRY")):
+        if row['model']!='free_surface' and (pivot or not enabled(o.get("CURVED_AUTO_GEOMETRY"))):
             pivot = token(pivot, "angular pivot")
         if target == pivot:
             raise ValueError("Multi-harmonic angular target and pivot must be different atoms")
         if target in seen:
             raise ValueError(f"Repeated angular target {target}; symmetry equivalents are generated automatically")
         seen.add(target)
-        if row["model"] not in {"harmonic_surface", "planar", "surface"}:
-            raise ValueError("Each angular target model must be harmonic_surface, planar or surface")
+        if row["model"] not in {"harmonic_surface", "planar", "surface", "free_surface"}:
+            raise ValueError("Unknown angular target model")
         for key in ("transverse_1", "transverse_2", "reference", "pivot_shift"):
             vector(row[key])
         if sum(x*x for x in vector(row["reference"])) == 0:
@@ -155,6 +179,9 @@ def resolve_angular_geometry(o, structure):
     import numpy as np
     atoms = {atom.label: atom for atom in structure.asymmetric_unit()}
     for row in rows:
+        if row['model']=='free_surface':
+            if row['target'] not in atoms:raise ValueError(f"Unknown angular target {row['target']}")
+            continue
         candidates = angular_bond_candidates(structure,row['target'])
         target = atoms[row['target']]
         if row['pivot']:
@@ -182,16 +209,18 @@ def validate_options(o):
     """Validate scientific scope before writing any calculation files."""
     if o.get("CURVED_MODEL", "off") == "off":
         return
-    if o["CURVED_MODEL"] not in {"harmonic_surface", "planar", "surface"}:
-        raise ValueError("Multi-harmonic angular ADP model must be harmonic_surface, planar or surface")
+    if o["CURVED_MODEL"] not in {"harmonic_surface", "planar", "surface", "free_surface"}:
+        raise ValueError("Unknown Multi-harmonic angular ADP model")
     angular_targets(o)
     if not enabled(o.get("CURVED_LOCAL_U_CONFIRMED")):
         raise ValueError("Confirm that the starting CIF contains LOCAL Gaussian U, not total angular-model U")
-    for key in ("CURVED_TRANSVERSE_1", "CURVED_TRANSVERSE_2", "CURVED_REFERENCE", "CURVED_PIVOT_SHIFT"):
+    for key in ("CURVED_TRANSVERSE_1", "CURVED_TRANSVERSE_2"):
         vector(o[key])
-    if sum(x*x for x in vector(o["CURVED_REFERENCE"])) == 0:
-        raise ValueError("Multi-harmonic angular reference direction cannot be zero")
-    number(o["CURVED_PLANE_ANGLE"])
+    if o['CURVED_MODEL']!='free_surface':
+        vector(o['CURVED_PIVOT_SHIFT'])
+        if sum(x*x for x in vector(o["CURVED_REFERENCE"])) == 0:
+            raise ValueError("Multi-harmonic angular reference direction cannot be zero")
+        number(o["CURVED_PLANE_ANGLE"])
     for key, upper in (("CURVED_MAX_CYCLES", 10000), ("CURVED_TIME_LIMIT", 86400), ("CURVED_JOB_TIMEOUT", 604800)):
         if not 1 <= int(o[key]) <= upper:
             raise ValueError(f"{key} must be between 1 and {upper}")
@@ -297,18 +326,23 @@ def reflection_text(path, on_f=False):
 def make_namelist(o, targets=None):
     explicit_targets = targets is not None
     if targets is None:
-        if enabled(o.get("CURVED_AUTO_GEOMETRY")):
+        if enabled(o.get("CURVED_AUTO_GEOMETRY")) and any(r['model']!='free_surface' for r in angular_targets(o)):
             raise ValueError("Automatic angular geometry must be resolved from the CIF before writing native input")
         targets = angular_targets(o)
-    if explicit_targets or len(targets) > 1 or enabled(o.get("CURVED_AUTO_GEOMETRY")) or default_starts_enabled(o):
+    if explicit_targets or len(targets) > 1 or enabled(o.get("CURVED_AUTO_GEOMETRY")) or default_starts_enabled(o) or targets[0]['model']=='free_surface':
         lines = ["&curved_adp", f" electronic_source='{o['CURVED_ELECTRONIC_SOURCE']}',",
                  f" n_targets={len(targets)}, initial_covariance_is_local=.true.,"]
         for i, row in enumerate(targets, 1):
             lines.append(f" target_labels({i})='{row['target']}', pivot_labels({i})='{row['pivot']}', target_models({i})='{row['model']}',")
-            for key, native in (("transverse_1", "target_transverse_1"), ("transverse_2", "target_transverse_2"),
-                                ("reference", "target_references"), ("pivot_shift", "target_pivot_shifts")):
+            vectors=[("transverse_1", "target_transverse_1"), ("transverse_2", "target_transverse_2")]
+            if row['model']=='free_surface':
+                vectors.append(('orientation','target_orientation_vectors'))
+                lines.append(f" target_mean_lengths_angstrom({i})={number(row['mean_length']):.17g},")
+            else:
+                vectors += [("reference", "target_references"), ("pivot_shift", "target_pivot_shifts")]
+                lines.append(f" target_plane_angles({i})={number(row['plane_angle']):.17g},")
+            for key, native in vectors:
                 lines.append(f" {native}(:,{i})=" + ",".join(f"{x:.17g}" for x in vector(row[key])) + ",")
-            lines.append(f" target_plane_angles({i})={number(row['plane_angle']):.17g},")
         lines += [f" max_cycles={int(o['CURVED_MAX_CYCLES'])}, time_limit_seconds={int(o['CURVED_TIME_LIMIT'])}", "/"]
         return "\n".join(lines) + "\n"
     lines = ["&curved_adp", f" model='{o['CURVED_MODEL']}', electronic_source='{o['CURVED_ELECTRONIC_SOURCE']}',",
@@ -392,7 +426,8 @@ def prepare(option_path):
         raise ValueError("Duplicate atom labels in the input CIF")
     targets = resolve_angular_geometry(o, structure)
     for row in targets:
-        if not {row["target"], row["pivot"]} <= atoms.keys():
+        labels={row['target']} if row['model']=='free_surface' else {row['target'],row['pivot']}
+        if not labels <= atoms.keys():
             raise ValueError("Every target and pivot must match distinct asymmetric-atom labels in the CIF")
         if atoms[row["target"]].u_aniso is None:
             raise ValueError(f"Angular target {row['target']} needs a LOCAL anisotropic Gaussian U in the input CIF")

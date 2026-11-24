@@ -89,20 +89,35 @@ def read_accepted_cycle(directory):
         _same(cloud.direct, base.direct, "Angular artifacts disagree on the cell")
         if data["spacegroup_operations"] != base.data["spacegroup_operations"]:
             raise ValueError("Angular artifacts disagree on symmetry")
-        if data["pivot_label"] not in atom_index or data["target_label"] not in atom_index:
+        free=data['model']=='free_surface'
+        if data['target_label'] not in atom_index or (not free and data.get('pivot_label') not in atom_index):
             raise ValueError("Missing angular target or pivot in the accepted atom mapping")
-        i, p = atom_index[data["target_label"]], atom_index[data["pivot_label"]]
+        i=atom_index[data['target_label']]
         _same(cloud.mean, positions[i], "Angular target representative changed")
-        _same(data["pivot_cartesian"], positions[p], "Angular pivot representative changed")
+        if not free:
+            _same(data["pivot_cartesian"], positions[atom_index[data['pivot_label']]], "Angular pivot representative changed")
         _same(cloud.total_u, local[i], "Display tensor differs from the angular total moment")
         local[i] = cloud.local_u
-        values = _finite(data["parameters_rad"])
-        model = {"planar_arc": "planar", "transverse_surface": "surface", "harmonic_surface": "harmonic_surface"}.get(data["model"])
-        counts = {'planar':4,'surface':7,'harmonic_surface':3}
+        values = _finite(data["shape_parameters"] if free else data['parameters_rad'])
+        model = {"planar_arc": "planar", "transverse_surface": "surface", "harmonic_surface": "harmonic_surface",'free_surface':'free_surface'}.get(data["model"])
+        counts = {'planar':4,'surface':7,'harmonic_surface':3,'free_surface':10}
         if model is None or values.shape != (counts[model],):
             raise ValueError("Invalid angular model/parameter count")
         vector = lambda x: " ".join(f"{v:.17g}" for v in x)
-        targets.append(dict(target=data["target_label"], pivot=data["pivot_label"], model=model,
+        if free:
+            if data.get('shape_parameter_units')!=['radian']*9+['log_bohr']:
+                raise ValueError('Free target-only parameter units are missing or inconsistent')
+            if any(key in data for key in ('pivot_label','parameters_rad')):
+                raise ValueError('Free target-only artifact contradicts its no-pivot/mixed-unit model')
+            _same(data['orientation_vector_rad'],values[6:9],'Free orientation differs from the shape parameters')
+            if not -20<=values[-1]<=20:raise ValueError('Unsupported free log-length chart')
+            length=np.exp(values[-1])*BOHR
+            _same(data['mean_radial_length_A'],length,'Free radial length units/parameters disagree')
+            targets.append(dict(target=data['target_label'],pivot='',model=model,
+                transverse_1=vector(values[:3]),transverse_2=vector(values[3:6]),plane_angle='0',
+                reference='0 0 1',pivot_shift='0 0 0',orientation=vector(values[6:9]),mean_length=f'{length:.17g}'))
+        else:
+            targets.append(dict(target=data["target_label"], pivot=data["pivot_label"], model=model,
                             transverse_1=vector([values[0],0,0] if model=='harmonic_surface' else values[:3]),
                             transverse_2=vector([values[1],0,0] if model=='harmonic_surface' else values[3:6] if model == "surface" else np.zeros(3)),
                             plane_angle=f"{values[-1]:.17g}",
@@ -127,7 +142,7 @@ def read_accepted_cycle(directory):
     first = 9 * len(labels) + 1
     expected = []
     for row in targets:
-        last = first + {'planar':4,'surface':7,'harmonic_surface':3}[row['model']] - 1
+        last = first + {'planar':4,'surface':7,'harmonic_surface':3,'free_surface':10}[row['model']] - 1
         expected.append((row["target"], str(first), str(last)))
         first = last + 1
     # Older single-target artifacts have no separate angle-label row. Their

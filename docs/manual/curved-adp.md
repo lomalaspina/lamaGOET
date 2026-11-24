@@ -3,7 +3,8 @@
 :::{admonition} Experimental, explicitly selected model
 :class: important
 This chapter documents the native Tonto **planar**, **two-direction surface**
-and compact **two harmonic angular directions** displacement models; the compact
+and compact **two harmonic angular directions** displacement models, plus the
+**target-only, free-orientation/free-curvature** extension. The compact
 option and joint-target interfaces were added on 23 November 2026. The original
 models were checked against the implementation on 19 November 2026; displayed terminology
 updated on 21 November 2026.
@@ -18,7 +19,8 @@ model.
 **Multi-harmonic angular ADP** is the displayed name of this atomic
 displacement model. "Multi-harmonic" refers to the angular expansion functions,
 not to measured frequencies or identified phonon modes. The probability-cloud
-shape is refined within the pivot-referenced angular geometry; a banana,
+shape is refined within the selected angular geometry, which can be bond-anchored
+or target-only; a banana,
 mushroom or ellipsoid is not prescribed. This name does not change the
 equations, constraints or fitted parameters described below.
 
@@ -35,8 +37,10 @@ Both belong to **one atomic probability distribution**. Other atoms retain
 their ordinary displacement treatment. The mean coordinates, allowed local
 ADPs, angular parameters and diffraction scale are refined together.
 
-The model is geometrically referenced to a selected pivot atom and an explicit
-pivot image. It can describe an arc-like cloud, or bending in two transverse
+The older models are geometrically referenced to a selected pivot atom and an
+explicit pivot image. The `free_surface` model instead refines its orientation
+and radial length independently, without any selected bond. They can describe
+an arc-like cloud, or bending in two transverse
 directions. Its shape is not forced to be a banana, mushroom or ellipsoid.
 Site symmetry can generate several related parts of the cloud.
 
@@ -94,6 +98,10 @@ conventions follows the [IUCr ADP nomenclature
 report](https://www.iucr.org/who-we-are/commissions/commission-on-crystallographic-nomenclature/published-reports/adp).
 
 ## Bond frame and angular coordinates
+
+This section defines the **bond-anchored** models. The target-only alternative
+uses the Cartesian construction in its separate section below, not a hidden
+or automatically invented bond.
 
 Let $\bar{\mathbf r}_t$ and $\bar{\mathbf r}_p$ be the target and pivot mean
 positions, and let $\boldsymbol\Delta$ be the explicitly selected Cartesian
@@ -285,6 +293,89 @@ Both values and derivatives must agree at the prescribed tolerances. Geometry
 derivatives use complex-step differentiation; the structure-factor chain rule
 also includes endpoint motion. Failed quadrature or invalid geometry is
 rejected, not accepted after reducing numerical accuracy.
+
+## Target-only orientation and curvature
+
+The `free_surface` model does **not** need a bond direction, pivot atom,
+connectivity, or pivot-image translation. It uses the same two independent
+phase expansions and mean-centering construction above in a fixed numerical
+Cartesian chart, with $\mathbf e=(0,0,1)^T$, $\mathbf t_1=(1,0,0)^T$ and
+$\mathbf t_2=(0,1,0)^T$. The former bond length is replaced by an independently
+refined positive mean radial length $L$. This is **not a bond length**.
+
+Let $\mathbf u_0$ be the centered surface displacement constructed with this
+chart and $\ell=L$. Introduce a freely refined rotation vector $\boldsymbol\omega$
+and write
+
+$$
+\mathbf u_b=O(\boldsymbol\omega)\mathbf u_0,\qquad
+O=\exp([\boldsymbol\omega]_\times),\qquad
+L=a_0e^\lambda,\qquad R=L/\mu,
+$$
+
+where $a_0$ is one bohr, $\lambda$ is dimensionless, and $\mu$ is the magnitude
+of the mean unit direction defined above. This notation uses physical length
+units; internally the value in bohr is simply $e^\lambda$. Orientation is
+refined from the data; the fixed axes only define parameter coordinates.
+The local rotation-vector chart requires $|\boldsymbol\omega|<\pi$ and the
+implemented length chart requires $-20\le\lambda\le20$. Trials outside these
+numerical domains are rejected, not wrapped into a different fit.
+
+The parameter block is the six Fourier angular coefficients, three rotation
+coordinates, and $\lambda$: **ten shape parameters**, plus up to six local
+Gaussian components, or at most **16 displacement parameters** at a general
+position. Mean atomic coordinates and the common scale are additional.
+The model still chooses a positive angular-surface-plus-Gaussian family; it
+does not describe every conceivable probability density. It does not impose
+a particular visible banana, mushroom or ellipsoid.
+
+The complete site-symmetry probability average applies without a bond.
+The original native constraints on positions and local U are retained.
+Special positions and the measured reflections can reduce independent
+information, but invariance of the cloud alone does not prove that all its
+shape coefficients are identifiable. The joint design must be full rank after
+the known native constraints and origin freedom are applied. Rank-deficient
+fits are rejected, not reported with invented independent uncertainties.
+At zero angular amplitude, neither the radial length nor orientation is
+identifiable. Small-angle fits may also correlate strongly with local U.
+
+The derivative $\partial\mathbf u_b/\partial\lambda=\mathbf u_b$ is included
+with orientation and angular derivatives in the joint covariance and the
+propagated total-U covariance. Native artifacts therefore use
+`shape_parameters` and explicit mixed units for this model, not
+`parameters_rad` for the whole block. The last unit is `log_bohr`, meaning
+$\log(L/a_0)$; it is **not radians**. GUI lengths are entered in Å and are
+converted at the native interface. The displayed total U remains only the
+second moment of the complete probability cloud.
+
+### Separate Lissajous development
+
+An additional, isolated component explores a different fixed-amplitude path
+
+$$
+\mathbf v(\tau)=\big(A\sin(m\tau+\delta),\ B\sin(n\tau),\ 0\big)^T,
+\qquad \tau\sim\mathrm{Uniform}[0,2\pi).
+$$
+
+It is **not a replacement** for `free_surface`, and is not yet a native/GUI
+refinement option. For $a=m\Omega$, $b=n\Omega$, substituting
+$\tau=\Omega t$ into the complete-period average removes $\Omega$ exactly.
+Ordinary time-averaged Bragg data cannot determine two independent absolute
+frequencies from this model. Candidate small coprime integer ratios are
+discrete model choices; amplitudes, phase and orientation may be fitted within
+a choice if identifiable, without a frequency calculation.
+
+If phases are independent, or frequencies are incommensurate in the
+infinite-time limit, the characteristic factor becomes
+$J_0(Aq_x)J_0(Bq_y)$: the phase offset and ratio disappear. This follows from
+the [Bessel integral](https://dlmf.nist.gov/10.9.E1), not from an assumed
+experimental frequency estimate. For phase-locked 1:2, by direct integration,
+$\langle x^2y\rangle=A^2B\sin(2\delta)/4$, which can be nonzero. Thus the
+path distribution can be asymmetric while each coordinate is sinusoidal.
+Site inversion removes its odd component. With free spatial orientation,
+the 1:1 elliptical case has redundant parameters and needs a reduced model.
+Positive probability and synthetic recovery do not establish that such a
+phase-locked path is the physical cause of experimental residuals.
 
 ## Local broadening, positivity and double counting
 
@@ -623,7 +714,8 @@ declared well determined merely because the fitted residual map is clean.
 ## Joint refinement of several independent atoms
 
 Several independent atoms may use the angular model in the **same** refinement.
-Each target has its own angular coefficients and a selected mean bond pivot.
+Each target has its own shape parameters. Bond-anchored targets have a selected
+mean bond pivot; target-only `free_surface` targets have none.
 Targets can share a pivot, and one target may also be another target's pivot.
 Coordinates, ordinary/local ADPs, the native symmetry constraints and one
 intensity scale remain shared parts of one parameter vector. Duplicate targets
@@ -680,15 +772,16 @@ parameters do not measure the physical displacement correlation
 $\langle\mathbf u_a\mathbf u_b^{\mathsf T}\rangle$. In particular, selecting
 both water hydrogens with the oxygen as their pivot does not impose one
 phase-locked motion of the entire water molecule. A shared-water model and an
-oxygen-only, no-bond model are separate developments, not aliases for this
-option. A central oxygen has no uniquely defined bond pivot.
+oxygen-only, no-bond distribution are not aliases for shared molecular motion.
+The latter can use `free_surface`; it does not impose correlated water motion.
 
 ## How to run an opt-in refinement
 
 ### Select the model in lamaGOET
 
 In the refinement controls, open **Multi-harmonic angular ADP refinement - opt-in** and
-choose **Two harmonic angular directions (9 displacement parameters)**,
+choose **Target only - free orientation and curvature (up to 16 displacement
+parameters)**, **Two harmonic angular directions (9 displacement parameters)**,
 **One transverse direction (planar)** or **Two transverse directions
 (surface)**. **Off** is the default and retains the ordinary
 workflow. **Refine anharmonic ADPs** remains the separate Gram-Charlier option;
@@ -708,7 +801,14 @@ it cannot be combined with the multi-harmonic angular model in this GUI route.
    library. Supply a complete molecule and confirm that no fragment is missing.
    This route is nonrelativistic and unembedded; it does not import an arbitrary
    Gaussian checkpoint, perform periodic partitioning or run an outer HAR loop.
-3. Enter the exact **target** label, or use **Choose target atom and bonded
+3. For **Target only**, enter the exact target label or use **Choose target
+   atom…**. No pivot, bond direction, reference vector or image translation is
+   requested, including for non-terminal atoms such as water oxygen. The
+   suggested initial radial length is 1 Å and the initial rotation vector is
+   zero; these are editable numerical starts, not distances inferred from bonds
+   or restraint targets. To edit them and the angular starts, clear **Use
+   suggested starting coefficients** and open the advanced settings.
+   For the **bond-anchored alternatives**, enter the label or use **Choose target atom and bonded
    neighbour…**. With **Determine bond and directions automatically**, a
    unique bonded neighbour supplies the pivot. For a multiply bonded atom,
    the selector lists **all** covalent neighbours, with distances, and requires
@@ -726,11 +826,11 @@ it cannot be combined with the multi-harmonic angular model in this GUI route.
    planar or surface model, including different models in the same joint fit.
    These are illustrative labels, not an automatic assignment for every CIF.
    Use **Choose atom/bond for selected row…** for additional targets. The present
-   native model still has **one reference bond per target**. Using several bonds
+   bond-anchored model still has **one reference bond per target**. Using several bonds
    together to define a frame or a shared molecular motion requires a separate
    geometric model and derivatives; the neighbour selector does not implement
-   it. A site without a meaningful bond requires a pivot-free model, not an
-   invented neighbour. Site-symmetry averaging remains enforced in the native fit.
+   it. Choose `free_surface` for a target-only model instead of inventing a
+   neighbour. Site-symmetry averaging remains enforced in the native fit.
 4. Confirm that **every** input target tensor is the **local Gaussian covariance**.
    A previous angular-model result's total-U CIF is not a valid local-U restart.
    Each target must have an anisotropic starting tensor. Turn off isotropic H

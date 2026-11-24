@@ -45,16 +45,18 @@ The ordinary workflow is unchanged when `CURVED_MODEL=off`.
 
 | Variable | Default | Meaning |
 |---|---|---|
-| `CURVED_MODEL` | `off` | `off`, compact `harmonic_surface`, `planar` or two-direction `surface` |
+| `CURVED_MODEL` | `off` | `off`, target-only `free_surface`, compact `harmonic_surface`, `planar` or bond-anchored two-direction `surface` |
 | `CURVED_ELECTRONIC_SOURCE` | `iam` | `iam` or single-density `molecular_hirshfeld` |
 | `CURVED_TARGET` | *(empty)* | exact anisotropic target atom label |
-| `CURVED_PIVOT` | *(empty)* | distinct pivot atom label; may be inferred only when the automatic choice is unique |
+| `CURVED_PIVOT` | *(empty)* | distinct pivot atom for anchored models; unused/omitted for `free_surface` |
 | `CURVED_AUTO_GEOMETRY` | `true` for new jobs | infer an unambiguous or explicitly selected bonded neighbour's image and numerical frame, for terminal or multiply bonded atoms; legacy active jobs remain manual |
 | `CURVED_DEFAULT_STARTS` | `true` for new jobs | use model-specific suggested starting coefficients and zero initial transverse orientation; clear independently of automatic geometry to customize starts; adds no restraint penalty |
-| `CURVED_ADDITIONAL_TARGETS` | `[]` | JSON list written by the additional-target table; each entry has `target`, `pivot`, `model`, `transverse_1`, `transverse_2`, `plane_angle`, `reference`, `pivot_shift`; all targets refine jointly |
+| `CURVED_ADDITIONAL_TARGETS` | `[]` | JSON list written by the table; anchored entries have `target`, `pivot`, `model`, two transverse triples, `plane_angle`, `reference`, `pivot_shift`; free entries use `orientation` and `mean_length` instead of bond geometry; all targets refine jointly |
 | `CURVED_TRANSVERSE_1` | `0.05 0 0` | first angular T1/T2/T3 triple in radians; starting values, not universal recommendations |
 | `CURVED_TRANSVERSE_2` | `0.03 0 0` | second angular triple, surface only |
 | `CURVED_PLANE_ANGLE` | `0` | transverse-frame orientation in radians |
+| `CURVED_ORIENTATION` | `0 0 0` | target-only initial 3D rotation vector, radians; magnitude below pi; refined, no bond assignment |
+| `CURVED_MEAN_LENGTH` | `1` | target-only initial positive mean radial length in Å; refined as log length internally, not a bond length or restraint |
 | `CURVED_REFERENCE` | `0 0 1` | Cartesian reference direction; must not be parallel to the bond |
 | `CURVED_PIVOT_SHIFT` | `0 0 0` | Cartesian translation added to the pivot, in Å |
 | `CURVED_LOCAL_U_CONFIRMED` | `false` | required confirmation that starting target U is local Gaussian covariance |

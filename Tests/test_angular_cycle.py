@@ -21,7 +21,7 @@ from lamagoet_qt.curved_job import make_namelist
 from lamagoet_qt.options_schema import OPTION_DEFAULTS
 
 
-def fixture(path, *, single=False, oblique=True, compact=False):
+def fixture(path, *, single=False, oblique=True, compact=False, free=False):
     cell = gemmi.UnitCell(8.2, 9.1, 10.3, 87 if oblique else 90, 104.2 if oblique else 90, 96 if oblique else 90)
     direct = np.array(cell.orth.mat)
     inverse = np.linalg.inv(direct)
@@ -50,13 +50,19 @@ def fixture(path, *, single=False, oblique=True, compact=False):
                      mean_cartesian=atoms[i]["mean_cartesian"], pivot_cartesian=atoms[0]["mean_cartesian"],
                      local_covariance=local[i].tolist(), total_covariance=total[i].tolist(),
                      site_rotations=[np.eye(3).tolist()], displacement_nodes=nodes.tolist(), node_weight=.25, atoms=atoms)
+        if free and i==1:
+            for key in ('parameters_rad','reference_cartesian','pivot_shift_cartesian','pivot_label','pivot_cartesian'):
+                model.pop(key)
+            model.update(model='free_surface',shape_parameters=[.11,.02,-.03,.07,-.01,.02,.1,-.2,.3,np.log(1.8)],
+                         shape_parameter_units=['radian']*9+['log_bohr'],orientation_vector_rad=[.1,-.2,.3],
+                         mean_radial_length_A=1.8*BOHR)
         name = "curved.model.json" if single else f"curved.target-{i}.json"
         (path/name).write_text(json.dumps(model))
         configs.append(dict(target_label=labels[i], model_file=name))
     if not single:
         (path/"curved.model.json").write_text(json.dumps(dict(schema="tonto.multi-angular-adp", version=1, targets=configs)))
     (path/"curved.summary").write_text("status converged\nintensity_scale 1.03\n")
-    first_count=3 if compact else 7;second_count=3 if compact else 4
+    first_count=10 if free else 3 if compact else 7;second_count=3 if compact else 4
     dim = 27+first_count+(0 if single else second_count)+1
     cov = np.eye(dim)*.001
     if not single:
@@ -87,6 +93,31 @@ class CycleTest(unittest.TestCase):
         self.temp=tempfile.TemporaryDirectory(); self.root=Path(self.temp.name)
 
     def tearDown(self): self.temp.cleanup()
+
+    def test_free_mixed_units_and_joint_restart(self):
+        local,total,cov=fixture(self.root,free=True)
+        state=read_accepted_cycle(self.root)
+        self.assertEqual([row['model'] for row in state.targets],['free_surface','planar'])
+        self.assertEqual(state.targets[0]['pivot'],'')
+        self.assertAlmostEqual(float(state.targets[0]['mean_length']),1.8*BOHR)
+        self.assertEqual(state.parameters[36],np.log(1.8))
+        np.testing.assert_array_equal(state.covariance,cov)
+        self.assertNotEqual(state.covariance[27,37],0)
+        text=make_namelist(dict(OPTION_DEFAULTS),state.targets)
+        self.assertIn('target_orientation_vectors(:,1)=',text)
+        self.assertIn('target_mean_lengths_angstrom(1)=',text)
+        self.assertNotIn('target_references(:,1)',text)
+        self.assertEqual(cycle_shift(state,state)['max_shift_over_esd'],0)
+
+    def test_free_units_or_geometry_contradictions_fail(self):
+        fixture(self.root,free=True)
+        path=self.root/'curved.target-1.json';original=json.loads(path.read_text())
+        bad=[dict(original,shape_parameter_units=['radian']*10),dict(original,pivot_label='O1'),
+             dict(original,orientation_vector_rad=[0,0,0]),dict(original,mean_radial_length_A=1.8)]
+        for model in bad:
+            path.write_text(json.dumps(model))
+            with self.assertRaises(ValueError):read_accepted_cycle(self.root)
+        path.write_text(json.dumps(original))
 
     def test_local_and_angular_state_roundtrip(self):
         for single,oblique in ((True,False),(True,True),(False,False),(False,True)):
