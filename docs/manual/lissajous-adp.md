@@ -1,5 +1,12 @@
 # Lissajous displacement distributions
 
+This chapter distinguishes two models. **Shared-phase Lissajous (legacy)**
+is the released `--lissajous-adp` command described below; it is unchanged.
+**Independent-axis overtone (Model B, development)** uses independently
+averaged phases and is described in its own section. It is not selected by
+the released Lissajous controls. Existing inputs and restarts retain their
+original shared-phase meaning.
+
 :::{admonition} Separate experimental route
 :class: important
 This is an additional, explicitly selected model, not a replacement for
@@ -10,7 +17,7 @@ not passing refinement references. Lower residual peaks alone do not validate
 a distribution or identify its physical cause.
 :::
 
-## Model and fitted quantities
+## Shared-phase Lissajous: model and fitted quantities
 
 The phase-locked 2D path is
 
@@ -105,7 +112,9 @@ with another $J_0(C\tilde q_z)$ factor in 3D for independent phases.
 This follows directly from [Bessel's integral](https://dlmf.nist.gov/10.9.E1).
 The phase differences and frequency ratios then disappear and must not be
 included as fitted parameters. This independent-phase alternative is a
-separate proposed control, **not activated by the current selector**.
+separate implemented component/test route, **not activated by the current
+selector**. Its available CuCl tests have not met convergence and retain the
+alternating Cl residual pattern; they are not passing refinement references.
 For a finite observation time, a near resonance need not sample independent
 phases completely. Introducing that finite-time model would require additional
 physical information; it is not inferred just from experiment duration.
@@ -124,7 +133,101 @@ The 44 is not the number of all possible ratios, nor a list of experimentally
 distinguishable motions. Any future ratio search must compare converged fits
 and held-out predictions using a fixed selection protocol.
 
-## Using lamaGOET
+## Independent-axis overtone: Model B (development)
+
+:::{admonition} Validation stage, not a released selector
+:class: warning
+The positive probability component and its derivatives have isolated numerical
+validation. Native integration, certified refinement, uncertainties, cloud
+artifacts and GUI activation are separate gates. Do not substitute these
+parameters into a shared-phase Lissajous input. No new experimental success
+claim is made here.
+:::
+
+For each enabled Cartesian path axis, independently draw
+$\tau_a\sim\mathcal U[0,2\pi)$ and define
+
+$$
+v_a=A_a\cos\tau_a+D_a\cos2\tau_a,\qquad
+u=Q(\omega)v+\eta,\quad\eta\sim\mathcal N(0,U_{\rm local}).
+$$
+
+The fundamental and overtone on a **single axis share that axis's phase**;
+different axes do not. $A_a\ge0$, while $D_a$ is signed. An input mask chooses
+which overtones exist; changing the mask changes the model, not merely a
+starting value. The intended default is one enabled overtone. No frequency
+ratio, cross-axis phase difference, bond or pivot belongs to this model.
+
+With $\tilde q=Q^Tq$ and $q=2\pi D_{\rm cell}^{-T}h$,
+
+$$
+\Phi(q)=e^{-q^TU_{\rm local}q/2}\prod_a\phi_a(\tilde q_a),\qquad
+\phi_a(k)=\frac1{2\pi}\int_0^{2\pi}
+ e^{ik(A_a\cos\tau+D_a\cos2\tau)}\,d\tau.
+$$
+
+Each integral is a characteristic function of a positive distribution. The
+Gaussian convolution gives a non-negative volume density. Uniform phase
+quadrature uses oversampling and an $N$ versus $2N$ check on both factors and
+derivatives; unresolved cases fail instead of accepting an aliased integral.
+When $D_a=0$, $\phi_a(k)=J_0(A_ak)$; when every $A_a=D_a=0$, the model is
+exactly harmonic Gaussian. The sign change $A_a\mapsto-A_a$ is equivalent to
+$\tau_a\mapsto\tau_a+\pi$, so the non-negative chart removes that duplication.
+
+The scalar moments and cumulants are
+
+$$
+\langle v_a\rangle=0,\quad c_{2a}=\frac{A_a^2+D_a^2}{2},\quad
+c_{3a}=\frac34 A_a^2D_a,\quad
+c_{4a}=-\frac38(A_a^4+D_a^4).
+$$
+
+Here $c_{4a}$ is the fourth **cumulant**, not the fourth moment. The fourth
+moment is $3(A_a^4+D_a^4)/8+3A_a^2D_a^2/2$.
+Before site averaging,
+
+$$
+U_{\rm total}=U_{\rm local}+Q\operatorname{diag}(c_{2a})Q^T,
+\qquad K_3=\sum_a c_{3a}\,Q_a^{\otimes3}.
+$$
+
+Three axes and one overtone have seven shape parameters: three fundamentals,
+one overtone and three orientation coordinates, plus six local-U terms at a
+general position. Thus the maximum displacement count for this choice is 13,
+compared with 16 for unrestricted third-order Gram–Charlier. Two axes or
+other masks have different counts. Site constraints and measured sensitivity
+determine the actual independent count; parameter counting alone is not a
+model-quality test.
+
+Analytic integrand derivatives are
+
+$$
+\partial_A\phi=\langle ik\cos\tau\,e^{ikv}\rangle,\qquad
+\partial_D\phi=\langle ik\cos2\tau\,e^{ikv}\rangle,\qquad
+\partial_k\phi=\langle iv\,e^{ikv}\rangle.
+$$
+
+Orientation derivatives use the derivative of the Rodrigues rotation matrix.
+Products are differentiated without division by $\phi$, which may vanish.
+The local-U derivatives use the same Gaussian convention as ordinary Tonto
+ADPs. All these quantities are averaged over the complete site stabilizer.
+At an inversion site, all odd cumulants vanish even if the seed is skewed.
+Fourth cumulants of a site mixture must be obtained from averaged fourth
+**moments**, not by merely averaging seed fourth cumulants.
+
+At $A_a=0$, the first derivative with respect to that fundamental vanishes.
+At zero total path amplitude orientation is undetermined. In contrast,
+$D_a=0$ is not in itself a rank deficiency: its derivative can carry skew
+information. Weighted design-matrix singular values, including the native
+structural constraints and profiled scale, decide whether ESDs exist.
+
+A signed overtone describes skewness. It is compatible, for example, with a
+cubic term in an effective potential, but the fit does not establish that
+mechanism. Static or dynamic disorder and model errors can also produce
+skewness; a single-temperature Bragg experiment generally does not separate
+these interpretations. See the [IUCr ADP nomenclature report](https://www.iucr.org/who-we-are/commissions/commission-on-crystallographic-nomenclature/published-reports/adp).
+
+## Using lamaGOET: released shared-phase model
 
 1. Select **Lissajous — 2D or 3D (experimental)** in the opt-in displacement
    model box, then choose the dimension and a single asymmetric target label.

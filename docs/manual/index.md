@@ -150,6 +150,7 @@ periodic-xcw
 sccc
 curved-adp
 lissajous-adp
+shared-u-mixture-adp
 plots
 ```
 
