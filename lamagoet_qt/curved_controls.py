@@ -24,9 +24,13 @@ class CurvedControls(QGroupBox):
                              ("Target only — free orientation and curvature (up to 16 displacement parameters)", "free_surface"),
                              ("Two harmonic angular directions (9 displacement parameters)", "harmonic_surface"),
                              ("One transverse direction (planar)", "planar"),
-                             ("Two transverse directions (surface)", "surface")):
+                             ("Two transverse directions (surface)", "surface"),
+                             ("Lissajous — 2D or 3D (experimental)", "lissajous")):
             self.model.addItem(label, value)
         form.addRow("Displacement model", self.model)
+        from .lissajous_controls import LissajousControls
+        self.lissajous = LissajousControls()
+        form.addRow(self.lissajous)
         self.details = QWidget()
         inner = QFormLayout(self.details)
         inner.setSizeConstraint(QLayout.SizeConstraint.SetNoConstraint)
@@ -69,15 +73,19 @@ class CurvedControls(QGroupBox):
         buttons = QHBoxLayout()
         add = QPushButton("Add target")
         remove = QPushButton("Remove selected targets")
+        self.add_target_button = add
+        self.remove_target_button = remove
         buttons.addWidget(add); buttons.addWidget(remove)
         choose_extra=QPushButton("Choose atom/bond for selected row…")
         self.choose_extra_button=choose_extra
         buttons.addWidget(choose_extra)
-        inner.addRow(buttons)
+        self.target_buttons = QWidget()
+        self.target_buttons.setLayout(buttons)
+        inner.addRow(self.target_buttons)
         add.clicked.connect(self._add_target_clicked)
         remove.clicked.connect(self.remove_targets)
         choose_extra.clicked.connect(self._choose_extra)
-        self.local = QCheckBox("Every starting target U is LOCAL Gaussian U, not a previous angular model's total U")
+        self.local = QCheckBox("Every starting target U is LOCAL Gaussian U, not a previous non-Gaussian model's total U")
         self.molecule = QCheckBox("For HAR: CIF contains the complete molecule; no crystal fragment is missing")
         inner.addRow(self.local)
         inner.addRow(self.molecule)
@@ -113,6 +121,7 @@ class CurvedControls(QGroupBox):
             "address-space limit. Results are never overwritten. Small steps are not proof of convergence."
         )
         self.scope_note.setWordWrap(True)
+        self.angular_scope_text = self.scope_note.text()
         inner.addRow(self.scope_note)
         form.addRow(self.details)
         self.model.currentIndexChanged.connect(self._changed)
@@ -239,7 +248,36 @@ class CurvedControls(QGroupBox):
         self.auto_geometry.setChecked(True)
 
     def _changed(self):
-        self.details.setVisible(self.model.currentData() != "off")
+        is_lissajous = self.model.currentData() == 'lissajous'
+        self.lissajous.setVisible(is_lissajous)
+        self.details.setVisible(self.model.currentData() != 'off')
+        for widget in (self.default_starts, self.advanced, self.choose_button, self.add_target_button,
+                       self.choose_extra_button, self.simple_note):
+            widget.setVisible(not is_lissajous)
+        self.inner_form.setRowVisible(self.fields['CURVED_TARGET'], not is_lissajous)
+        self.inner_form.setRowVisible(self.additional, not is_lissajous or self.additional.rowCount() > 0)
+        self.target_buttons.setVisible(not is_lissajous or self.additional.rowCount() > 0)
+        self.scope_note.setText(self.angular_scope_text)
+        if is_lissajous:
+            self.auto_geometry.setVisible(False)
+            for key, field in self.fields.items():
+                self.inner_form.setRowVisible(field, key == 'CURVED_OUTPUT')
+            self.starts_note.setVisible(False)
+            self.scope_note.setText(
+                'Runs the separate Tonto --lissajous-adp command with the selected F² weights, '
+                'merging, dispersion and H settings. One target only: remove any saved additional '
+                'angular targets before launching. Local Gaussian U, path amplitudes, phases, '
+                'orientation and allowed structural parameters refine jointly. No bond input. '
+                'IAM uses no SCF; molecular HAR uses one restricted native SCF followed by a '
+                'fixed-density fit, not the periodic HAR loop. No extinction, riding H, XCW or '
+                'simultaneous Gram–Charlier. The native solver controls convergence, independently '
+                'of the ordinary solver widgets. Full rank and strict convergence are required '
+                'for uncertainties; phase-boundary solutions may fail. Runs one CPU thread with '
+                'a 10 GiB address-space limit. Results are never overwritten.')
+            self.scope_note.setVisible(True)
+            self.molecule.setEnabled(self.source.currentData() == 'molecular_hirshfeld')
+            QTimer.singleShot(0,self._sync_height)
+            return
         automatic=self.auto_geometry.isChecked()
         defaults=self.default_starts.isChecked()
         free=self.model.currentData()=='free_surface'
@@ -306,6 +344,7 @@ class CurvedControls(QGroupBox):
     def load(self, options):
         from .options_schema import complete_job_options
         o = complete_job_options(options)
+        self.lissajous.load(o)
         # Signals can update default displays. Set modes before loading saved
         # manual coefficients, which must never be replaced during a reload.
         from .curved_job import enabled, default_starts_enabled
@@ -340,4 +379,5 @@ class CurvedControls(QGroupBox):
                 row.pop('orientation');row.pop('mean_length')
             rows.append(row)
         result["CURVED_ADDITIONAL_TARGETS"] = json.dumps(rows, separators=(",", ":"))
+        result.update(self.lissajous.values())
         return result

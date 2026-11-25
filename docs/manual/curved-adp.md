@@ -28,6 +28,10 @@ For compatibility, the command `--curved-adp`, `CURVED_*` settings,
 `curved_adp` namelist, `curved.*` result files and this chapter's existing URL
 are retained. Existing inputs and saved model artifacts remain valid.
 
+The additional {doc}`lissajous-adp` option has a separate 2D/3D selector and
+phase-averaged sinusoidal model. It does not replace the angular models in this
+chapter, and its experimental CuCl fits are not yet converged.
+
 ## What is being refined?
 
 The selected atom has a normalized, non-negative distribution of displacements

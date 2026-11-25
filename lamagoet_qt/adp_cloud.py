@@ -55,7 +55,7 @@ class ProbabilityMesh:
 
 class CloudModel:
     def __init__(self, data: dict):
-        if data.get("schema") != "tonto.curved-adp" or data.get("version") != 1:
+        if data.get("schema") not in {"tonto.curved-adp", "tonto.lissajous-adp"} or data.get("version") != 1:
             raise ValueError("Unsupported displacement-model schema/version")
         if data.get("length_unit") != "angstrom":
             raise ValueError("Displacement model must explicitly use Angstrom")
@@ -70,6 +70,8 @@ class CloudModel:
             raise ValueError("Invalid displacement quadrature dimensions")
         if self.rotations.ndim != 3 or self.rotations.shape[1:] != (3, 3) or not 1 <= len(self.rotations) <= 96:
             raise ValueError("Invalid site-group dimensions")
+        if data.get('schema') == 'tonto.lissajous-adp':
+            self._validate_lissajous_metadata()
         if abs(float(data.get("node_weight", 0)) * len(self.nodes) - 1) > 1e-12:
             raise ValueError("Displacement quadrature is not normalized")
         if np.max(abs(self.local_u - self.local_u.T)) > 1e-12 or np.linalg.eigvalsh(self.local_u).min() <= 0:
@@ -105,6 +107,53 @@ class CloudModel:
                 raise ValueError("Atom coordinates disagree with model cell")
         self.inverse = np.linalg.inv(self.local_u)
         self.norm = 1 / np.sqrt((2 * np.pi) ** 3 * np.linalg.det(self.local_u))
+
+    def _validate_lissajous_metadata(self):
+        """Check the declared trajectory against native quadrature, not its label."""
+        import math
+        d = self.data
+        dim = d.get('dimensions')
+        if type(dim) is not int or dim not in (2, 3) or d.get('model') != 'lissajous':
+            raise ValueError('Invalid Lissajous dimension/model metadata')
+        ratio = d.get('winding_ratio', [])
+        if (not isinstance(ratio, list) or len(ratio) != dim or
+                any(type(x) is not int or not 1 <= x <= 16 for x in ratio) or math.gcd(*ratio) != 1):
+            raise ValueError('Lissajous winding ratio must be reduced positive integers')
+        if d.get('averaging') != 'one_shared_uniform_phase' or d.get('absolute_frequencies_refined') is not False or d.get('fixed_last_phase_rad') != 0:
+            raise ValueError('Unsupported Lissajous averaging/frequency convention')
+        if any(key in d for key in ('pivot_label','pivot_cartesian','parameters_rad')):
+            raise ValueError('Lissajous model must not contain a bond pivot or radian-only parameters')
+        p = self._array('shape_parameters', (2*dim+2,))
+        amps = self._array('amplitudes_A', (dim,))
+        phases = self._array('phases_rad', (dim-1,))
+        w = self._array('orientation_rad', (3,))
+        if d.get('shape_parameter_units') != ['angstrom']*dim+['radian']*(dim+2):
+            raise ValueError('Wrong Lissajous parameter units')
+        if not np.array_equal(p, np.r_[amps,phases,w]) or np.any(amps < 0):
+            raise ValueError('Inconsistent Lissajous parameters')
+        angle = np.linalg.norm(w)
+        if angle >= np.pi or np.any(abs(phases) > np.pi):
+            raise ValueError('Lissajous orientation/phase outside supported chart')
+        s = np.array([[0,-w[2],w[1]],[w[2],0,-w[0]],[-w[1],w[0],0]])
+        if angle < 1e-4:
+            a = 1-angle**2/6+angle**4/120
+            b = .5-angle**2/24+angle**4/720
+        else:
+            a = np.sin(angle)/angle
+            b = (1-np.cos(angle))/angle**2
+        rotation = np.eye(3)+a*s+b*s@s
+        if len(self.nodes) % len(self.rotations):
+            raise ValueError('Incomplete Lissajous site orbit')
+        n = len(self.nodes)//len(self.rotations)
+        if not 16*max(ratio) <= n <= 8192:
+            raise ValueError('Unsupported Lissajous phase quadrature')
+        theta = 2*np.pi*np.arange(n)/n
+        base = np.zeros((3,n))
+        base[:dim] = amps[:,None]*np.sin(np.asarray(ratio)[:,None]*theta+np.r_[phases,0][:,None])
+        base = rotation@base
+        for i,site in enumerate(self.rotations):
+            if not np.allclose(self.nodes[i*n:(i+1)*n], (site@base).T, atol=2e-11, rtol=1e-10):
+                raise ValueError('Lissajous quadrature disagrees with amplitudes, phases, orientation or site orbit')
 
     def _array(self, key, shape=None):
         value = np.asarray(self.data[key], dtype=float)

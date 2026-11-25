@@ -209,14 +209,20 @@ def validate_options(o):
     """Validate scientific scope before writing any calculation files."""
     if o.get("CURVED_MODEL", "off") == "off":
         return
-    if o["CURVED_MODEL"] not in {"harmonic_surface", "planar", "surface", "free_surface"}:
+    is_lissajous = o['CURVED_MODEL'] == 'lissajous'
+    if is_lissajous:
+        from .lissajous_options import require_production_route
+        require_production_route(o)
+    elif o["CURVED_MODEL"] not in {"harmonic_surface", "planar", "surface", "free_surface"}:
         raise ValueError("Unknown Multi-harmonic angular ADP model")
-    angular_targets(o)
+    else:
+        angular_targets(o)
     if not enabled(o.get("CURVED_LOCAL_U_CONFIRMED")):
         raise ValueError("Confirm that the starting CIF contains LOCAL Gaussian U, not total angular-model U")
-    for key in ("CURVED_TRANSVERSE_1", "CURVED_TRANSVERSE_2"):
-        vector(o[key])
-    if o['CURVED_MODEL']!='free_surface':
+    if not is_lissajous:
+        for key in ("CURVED_TRANSVERSE_1", "CURVED_TRANSVERSE_2"):
+            vector(o[key])
+    if o['CURVED_MODEL'] not in {'free_surface', 'lissajous'}:
         vector(o['CURVED_PIVOT_SHIFT'])
         if sum(x*x for x in vector(o["CURVED_REFERENCE"])) == 0:
             raise ValueError("Multi-harmonic angular reference direction cannot be zero")
@@ -324,6 +330,9 @@ def reflection_text(path, on_f=False):
 
 
 def make_namelist(o, targets=None):
+    if o.get('CURVED_MODEL') == 'lissajous':
+        from .lissajous_options import make_namelist as lissajous_namelist
+        return lissajous_namelist(o)
     explicit_targets = targets is not None
     if targets is None:
         if enabled(o.get("CURVED_AUTO_GEOMETRY")) and any(r['model']!='free_surface' for r in angular_targets(o)):
@@ -424,9 +433,15 @@ def prepare(option_path):
     atoms = {a.label: a for a in structure.asymmetric_atoms}
     if len(atoms) != len(structure.asymmetric_atoms):
         raise ValueError("Duplicate atom labels in the input CIF")
-    targets = resolve_angular_geometry(o, structure)
+    is_lissajous = o['CURVED_MODEL'] == 'lissajous'
+    if is_lissajous:
+        from .lissajous_options import configuration
+        config = configuration(o)
+        targets = [dict(target=config['target_label'], model='lissajous')]
+    else:
+        targets = resolve_angular_geometry(o, structure)
     for row in targets:
-        labels={row['target']} if row['model']=='free_surface' else {row['target'],row['pivot']}
+        labels={row['target']} if row['model'] in {'free_surface', 'lissajous'} else {row['target'],row['pivot']}
         if not labels <= atoms.keys():
             raise ValueError("Every target and pivot must match distinct asymmetric-atom labels in the CIF")
         if atoms[row["target"]].u_aniso is None:
@@ -434,8 +449,9 @@ def prepare(option_path):
         # An H target cannot be silently isotropized by the global H control.
         if atoms[row["target"]].element == "H" and enabled(o.get("HADP")):
             raise ValueError("Disable isotropic H ADPs when selecting hydrogen angular targets")
-    if "_tonto_curved" in cif.read_text(errors="replace").lower():
-        raise ValueError("Do not restart from an angular-model total-U CIF; use the exact native restart interface")
+    cif_text = cif.read_text(errors="replace").lower()
+    if any(tag in cif_text for tag in ('_tonto_curved', '_tonto_lissajous')):
+        raise ValueError("Do not restart from a non-Gaussian model's total-U CIF; use the exact native restart interface")
     stdin, namelist = make_stdin(o), make_namelist(o,targets)
     reflections = None if enabled(o.get("ISFCF")) else reflection_text(hkl, enabled(o.get("ONF")))
     executable = Path(o["TONTO"]).expanduser()
@@ -445,6 +461,12 @@ def prepare(option_path):
         exe = str((root / executable).resolve()) if (root / executable).is_file() else shutil.which(str(executable))
     if not exe or not os.access(exe, os.X_OK):
         raise ValueError("Tonto executable was not found or is not executable")
+    if is_lissajous:
+        capability = subprocess.run([exe, '--help'], capture_output=True, text=True, timeout=15,
+                                    env=dict(os.environ, OMP_NUM_THREADS='1', OPENBLAS_NUM_THREADS='1'))
+        if capability.returncode != 0 or '--lissajous-adp' not in capability.stdout + capability.stderr:
+            raise ValueError('This Tonto executable does not provide --lissajous-adp; update the executable. '
+                             'No ordinary ADP calculation will be substituted.')
     basis = None
     if o["CURVED_ELECTRONIC_SOURCE"] == "molecular_hirshfeld":
         basis = Path(o.get("TONTO_BASIS_DIR") or o["BASISSETDIR"]).expanduser()
@@ -461,15 +483,19 @@ def prepare(option_path):
     if basis:
         (out / "basis_library").symlink_to(basis.resolve(), target_is_directory=True)
     (out / "stdin").write_text(stdin)
-    (out / "curved.nml").write_text(namelist)
+    prefix = 'lissajous' if is_lissajous else 'curved'
+    (out / (prefix + '.nml')).write_text(namelist)
     shutil.copy2(option_path, out / "job_options.snapshot.txt")
-    command = [exe, "--curved-adp", "curved.nml"]
+    command = [exe, '--' + prefix + '-adp', prefix + '.nml']
     record = {"status": "prepared", "created_utc": datetime.now(timezone.utc).isoformat(), "command": command,
               "angular_targets": targets,
+              "result_prefix": prefix,
               "source_cif": str(cif), "source_hkl": str(hkl), "electronic_source": o["CURVED_ELECTRONIC_SOURCE"],
               "job_timeout_seconds": int(o["CURVED_JOB_TIMEOUT"]), "address_limit_GiB": 10, "threads": 1,
               "sha256": {p.name: hashlib.sha256(p.read_bytes()).hexdigest() for p in out.iterdir() if p.is_file()},
               "executable_sha256": hashlib.sha256(Path(exe).read_bytes()).hexdigest()}
+    if is_lissajous:
+        record['lissajous_configuration'] = config
     (out / "run.json").write_text(json.dumps(record, indent=2) + "\n")
     return out, record
 
@@ -488,7 +514,8 @@ def run(out, record):
         with (out / "process.log").open("w") as log:
             done = subprocess.run(record["command"], cwd=out, stdout=log, stderr=subprocess.STDOUT, env=env,
                                   timeout=record["job_timeout_seconds"], preexec_fn=limits if os.name=="posix" else None)
-        summary = (out / "curved.summary").read_text() if (out / "curved.summary").exists() else ""
+        summary_path = out / (record.get('result_prefix', 'curved') + '.summary')
+        summary = summary_path.read_text() if summary_path.exists() else ""
         success = done.returncode == 0 and summary.splitlines()[:1] == ["status converged"]
         record.update(status="converged" if success else "failed_or_not_converged", returncode=done.returncode)
     except BaseException as exc:

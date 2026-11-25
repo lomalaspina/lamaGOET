@@ -149,6 +149,7 @@ xcw
 periodic-xcw
 sccc
 curved-adp
+lissajous-adp
 plots
 ```
 
