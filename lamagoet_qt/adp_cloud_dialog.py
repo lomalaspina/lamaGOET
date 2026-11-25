@@ -34,6 +34,7 @@ class AdpCloudDialog(QDialog):
         self.resize(900, 760)
         self.model_files = model_paths(path)
         self.model = CloudModel.read(self.model_files[0][1])
+        self._model_title()
         if self.model.data['target_label'] != self.model_files[0][0]:
             raise ValueError("Joint manifest and model atom identities disagree")
         self.mesh = None
@@ -73,12 +74,19 @@ class AdpCloudDialog(QDialog):
             if model.data['target_label'] != label:
                 raise ValueError("Joint manifest and model atom identities disagree")
             self.model = model
+            self._model_title()
             self.mesh = None;self.viewer.probability_meshes.clear()
             self.source.setText(f"{path}\nModel: {model.data['model']} — status: {model.data.get('fit_status', 'unknown')}")
             self._set_structure();self.rebuild()
         except (ValueError, OSError, KeyError) as exc:
             self.mesh = None;self.viewer.probability_meshes.clear();self.viewer.setVisible(False)
             self.status.setText(f"Cannot load selected angular target: {exc}")
+
+    def _model_title(self):
+        title = {'tonto.shared-u-mixture-adp': 'Shared-U two-Gaussian ADP',
+                 'tonto.lissajous-adp': 'Shared-phase Lissajous ADP'}.get(
+                     self.model.data['schema'], 'Multi-harmonic angular ADP')
+        self.setWindowTitle(title + ' - probability cloud')
 
     def _set_structure(self):
         vectors = self.model.direct.T

@@ -55,7 +55,7 @@ class ProbabilityMesh:
 
 class CloudModel:
     def __init__(self, data: dict):
-        if data.get("schema") not in {"tonto.curved-adp", "tonto.lissajous-adp"} or data.get("version") != 1:
+        if data.get("schema") not in {"tonto.curved-adp", "tonto.lissajous-adp", "tonto.shared-u-mixture-adp"} or data.get("version") != 1:
             raise ValueError("Unsupported displacement-model schema/version")
         if data.get("length_unit") != "angstrom":
             raise ValueError("Displacement model must explicitly use Angstrom")
@@ -72,25 +72,33 @@ class CloudModel:
             raise ValueError("Invalid site-group dimensions")
         if data.get('schema') == 'tonto.lissajous-adp':
             self._validate_lissajous_metadata()
-        if abs(float(data.get("node_weight", 0)) * len(self.nodes) - 1) > 1e-12:
+        self.weights = None
+        if data.get('schema') == 'tonto.shared-u-mixture-adp':
+            from .mixture_cloud import mixture_weights
+            self.weights = mixture_weights(data, self.nodes, self.rotations)
+        elif abs(float(data.get("node_weight", 0)) * len(self.nodes) - 1) > 1e-12:
             raise ValueError("Displacement quadrature is not normalized")
         if np.max(abs(self.local_u - self.local_u.T)) > 1e-12 or np.linalg.eigvalsh(self.local_u).min() <= 0:
             raise ValueError("Local covariance is not symmetric positive definite")
-        if np.max(abs(self.nodes.mean(axis=0))) > 1e-9:
+        mean = self.nodes.mean(axis=0) if self.weights is None else self.weights @ self.nodes
+        if np.max(abs(mean)) > 1e-9:
             raise ValueError("Displacement cloud is not mean-centered")
-        moment = self.local_u + self.nodes.T @ self.nodes / len(self.nodes)
+        moment = self.local_u + (self.nodes.T @ self.nodes / len(self.nodes) if self.weights is None
+                                 else self.nodes.T @ (self.weights[:, None] * self.nodes))
         if not np.allclose(moment, self.total_u, atol=2e-10, rtol=2e-9):
             raise ValueError("Total covariance disagrees with the actual cloud")
         if abs(np.linalg.det(self.direct)) < 1e-9:
             raise ValueError("Singular model cell")
         q = np.array([[.91, 1.37, 2.03], [2.61, -.73, 1.17], [-3.4, 2.8, .47]])
-        base = np.exp(1j * (q @ self.nodes.T)).mean(axis=1)
+        def expectation(values):
+            return values.mean(axis=1) if self.weights is None else values @ self.weights
+        base = expectation(np.exp(1j * (q @ self.nodes.T)))
         for r in self.rotations:
             if not np.allclose(r @ r.T, np.eye(3), atol=1e-9, rtol=0):
                 raise ValueError("Nonorthogonal Cartesian site operation")
             if not np.allclose(r @ self.local_u @ r.T, self.local_u, atol=1e-11, rtol=1e-9):
                 raise ValueError("Local covariance violates site symmetry")
-            other = np.exp(1j * (q @ r @ self.nodes.T)).mean(axis=1)
+            other = expectation(np.exp(1j * (q @ r @ self.nodes.T)))
             if np.max(abs(base - other)) > 1e-9:
                 raise ValueError("Displacement quadrature violates site symmetry")
         atoms = data.get("atoms", [])
@@ -181,8 +189,10 @@ class CloudModel:
                 x = points[pos:pos + 4096]
                 xx = np.sum((x @ self.inverse) * x, axis=1)
                 squared = xx[:, None] + nn[None, :] - 2 * np.einsum('ij,kj->ik', x, ni, optimize=False)
-                result[pos:pos + len(x)] += np.exp(-.5 * squared).sum(axis=1)
-        return result * (self.norm / len(self.nodes))
+                values = np.exp(-.5 * squared)
+                result[pos:pos + len(x)] += (values.sum(axis=1) if self.weights is None
+                                             else values @ self.weights[start:start + len(nodes)])
+        return result * (self.norm / len(self.nodes) if self.weights is None else self.norm)
 
     def surface(self, probability=.5, grids=(33, 49, 65, 81, 97)):
         if not .01 <= probability <= .99:
