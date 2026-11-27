@@ -4,10 +4,10 @@
 :class: warning
 This is a new positive displacement model, not chemical disorder support or
 a replacement for ordinary ADPs. Its component mathematics has numerical
-validation. Native refinement, uncertainty/artifact export and GUI activation
-must pass their own tests before deployment. The shared-phase Lissajous route
-and Multi-harmonic angular ADP are unchanged. No new CuCl convergence or
-mechanism claim follows from this development chapter.
+validation. Native refinement and covariance have isolated validation, but a
+complete production artifact/restart pipeline and GUI refinement activation
+are not deployed. The read-only cloud viewer is available independently.
+The shared-phase Lissajous route and Multi-harmonic angular ADP are unchanged.
 :::
 
 ## Centred probability and characteristic function
@@ -98,7 +98,7 @@ weighted sensitivity singular values determine identifiability and ESDs.
 At or near numerical endpoint weights, information can also be weak. No
 parameter is silently removed to obtain a full-rank result.
 
-Future native uncertainty export must retain the joint scale, coordinates,
+Production uncertainty export must retain the joint scale, coordinates,
 local-U and shape covariance. The propagated total-U covariance is
 
 $$
@@ -123,6 +123,32 @@ The isolated tests compare analytic derivatives with high-precision complex
 steps, moments with independent probability averages and small-q differences,
 and Fourier factors with million-sample Monte Carlo ensembles. Positive-grid
 integrals are checked at two spacings without clipping or renormalization.
-These gates precede native synthetic recovery, matched full-data CuCl fits,
-held-out prediction, resolution scans and an experimental model comparison.
-Reduced residual lobes alone do not establish the proposed distribution.
+Native noiseless recovery, matched full-data refinements and conditional
+five-fold prediction have also been tested in isolated development harnesses.
+These are not a deployed refinement command. In the noisy synthetic pilot,
+some fits failed to converge and local three-ESD intervals did not reliably
+contain the generating shape parameters. A full-rank covariance therefore
+must not be presented as a calibrated global confidence region.
+
+Report compatible joint distributions, not just a population estimate.
+Population, separation, local covariance and mean coordinates can compensate
+for one another. A two-component mixture can even have a **single** density
+maximum. Confidence profiles must refit nuisance parameters and scale under
+the specified weighting rule; a conditional scan with geometry fixed answers
+a narrower question. Resampling linearized residuals is not equivalent to
+fully reoptimizing every realization. These limitations are unchanged by
+cleaner residual lobes or improved held-out prediction.
+
+### Read-only displacement-cloud viewer
+
+Use **Open displacement cloud…** to open an explicitly identified
+`tonto.shared-u-mixture-adp` version-1 JSON artifact. The viewer checks the
+canonical component weights, target identity, site orbit, local covariance
+and total second moment. It plots the weighted positive Gaussian mixture,
+not an unweighted pair of point clouds. The equivalent ellipsoid represents
+only its second moment. Probability mass and grid convergence must pass
+before a probability surface is displayed.
+
+Opening this artifact does not activate a refinement and does not convert
+an ordinary CIF into a fitted mixture. Use the artifact's authoritative
+status to distinguish a certified result from a diagnostic distribution.

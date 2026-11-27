@@ -84,6 +84,7 @@ class AdpCloudDialog(QDialog):
 
     def _model_title(self):
         title = {'tonto.shared-u-mixture-adp': 'Shared-U two-Gaussian ADP',
+                 'tonto.independent-overtone-adp': 'Independent-axis overtone ADP',
                  'tonto.lissajous-adp': 'Shared-phase Lissajous ADP'}.get(
                      self.model.data['schema'], 'Multi-harmonic angular ADP')
         self.setWindowTitle(title + ' - probability cloud')
@@ -133,6 +134,8 @@ class AdpCloudDialog(QDialog):
         self.status.setText(f"Actual cloud: {100 * mesh.enclosed_mass:.2f}% enclosed; grid integral {mesh.integrated_mass:.6f}; "
                             f"{mesh.grid_size}³ grid. Surface level {mesh.level:.5g} Å⁻³. "
                             "The equivalent ellipsoid shows only the second moment, not this complete distribution.")
+        if mesh.quadrature_relative_change is not None:
+            self.status.setText(self.status.text()+f" N/2N phase-quadrature change: {mesh.quadrature_relative_change:.3g} of the surface level.")
         self.probability.setEnabled(True);self.mode.setEnabled(True);self.viewer.setEnabled(True)
         self.viewer.setVisible(True)
         self._mode_changed()

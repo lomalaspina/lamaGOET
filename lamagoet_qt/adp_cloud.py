@@ -51,21 +51,28 @@ class ProbabilityMesh:
     enclosed_mass: float
     grid_size: int
     level_relative_change: float
+    quadrature_relative_change: float | None = None
 
 
 class CloudModel:
     def __init__(self, data: dict):
-        if data.get("schema") not in {"tonto.curved-adp", "tonto.lissajous-adp", "tonto.shared-u-mixture-adp"} or data.get("version") != 1:
+        if data.get("schema") not in {"tonto.curved-adp", "tonto.lissajous-adp", "tonto.shared-u-mixture-adp", "tonto.independent-overtone-adp"} or data.get("version") != 1:
             raise ValueError("Unsupported displacement-model schema/version")
         if data.get("length_unit") != "angstrom":
             raise ValueError("Displacement model must explicitly use Angstrom")
         self.data = data
-        self.nodes = self._array("displacement_nodes")
         self.local_u = self._array("local_covariance", (3, 3))
         self.total_u = self._array("total_covariance", (3, 3))
         self.mean = self._array("mean_cartesian", (3,))
         self.direct = self._array("cell_direct", (3, 3))
         self.rotations = self._array("site_rotations")
+        if self.rotations.ndim != 3 or self.rotations.shape[1:] != (3, 3) or not 1 <= len(self.rotations) <= 96:
+            raise ValueError("Invalid site-group dimensions")
+        if data.get('schema') == 'tonto.independent-overtone-adp':
+            from .overtone_cloud import overtone_nodes
+            self.nodes = overtone_nodes(data, self.rotations)
+        else:
+            self.nodes = self._array("displacement_nodes")
         if self.nodes.ndim != 2 or self.nodes.shape[1] != 3 or not 1 <= len(self.nodes) <= 131072:
             raise ValueError("Invalid displacement quadrature dimensions")
         if self.rotations.ndim != 3 or self.rotations.shape[1:] != (3, 3) or not 1 <= len(self.rotations) <= 96:
@@ -76,7 +83,7 @@ class CloudModel:
         if data.get('schema') == 'tonto.shared-u-mixture-adp':
             from .mixture_cloud import mixture_weights
             self.weights = mixture_weights(data, self.nodes, self.rotations)
-        elif abs(float(data.get("node_weight", 0)) * len(self.nodes) - 1) > 1e-12:
+        elif data.get('schema') != 'tonto.independent-overtone-adp' and abs(float(data.get("node_weight", 0)) * len(self.nodes) - 1) > 1e-12:
             raise ValueError("Displacement quadrature is not normalized")
         if np.max(abs(self.local_u - self.local_u.T)) > 1e-12 or np.linalg.eigvalsh(self.local_u).min() <= 0:
             raise ValueError("Local covariance is not symmetric positive definite")
@@ -217,7 +224,13 @@ class CloudModel:
             change = np.inf if previous is None else abs(level - previous) / level
             if abs(mass - 1) < 2e-4 and change < .015 and abs(enclosed - probability) < .003:
                 vertices, faces = _isosurface(field, level, low, spacing)
-                return ProbabilityMesh(vertices, faces, probability, level, float(mass), enclosed, n, float(change))
+                quadrature_change = None
+                if self.data.get('schema') == 'tonto.independent-overtone-adp':
+                    from .overtone_cloud import check_overtone_density
+                    index = np.linspace(0, len(vertices)-1, min(257,len(vertices))).astype(int)
+                    probes = np.r_[vertices[index], [[0,0,0]], self.nodes[::max(1,len(self.nodes)//31)]]
+                    quadrature_change = check_overtone_density(self, probes, level)
+                return ProbabilityMesh(vertices, faces, probability, level, float(mass), enclosed, n, float(change),quadrature_change)
             previous = level
         raise ValueError("Probability grid did not converge; no approximate shape displayed")
 

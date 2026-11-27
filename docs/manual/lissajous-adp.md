@@ -227,6 +227,32 @@ mechanism. Static or dynamic disorder and model errors can also produce
 skewness; a single-temperature Bragg experiment generally does not separate
 these interpretations. See the [IUCr ADP nomenclature report](https://www.iucr.org/who-we-are/commissions/commission-on-crystallographic-nomenclature/published-reports/adp).
 
+### Independent-overtone validation and viewing
+
+The read-only **Open displacement cloud…** viewer accepts the separate
+`tonto.independent-overtone-adp` version-1 schema. It reconstructs the
+product measure of the independent phases from the amplitudes, overtone mask
+and orientation. It rejects shared-phase ratios, inconsistent covariances
+and incompatible metadata. The displayed probability surface must pass both
+spatial-grid/mass checks and an additional $N$-versus-$2N$ phase-density
+check; unresolved phase quadrature is an error, not a smoothed approximation.
+This viewer does not enable Model B in the refinement selector.
+
+Noiseless native recovery has been demonstrated in isolated tests. Noisy
+recovery and unrestricted three-direction experimental fitting remain
+problematic: transverse amplitudes can approach zero while their effects
+become indistinguishable from changes in local Gaussian U. At exactly zero
+transverse motion, rotation of the transverse frame has no observable effect.
+A separate **single-axis** control retains two amplitudes and two direction
+coordinates plus the six local-U components. Its successful tests do not
+retroactively certify the unrestricted model. Very strong amplitude/local-U
+correlations can persist even in a full-rank converged single-axis fit.
+
+Consequently, do not infer calibrated amplitude or population uncertainties
+from convergence alone. Compatible-shape profiles and prediction on held-out
+reflections are complementary checks, not substitutes for a validated
+production refinement, restart and uncertainty-export pipeline.
+
 ## Using lamaGOET: released shared-phase model
 
 1. Select **Lissajous — 2D or 3D (experimental)** in the opt-in displacement
