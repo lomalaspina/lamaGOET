@@ -142,6 +142,147 @@ a narrower question. Resampling linearized residuals is not equivalent to
 fully reoptimizing every realization. These limitations are unchanged by
 cleaner residual lobes or improved held-out prediction.
 
+(positive-adp-cucl-comparison)=
+## Matched CuCl comparison and held-out prediction
+
+The 27 November 2026 comparison uses all 10,593 measured observations and
+the same retained, audited Gaussian RB3LYP/def2-TZVP/DKH electronic density,
+dispersion, free isotropic-H treatment and signed $F^2$ refinement as the
+{ref}`earlier angular/Gram–Charlier example <curved-cucl-example>`.
+SHELXL weighting uses $a=0.0494$, $b=0.1307$, without extinction. This is
+a comparison conditional on one electronic density, not a newly converged
+outer HAR loop or validation of the large native molecular SCF.
+
+The identical five-fold split for every model groups Friedel-related
+observations and balances reciprocal resolution. Each reflection is predicted
+once while held out. Each training fit retains its own scale: no test-set
+scale is fitted. Tonto independently verified all thirty training endpoints'
+factors; all thirty passed the full-rank undamped-step and outer-IRLS tests.
+Completed full-data fits and earlier folds were reused, not rerun.
+
+```{list-table}
+:header-rows: 1
+:widths: 34 14 17 17 18
+
+* - Cl displacement model
+  - Total / added
+  - All-data $R_1$ (%)
+  - All-data $wR_2$ (%)
+  - Held-out $wR_2$ (%)
+* - Harmonic HAR
+  - 647 / 0
+  - 2.9659
+  - 6.4986
+  - 7.4950
+* - Multi-harmonic angular
+  - 654 / 7
+  - 2.7870
+  - 6.0319
+  - 7.0067
+* - Gram–Charlier third order
+  - 657 / 10
+  - 2.7780
+  - 6.0119
+  - 6.9700
+* - Gram–Charlier third + fourth
+  - 672 / 25
+  - 2.7852
+  - 5.9920
+  - 6.9547
+* - Shared-U mixture
+  - 651 / 4
+  - 2.7819
+  - 6.0348
+  - 7.0042
+* - Single-axis overtone control
+  - 651 / 4
+  - 2.7900
+  - 6.0579
+  - 7.0232
+```
+
+Full-data $wR_2$ uses each model's self-consistent SHELXL weights. The pooled
+held-out score uses **common weights** from each fold's training-harmonic
+prediction. They are different diagnostics, not interchangeable columns.
+GC3+4 has the lowest pooled held-out score and wins three folds; GC3 wins
+the other two. The small lead does not establish superiority on another
+dataset or a microscopic mechanism.
+
+The single-axis overtone is a **separate reduced control**, with two amplitudes
+and two direction coordinates. It is not unrestricted three-direction
+Model B. Both full-data starts of unrestricted Model B failed convergence;
+they receive neither ESDs nor a score in this table. A successful reduced
+control does not retroactively validate those failed fits.
+
+```{figure} _static/positive-adp-cl-matched-slices.png
+:width: 100%
+:alt: Matched Cl1 residual slices for harmonic HAR, a converged shared-U mixture, and the separately identified converged single-axis overtone control. The full reflection list, orientation and colour scale are unchanged.
+
+Archived full-data Cl1 residual slices, reused without recalculation.
+The full 10,593-reflection list, fixed view and ±1 e/Å³ colour scale match
+the angular/Gram–Charlier comparison. These are residual electron-density
+maps, not atomic displacement probability densities.
+```
+
+The following extrema are on the **identical central slice**, not the full
+three-dimensional neighbourhood extrema in the earlier chapter.
+
+```{list-table}
+:header-rows: 1
+:widths: 45 32 23
+
+* - Model
+  - Slice min / max (e/Å$^3$)
+  - Negative probability mass (%)
+* - Harmonic HAR
+  - −0.8871 / +1.0284
+  - 0
+* - Multi-harmonic angular
+  - −0.1889 / +0.2149
+  - 0
+* - Gram–Charlier third order
+  - −0.1870 / +0.2143
+  - 0.2196
+* - Gram–Charlier third + fourth
+  - −0.1901 / +0.2114
+  - 0.8562
+* - Shared-U mixture
+  - −0.1788 / +0.2221
+  - 0
+* - Single-axis overtone control
+  - −0.1837 / +0.3589
+  - 0
+```
+
+Positive models avoid negative displacement probability by construction;
+they do not guarantee zero residual density. The GC negative masses refer
+to the full-data fitted distributions, not every cross-validation fold.
+The largest absolute local parameter correlation is about 0.886 for the
+mixture, 0.9973 for the angular model and 0.99998 for the single-axis
+overtone. These include ordinary structural parameters. They are local
+frozen-weight diagnostics, not globally calibrated uncertainties.
+An apparently good overtone residual map does not make its two amplitudes
+independently precise.
+
+### Resolution sensitivity, not a universal cutoff
+
+A separate nested-cutoff test retained 8,731, 6,129 and 4,446 observations
+at $d_{\min}=0.80$, $0.90$ and $1.00$ Å, respectively, compared with all
+10,593 observations to 0.75006 Å. It reused the same electronic density and
+refinement conventions, starting each fit at its full-data endpoint.
+The mixture converged at all three cutoffs: canonical weights were 0.189,
+0.217 and 0.194, with separations 0.395, 0.389 and 0.392 Å. The full-data
+values were 0.192 and 0.392 Å. This is a warm-start sensitivity check, not
+proof of global uniqueness or a calibrated confidence interval.
+
+Unrestricted Model B did not converge at any of these cutoffs: the 0.80 Å
+case reached its time bound; the 0.90 and 1.00 Å cases had rank-deficient
+designs. No ESDs were assigned. Reduced resolution did not repair its
+identifiability problem. These outcomes do not define a transferable
+minimum-resolution equation. Retain the full-data result as the final
+reference; a lower residual from fewer observations is not a reason to
+discard measured reflections.
+
 ## Using lamaGOET and the native command
 
 1. Choose **Shared-U two-Gaussian mixture (experimental)** in the opt-in

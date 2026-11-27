@@ -251,6 +251,10 @@ coordinates plus the six local-U components. Its successful tests do not
 retroactively certify the unrestricted model. Very strong amplitude/local-U
 correlations can persist even in a full-rank converged single-axis fit.
 
+For the measured Cl example, see the {ref}`matched six-model comparison
+<positive-adp-cucl-comparison>`, including the separate single-axis overtone
+control, failed unrestricted fits and common-weight held-out predictions.
+
 Consequently, do not infer calibrated amplitude or population uncertainties
 from convergence alone. Compatible-shape profiles and prediction on held-out
 reflections are complementary checks, not substitutes for a validated

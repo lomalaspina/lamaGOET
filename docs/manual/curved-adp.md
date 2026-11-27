@@ -1078,6 +1078,7 @@ For each scientific use:
 6. Report software/build identity, all model and quadrature settings, the
    pivot image/reference, electronic provenance and unresolved limitations.
 
+(curved-cucl-example)=
 ### Matched Cl example: harmonic, multi-harmonic angular and Gram–Charlier HAR
 
 The comparison collected on 19 November 2026 uses all 10,593 observations,
@@ -1177,6 +1178,11 @@ quadrature, geometry derivatives, symmetry and rank/convergence checks.
 It can therefore be substantially slower than a harmonic IAM, especially in
 a weakly identified valley. No SCF is hidden inside an IAM angular-model trial; a
 single-partition HAR also reuses its captured factors during refinement.
+
+The subsequent {ref}`six-model CuCl comparison <positive-adp-cucl-comparison>`
+adds the shared-U mixture and a separately identified single-axis overtone,
+with matched central-slice extrema and an identical five-fold held-out test.
+It reuses these full-data results; it is not a rerun of the original comparison.
 
 Implementation provenance for this chapter is Tonto's
 `native/curved_path` kernels, command, profile, covariance and artifact modules,
