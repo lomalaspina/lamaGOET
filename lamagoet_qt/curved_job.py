@@ -210,7 +210,11 @@ def validate_options(o):
     if o.get("CURVED_MODEL", "off") == "off":
         return
     is_lissajous = o['CURVED_MODEL'] == 'lissajous'
-    if is_lissajous:
+    is_positive = o['CURVED_MODEL'] in {'shared_u_mixture', 'independent_overtone'}
+    if is_positive:
+        from .positive_options import require_production_route
+        require_production_route(o)
+    elif is_lissajous:
         from .lissajous_options import require_production_route
         require_production_route(o)
     elif o["CURVED_MODEL"] not in {"harmonic_surface", "planar", "surface", "free_surface"}:
@@ -219,10 +223,10 @@ def validate_options(o):
         angular_targets(o)
     if not enabled(o.get("CURVED_LOCAL_U_CONFIRMED")):
         raise ValueError("Confirm that the starting CIF contains LOCAL Gaussian U, not total angular-model U")
-    if not is_lissajous:
+    if not (is_lissajous or is_positive):
         for key in ("CURVED_TRANSVERSE_1", "CURVED_TRANSVERSE_2"):
             vector(o[key])
-    if o['CURVED_MODEL'] not in {'free_surface', 'lissajous'}:
+    if o['CURVED_MODEL'] not in {'free_surface', 'lissajous', 'shared_u_mixture', 'independent_overtone'}:
         vector(o['CURVED_PIVOT_SHIFT'])
         if sum(x*x for x in vector(o["CURVED_REFERENCE"])) == 0:
             raise ValueError("Multi-harmonic angular reference direction cannot be zero")
@@ -330,6 +334,9 @@ def reflection_text(path, on_f=False):
 
 
 def make_namelist(o, targets=None):
+    if o.get('CURVED_MODEL') in {'shared_u_mixture', 'independent_overtone'}:
+        from .positive_options import make_namelist as positive_namelist
+        return positive_namelist(o)
     if o.get('CURVED_MODEL') == 'lissajous':
         from .lissajous_options import make_namelist as lissajous_namelist
         return lissajous_namelist(o)
@@ -434,14 +441,19 @@ def prepare(option_path):
     if len(atoms) != len(structure.asymmetric_atoms):
         raise ValueError("Duplicate atom labels in the input CIF")
     is_lissajous = o['CURVED_MODEL'] == 'lissajous'
-    if is_lissajous:
+    is_positive = o['CURVED_MODEL'] in {'shared_u_mixture', 'independent_overtone'}
+    if is_positive:
+        from .positive_options import configuration
+        config = configuration(o)
+        targets = [dict(target=config['target_label'], model=config['model'])]
+    elif is_lissajous:
         from .lissajous_options import configuration
         config = configuration(o)
         targets = [dict(target=config['target_label'], model='lissajous')]
     else:
         targets = resolve_angular_geometry(o, structure)
     for row in targets:
-        labels={row['target']} if row['model'] in {'free_surface', 'lissajous'} else {row['target'],row['pivot']}
+        labels={row['target']} if row['model'] in {'free_surface', 'lissajous', 'shared_u_mixture', 'independent_overtone'} else {row['target'],row['pivot']}
         if not labels <= atoms.keys():
             raise ValueError("Every target and pivot must match distinct asymmetric-atom labels in the CIF")
         if atoms[row["target"]].u_aniso is None:
@@ -450,7 +462,7 @@ def prepare(option_path):
         if atoms[row["target"]].element == "H" and enabled(o.get("HADP")):
             raise ValueError("Disable isotropic H ADPs when selecting hydrogen angular targets")
     cif_text = cif.read_text(errors="replace").lower()
-    if any(tag in cif_text for tag in ('_tonto_curved', '_tonto_lissajous')):
+    if any(tag in cif_text for tag in ('_tonto_curved', '_tonto_lissajous', '_tonto_positive')):
         raise ValueError("Do not restart from a non-Gaussian model's total-U CIF; use the exact native restart interface")
     stdin, namelist = make_stdin(o), make_namelist(o,targets)
     reflections = None if enabled(o.get("ISFCF")) else reflection_text(hkl, enabled(o.get("ONF")))
@@ -461,11 +473,12 @@ def prepare(option_path):
         exe = str((root / executable).resolve()) if (root / executable).is_file() else shutil.which(str(executable))
     if not exe or not os.access(exe, os.X_OK):
         raise ValueError("Tonto executable was not found or is not executable")
-    if is_lissajous:
+    if is_lissajous or is_positive:
+        required_option = '--positive-adp' if is_positive else '--lissajous-adp'
         capability = subprocess.run([exe, '--help'], capture_output=True, text=True, timeout=15,
                                     env=dict(os.environ, OMP_NUM_THREADS='1', OPENBLAS_NUM_THREADS='1'))
-        if capability.returncode != 0 or '--lissajous-adp' not in capability.stdout + capability.stderr:
-            raise ValueError('This Tonto executable does not provide --lissajous-adp; update the executable. '
+        if capability.returncode != 0 or required_option not in capability.stdout + capability.stderr:
+            raise ValueError(f'This Tonto executable does not provide {required_option}; update the executable. '
                              'No ordinary ADP calculation will be substituted.')
     basis = None
     if o["CURVED_ELECTRONIC_SOURCE"] == "molecular_hirshfeld":
@@ -483,7 +496,7 @@ def prepare(option_path):
     if basis:
         (out / "basis_library").symlink_to(basis.resolve(), target_is_directory=True)
     (out / "stdin").write_text(stdin)
-    prefix = 'lissajous' if is_lissajous else 'curved'
+    prefix = 'positive' if is_positive else 'lissajous' if is_lissajous else 'curved'
     (out / (prefix + '.nml')).write_text(namelist)
     shutil.copy2(option_path, out / "job_options.snapshot.txt")
     command = [exe, '--' + prefix + '-adp', prefix + '.nml']
@@ -496,6 +509,8 @@ def prepare(option_path):
               "executable_sha256": hashlib.sha256(Path(exe).read_bytes()).hexdigest()}
     if is_lissajous:
         record['lissajous_configuration'] = config
+    if is_positive:
+        record['positive_configuration'] = config
     (out / "run.json").write_text(json.dumps(record, indent=2) + "\n")
     return out, record
 

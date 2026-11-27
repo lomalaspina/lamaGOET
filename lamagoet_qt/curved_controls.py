@@ -25,12 +25,17 @@ class CurvedControls(QGroupBox):
                              ("Two harmonic angular directions (9 displacement parameters)", "harmonic_surface"),
                              ("One transverse direction (planar)", "planar"),
                              ("Two transverse directions (surface)", "surface"),
-                             ("Lissajous — 2D or 3D (experimental)", "lissajous")):
+                             ("Lissajous — shared phase, 2D or 3D (experimental)", "lissajous"),
+                             ("Shared-U two-Gaussian mixture (experimental)", "shared_u_mixture"),
+                             ("Independent-phase overtone (experimental)", "independent_overtone")):
             self.model.addItem(label, value)
         form.addRow("Displacement model", self.model)
         from .lissajous_controls import LissajousControls
         self.lissajous = LissajousControls()
         form.addRow(self.lissajous)
+        from .positive_controls import PositiveControls
+        self.positive = PositiveControls()
+        form.addRow(self.positive)
         self.details = QWidget()
         inner = QFormLayout(self.details)
         inner.setSizeConstraint(QLayout.SizeConstraint.SetNoConstraint)
@@ -249,16 +254,22 @@ class CurvedControls(QGroupBox):
 
     def _changed(self):
         is_lissajous = self.model.currentData() == 'lissajous'
+        is_positive = self.model.currentData() in {'shared_u_mixture', 'independent_overtone'}
+        self.setTitle('Positive non-Gaussian ADP refinement - opt-in' if is_positive else 'Multi-harmonic angular ADP refinement - opt-in')
+        standalone = is_lissajous or is_positive
         self.lissajous.setVisible(is_lissajous)
+        self.positive.setVisible(is_positive)
+        if is_positive:
+            self.positive.set_model(self.model.currentData())
         self.details.setVisible(self.model.currentData() != 'off')
         for widget in (self.default_starts, self.advanced, self.choose_button, self.add_target_button,
                        self.choose_extra_button, self.simple_note):
-            widget.setVisible(not is_lissajous)
-        self.inner_form.setRowVisible(self.fields['CURVED_TARGET'], not is_lissajous)
-        self.inner_form.setRowVisible(self.additional, not is_lissajous or self.additional.rowCount() > 0)
-        self.target_buttons.setVisible(not is_lissajous or self.additional.rowCount() > 0)
+            widget.setVisible(not standalone)
+        self.inner_form.setRowVisible(self.fields['CURVED_TARGET'], not standalone)
+        self.inner_form.setRowVisible(self.additional, not standalone or self.additional.rowCount() > 0)
+        self.target_buttons.setVisible(not standalone or self.additional.rowCount() > 0)
         self.scope_note.setText(self.angular_scope_text)
-        if is_lissajous:
+        if standalone:
             self.auto_geometry.setVisible(False)
             for key, field in self.fields.items():
                 self.inner_form.setRowVisible(field, key == 'CURVED_OUTPUT')
@@ -274,6 +285,15 @@ class CurvedControls(QGroupBox):
                 'of the ordinary solver widgets. Full rank and strict convergence are required '
                 'for uncertainties; phase-boundary solutions may fail. Runs one CPU thread with '
                 'a 10 GiB address-space limit. Results are never overwritten.')
+            if is_positive:
+                self.scope_note.setText(
+                    'Runs the separate Tonto --positive-adp command. One target; remove any saved additional angular targets. '
+                    'Local Gaussian U, shape and allowed structural parameters refine jointly, with site-symmetry averaging. '
+                    'Only sigma/SHELXL F², IAM or one restricted molecular-SCF density are supported here; not periodic HAR, '
+                    'XCW, extinction, riding H or simultaneous Gram–Charlier. Full weighted rank and undamped/outer-IRLS '
+                    'convergence are mandatory. Exported ESDs are local approximations, not calibrated global shape ranges. '
+                    'This experimental selector does not guarantee convergence or physical interpretation. '
+                    'One CPU thread, 10 GiB address limit; existing results are never overwritten.')
             self.scope_note.setVisible(True)
             self.molecule.setEnabled(self.source.currentData() == 'molecular_hirshfeld')
             QTimer.singleShot(0,self._sync_height)
@@ -345,6 +365,7 @@ class CurvedControls(QGroupBox):
         from .options_schema import complete_job_options
         o = complete_job_options(options)
         self.lissajous.load(o)
+        self.positive.load(o)
         # Signals can update default displays. Set modes before loading saved
         # manual coefficients, which must never be replaced during a reload.
         from .curved_job import enabled, default_starts_enabled
@@ -380,4 +401,5 @@ class CurvedControls(QGroupBox):
             rows.append(row)
         result["CURVED_ADDITIONAL_TARGETS"] = json.dumps(rows, separators=(",", ":"))
         result.update(self.lissajous.values())
+        result.update(self.positive.values())
         return result

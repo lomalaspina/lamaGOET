@@ -1,12 +1,15 @@
 # Shared-U two-Gaussian displacement mixture
 
-:::{admonition} Model A — development, not yet a GUI option
+:::{admonition} Model A — experimental opt-in
 :class: warning
 This is a new positive displacement model, not chemical disorder support or
 a replacement for ordinary ADPs. Its component mathematics has numerical
-validation. Native refinement and covariance have isolated validation, but a
-complete production artifact/restart pipeline and GUI refinement activation
-are not deployed. The read-only cloud viewer is available independently.
+validation. Native command, joint covariance, exact restart, model-aware
+CIF/FCF and GUI routing have synthetic end-to-end validation. Select
+**Shared-U two-Gaussian mixture (experimental)** with a capability-enabled
+Tonto executable; ordinary builds need not include the command. This does
+not establish reliable global parameter uncertainties on measured data.
+The read-only cloud viewer is available independently.
 The shared-phase Lissajous route and Multi-harmonic angular ADP are unchanged.
 :::
 
@@ -37,7 +40,7 @@ $$
 
 The model has four shape parameters, $(d_x,d_y,d_z,s)$, plus six local-U
 parameters at a general position: ten displacement parameters in total.
-It does not require a bond direction. The intended numerical starting value
+It does not require a bond direction. The default numerical starting value
 is $w=0.3$, $|d|=0.1$ Å along the largest principal axis of starting U, with
 alternative directions and starts tested. This is an initialization, not a
 restraint or a universal optimum. Separate component covariances $U_1,U_2$
@@ -98,7 +101,7 @@ weighted sensitivity singular values determine identifiability and ESDs.
 At or near numerical endpoint weights, information can also be weak. No
 parameter is silently removed to obtain a full-rank result.
 
-Production uncertainty export must retain the joint scale, coordinates,
+The uncertainty export retains the joint scale, coordinates,
 local-U and shape covariance. The propagated total-U covariance is
 
 $$
@@ -125,7 +128,7 @@ and Fourier factors with million-sample Monte Carlo ensembles. Positive-grid
 integrals are checked at two spacings without clipping or renormalization.
 Native noiseless recovery, matched full-data refinements and conditional
 five-fold prediction have also been tested in isolated development harnesses.
-These are not a deployed refinement command. In the noisy synthetic pilot,
+The interface checks do not replace those scientific tests. In the noisy synthetic pilot,
 some fits failed to converge and local three-ESD intervals did not reliably
 contain the generating shape parameters. A full-rank covariance therefore
 must not be presented as a calibrated global confidence region.
@@ -138,6 +141,57 @@ the specified weighting rule; a conditional scan with geometry fixed answers
 a narrower question. Resampling linearized residuals is not equivalent to
 fully reoptimizing every realization. These limitations are unchanged by
 cleaner residual lobes or improved held-out prediction.
+
+## Using lamaGOET and the native command
+
+1. Choose **Shared-U two-Gaussian mixture (experimental)** in the opt-in
+   displacement-model box and enter one asymmetric target label. No bond,
+   pivot or reference direction is required. Additional angular targets must
+   be cleared explicitly; this route currently supports one target.
+2. Keep the defaults or expand **Edit starting values** to change population,
+   separation length, or the explicit Cartesian separation vector. Automatic
+   direction uses the largest principal axis of local U only as a start.
+   Refinement does not constrain the separation to that initial direction.
+3. Confirm that the starting anisotropic tensor is **local Gaussian U**.
+   Select F² and sigma or SHELXL weights, a finite iteration/time bound and
+   a new output subdirectory. Failed or rank-deficient fits remain failed.
+4. Select IAM (no SCF), or the supported single-density molecular HAR route.
+   That route requires a complete nonrelativistic, unembedded singlet fragment
+   and one converged native restricted RHF/PBE/BLYP/B3LYP SCF. It is not the
+   periodic or repeated outer-HAR loop. Riding H, extinction, XCW and
+   simultaneous Gram–Charlier are rejected.
+
+The runner verifies `--positive-adp` in the executable's help before creating
+the result directory. Missing capability is an error, never a fallback to
+ordinary ADPs. Jobs retain the chosen reflection, merging, dispersion and H
+settings, use one thread and a 10 GiB address-space limit, and never overwrite
+an old result. The native solver is independent of the ordinary solver widget.
+
+For native use, supply normal CIF/reflection setup in `stdin` and run
+`tonto --positive-adp model.nml`. A minimal mixture namelist is:
+
+```fortran
+&positive_adp
+ model_kind='mixture', target_label='Cl1',
+ initial_covariance_is_local=.true., electronic_source='iam',
+ max_cycles=100, time_limit_seconds=3600
+/
+```
+
+`positive.summary` is authoritative. A missing summary means the output is
+incomplete, even if other files exist. `positive.model.json` supplies the cloud;
+`.factors` and `.fcf` contain model-aware factors/phases; `.cif` contains total
+second moments, not local U. Only certified full-rank fits write
+`.uncertainty.json`, including structure/shape/scale cross covariance and
+total-U propagation. Its ESDs are **local frozen-weight approximations**, not
+calibrated global shape confidence intervals.
+
+For an exact native restart, retain the original input identity/cell/constraints
+and set `restart_file='input.restart'` to a copy of `positive.restart` in a
+new directory. Do not feed the total-U CIF back as local U. New fits profile
+their own scale; fixed prediction uses `evaluation_only=.true.` plus an explicit
+`evaluation_scale` from training, with no held-out scale refit. A stored
+convergence label never certifies a new fit.
 
 ### Read-only displacement-cloud viewer
 

@@ -2,7 +2,7 @@
 
 This chapter distinguishes two models. **Shared-phase Lissajous (legacy)**
 is the released `--lissajous-adp` command described below; it is unchanged.
-**Independent-axis overtone (Model B, development)** uses independently
+**Independent-axis overtone (Model B, experimental)** uses independently
 averaged phases and is described in its own section. It is not selected by
 the released Lissajous controls. Existing inputs and restarts retain their
 original shared-phase meaning.
@@ -112,8 +112,9 @@ with another $J_0(C\tilde q_z)$ factor in 3D for independent phases.
 This follows directly from [Bessel's integral](https://dlmf.nist.gov/10.9.E1).
 The phase differences and frequency ratios then disappear and must not be
 included as fitted parameters. This independent-phase alternative is a
-separate implemented component/test route, **not activated by the current
-selector**. Its available CuCl tests have not met convergence and retain the
+separate distribution, not a reinterpretation of the shared-phase selector.
+Its pure-sinusoid limit is available by explicitly disabling all overtones
+in the independent-phase route below. Its available CuCl tests have not met convergence and retain the
 alternating Cl residual pattern; they are not passing refinement references.
 For a finite observation time, a near resonance need not sample independent
 phases completely. Introducing that finite-time model would require additional
@@ -133,15 +134,16 @@ The 44 is not the number of all possible ratios, nor a list of experimentally
 distinguishable motions. Any future ratio search must compare converged fits
 and held-out predictions using a fixed selection protocol.
 
-## Independent-axis overtone: Model B (development)
+## Independent-axis overtone: Model B (experimental)
 
-:::{admonition} Validation stage, not a released selector
+:::{admonition} Separate selector; measured-data limitations remain
 :class: warning
 The positive probability component and its derivatives have isolated numerical
-validation. Native integration, certified refinement, uncertainties, cloud
-artifacts and GUI activation are separate gates. Do not substitute these
-parameters into a shared-phase Lissajous input. No new experimental success
-claim is made here.
+validation. Native command, restart, uncertainty export and GUI routing have
+synthetic end-to-end tests. Select **Independent-phase overtone (experimental)**,
+not the shared-phase Lissajous option. Unrestricted measured CuCl trials remain
+**not converged**. Making this experimental route selectable does not turn
+those endpoints into valid results or establish parameter identifiability.
 :::
 
 For each enabled Cartesian path axis, independently draw
@@ -155,7 +157,7 @@ $$
 The fundamental and overtone on a **single axis share that axis's phase**;
 different axes do not. $A_a\ge0$, while $D_a$ is signed. An input mask chooses
 which overtones exist; changing the mask changes the model, not merely a
-starting value. The intended default is one enabled overtone. No frequency
+starting value. The default is one enabled overtone. No frequency
 ratio, cross-axis phase difference, bond or pivot belongs to this model.
 
 With $\tilde q=Q^Tq$ and $q=2\pi D_{\rm cell}^{-T}h$,
@@ -236,7 +238,8 @@ and orientation. It rejects shared-phase ratios, inconsistent covariances
 and incompatible metadata. The displayed probability surface must pass both
 spatial-grid/mass checks and an additional $N$-versus-$2N$ phase-density
 check; unresolved phase quadrature is an error, not a smoothed approximation.
-This viewer does not enable Model B in the refinement selector.
+Opening a cloud does not itself activate refinement; use the separate
+independent-phase overtone selector for a new calculation.
 
 Noiseless native recovery has been demonstrated in isolated tests. Noisy
 recovery and unrestricted three-direction experimental fitting remain
@@ -251,11 +254,37 @@ correlations can persist even in a full-rank converged single-axis fit.
 Consequently, do not infer calibrated amplitude or population uncertainties
 from convergence alone. Compatible-shape profiles and prediction on held-out
 reflections are complementary checks, not substitutes for a validated
-production refinement, restart and uncertainty-export pipeline.
+model-specific scientific validation.
+
+### Using the independent-phase overtone selector
+
+Choose **Independent-phase overtone (experimental)**, one asymmetric target
+label, and two or three independent axes. No bond, pivot, frequency ratio or
+inter-axis phase is entered. The default 3D seed is A=(0.03,0.02,0.015) Å and
+D=(0.01,0,0) Å with only the first overtone enabled. Expand **Edit starting
+values** to change amplitudes, signed overtones, per-axis enable flags or
+the orientation vector. Starts are free parameters, not restraints. Disabled
+overtones must be explicitly zero; the interface never discards coefficients.
+
+The common electronic/data controls and restrictions are the same as
+{doc}`shared-u-mixture-adp`: F² sigma/SHELXL, one target with local anisotropic
+U, IAM or one native restricted molecular density, no periodic HAR/XCW/riding
+H/extinction/GC, strict convergence and actual weighted-rank checks. The
+runner requires `--positive-adp`, writes `positive.*` artifacts, and retains
+local-U restarts separately from total-U CIFs. All-zero or symmetry-redundant
+charts can fail rank checks; no parameters are silently removed to pass.
+
+For native input, use `model_kind='independent_overtone'` in `/positive_adp/`,
+with `dimensions=2` or `3`, `amplitudes_angstrom`, `overtones_angstrom`,
+`overtone_enabled` and `orientation_rad`. This input accepts no shared-phase
+ratios. Set all enabled flags false and all overtones zero for the explicitly
+identified pure-sinusoid model. The shape count is the number of dimensions,
+plus the enabled overtones, plus three orientation coordinates, before
+site/data identifiability is checked.
 
 ## Using lamaGOET: released shared-phase model
 
-1. Select **Lissajous — 2D or 3D (experimental)** in the opt-in displacement
+1. Select **Lissajous — shared phase, 2D or 3D (experimental)** in the opt-in displacement
    model box, then choose the dimension and a single asymmetric target label.
 2. Enter the discrete ratio. Starting amplitudes are in Å; phases and the
    orientation vector are in radians. Defaults are numerical seeds, not
