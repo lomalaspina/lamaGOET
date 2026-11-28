@@ -531,8 +531,15 @@ def run(out, record):
                                   timeout=record["job_timeout_seconds"], preexec_fn=limits if os.name=="posix" else None)
         summary_path = out / (record.get('result_prefix', 'curved') + '.summary')
         summary = summary_path.read_text() if summary_path.exists() else ""
-        success = done.returncode == 0 and summary.splitlines()[:1] == ["status converged"]
-        record.update(status="converged" if success else "failed_or_not_converged", returncode=done.returncode)
+        fields = dict(line.split(" ", 1) for line in summary.splitlines() if " " in line)
+        native_status = fields.get("status", "")
+        allowed = {"converged"}
+        if record.get("result_prefix") == "positive":
+            allowed.add("constrained_converged")
+        success = done.returncode == 0 and native_status in allowed
+        record.update(status=native_status if success else "failed_or_not_converged", returncode=done.returncode)
+        if record.get("result_prefix") == "positive":
+            record["uncertainty_status"] = fields.get("uncertainty_status", "unknown")
     except BaseException as exc:
         record.update(status="interrupted_or_failed", error=str(exc))
         raise

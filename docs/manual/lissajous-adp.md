@@ -231,6 +231,70 @@ these interpretations. See the [IUCr ADP nomenclature report](https://www.iucr.o
 
 ### Independent-overtone validation and viewing
 
+#### Constrained amplitudes and special positions
+
+The corrected native solver keeps the probability model above unchanged. Its
+internal coordinates address the very weak amplitude sensitivity near zero;
+they are not extra displacement parameters. For a pure-sinusoid axis whose
+overtone is **disabled**, and a site stabilizer containing only the identity
+and possibly inversion, it uses
+
+$$
+\beta_a=A_a^4\geq0,\qquad
+\bar U=U_{\rm local}+\frac12\sum_{a\,\mathrm{pure}} A_a^2 Q_aQ_a^T.
+$$
+
+The corresponding factor is evaluated as a Gaussian in $\bar U$ times
+
+$$
+\psi_a(k)=\exp(A_a^2k^2/4)J_0(A_ak)
+         =1-\frac{\beta_a k^4}{64}+\cdots.
+$$
+
+This exposes the leading non-Gaussian signal after its variance is accounted
+for. The physical local covariance is reconstructed and checked at every
+trial; a non-positive covariance is rejected, never clipped. Compensating
+exponentials are evaluated together with the Gaussian to avoid overflow.
+
+At mirror and rotational special sites this compensation cannot generally
+be moved through the site-probability average. These sites instead use
+$t_a=A_a^2\geq0$ with **unchanged** local U, retaining the exact stabilizer
+average. Enabled overtone axes retain their ordinary fundamental amplitude.
+The native coordinate/ADP constraints and origin gauge are preserved. Seed
+parameter redundancies are determined by the actual weighted design matrix,
+not removed by assumption.
+
+Bounds are active constraints which can be released when a feasible descent
+direction appears. QR-based Gauss–Newton and independently checked
+residual-curvature proposals compete using the same frozen-weight objective.
+Damping and curvature corrections affect proposals only. Convergence still
+requires an undamped objective-metric certificate below $10^{-9}$, a relative
+step below $10^{-9}$ in both internal and physical coordinates, outer-weight
+change below $10^{-8}$, and a fresh-weight stationarity check. Small damped
+steps are not a certificate.
+
+A certified amplitude-boundary solution is exported as
+`constrained_converged`, not as an ordinary full-rank amplitude estimate.
+Its raw-amplitude design is singular and **no ordinary Gaussian ESD file is
+written**. The summary explicitly states
+`not_exported_nonregular_active_amplitude_boundary`; the model, factors, CIF
+and local-U restart retain the boundary status. Such a result still requires
+profiles or other nonregular uncertainty analysis. Zero-multiplier boundary
+cases can be especially sensitive to rounding of observations and must not
+be forced into convergence by clipping an amplitude.
+
+The native validation covers general, mirror, inversion, fourfold and
+threefold sites, with IAM and frozen electronic factors, five starts,
+sigma/SHELXL weights and independently constructed positive-multiplier
+boundary optima. All 144 registered tests pass in optimized and
+IEEE-trapping debug builds; the 68 affected recovery/command cases were
+rerun after restoring accepted-step IRLS weight updates. Both trial proposals
+still use identical frozen weights, and final fresh-weight certification
+is unchanged. Additional tests measure the actual raw design
+rank at the boundary; they do not infer rank solely from a parameter name.
+These software and synthetic results do not establish a physical motion
+mechanism or a globally unique experimental fit.
+
 The read-only **Open displacement cloud…** viewer accepts the separate
 `tonto.independent-overtone-adp` version-1 schema. It reconstructs the
 product measure of the independent phases from the amplitudes, overtone mask
@@ -242,10 +306,11 @@ Opening a cloud does not itself activate refinement; use the separate
 independent-phase overtone selector for a new calculation.
 
 Noiseless native recovery has been demonstrated in isolated tests. Noisy
-recovery and unrestricted three-direction experimental fitting remain
-problematic: transverse amplitudes can approach zero while their effects
-become indistinguishable from changes in local Gaussian U. At exactly zero
-transverse motion, rotation of the transverse frame has no observable effect.
+parameter recovery remains problematic: transverse amplitudes can approach
+zero while their leading second-moment effects become indistinguishable from
+changes in local Gaussian U. If both transverse amplitudes vanish, rotation
+of that transverse frame has no observable effect; a single zero amplitude
+does not by itself make the entire orientation unidentifiable.
 A separate **single-axis** control retains two amplitudes and two direction
 coordinates plus the six local-U components. Its successful tests do not
 retroactively certify the unrestricted model. Very strong amplitude/local-U
@@ -254,6 +319,47 @@ correlations can persist even in a full-rank converged single-axis fit.
 For the measured Cl example, see the {ref}`matched six-model comparison
 <positive-adp-cucl-comparison>`, including the separate single-axis overtone
 control, failed unrestricted fits and common-weight held-out predictions.
+
+#### Native CuCl boundary validation
+
+The corrected native command now reproduces a **constrained three-axis
+solution** on all 10,593 measured CuCl reflections, starting from a perturbed
+shape. It uses the same archived HAR electronic density, dispersion, hydrogen
+treatment and weights as the earlier comparison; no new SCF was performed.
+The third fundamental amplitude reaches its nonnegative boundary,
+$A_3=0$, through the constrained refinement, not by removing that parameter.
+The other amplitudes are $A_1=0.192529539$ Å,
+$A_2=0.138114917$ Å and $D_1=0.166739260$ Å.
+The final statistics are $R_1=2.79027\%$ and $wR_2=6.05721\%$.
+
+Independent factor and derivative calculations verify the final
+undamped metric ($9.12\times10^{-10}$), physical relative step
+($2.07\times10^{-10}$), fresh-weight consistency, positive local covariance
+and active-boundary conditions. The native factors agree with the independent
+implementation to $1.14\times10^{-13}$. General, mirror, inversion, fourfold
+and threefold native synthetic tests also pass with the original tolerances.
+This is a constrained local solution, **not an ordinary full-rank amplitude
+estimate**: the raw-amplitude design is singular at $A_3=0$, so the exported
+status is `constrained_converged` and ordinary ESDs are deliberately absent.
+
+```{figure} _static/native-overtone-cl-matched-slices.png
+:alt: Matched Cl residual slices for harmonic HAR, the archived two-Gaussian mixture, and the certified native three-axis overtone solution.
+:width: 100%
+
+The same fixed plane, full reflection list and colour scale are used.
+Harmonic and mixture grids are reused. The native overtone slice spans
+$-0.193$ to $+0.359\;e\,\text{Å}^{-3}$, compared with
+$-0.887$ to $+1.028$ for harmonic HAR and $-0.179$ to $+0.222$
+for the two-Gaussian mixture. The alternating harmonic lobes are substantially
+reduced, but the mixture still has smaller extrema in this slice.
+```
+
+The previous time-limited native attempt and other failed unrestricted
+fits remain failed records; they were not relabelled by this result.
+This is a new full-data native validation, **not** a repeat or expansion of
+the earlier six-model five-fold comparison. It does not establish a unique
+motion mechanism, globally calibrated shape uncertainties or a universal
+resolution cutoff.
 
 Consequently, do not infer calibrated amplitude or population uncertainties
 from convergence alone. Compatible-shape profiles and prediction on held-out
